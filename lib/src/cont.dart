@@ -1,6 +1,8 @@
 import 'package:jerelo/src/cont_error.dart';
 import 'package:jerelo/src/cont_observer.dart';
+import 'package:jerelo/src/cont_scheduler.dart';
 import 'package:jerelo/src/cont_signal.dart';
+import 'package:jerelo/src/ref_commit.dart';
 
 final class Cont<A> {
   final void Function(ContObserver<A> observer) run;
@@ -1074,95 +1076,6 @@ final class _IdempotentRunner {
     procedure();
 
     return true;
-  }
-}
-
-// Other API Types
-final class ContScheduler {
-  final void Function() Function(void Function() action) schedule;
-
-  const ContScheduler._(this.schedule);
-
-  void run(void Function() action) {
-    schedule(action)();
-  }
-
-  static ContScheduler custom(void Function() Function(void Function() action) schedule) {
-    return ContScheduler._(schedule);
-  }
-
-  static ContScheduler delayed([Duration duration = Duration.zero]) {
-    return ContScheduler._((action) {
-      return () {
-        Future.delayed(duration, action);
-      };
-    });
-  }
-
-  static ContScheduler microTask() {
-    return ContScheduler._((action) {
-      return () {
-        Future.microtask(action);
-      };
-    });
-  }
-
-  static ContScheduler immediate() {
-    return ContScheduler._(_idfunc<void Function()>);
-  }
-}
-
-final class RefCommit<S, V> {
-  final (S, V)? _value;
-  final List<ContError> _errors;
-
-  const RefCommit._(this._value, this._errors);
-
-  static RefCommit<S, V> skip<S, V>([List<ContError> errors = const []]) {
-    return RefCommit._(null, errors);
-  }
-
-  static RefCommit<S, V> transit<S, V>(S state, V value) {
-    return RefCommit._((state, value), []);
-  }
-
-  R match<R>(R Function(List<ContError>) ifSkip, R Function(S state, V value) ifTransit) {
-    final value = _value;
-    if (value == null) {
-      return ifSkip(_errors);
-    } else {
-      return ifTransit(value.$1, value.$2);
-    }
-  }
-
-  void run(void Function(List<ContError> errors) ifSkip, void Function(S state, V value) ifTransit) {
-    match<void Function()>(
-      (errors) {
-        return () {
-          ifSkip(errors);
-        };
-      },
-      (state, value) {
-        return () {
-          ifTransit(state, value);
-        };
-      },
-    )();
-  }
-
-  bool isSkip() {
-    return match<bool>(
-      (_) {
-        return true;
-      },
-      (_, _) {
-        return false;
-      },
-    );
-  }
-
-  bool isTransit() {
-    return !isSkip();
   }
 }
 
