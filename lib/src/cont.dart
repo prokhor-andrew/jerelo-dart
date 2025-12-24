@@ -1,46 +1,28 @@
 final class Cont<A> {
-  //
-
-  final void Function(
-    // observerErrorHandler MUST NOT FAIL EVER.
-    void Function(ContError error, ContSignal signal) observerErrorHandler,
-    void Function() none,
-    void Function(ContError error, List<ContError> errors) fail,
-    void Function(A value) some,
-  )
-  run;
+  final void Function(ContObserver<A> observer) run;
 
   void execute({
-    void Function(ContError error, ContSignal signal) observerErrorHandler = _ignore2,
+    void Function(ContError, ContSignal) onFatal = _ignore2,
     void Function() onNone = _doNothing,
-    void Function(ContError, List<ContError> fail) onFail = _ignore2,
+    void Function(ContError, List<ContError>) onFail = _ignore2,
     void Function(A value) onSome = _ignore1,
   }) {
-    run(observerErrorHandler, onNone, onFail, onSome);
+    run(ContObserver(onFatal, onNone, onFail, onSome));
   }
 
   // ! constructor must not be called by anything other than "Cont.fromRun" !
   const Cont._(this.run);
 
-  // none and some should be called as a last instruction in "run" or saved to be called later
-  static Cont<A> fromRun<A>(
-    void Function(
-      void Function(ContError error, ContSignal signal) observerErrorHandler,
-      //
-      bool Function() none,
-      bool Function(ContError error, List<ContError> errors) fail,
-      bool Function(A value) some,
-    )
-    run,
-  ) {
+  // onNone and some should be called as a last instruction in "run" or saved to be called later
+  static Cont<A> fromRun<A>(void Function(ContObserver<A> observer) run) {
     // guarantees idempotence
     // guarantees to catch throws
-    return Cont._((observerErrorHandler, none, fail, some) {
+    return Cont._((observer) {
       final runner = _IdempotentRunner();
 
       void handleUnrecoverableFailure(Object error, StackTrace st, ContSignal signal) {
         try {
-          observerErrorHandler(ContError(error, st), signal);
+          observer.onFatal(ContError(error, st), signal);
         } catch (error, st) {
           // we schedule it in microtask to ensure that
           // there is no try-catch around it and it does fail
@@ -54,9 +36,9 @@ final class Cont<A> {
       bool guardedNone() {
         return runner.runIfNotDone(() {
           try {
-            none();
+            observer.onNone();
           } catch (error, st) {
-            handleUnrecoverableFailure(error, st, ContSignal.none);
+            handleUnrecoverableFailure(error, st, ContSignal.onNone);
           }
         });
       }
@@ -64,9 +46,9 @@ final class Cont<A> {
       bool guardedFail(ContError error, List<ContError> errors) {
         return runner.runIfNotDone(() {
           try {
-            fail(error, errors);
+            observer.onFail(error, errors);
           } catch (error, st) {
-            handleUnrecoverableFailure(error, st, ContSignal.fail);
+            handleUnrecoverableFailure(error, st, ContSignal.onFail);
           }
         });
       }
@@ -74,21 +56,23 @@ final class Cont<A> {
       bool guardedSome(A a) {
         return runner.runIfNotDone(() {
           try {
-            some(a);
+            observer.onSome(a);
           } catch (error, st) {
-            handleUnrecoverableFailure(error, st, ContSignal.some);
+            handleUnrecoverableFailure(error, st, ContSignal.onSome);
           }
         });
       }
 
       try {
         run(
-          (error, signal) {
-            handleUnrecoverableFailure(error.error, error.st, signal);
-          },
-          guardedNone,
-          guardedFail,
-          guardedSome,
+          ContObserver(
+            (error, signal) {
+              handleUnrecoverableFailure(error.error, error.st, signal);
+            },
+            guardedNone,
+            guardedFail,
+            guardedSome,
+          ),
         );
       } catch (error, st) {
         guardedFail(ContError(error, st), []);
@@ -97,52 +81,62 @@ final class Cont<A> {
   }
 
   static Cont<A> fromDeferred<A>(Cont<A> Function() thunk) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      thunk().run(observerErrorHandler, none, fail, some);
+    return Cont.fromRun((observer) {
+      thunk().run(observer);
     });
   }
 
   Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      run(observerErrorHandler, none, fail, (a) {
-        try {
-          final contA2 = f(a);
-          contA2.run(observerErrorHandler, none, fail, some);
-        } catch (error, st) {
-          fail(ContError(error, st), []);
-        }
-      });
+    return Cont.fromRun((observer) {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: observer.onNone,
+        onFail: observer.onFail,
+        onSome: (a) {
+          try {
+            final contA2 = f(a);
+            contA2.run(observer);
+          } catch (error, st) {
+            observer.onFail(ContError(error, st), []);
+          }
+        },
+      );
     });
   }
 
   Cont<A> catchEmpty(Cont<A> Function() f) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      run(
-        observerErrorHandler,
-        () {
+    return Cont.fromRun((observer) {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: () {
           try {
             final contA = f();
-            contA.run(observerErrorHandler, none, fail, some);
+            contA.run(observer);
           } catch (error, st) {
-            fail(ContError(error, st), []);
+            observer.onFail(ContError(error, st), []);
           }
         },
-        fail,
-        some,
+        onFail: observer.onFail,
+        onSome: observer.onSome,
       );
     });
   }
 
   Cont<A> catchError(Cont<A> Function(ContError error, List<ContError> errors) f) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      run(observerErrorHandler, none, (error, errors) {
-        try {
-          final recoveryCont = f(error, errors);
-          recoveryCont.run(observerErrorHandler, none, fail, some);
-        } catch (error2, st) {
-          fail(error, [...errors, ContError(error2, st)]);
-        }
-      }, some);
+    return Cont.fromRun((observer) {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: observer.onNone,
+        onFail: (error, errors) {
+          try {
+            final recoveryCont = f(error, errors);
+            recoveryCont.run(observer);
+          } catch (error2, st) {
+            observer.onFail(error, [...errors, ContError(error2, st)]);
+          }
+        },
+        onSome: observer.onSome,
+      );
     });
   }
 
@@ -153,16 +147,16 @@ final class Cont<A> {
   }
 
   static Cont<A> fromThunk<A>(A Function() thunk) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       final a = thunk();
-      some(a);
+      observer.onSome(a);
     });
   }
 
   static Cont<()> fromProcedure(void Function() procedure) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       procedure();
-      some(());
+      observer.onSome(());
     });
   }
 
@@ -177,8 +171,8 @@ final class Cont<A> {
   }
 
   static Cont<A> empty<A>() {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      none();
+    return Cont.fromRun((observer) {
+      observer.onNone();
     });
   }
 
@@ -188,8 +182,8 @@ final class Cont<A> {
 
   static Cont<A> raise<A>(ContError error, [List<ContError> errors = const []]) {
     final safeCopy = List<ContError>.from(errors);
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      fail(error, safeCopy);
+    return Cont.fromRun((observer) {
+      observer.onFail(error, safeCopy);
     });
   }
 
@@ -220,19 +214,24 @@ final class Cont<A> {
 
   static Cont<List<A>> zipAllSequentially<A>(List<Cont<A>> list) {
     final safeCopy = List<Cont<A>>.from(list);
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       final List<A> result = [];
       void add(int i) {
         if (i >= safeCopy.length) {
-          some(result);
+          observer.onSome(result);
           return;
         }
 
         final cont = safeCopy[i];
-        cont.run(observerErrorHandler, none, fail, (a) {
-          result.add(a);
-          add(i + 1);
-        });
+        cont.execute(
+          onFatal: observer.onFatal,
+          onNone: observer.onNone,
+          onFail: observer.onFail,
+          onSome: (a) {
+            result.add(a);
+            add(i + 1);
+          },
+        );
       }
 
       add(0);
@@ -240,7 +239,7 @@ final class Cont<A> {
   }
 
   Cont<C> zipConcurrently<A2, C>(Cont<A2> other, C Function(A a, A2 a2) f) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       bool isOneFail = false;
       bool isOneSome = false;
 
@@ -257,16 +256,16 @@ final class Cont<A> {
         if (isOneSome) {
           try {
             final c = f(outerA as A, outerA2 as A2);
-            some(c);
+            observer.onSome(c);
           } catch (error, st) {
-            fail(ContError(error, st), []);
+            observer.onFail(ContError(error, st), []);
             return;
           }
         } else {
           if (resultErrors.isEmpty) {
-            none();
+            observer.onNone();
           } else {
-            fail(resultErrors.first, resultErrors.skip(1).toList());
+            observer.onFail(resultErrors.first, resultErrors.skip(1).toList());
           }
         }
       }
@@ -278,42 +277,42 @@ final class Cont<A> {
         }
 
         if (resultErrors.isEmpty) {
-          none();
+          observer.onNone();
         } else {
-          fail(resultErrors.first, resultErrors.skip(1).toList());
+          observer.onFail(resultErrors.first, resultErrors.skip(1).toList());
         }
       }
 
-      run(
-        observerErrorHandler,
-        () {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: () {
           handleNoneAndFail();
         },
-        (error, errors) {
+        onFail: (error, errors) {
           // strict order must be followed
           resultErrors.insert(0, error);
           resultErrors.insertAll(1, errors);
           handleNoneAndFail();
         },
-        (a) {
+        onSome: (a) {
           // strict order must be followed
           outerA = a;
           handleSome();
         },
       );
 
-      other.run(
-        observerErrorHandler,
-        () {
+      other.execute(
+        onFatal: observer.onFatal,
+        onNone: () {
           handleNoneAndFail();
         },
-        (error, errors) {
+        onFail: (error, errors) {
           // strict order must be followed
           resultErrors.add(error);
           resultErrors.addAll(errors);
           handleNoneAndFail();
         },
-        (a2) {
+        onSome: (a2) {
           // strict order must be followed
           outerA2 = a2;
           handleSome();
@@ -324,9 +323,9 @@ final class Cont<A> {
 
   static Cont<List<A>> zipAllConcurrently<A>(List<Cont<A>> list) {
     final safeCopy = List<Cont<A>>.from(list);
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       if (safeCopy.isEmpty) {
-        some(<A>[]);
+        observer.onSome(<A>[]);
         return;
       }
 
@@ -354,24 +353,24 @@ final class Cont<A> {
         }).toList();
 
         if (flattened.isEmpty) {
-          none();
+          observer.onNone();
           return;
         }
 
-        fail(flattened.first, flattened.skip(1).toList());
+        observer.onFail(flattened.first, flattened.skip(1).toList());
       }
 
       for (final (i, cont) in safeCopy.indexed) {
         final index = i; // important
-        cont.run(
-          observerErrorHandler,
-          () {
+        cont.execute(
+          onFatal: observer.onFatal,
+          onNone: () {
             handleNoneOrFail(index, []);
           },
-          (error, errors) {
+          onFail: (error, errors) {
             handleNoneOrFail(index, [error, ...errors]);
           },
-          (a) {
+          onSome: (a) {
             amountOfFinishedContinuations += 1;
             if (isFailed) {
               if (amountOfFinishedContinuations >= safeCopy.length) {
@@ -380,16 +379,16 @@ final class Cont<A> {
                 }).toList();
 
                 if (flattened.isEmpty) {
-                  none();
+                  observer.onNone();
                 } else {
-                  fail(flattened.first, flattened.skip(1).toList());
+                  observer.onFail(flattened.first, flattened.skip(1).toList());
                 }
               }
               return;
             }
             results[index] = a;
             if (amountOfFinishedContinuations >= safeCopy.length) {
-              some(results.cast<A>());
+              observer.onSome(results.cast<A>());
             }
           },
         );
@@ -399,7 +398,7 @@ final class Cont<A> {
 
   // always returns non-none and non-fail winner (first value)
   Cont<C> racePickWinner<A2, C>(Cont<A2> other, C Function(A a) lf, C Function(A2 a2) rf) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       final runner = _IdempotentRunner();
 
       bool isOneFailed = false;
@@ -410,11 +409,11 @@ final class Cont<A> {
           codeToUpdateState();
 
           if (resultErrors.isEmpty) {
-            none();
+            observer.onNone();
             return;
           }
 
-          fail(resultErrors.first, resultErrors.skip(1).toList());
+          observer.onFail(resultErrors.first, resultErrors.skip(1).toList());
           return;
         }
         isOneFailed = true;
@@ -422,22 +421,22 @@ final class Cont<A> {
         codeToUpdateState();
       }
 
-      run(
-        observerErrorHandler,
-        () {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: () {
           handleNoneOrFail(() {});
         },
-        (error, errors) {
+        onFail: (error, errors) {
           handleNoneOrFail(() {
             resultErrors.insert(0, error);
             resultErrors.insertAll(1, errors);
           });
         },
-        (a) {
+        onSome: (a) {
           try {
             final result = lf(a);
             runner.runIfNotDone(() {
-              some(result);
+              observer.onSome(result);
             });
           } catch (error, st) {
             handleNoneOrFail(() {
@@ -447,22 +446,22 @@ final class Cont<A> {
         },
       );
 
-      other.run(
-        observerErrorHandler,
-        () {
+      other.execute(
+        onFatal: observer.onFatal,
+        onNone: () {
           handleNoneOrFail(() {});
         },
-        (error, errors) {
+        onFail: (error, errors) {
           handleNoneOrFail(() {
             resultErrors.add(error);
             resultErrors.addAll(errors);
           });
         },
-        (a2) {
+        onSome: (a2) {
           try {
             final result = rf(a2);
             runner.runIfNotDone(() {
-              some(result);
+              observer.onSome(result);
             });
           } catch (error, st) {
             handleNoneOrFail(() {
@@ -480,9 +479,9 @@ final class Cont<A> {
 
   static Cont<(int, A)> raceAllPickWinnerTagged<A>(List<Cont<A>> list) {
     final safeCopy = List<Cont<A>>.from(list);
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       if (safeCopy.isEmpty) {
-        none();
+        observer.onNone();
         return;
       }
 
@@ -510,30 +509,30 @@ final class Cont<A> {
         }).toList();
 
         if (flattened.isEmpty) {
-          none();
+          observer.onNone();
           return;
         }
 
-        fail(flattened.first, flattened.skip(1).toList());
+        observer.onFail(flattened.first, flattened.skip(1).toList());
       }
 
       for (int i = 0; i < safeCopy.length; i++) {
         final index = i; // this is important to capture. if we reference "i" from onSome block, we might pick wrong index
         final cont = safeCopy[i];
-        cont.run(
-          observerErrorHandler,
-          () {
+        cont.execute(
+          onFatal: observer.onFatal,
+          onNone: () {
             handleNoneAndFail(index, []);
           },
-          (error, errors) {
+          onFail: (error, errors) {
             handleNoneAndFail(index, [error, ...errors]);
           },
-          (a) {
+          onSome: (a) {
             if (isWinnerFound) {
               return;
             }
             isWinnerFound = true;
-            some((index, a));
+            observer.onSome((index, a));
           },
         );
       }
@@ -546,9 +545,9 @@ final class Cont<A> {
     });
   }
 
-  // always returns non-none and non-fail loser (last value)
+  // always returns non-onNone and non-fail loser (last value)
   Cont<C> racePickLoser<A2, C>(Cont<A2> other, C Function(A a) lf, C Function(A2 a2) rf) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       bool isFirstComputed = false;
 
       final List<ContError> resultErrors = [];
@@ -564,39 +563,39 @@ final class Cont<A> {
         }
 
         if (isResultAvailable) {
-          some(result as C);
+          observer.onSome(result as C);
           return;
         }
 
         codeToUpdateState();
 
         if (resultErrors.isEmpty) {
-          none();
+          observer.onNone();
           return;
         }
 
-        fail(resultErrors.first, resultErrors.skip(1).toList());
+        observer.onFail(resultErrors.first, resultErrors.skip(1).toList());
       }
 
-      run(
-        observerErrorHandler,
-        () {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: () {
           handleNoneOrFail(() {});
         },
-        (error, errors) {
+        onFail: (error, errors) {
           handleNoneOrFail(() {
             resultErrors.insert(0, error);
             resultErrors.insertAll(1, errors);
           });
         },
-        (a) {
+        onSome: (a) {
           if (isFirstComputed) {
             try {
               final result = lf(a);
-              some(result);
+              observer.onSome(result);
             } catch (error, st) {
               if (isResultAvailable) {
-                some(result as C);
+                observer.onSome(result as C);
               } else {
                 handleNoneOrFail(() {
                   resultErrors.insert(0, ContError(error, st));
@@ -618,22 +617,22 @@ final class Cont<A> {
         },
       );
 
-      other.run(
-        observerErrorHandler,
-        () {
+      other.execute(
+        onFatal: observer.onFatal,
+        onNone: () {
           handleNoneOrFail(() {});
         },
-        (error, errors) {
+        onFail: (error, errors) {
           handleNoneOrFail(() {
             resultErrors.add(error);
             resultErrors.addAll(errors);
           });
         },
-        (a2) {
+        onSome: (a2) {
           if (isFirstComputed) {
             try {
               final result = rf(a2);
-              some(result);
+              observer.onSome(result);
             } catch (error, st) {
               handleNoneOrFail(() {
                 resultErrors.add(ContError(error, st));
@@ -662,9 +661,9 @@ final class Cont<A> {
 
   static Cont<(int, A)> raceAllPickLoserTagged<A>(List<Cont<A>> list) {
     final safeCopy = List<Cont<A>>.from(list);
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       if (safeCopy.isEmpty) {
-        none();
+        observer.onNone();
         return;
       }
 
@@ -684,7 +683,7 @@ final class Cont<A> {
 
         if (lastValueIndex != -1) {
           // an element is there
-          some((lastValueIndex, lastValue as A));
+          observer.onSome((lastValueIndex, lastValue as A));
           return;
         }
 
@@ -693,27 +692,27 @@ final class Cont<A> {
         }).toList();
 
         if (flattened.isEmpty) {
-          none();
+          observer.onNone();
           return;
         }
 
-        fail(flattened.first, flattened.skip(1).toList());
+        observer.onFail(flattened.first, flattened.skip(1).toList());
       }
 
       for (int i = 0; i < safeCopy.length; i++) {
         final index = i; // this is important to capture. if we reference "i" from onSome block, we might pick wrong index
         final cont = safeCopy[i];
 
-        cont.run(
-          observerErrorHandler,
-          () {
+        cont.execute(
+          onFatal: observer.onFatal,
+          onNone: () {
             incrementFinishedAndCheckExit();
           },
-          (error, errors) {
+          onFail: (error, errors) {
             resultErrors[index] = [error, ...errors];
             incrementFinishedAndCheckExit();
           },
-          (a) {
+          onSome: (a) {
             lastValue = a;
             lastValueIndex = index;
 
@@ -731,44 +730,49 @@ final class Cont<A> {
   }
 
   Cont<C> orElse<A2, C>(Cont<A2> other, C Function(A a) lf, C Function(A2 a2) rf) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      run(
-        observerErrorHandler,
-        () {
-          other.run(observerErrorHandler, none, fail, (a2) {
-            try {
-              final result = rf(a2);
-              some(result);
-            } catch (error, st) {
-              fail(ContError(error, st), []);
-            }
-          });
-        },
-        (error, errors) {
-          other.run(
-            observerErrorHandler,
-            () {
-              fail(error, errors);
-            },
-            (error2, errors2) {
-              fail(error, [...errors, error2, ...errors2]);
-            },
-            (a2) {
+    return Cont.fromRun((observer) {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: () {
+          other.execute(
+            onFatal: observer.onFatal,
+            onNone: observer.onNone,
+            onFail: observer.onFail,
+            onSome: (a2) {
               try {
                 final result = rf(a2);
-                some(result);
+                observer.onSome(result);
               } catch (error, st) {
-                fail(ContError(error, st), []);
+                observer.onFail(ContError(error, st), []);
               }
             },
           );
         },
-        (a) {
+        onFail: (error, errors) {
+          other.execute(
+            onFatal: observer.onFatal,
+            onNone: () {
+              observer.onFail(error, errors);
+            },
+            onFail: (error2, errors2) {
+              observer.onFail(error, [...errors, error2, ...errors2]);
+            },
+            onSome: (a2) {
+              try {
+                final result = rf(a2);
+                observer.onSome(result);
+              } catch (error, st) {
+                observer.onFail(ContError(error, st), []);
+              }
+            },
+          );
+        },
+        onSome: (a) {
           try {
             final result = lf(a);
-            some(result);
+            observer.onSome(result);
           } catch (error, st) {
-            fail(ContError(error, st), []);
+            observer.onFail(ContError(error, st), []);
           }
         },
       );
@@ -797,10 +801,10 @@ final class Cont<A> {
   }
 
   Cont<A> doOnNone(void Function() f) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      run(
-        observerErrorHandler,
-        () {
+    return Cont.fromRun((observer) {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: () {
           try {
             f();
           } catch (_) {
@@ -808,46 +812,56 @@ final class Cont<A> {
             // sure that errors are caught and logged
             // the runtime crashes of "f" should not affect the main flow
           }
-          none();
+          observer.onNone();
         },
-        fail,
-        some,
+        onFail: observer.onFail,
+        onSome: observer.onSome,
       );
     });
   }
 
   Cont<A> doOnFail(void Function(ContError error, List<ContError> errors) f) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      run(observerErrorHandler, none, (error, errors) {
-        try {
-          f(error, errors);
-        } catch (_) {
-          // "f" is side effect. the user of "doOnFail" is responsible for making
-          // sure that errors are caught and logged
-          // the runtime crashes of "f" should not affect the main flow
-        }
-        fail(error, errors);
-      }, some);
+    return Cont.fromRun((observer) {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: observer.onNone,
+        onFail: (error, errors) {
+          try {
+            f(error, errors);
+          } catch (_) {
+            // "f" is side effect. the user of "doOnFail" is responsible for making
+            // sure that errors are caught and logged
+            // the runtime crashes of "f" should not affect the main flow
+          }
+          observer.onFail(error, errors);
+        },
+        onSome: observer.onSome,
+      );
     });
   }
 
   Cont<A> doOnSome(void Function(A a) f) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      run(observerErrorHandler, none, fail, (a) {
-        try {
-          f(a);
-        } catch (_) {
-          // "f" is side effect. the user of "doOnNone" is responsible for making
-          // sure that errors are caught and logged
-          // the runtime crashes of "f" should not affect the main flow
-        }
-        some(a);
-      });
+    return Cont.fromRun((observer) {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: observer.onNone,
+        onFail: observer.onFail,
+        onSome: (a) {
+          try {
+            f(a);
+          } catch (_) {
+            // "f" is side effect. the user of "doOnNone" is responsible for making
+            // sure that errors are caught and logged
+            // the runtime crashes of "f" should not affect the main flow
+          }
+          observer.onSome(a);
+        },
+      );
     });
   }
 
   Cont<A> doOnRun(void Function() f) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       try {
         f();
       } catch (_) {
@@ -855,48 +869,58 @@ final class Cont<A> {
         // sure that errors are caught and logged
         // the runtime crashes of "f" should not affect the main flow
       }
-      run(observerErrorHandler, none, fail, some);
+      run(observer);
     });
   }
 
   Cont<A> runOn(Scheduler scheduler) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       scheduler.run(() {
-        run(observerErrorHandler, none, fail, some);
+        run(observer);
       });
     });
   }
 
   Cont<A> noneOn(Scheduler scheduler) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      run(
-        observerErrorHandler,
-        () {
-          scheduler.run(none);
+    return Cont.fromRun((observer) {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: () {
+          scheduler.run(observer.onNone);
         },
-        fail,
-        some,
+        onFail: observer.onFail,
+        onSome: observer.onSome,
       );
     });
   }
 
   Cont<A> failOn(Scheduler scheduler) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      run(observerErrorHandler, none, (error, errors) {
-        scheduler.run(() {
-          fail(error, errors);
-        });
-      }, some);
+    return Cont.fromRun((observer) {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: observer.onNone,
+        onFail: (error, errors) {
+          scheduler.run(() {
+            observer.onFail(error, errors);
+          });
+        },
+        onSome: observer.onSome,
+      );
     });
   }
 
   Cont<A> someOn(Scheduler scheduler) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
-      run(observerErrorHandler, none, fail, (a) {
-        scheduler.run(() {
-          some(a);
-        });
-      });
+    return Cont.fromRun((observer) {
+      execute(
+        onFatal: observer.onFatal,
+        onNone: observer.onNone,
+        onFail: observer.onFail,
+        onSome: (a) {
+          scheduler.run(() {
+            observer.onSome(a);
+          });
+        },
+      );
     });
   }
 
@@ -1161,32 +1185,37 @@ final class Ref<S> {
   Ref._(S initial) : _state = initial;
 
   Cont<V> commit<V>(Cont<RefCommit<S, V> Function(S after)> Function(S before) f) {
-    return Cont.fromRun((observerErrorHandler, none, fail, some) {
+    return Cont.fromRun((observer) {
       final before = _state;
-      f(before).run(observerErrorHandler, none, fail, (function) {
-        final after = _state;
-        final RefCommit<S, V> commit;
-        try {
-          commit = function(after);
-        } catch (error, st) {
-          fail(ContError(error, st), []);
-          return;
-        }
-        commit.run(
-          (errors) {
-            if (errors.isEmpty) {
-              none();
-              return;
-            }
+      f(before).execute(
+        onFatal: observer.onFatal,
+        onNone: observer.onNone,
+        onFail: observer.onFail,
+        onSome: (function) {
+          final after = _state;
+          final RefCommit<S, V> commit;
+          try {
+            commit = function(after);
+          } catch (error, st) {
+            observer.onFail(ContError(error, st), []);
+            return;
+          }
+          commit.run(
+            (errors) {
+              if (errors.isEmpty) {
+                observer.onNone();
+                return;
+              }
 
-            fail(errors.first, errors.skip(1).toList());
-          },
-          (state, value) {
-            _state = state;
-            some(value);
-          },
-        );
-      });
+              observer.onFail(errors.first, errors.skip(1).toList());
+            },
+            (state, value) {
+              _state = state;
+              observer.onSome(value);
+            },
+          );
+        },
+      );
     });
   }
 }
@@ -1198,4 +1227,18 @@ final class ContError {
   const ContError(this.error, this.st);
 }
 
-enum ContSignal { none, fail, some }
+enum ContSignal { onNone, onFail, onSome }
+
+final class ContObserver<A> {
+  // onFatal MUST NOT FAIL EVER.
+  final void Function(ContError error, ContSignal signal) onFatal;
+  final void Function() onNone;
+  final void Function(ContError error, List<ContError> errors) _onFail;
+  final void Function(A value) onSome;
+
+  const ContObserver(this.onFatal, this.onNone, this._onFail, this.onSome);
+
+  void onFail(ContError error, [List<ContError> errors = const []]) {
+    _onFail(error, errors);
+  }
+}
