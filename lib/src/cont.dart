@@ -1,3 +1,7 @@
+import 'package:jerelo/src/cont_error.dart';
+import 'package:jerelo/src/cont_observer.dart';
+import 'package:jerelo/src/cont_signal.dart';
+
 final class Cont<A> {
   final void Function(ContObserver<A> observer) run;
 
@@ -873,7 +877,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> runOn(Scheduler scheduler) {
+  Cont<A> runOn(ContScheduler scheduler) {
     return Cont.fromRun((observer) {
       scheduler.run(() {
         run(observer);
@@ -881,7 +885,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> noneOn(Scheduler scheduler) {
+  Cont<A> noneOn(ContScheduler scheduler) {
     return Cont.fromRun((observer) {
       execute(
         onFatal: observer.onFatal,
@@ -894,7 +898,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> failOn(Scheduler scheduler) {
+  Cont<A> failOn(ContScheduler scheduler) {
     return Cont.fromRun((observer) {
       execute(
         onFatal: observer.onFatal,
@@ -909,7 +913,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> someOn(Scheduler scheduler) {
+  Cont<A> someOn(ContScheduler scheduler) {
     return Cont.fromRun((observer) {
       execute(
         onFatal: observer.onFatal,
@@ -924,11 +928,11 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> consumeOn(Scheduler scheduler) {
+  Cont<A> consumeOn(ContScheduler scheduler) {
     return noneOn(scheduler).failOn(scheduler).someOn(scheduler);
   }
 
-  Cont<A> scheduleOn(Scheduler scheduler) {
+  Cont<A> scheduleOn(ContScheduler scheduler) {
     return runOn(scheduler).consumeOn(scheduler);
   }
 
@@ -1091,37 +1095,37 @@ final class _IdempotentRunner {
 }
 
 // Other API Types
-final class Scheduler {
+final class ContScheduler {
   final void Function() Function(void Function() action) schedule;
 
-  const Scheduler._(this.schedule);
+  const ContScheduler._(this.schedule);
 
   void run(void Function() action) {
     schedule(action)();
   }
 
-  static Scheduler custom(void Function() Function(void Function() action) schedule) {
-    return Scheduler._(schedule);
+  static ContScheduler custom(void Function() Function(void Function() action) schedule) {
+    return ContScheduler._(schedule);
   }
 
-  static Scheduler delayed([Duration duration = Duration.zero]) {
-    return Scheduler._((action) {
+  static ContScheduler delayed([Duration duration = Duration.zero]) {
+    return ContScheduler._((action) {
       return () {
         Future.delayed(duration, action);
       };
     });
   }
 
-  static Scheduler microTask() {
-    return Scheduler._((action) {
+  static ContScheduler microTask() {
+    return ContScheduler._((action) {
       return () {
         Future.microtask(action);
       };
     });
   }
 
-  static Scheduler immediate() {
-    return Scheduler._(_idfunc<void Function()>);
+  static ContScheduler immediate() {
+    return ContScheduler._(_idfunc<void Function()>);
   }
 }
 
@@ -1217,28 +1221,5 @@ final class Ref<S> {
         },
       );
     });
-  }
-}
-
-final class ContError {
-  final Object error;
-  final StackTrace st;
-
-  const ContError(this.error, this.st);
-}
-
-enum ContSignal { onNone, onFail, onSome }
-
-final class ContObserver<A> {
-  // onFatal MUST NOT FAIL EVER.
-  final void Function(ContError error, ContSignal signal) onFatal;
-  final void Function() onNone;
-  final void Function(ContError error, List<ContError> errors) _onFail;
-  final void Function(A value) onSome;
-
-  const ContObserver(this.onFatal, this.onNone, this._onFail, this.onSome);
-
-  void onFail(ContError error, [List<ContError> errors = const []]) {
-    _onFail(error, errors);
   }
 }
