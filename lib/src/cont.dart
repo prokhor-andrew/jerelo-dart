@@ -261,7 +261,6 @@ final class Cont<A> {
             observer.onSome(c);
           } catch (error, st) {
             observer.onFail(ContError(error, st), []);
-            return;
           }
         } else {
           if (resultErrors.isEmpty) {
