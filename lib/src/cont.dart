@@ -5,19 +5,19 @@ import 'package:jerelo/src/cont_signal.dart';
 import 'package:jerelo/src/ref_commit.dart';
 
 final class Cont<A> {
-  final void Function(ContObserver<A> observer) run;
+  final void Function(ContObserver<A> observer) subscribe;
 
-  void execute({
-    void Function(ContError, ContSignal) onFatal = _ignore2,
+  void run({
+    required void Function(ContError, ContSignal) onFatal,
     void Function() onNone = _doNothing,
     void Function(ContError, List<ContError>) onFail = _ignore2,
     void Function(A value) onSome = _ignore1,
   }) {
-    run(ContObserver(onFatal, onNone, onFail, onSome));
+    subscribe(ContObserver(onFatal, onNone, onFail, onSome));
   }
 
   // ! constructor must not be called by anything other than "Cont.fromRun" !
-  const Cont._(this.run);
+  const Cont._(this.subscribe);
 
   // onNone and some should be called as a last instruction in "run" or saved to be called later
   static Cont<A> fromRun<A>(void Function(ContObserver<A> observer) run) {
@@ -84,20 +84,20 @@ final class Cont<A> {
 
   static Cont<A> fromDeferred<A>(Cont<A> Function() thunk) {
     return Cont.fromRun((observer) {
-      thunk().run(observer);
+      thunk().subscribe(observer);
     });
   }
 
   Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
     return Cont.fromRun((observer) {
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: observer.onNone,
         onFail: observer.onFail,
         onSome: (a) {
           try {
             final contA2 = f(a);
-            contA2.run(observer);
+            contA2.subscribe(observer);
           } catch (error, st) {
             observer.onFail(ContError(error, st), []);
           }
@@ -108,12 +108,12 @@ final class Cont<A> {
 
   Cont<A> catchEmpty(Cont<A> Function() f) {
     return Cont.fromRun((observer) {
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: () {
           try {
             final contA = f();
-            contA.run(observer);
+            contA.subscribe(observer);
           } catch (error, st) {
             observer.onFail(ContError(error, st), []);
           }
@@ -126,13 +126,13 @@ final class Cont<A> {
 
   Cont<A> catchError(Cont<A> Function(ContError error, List<ContError> errors) f) {
     return Cont.fromRun((observer) {
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: observer.onNone,
         onFail: (error, errors) {
           try {
             final recoveryCont = f(error, errors);
-            recoveryCont.run(observer);
+            recoveryCont.subscribe(observer);
           } catch (error2, st) {
             observer.onFail(error, [...errors, ContError(error2, st)]);
           }
@@ -225,7 +225,7 @@ final class Cont<A> {
         }
 
         final cont = safeCopy[i];
-        cont.execute(
+        cont.run(
           onFatal: observer.onFatal,
           onNone: observer.onNone,
           onFail: observer.onFail,
@@ -285,7 +285,7 @@ final class Cont<A> {
         }
       }
 
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: () {
           handleNoneAndFail();
@@ -303,7 +303,7 @@ final class Cont<A> {
         },
       );
 
-      other.execute(
+      other.run(
         onFatal: observer.onFatal,
         onNone: () {
           handleNoneAndFail();
@@ -364,7 +364,7 @@ final class Cont<A> {
 
       for (final (i, cont) in safeCopy.indexed) {
         final index = i; // important
-        cont.execute(
+        cont.run(
           onFatal: observer.onFatal,
           onNone: () {
             handleNoneOrFail(index, []);
@@ -423,7 +423,7 @@ final class Cont<A> {
         codeToUpdateState();
       }
 
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
@@ -448,7 +448,7 @@ final class Cont<A> {
         },
       );
 
-      other.execute(
+      other.run(
         onFatal: observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
@@ -521,7 +521,7 @@ final class Cont<A> {
       for (int i = 0; i < safeCopy.length; i++) {
         final index = i; // this is important to capture. if we reference "i" from onSome block, we might pick wrong index
         final cont = safeCopy[i];
-        cont.execute(
+        cont.run(
           onFatal: observer.onFatal,
           onNone: () {
             handleNoneAndFail(index, []);
@@ -579,7 +579,7 @@ final class Cont<A> {
         observer.onFail(resultErrors.first, resultErrors.skip(1).toList());
       }
 
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
@@ -619,7 +619,7 @@ final class Cont<A> {
         },
       );
 
-      other.execute(
+      other.run(
         onFatal: observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
@@ -705,7 +705,7 @@ final class Cont<A> {
         final index = i; // this is important to capture. if we reference "i" from onSome block, we might pick wrong index
         final cont = safeCopy[i];
 
-        cont.execute(
+        cont.run(
           onFatal: observer.onFatal,
           onNone: () {
             incrementFinishedAndCheckExit();
@@ -733,10 +733,10 @@ final class Cont<A> {
 
   Cont<C> orElse<A2, C>(Cont<A2> other, C Function(A a) lf, C Function(A2 a2) rf) {
     return Cont.fromRun((observer) {
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: () {
-          other.execute(
+          other.run(
             onFatal: observer.onFatal,
             onNone: observer.onNone,
             onFail: observer.onFail,
@@ -751,7 +751,7 @@ final class Cont<A> {
           );
         },
         onFail: (error, errors) {
-          other.execute(
+          other.run(
             onFatal: observer.onFatal,
             onNone: () {
               observer.onFail(error, errors);
@@ -804,7 +804,7 @@ final class Cont<A> {
 
   Cont<A> doOnNone(void Function() f) {
     return Cont.fromRun((observer) {
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: () {
           try {
@@ -824,7 +824,7 @@ final class Cont<A> {
 
   Cont<A> doOnFail(void Function(ContError error, List<ContError> errors) f) {
     return Cont.fromRun((observer) {
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: observer.onNone,
         onFail: (error, errors) {
@@ -844,7 +844,7 @@ final class Cont<A> {
 
   Cont<A> doOnSome(void Function(A a) f) {
     return Cont.fromRun((observer) {
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: observer.onNone,
         onFail: observer.onFail,
@@ -871,21 +871,21 @@ final class Cont<A> {
         // sure that errors are caught and logged
         // the runtime crashes of "f" should not affect the main flow
       }
-      run(observer);
+      subscribe(observer);
     });
   }
 
   Cont<A> runOn(ContScheduler scheduler) {
     return Cont.fromRun((observer) {
       scheduler.run(() {
-        run(observer);
+        subscribe(observer);
       });
     });
   }
 
   Cont<A> noneOn(ContScheduler scheduler) {
     return Cont.fromRun((observer) {
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: () {
           scheduler.run(observer.onNone);
@@ -898,7 +898,7 @@ final class Cont<A> {
 
   Cont<A> failOn(ContScheduler scheduler) {
     return Cont.fromRun((observer) {
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: observer.onNone,
         onFail: (error, errors) {
@@ -913,7 +913,7 @@ final class Cont<A> {
 
   Cont<A> someOn(ContScheduler scheduler) {
     return Cont.fromRun((observer) {
-      execute(
+      run(
         onFatal: observer.onFatal,
         onNone: observer.onNone,
         onFail: observer.onFail,
@@ -1083,7 +1083,7 @@ final class Ref<S> {
   Cont<V> commit<V>(Cont<RefCommit<S, V> Function(S after)> Function(S before) f) {
     return Cont.fromRun((observer) {
       final before = _state;
-      f(before).execute(
+      f(before).run(
         onFatal: observer.onFatal,
         onNone: observer.onNone,
         onFail: observer.onFail,
