@@ -1066,10 +1066,6 @@ final class _IdempotentRunner {
 
   _IdempotentRunner();
 
-  bool isDone() {
-    return _isDone;
-  }
-
   bool runIfNotDone(void Function() procedure) {
     if (_isDone) {
       return false;
@@ -1078,19 +1074,6 @@ final class _IdempotentRunner {
     procedure();
 
     return true;
-  }
-
-  bool runIfDone(void Function() procedure) {
-    if (isDone()) {
-      procedure();
-      return false;
-    }
-
-    return true;
-  }
-
-  bool stop() {
-    return runIfNotDone(() {});
   }
 }
 
