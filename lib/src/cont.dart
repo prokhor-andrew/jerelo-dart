@@ -39,16 +39,6 @@ final class Cont<A> {
         }
       }
 
-      bool guardedNone() {
-        return runner.runIfNotDone(() {
-          try {
-            observer.onNone();
-          } catch (error, st) {
-            handleUnrecoverableFailure(error, st, ContSignal.onNone);
-          }
-        });
-      }
-
       bool guardedFail(ContError error, List<ContError> errors) {
         return runner.runIfNotDone(() {
           try {
@@ -59,25 +49,31 @@ final class Cont<A> {
         });
       }
 
-      bool guardedSome(A a) {
-        return runner.runIfNotDone(() {
-          try {
-            observer.onSome(a);
-          } catch (error, st) {
-            handleUnrecoverableFailure(error, st, ContSignal.onSome);
-          }
-        });
-      }
-
       try {
         run(
           ContObserver(
             (error, signal) {
               handleUnrecoverableFailure(error.error, error.st, signal);
             },
-            guardedNone,
+            () {
+              runner.runIfNotDone(() {
+                try {
+                  observer.onNone();
+                } catch (error, st) {
+                  handleUnrecoverableFailure(error, st, ContSignal.onNone);
+                }
+              });
+            },
             guardedFail,
-            guardedSome,
+            (a) {
+              runner.runIfNotDone(() {
+                try {
+                  observer.onSome(a);
+                } catch (error, st) {
+                  handleUnrecoverableFailure(error, st, ContSignal.onSome);
+                }
+              });
+            },
           ),
         );
       } catch (error, st) {
