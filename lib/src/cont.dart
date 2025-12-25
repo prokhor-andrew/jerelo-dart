@@ -1000,6 +1000,8 @@ final class Cont<A> {
       }
     });
   }
+
+  //
 }
 
 extension ContApplicativeExtension<A, A2> on Cont<A2 Function(A)> {
@@ -1082,6 +1084,7 @@ final class Ref<S> {
   Cont<V> commit<V>(Cont<RefCommit<S, V> Function(S after)> Function(S before) f) {
     return Cont.fromRun((observer) {
       final before = _state;
+
       f(before).run(
         onFatal: observer.onFatal,
         onNone: observer.onNone,
@@ -1096,17 +1099,13 @@ final class Ref<S> {
             return;
           }
           commit.run(
-            (errors) {
-              if (errors.isEmpty) {
-                observer.onNone();
-                return;
-              }
-
-              observer.onFail(errors.first, errors.skip(1).toList());
-            },
             (state, value) {
               _state = state;
               observer.onSome(value);
+            },
+            (state) {
+              _state = state;
+              observer.onNone();
             },
           );
         },
