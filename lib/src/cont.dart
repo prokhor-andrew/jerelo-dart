@@ -1000,6 +1000,123 @@ final class Cont<A> {
       }
     });
   }
+
+
+  // TODO: i still have to do something so that loop actually emits value
+  Cont<Never> loop<B>(Cont<A> Function(B) lf, Cont<B> Function(A) rf) {
+    return flatMap((a) {
+      return rf(a);
+    }).flatMap((b) {
+      return lf(b).loop(lf, rf);
+    });
+  }
+
+  // TODO: stream reader
+
+  // TODO:
+  static Cont<Never> withActor<A>(Cont<Never> Function(Actor<A>) f) {
+    return withRef<_ActorState<A>, Never>(
+      _ActorState<A>(),
+      (ref) {
+        return f(Actor._(ref));
+      },
+      (ref) {
+        // best-effort cleanup: drop parked continuations
+        return ref
+            .commit((_) {
+              // TODO:
+              return Cont.of((state) {
+                // order is important
+                final offersSafeCopy = List<_Offer<A>>.from(state.offers);
+                final takesSafeCopy = List<ContObserver<A>>.from(state.takers);
+
+                state.offers.clear();
+                state.takers.clear();
+
+                for (final offer in offersSafeCopy) {
+                  offer.producer.onNone();
+                }
+                for (final taker in takesSafeCopy) {
+                  taker.onNone();
+                }
+                return RefCommit(_ActorState(), ());
+              });
+            })
+            .then(Cont.empty());
+      },
+    );
+  }
+}
+
+final class Actor<A> {
+  final Ref<_ActorState<A>> _ref;
+
+  const Actor._(this._ref);
+
+  Cont<()> enqueue(A value) {
+    return Cont.fromRun((producerObs) {
+      _ref
+          .commit<void Function()>((_) {
+            return Cont.of((state) {
+              if (state.takers.isNotEmpty) {
+                final safeCopyOfTakers = List<ContObserver<A>>.from(state.takers);
+                state.takers.clear();
+                return RefCommit(state, () {
+                  for (final taker in safeCopyOfTakers) {
+                    taker.onSome(value);
+                  }
+                  producerObs.onSome(());
+                });
+              }
+
+              final offer = _Offer(value, producerObs);
+              state.offers.add(offer);
+
+              return RefCommit(state, _doNothing);
+            });
+          })
+          .run(
+            onFatal: producerObs.onFatal,
+            onNone: producerObs.onNone,
+            onFail: producerObs.onFail,
+            onSome: (action) {
+                action();
+            },
+          );
+    });
+  }
+
+  Cont<A> dequeue() {
+    return Cont.fromRun((consumerObs) {
+      _ref
+          .commit<void Function()>((_) {
+            return Cont.of((state) {
+              if (state.offers.isNotEmpty) {
+                final offer = state.offers.removeAt(0);
+
+                return RefCommit(state, () {
+                  // it is safe to capture "offer" here
+                  consumerObs.onSome(offer.value);
+                  offer.producer.onSome(());
+                });
+              }
+
+              state.takers.add(consumerObs);
+              return RefCommit(state, _doNothing);
+            });
+          })
+          .run(
+            onFatal: consumerObs.onFatal,
+            onNone: consumerObs.onNone,
+            onFail: consumerObs.onFail,
+            onSome: (action) {
+              // we do not need try-catch here,
+              // because "commit" has try-catch block around this already
+              action();
+            },
+          );
+    });
+  }
 }
 
 extension ContApplicativeExtension<A, A2> on Cont<A2 Function(A)> {
@@ -1039,6 +1156,37 @@ extension FlatMapTrueFalseExtension on Cont<bool> {
 }
 
 // little tooling
+final class Ref<S> {
+  S _state;
+
+  Ref._(S initial) : _state = initial;
+
+  Cont<V> commit<V>(Cont<RefCommit<S, V> Function(S after)> Function(S before) f) {
+    return Cont.fromRun((observer) {
+      final before = _state;
+
+      f(before).run(
+        onFatal: observer.onFatal,
+        onNone: observer.onNone,
+        onFail: observer.onFail,
+        onSome: (function) {
+          final after = _state; // this "onSome" can be run later, when "_state" is not the same as it was
+          // when we assigned it ton "before", and because of that, our expectation of what state is, can be wrong
+          final RefCommit<S, V> commit;
+          try {
+            commit = function(after);
+            _state = commit.state;
+            observer.onSome(commit.value);
+          } catch (error, st) {
+            observer.onFail(ContError(error, st), []);
+          }
+        },
+      );
+    });
+  }
+}
+
+// private
 
 // Identity function
 A _idfunc<A>(A a) {
@@ -1074,31 +1222,13 @@ final class _IdempotentRunner {
   }
 }
 
-final class Ref<S> {
-  S _state;
+final class _Offer<A> {
+  final A value;
+  final ContObserver<()> producer; // resume producer only when consumed
+  const _Offer(this.value, this.producer);
+}
 
-  Ref._(S initial) : _state = initial;
-
-  Cont<V> commit<V>(Cont<RefCommit<S, V> Function(S after)> Function(S before) f) {
-    return Cont.fromRun((observer) {
-      final before = _state;
-
-      f(before).run(
-        onFatal: observer.onFatal,
-        onNone: observer.onNone,
-        onFail: observer.onFail,
-        onSome: (function) {
-          final after = _state;
-          final RefCommit<S, V> commit;
-          try {
-            commit = function(after);
-            _state = commit.state;
-            observer.onSome(commit.value);
-          } catch (error, st) {
-            observer.onFail(ContError(error, st), []);
-          }
-        },
-      );
-    });
-  }
+final class _ActorState<A> {
+  final List<_Offer<A>> offers = [];
+  final List<ContObserver<A>> takers = [];
 }

@@ -2,15 +2,25 @@ import 'package:jerelo/jerelo.dart';
 import 'package:jerelo/src/cont_error.dart';
 
 void main() {
-  Cont.of(5)
-      .flatMap((value) {
-        return Cont.fromThunk(() {
-          return value + 1;
-        });
-      })
-      .run(onFatal: (_,_) {}, onSome: print);
+  Cont.withActor<int>((actor) {
+    print('start');
 
-  Cont.fromRun<int>((observer) {
-    observer.onFail(ContError('error', StackTrace.current));
-  });
+    // Consumer starts immediately → will PARK
+    actor
+        .dequeue()
+        .doOnSome((v) {
+          print('consumer got $v');
+        })
+        .run(onFatal: (_, __) {}, onNone: () {}, onFail: (_, __) {}, onSome: (_) {});
+
+    // Producer starts AFTER delay
+    Cont.fromRun<()>((obs) {
+      Future.delayed(const Duration(seconds: 2), () {
+        print('enqueueing...');
+        actor.enqueue(42).subscribe(obs);
+      });
+    }).run(onFatal: (_, __) {}, onNone: () {}, onFail: (_, __) {}, onSome: (_) {});
+
+    return Cont.empty();
+  }).run(onFatal: (_, _) {});
 }
