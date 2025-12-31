@@ -8,7 +8,7 @@ void main() {
           return value + 1;
         });
       })
-      .run(onFatal: (_,_) {}, onSome: print);
+      .run((_,_) {}, onSome: print);
 
   Cont.fromRun<int>((observer) {
     observer.onFail(ContError('error', StackTrace.current));

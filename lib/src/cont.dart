@@ -6,11 +6,12 @@ import 'package:jerelo/src/ref_commit.dart';
 final class Cont<A> {
   final void Function(ContObserver<A> observer) subscribe;
 
-  void run({
-    required void Function(ContError, ContSignal) onFatal,
+  void run(
+    void Function(ContError, ContSignal) onFatal, {
     void Function() onNone = _doNothing,
     void Function(ContError, List<ContError>) onFail = _ignore2,
     void Function(A value) onSome = _ignore1,
+    //
   }) {
     subscribe(ContObserver(onFatal, onNone, onFail, onSome));
   }
@@ -90,7 +91,7 @@ final class Cont<A> {
   Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
     return Cont.fromRun((observer) {
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: observer.onNone,
         onFail: observer.onFail,
         onSome: (a) {
@@ -108,7 +109,7 @@ final class Cont<A> {
   Cont<A> catchEmpty(Cont<A> Function() f) {
     return Cont.fromRun((observer) {
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           try {
             final contA = f();
@@ -126,7 +127,7 @@ final class Cont<A> {
   Cont<A> catchError(Cont<A> Function(ContError error, List<ContError> errors) f) {
     return Cont.fromRun((observer) {
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: observer.onNone,
         onFail: (error, errors) {
           try {
@@ -225,7 +226,7 @@ final class Cont<A> {
 
         final cont = safeCopy[i];
         cont.run(
-          onFatal: observer.onFatal,
+          observer.onFatal,
           onNone: observer.onNone,
           onFail: observer.onFail,
           onSome: (a) {
@@ -284,7 +285,7 @@ final class Cont<A> {
       }
 
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneAndFail();
         },
@@ -302,7 +303,7 @@ final class Cont<A> {
       );
 
       other.run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneAndFail();
         },
@@ -363,7 +364,7 @@ final class Cont<A> {
       for (final (i, cont) in safeCopy.indexed) {
         final index = i; // important
         cont.run(
-          onFatal: observer.onFatal,
+          observer.onFatal,
           onNone: () {
             handleNoneOrFail(index, []);
           },
@@ -422,7 +423,7 @@ final class Cont<A> {
       }
 
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
         },
@@ -447,7 +448,7 @@ final class Cont<A> {
       );
 
       other.run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
         },
@@ -520,7 +521,7 @@ final class Cont<A> {
         final index = i; // this is important to capture. if we reference "i" from onSome block, we might pick wrong index
         final cont = safeCopy[i];
         cont.run(
-          onFatal: observer.onFatal,
+          observer.onFatal,
           onNone: () {
             handleNoneAndFail(index, []);
           },
@@ -578,7 +579,7 @@ final class Cont<A> {
       }
 
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
         },
@@ -618,7 +619,7 @@ final class Cont<A> {
       );
 
       other.run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
         },
@@ -704,7 +705,7 @@ final class Cont<A> {
         final cont = safeCopy[i];
 
         cont.run(
-          onFatal: observer.onFatal,
+          observer.onFatal,
           onNone: () {
             incrementFinishedAndCheckExit();
           },
@@ -732,10 +733,10 @@ final class Cont<A> {
   Cont<C> orElse<A2, C>(Cont<A2> other, C Function(A a) lf, C Function(A2 a2) rf) {
     return Cont.fromRun((observer) {
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           other.run(
-            onFatal: observer.onFatal,
+            observer.onFatal,
             onNone: observer.onNone,
             onFail: observer.onFail,
             onSome: (a2) {
@@ -750,7 +751,7 @@ final class Cont<A> {
         },
         onFail: (error, errors) {
           other.run(
-            onFatal: observer.onFatal,
+            observer.onFatal,
             onNone: () {
               observer.onFail(error, errors);
             },
@@ -951,7 +952,7 @@ final class Ref<S> {
       final before = _state;
 
       f(before).run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: observer.onNone,
         onFail: observer.onFail,
         onSome: (function) {
