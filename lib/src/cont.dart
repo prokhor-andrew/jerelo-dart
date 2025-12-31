@@ -138,7 +138,7 @@ final class Cont<A> {
   Cont<A> catchError(Cont<A> Function(ContError error, List<ContError> errors) f) {
     return Cont.fromRun((observer) {
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: observer.onNone,
         onFail: (error, errors) {
           try {
@@ -375,7 +375,7 @@ final class Cont<A> {
       for (final (i, cont) in safeCopy.indexed) {
         final index = i; // important
         cont.run(
-          onFatal: observer.onFatal,
+          observer.onFatal,
           onNone: () {
             handleNoneOrFail(index, []);
           },
@@ -434,7 +434,7 @@ final class Cont<A> {
       }
 
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
         },
@@ -459,7 +459,7 @@ final class Cont<A> {
       );
 
       other.run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
         },
@@ -532,7 +532,7 @@ final class Cont<A> {
         final index = i; // this is important to capture. if we reference "i" from onSome block, we might pick wrong index
         final cont = safeCopy[i];
         cont.run(
-          onFatal: observer.onFatal,
+          observer.onFatal,
           onNone: () {
             handleNoneAndFail(index, []);
           },
@@ -590,7 +590,7 @@ final class Cont<A> {
       }
 
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
         },
@@ -716,7 +716,7 @@ final class Cont<A> {
         final cont = safeCopy[i];
 
         cont.run(
-          onFatal: observer.onFatal,
+          observer.onFatal,
           onNone: () {
             incrementFinishedAndCheckExit();
           },
@@ -744,10 +744,10 @@ final class Cont<A> {
   Cont<C> orElse<A2, C>(Cont<A2> other, C Function(A a) lf, C Function(A2 a2) rf) {
     return Cont.fromRun((observer) {
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           other.run(
-            onFatal: observer.onFatal,
+            observer.onFatal,
             onNone: observer.onNone,
             onFail: observer.onFail,
             onSome: (a2) {
@@ -762,7 +762,7 @@ final class Cont<A> {
         },
         onFail: (error, errors) {
           other.run(
-            onFatal: observer.onFatal,
+            observer.onFatal,
             onNone: () {
               observer.onFail(error, errors);
             },
@@ -880,7 +880,6 @@ final class Cont<A> {
     });
   }
 
-
   // TODO: i still have to do something so that loop actually emits value
   Cont<Never> loop<B>(Cont<A> Function(B) lf, Cont<B> Function(A) rf) {
     return flatMap((a) {
@@ -955,11 +954,11 @@ final class Actor<A> {
             });
           })
           .run(
-            onFatal: producerObs.onFatal,
+            producerObs.onFatal,
             onNone: producerObs.onNone,
             onFail: producerObs.onFail,
             onSome: (action) {
-                action();
+              action();
             },
           );
     });
@@ -985,7 +984,7 @@ final class Actor<A> {
             });
           })
           .run(
-            onFatal: consumerObs.onFatal,
+            consumerObs.onFatal,
             onNone: consumerObs.onNone,
             onFail: consumerObs.onFail,
             onSome: (action) {
