@@ -88,9 +88,9 @@ final class Cont<A> {
     });
   }
 
-  static Cont<()> fromFireAndForget<A>(Cont<A> Function() thunk) {
+  static Cont<()> fromFireAndForget<A>(Cont<A> cont) {
     return Cont.fromDeferred(() {
-      thunk().run((error, signal) {
+      cont.run((error, signal) {
         // we completely ignore errors, if they happen
         // they should be handled above in the chain
       });
