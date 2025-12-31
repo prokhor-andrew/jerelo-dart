@@ -1,17 +1,17 @@
 import 'package:jerelo/src/cont_error.dart';
 import 'package:jerelo/src/cont_observer.dart';
-import 'package:jerelo/src/cont_scheduler.dart';
 import 'package:jerelo/src/cont_signal.dart';
 import 'package:jerelo/src/ref_commit.dart';
 
 final class Cont<A> {
   final void Function(ContObserver<A> observer) subscribe;
 
-  void run({
-    required void Function(ContError, ContSignal) onFatal,
+  void run(
+    void Function(ContError, ContSignal) onFatal, {
     void Function() onNone = _doNothing,
     void Function(ContError, List<ContError>) onFail = _ignore2,
     void Function(A value) onSome = _ignore1,
+    //
   }) {
     subscribe(ContObserver(onFatal, onNone, onFail, onSome));
   }
@@ -88,10 +88,21 @@ final class Cont<A> {
     });
   }
 
+  static Cont<()> fromFireAndForget<A>(Cont<A> cont) {
+    return Cont.fromDeferred(() {
+      cont.run((error, signal) {
+        // we completely ignore errors, if they happen
+        // they should be handled above in the chain
+      });
+
+      return Cont.unit();
+    });
+  }
+
   Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
     return Cont.fromRun((observer) {
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: observer.onNone,
         onFail: observer.onFail,
         onSome: (a) {
@@ -109,7 +120,7 @@ final class Cont<A> {
   Cont<A> catchEmpty(Cont<A> Function() f) {
     return Cont.fromRun((observer) {
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           try {
             final contA = f();
@@ -226,7 +237,7 @@ final class Cont<A> {
 
         final cont = safeCopy[i];
         cont.run(
-          onFatal: observer.onFatal,
+          observer.onFatal,
           onNone: observer.onNone,
           onFail: observer.onFail,
           onSome: (a) {
@@ -285,7 +296,7 @@ final class Cont<A> {
       }
 
       run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneAndFail();
         },
@@ -303,7 +314,7 @@ final class Cont<A> {
       );
 
       other.run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneAndFail();
         },
@@ -619,7 +630,7 @@ final class Cont<A> {
       );
 
       other.run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: () {
           handleNoneOrFail(() {});
         },
@@ -799,138 +810,6 @@ final class Cont<A> {
     return firstSuccessTagged(list).map((tuple) {
       return tuple.$2;
     });
-  }
-
-  Cont<A> doOnNone(void Function() f) {
-    return Cont.fromRun((observer) {
-      run(
-        onFatal: observer.onFatal,
-        onNone: () {
-          try {
-            f();
-          } catch (_) {
-            // "f" is side effect. the user of "doOnNone" is responsible for making
-            // sure that errors are caught and logged
-            // the runtime crashes of "f" should not affect the main flow
-          }
-          observer.onNone();
-        },
-        onFail: observer.onFail,
-        onSome: observer.onSome,
-      );
-    });
-  }
-
-  Cont<A> doOnFail(void Function(ContError error, List<ContError> errors) f) {
-    return Cont.fromRun((observer) {
-      run(
-        onFatal: observer.onFatal,
-        onNone: observer.onNone,
-        onFail: (error, errors) {
-          try {
-            f(error, errors);
-          } catch (_) {
-            // "f" is side effect. the user of "doOnFail" is responsible for making
-            // sure that errors are caught and logged
-            // the runtime crashes of "f" should not affect the main flow
-          }
-          observer.onFail(error, errors);
-        },
-        onSome: observer.onSome,
-      );
-    });
-  }
-
-  Cont<A> doOnSome(void Function(A a) f) {
-    return Cont.fromRun((observer) {
-      run(
-        onFatal: observer.onFatal,
-        onNone: observer.onNone,
-        onFail: observer.onFail,
-        onSome: (a) {
-          try {
-            f(a);
-          } catch (_) {
-            // "f" is side effect. the user of "doOnNone" is responsible for making
-            // sure that errors are caught and logged
-            // the runtime crashes of "f" should not affect the main flow
-          }
-          observer.onSome(a);
-        },
-      );
-    });
-  }
-
-  Cont<A> doOnRun(void Function() f) {
-    return Cont.fromRun((observer) {
-      try {
-        f();
-      } catch (_) {
-        // "f" is side effect. the user of "doOnNone" is responsible for making
-        // sure that errors are caught and logged
-        // the runtime crashes of "f" should not affect the main flow
-      }
-      subscribe(observer);
-    });
-  }
-
-  Cont<A> runOn(ContScheduler scheduler) {
-    return Cont.fromRun((observer) {
-      scheduler.run(() {
-        subscribe(observer);
-      });
-    });
-  }
-
-  Cont<A> noneOn(ContScheduler scheduler) {
-    return Cont.fromRun((observer) {
-      run(
-        onFatal: observer.onFatal,
-        onNone: () {
-          scheduler.run(observer.onNone);
-        },
-        onFail: observer.onFail,
-        onSome: observer.onSome,
-      );
-    });
-  }
-
-  Cont<A> failOn(ContScheduler scheduler) {
-    return Cont.fromRun((observer) {
-      run(
-        onFatal: observer.onFatal,
-        onNone: observer.onNone,
-        onFail: (error, errors) {
-          scheduler.run(() {
-            observer.onFail(error, errors);
-          });
-        },
-        onSome: observer.onSome,
-      );
-    });
-  }
-
-  Cont<A> someOn(ContScheduler scheduler) {
-    return Cont.fromRun((observer) {
-      run(
-        onFatal: observer.onFatal,
-        onNone: observer.onNone,
-        onFail: observer.onFail,
-        onSome: (a) {
-          scheduler.run(() {
-            observer.onSome(a);
-          });
-        },
-      );
-    });
-  }
-
-  Cont<A> consumeOn(ContScheduler scheduler) {
-    return noneOn(scheduler).failOn(scheduler).someOn(scheduler);
-  }
-
-  Cont<A> scheduleOn(ContScheduler scheduler) {
-    return runOn(scheduler).consumeOn(scheduler);
   }
 
   Cont<A> filter(bool Function(A value) predicate) {
@@ -1166,7 +1045,7 @@ final class Ref<S> {
       final before = _state;
 
       f(before).run(
-        onFatal: observer.onFatal,
+        observer.onFatal,
         onNone: observer.onNone,
         onFail: observer.onFail,
         onSome: (function) {
