@@ -153,6 +153,12 @@ final class Cont<A> {
     });
   }
 
+  Cont<A2> flatMap0<A2>(Cont<A2> Function() f) {
+    return flatMap((_) {
+      return f();
+    });
+  }
+
   Cont<A> catchEmpty(Cont<A> Function() f) {
     return Cont.fromRun((observer) {
       run(
@@ -189,6 +195,12 @@ final class Cont<A> {
     });
   }
 
+  Cont<A> catchError0(Cont<A> Function() f) {
+    return catchError((_, _) {
+      return f();
+    });
+  }
+
   Cont<A> filter(bool Function(A value) predicate) {
     return flatMap((a) {
       final isValid = predicate(a);
@@ -201,7 +213,7 @@ final class Cont<A> {
   }
 
   Cont<A2> then<A2>(Cont<A2> cont) {
-    return flatMap((_) {
+    return flatMap0(() {
       return cont;
     });
   }
@@ -1074,7 +1086,6 @@ extension ContApplicativeExtension<A, A2> on Cont<A2 Function(A)> {
     });
   }
 }
-
 
 extension ContFlattenExtension<A> on Cont<Cont<A>> {
   Cont<A> flatten() {
