@@ -206,6 +206,10 @@ final class Cont<A> {
     });
   }
 
+  Cont<A> after<A2>(Cont<A2> cont) {
+    return cont.then(this);
+  }
+
   // identities
   static Cont<A> of<A>(A value) {
     return Cont.fromThunk(() {
