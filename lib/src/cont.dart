@@ -82,6 +82,27 @@ final class Cont<A> {
     });
   }
 
+  // maps
+  Cont<A2> map<A2>(A2 Function(A value) f) {
+    return flatMap((a) {
+      final a2 = f(a);
+      return Cont.of(a2);
+    });
+  }
+
+  Cont<A2> map0<A2>(A2 Function() f) {
+    return map((_) {
+      return f();
+    });
+  }
+
+  Cont<A2> mapTo<A2>(A2 value) {
+    return map0(() {
+      return value;
+    });
+  }
+
+  // constructors
   static Cont<A> fromDeferred<A>(Cont<A> Function() thunk) {
     return Cont.fromRun((observer) {
       thunk().subscribe(observer);
@@ -99,6 +120,21 @@ final class Cont<A> {
     });
   }
 
+  static Cont<A> fromThunk<A>(A Function() thunk) {
+    return Cont.fromRun((observer) {
+      final a = thunk();
+      observer.onSome(a);
+    });
+  }
+
+  static Cont<()> fromProcedure(void Function() procedure) {
+    return Cont.fromRun((observer) {
+      procedure();
+      observer.onSome(());
+    });
+  }
+
+  // monadic-like
   Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
     return Cont.fromRun((observer) {
       run(
@@ -153,26 +189,24 @@ final class Cont<A> {
     });
   }
 
+  Cont<A> filter(bool Function(A value) predicate) {
+    return flatMap((a) {
+      final isValid = predicate(a);
+      if (isValid) {
+        return Cont.of(a);
+      } else {
+        return Cont.empty();
+      }
+    });
+  }
+
   Cont<A2> then<A2>(Cont<A2> cont) {
     return flatMap((_) {
       return cont;
     });
   }
 
-  static Cont<A> fromThunk<A>(A Function() thunk) {
-    return Cont.fromRun((observer) {
-      final a = thunk();
-      observer.onSome(a);
-    });
-  }
-
-  static Cont<()> fromProcedure(void Function() procedure) {
-    return Cont.fromRun((observer) {
-      procedure();
-      observer.onSome(());
-    });
-  }
-
+  // identities
   static Cont<A> of<A>(A value) {
     return Cont.fromThunk(() {
       return value;
@@ -204,19 +238,7 @@ final class Cont<A> {
     return Cont.raise<Never>(error, errors);
   }
 
-  Cont<A2> map<A2>(A2 Function(A value) f) {
-    return flatMap((a) {
-      final a2 = f(a);
-      return Cont.of(a2);
-    });
-  }
-
-  Cont<A2> map0<A2>(A2 Function() f) {
-    return map((_) {
-      return f();
-    });
-  }
-
+  // lax-monoidal
   Cont<C> zipSequentially<A2, C>(Cont<A2> other, C Function(A a, A2 a2) f) {
     return flatMap((a) {
       return other.map((a2) {
@@ -812,17 +834,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> filter(bool Function(A value) predicate) {
-    return flatMap((a) {
-      final isValid = predicate(a);
-      if (isValid) {
-        return Cont.of(a);
-      } else {
-        return Cont.empty();
-      }
-    });
-  }
-
+  // life-cycle
   static Cont<A> withRef<S, A>(
     S initial,
     Cont<A> Function(Ref<S> ref) use,
@@ -880,6 +892,8 @@ final class Cont<A> {
     });
   }
 
+  // fire-and-forget + monad
+
   Cont<A> forkOnNone<B>(Cont<B> Function() thunk) {
     return catchEmpty(() {
       try {
@@ -924,6 +938,7 @@ final class Cont<A> {
     }).then(this);
   }
 
+  // this section still being experimented
   // TODO: i still have to do something so that loop actually emits value
   Cont<Never> loop<B>(Cont<A> Function(B) lf, Cont<B> Function(A) rf) {
     return flatMap((a) {
@@ -1041,6 +1056,7 @@ final class Actor<A> {
   }
 }
 
+// applicatives
 extension ContApplicativeExtension<A, A2> on Cont<A2 Function(A)> {
   Cont<A2> applySequentially(Cont<A> other) {
     return zipSequentially(other, (function, value) {
@@ -1054,6 +1070,7 @@ extension ContApplicativeExtension<A, A2> on Cont<A2 Function(A)> {
     });
   }
 }
+
 
 extension ContFlattenExtension<A> on Cont<Cont<A>> {
   Cont<A> flatten() {
