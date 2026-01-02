@@ -920,7 +920,7 @@ final class Cont<A> {
 
   // fire-and-forget + monad
 
-  Cont<A> forkOnNone<B>(Cont<B> Function() thunk) {
+  Cont<A> doOnNone<B>(Cont<B> Function() thunk) {
     return catchEmpty(() {
       try {
         final cont = thunk();
@@ -931,7 +931,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> forkOnFail<B>(Cont<B> Function(ContError error, List<ContError> errors) f) {
+  Cont<A> doOnFail<B>(Cont<B> Function(ContError error, List<ContError> errors) f) {
     return catchError((error, errors) {
       try {
         final cont = f(error, errors);
@@ -942,7 +942,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> forkOnSome<B>(Cont<B> Function(A a) f) {
+  Cont<A> doOnSome<B>(Cont<B> Function(A a) f) {
     return flatMap((a) {
       try {
         final cont = f(a);
@@ -953,7 +953,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> forkOnRun<B>(Cont<B> Function() thunk) {
+  Cont<A> doOnRun<B>(Cont<B> Function() thunk) {
     return Cont.fromDeferred(() {
       try {
         final cont = thunk();
