@@ -109,12 +109,17 @@ final class Cont<A> {
     });
   }
 
-  static Cont<()> fireAndForget<A>(Cont<A> cont) {
+  static Cont<()> fireAndForget<A>(Cont<A> Function() thunk) {
     return Cont.fromDeferred(() {
-      cont.run((error, signal) {
-        // we completely ignore errors, if they happen
-        // they should be handled above in the chain
-      });
+      try {
+        final cont = thunk();
+        cont.run((error, signal) {
+          // we completely ignore errors, if they happen
+          // they should be handled above in the chain
+        });
+      } catch (error, st) {
+        return Cont.raise(ContError(error, st));
+      }
 
       return Cont.unit();
     });
@@ -923,8 +928,7 @@ final class Cont<A> {
   Cont<A> doOnNone<B>(Cont<B> Function() thunk) {
     return catchEmpty(() {
       try {
-        final cont = thunk();
-        return Cont.fireAndForget(cont).then(Cont.empty());
+        return Cont.fireAndForget(thunk).then(Cont.empty());
       } catch (_) {
         return Cont.empty();
       }
@@ -934,8 +938,9 @@ final class Cont<A> {
   Cont<A> doOnFail<B>(Cont<B> Function(ContError error, List<ContError> errors) f) {
     return catchError((error, errors) {
       try {
-        final cont = f(error, errors);
-        return Cont.fireAndForget(cont).then(Cont.raise(error, errors));
+        return Cont.fireAndForget(() {
+          return f(error, errors);
+        }).then(Cont.raise(error, errors));
       } catch (_) {
         return Cont.raise(error, errors);
       }
@@ -945,8 +950,9 @@ final class Cont<A> {
   Cont<A> doOnSome<B>(Cont<B> Function(A a) f) {
     return flatMap((a) {
       try {
-        final cont = f(a);
-        return Cont.fireAndForget(cont).then(Cont.of(a));
+        return Cont.fireAndForget(() {
+          return f(a);
+        }).then(Cont.of(a));
       } catch (_) {
         return Cont.of(a);
       }
@@ -956,8 +962,7 @@ final class Cont<A> {
   Cont<A> doOnRun<B>(Cont<B> Function() thunk) {
     return Cont.fromDeferred(() {
       try {
-        final cont = thunk();
-        return Cont.fireAndForget(cont);
+        return Cont.fireAndForget(thunk);
       } catch (_) {
         return Cont.unit();
       }
