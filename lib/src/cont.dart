@@ -222,6 +222,16 @@ final class Cont<A> {
     return cont.then(this);
   }
 
+  Cont<A> thenKeepFirst<A2>(Cont<A2> cont) {
+    return flatMap((a) {
+      return cont.mapTo(a);
+    });
+  }
+
+  Cont<A2> afterKeepSecond<A2>(Cont<A2> cont) {
+    return cont.thenKeepFirst(this);
+  }
+
   // identities
   static Cont<A> of<A>(A value) {
     return Cont.fromThunk(() {
