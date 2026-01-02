@@ -109,7 +109,7 @@ final class Cont<A> {
     });
   }
 
-  static Cont<()> fromFireAndForget<A>(Cont<A> cont) {
+  static Cont<()> fireAndForget<A>(Cont<A> cont) {
     return Cont.fromDeferred(() {
       cont.run((error, signal) {
         // we completely ignore errors, if they happen
@@ -924,7 +924,7 @@ final class Cont<A> {
     return catchEmpty(() {
       try {
         final cont = thunk();
-        return Cont.fromFireAndForget(cont).then(Cont.empty());
+        return Cont.fireAndForget(cont).then(Cont.empty());
       } catch (_) {
         return Cont.empty();
       }
@@ -935,7 +935,7 @@ final class Cont<A> {
     return catchError((error, errors) {
       try {
         final cont = f(error, errors);
-        return Cont.fromFireAndForget(cont).then(Cont.raise(error, errors));
+        return Cont.fireAndForget(cont).then(Cont.raise(error, errors));
       } catch (_) {
         return Cont.raise(error, errors);
       }
@@ -946,7 +946,7 @@ final class Cont<A> {
     return flatMap((a) {
       try {
         final cont = f(a);
-        return Cont.fromFireAndForget(cont).then(Cont.of(a));
+        return Cont.fireAndForget(cont).then(Cont.of(a));
       } catch (_) {
         return Cont.of(a);
       }
@@ -957,7 +957,7 @@ final class Cont<A> {
     return Cont.fromDeferred(() {
       try {
         final cont = thunk();
-        return Cont.fromFireAndForget(cont);
+        return Cont.fireAndForget(cont);
       } catch (_) {
         return Cont.unit();
       }
