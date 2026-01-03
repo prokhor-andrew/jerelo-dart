@@ -869,56 +869,43 @@ final class Cont<A> {
   static Cont<A> withRef<S, A>(
     S initial,
     Cont<A> Function(Ref<S> ref) use,
-    Cont<Never> Function(Ref<S> ref) release,
+    Cont<()> Function(Ref<S> ref) release,
     //
   ) {
     return Cont.fromDeferred(() {
       final ref = Ref._(initial);
 
-      Cont<A> doProperRelease(List<ContError> errors) {
+      Cont<()> doProperRelease() {
         try {
-          final releaseCont = release(ref);
-          return releaseCont
-              .catchEmpty(() {
-                if (errors.isNotEmpty) {
-                  return Cont.raise(errors.first, [...errors.skip(1)]);
-                }
-
-                return Cont.empty();
-              })
-              .catchError((error2, errors2) {
-                if (errors.isNotEmpty) {
-                  return Cont.raise(errors.first, [...errors.skip(1), error2, ...errors2]);
-                }
-
-                return Cont.raise(error2, errors2);
-              })
-              .map(_absurd);
+          return release(ref);
         } catch (error2, st2) {
-          if (errors.isNotEmpty) {
-            return Cont.raise(errors.first, [...errors.skip(1), ContError(error2, st2)]);
-          } else {
-            return Cont.raise(ContError(error2, st2));
-          }
+          return Cont.raise(ContError(error2, st2));
         }
       }
 
       try {
         final mainCont = use(ref);
         return mainCont
+            .flatMap((a) {
+              return doProperRelease().mapTo(a);
+            })
             .catchEmpty(() {
-              return doProperRelease([]);
+              return doProperRelease().then(Cont.empty());
             })
             .catchError((error, errors) {
-              return doProperRelease([error, ...errors]);
-            })
-            .flatMap((a) {
-              return doProperRelease([]).catchEmpty(() {
-                return Cont.of(a);
-              });
+              return doProperRelease().then(Cont.raise(error, errors));
             });
       } catch (error, st) {
-        return doProperRelease([ContError(error, st)]);
+        return doProperRelease()
+            .flatMap0(() {
+              return Cont.raise<A>(ContError(error, st));
+            })
+            .catchEmpty(() {
+              return Cont.raise<A>(ContError(error, st));
+            })
+            .catchError((error2, errors2) {
+              return Cont.raise<A>(ContError(error, st), [error2, ...errors2]);
+            });
       }
     });
   }
@@ -1160,10 +1147,6 @@ final class Ref<S> {
 // Identity function
 A _idfunc<A>(A a) {
   return a;
-}
-
-A _absurd<A>(Never never) {
-  return never;
 }
 
 void _doNothing() {}
