@@ -969,27 +969,35 @@ final class Cont<A> {
     }).then(this);
   }
 
-  static Cont<Step<A>> unfold<S, A>(S initial, void Function(S state, ContObserver<(S state, A value)> observer) action) {
-    return Cont.fromRun((observer) {
-      action(
-        initial,
-        ContObserver(observer.onFatal, observer.onNone, observer.onFail, (tuple) {
-          final (updated, value) = tuple;
-          observer.onSome(
-            Step(value, () {
-              final next = unfold(updated, action);
-              return next;
-            }),
-          );
-        }),
-      );
-    });
+  static Cont<Step<I, A>> Function(I) stepper<S, I, A>(
+    S initial,
+    Cont<(S, A)> Function(S, I) f,
+    //
+  ) {
+    return (input) {
+      return Cont.fromRun((observer) {
+        final cont = f(initial, input);
+        cont.run(
+          observer.onFatal,
+          onNone: observer.onNone,
+          onFail: observer.onFail,
+          onSome: (tuple) {
+            final (s, a) = tuple;
+            observer.onSome(
+              Step(a, (input) {
+                return stepper(s, f)(input);
+              }),
+            );
+          },
+        );
+      });
+    };
   }
 }
 
-final class Step<A> {
+final class Step<I, A> {
   final A value;
-  final Cont<Step<A>> Function() next;
+  final Cont<Step<I, A>> Function(I) next;
 
   const Step(this.value, this.next);
 }
