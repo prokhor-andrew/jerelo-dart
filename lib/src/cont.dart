@@ -968,6 +968,30 @@ final class Cont<A> {
       }
     }).then(this);
   }
+
+  static Cont<Step<A>> unfold<S, A>(S initial, void Function(S state, ContObserver<(S state, A value)> observer) action) {
+    return Cont.fromRun((observer) {
+      action(
+        initial,
+        ContObserver(observer.onFatal, observer.onNone, observer.onFail, (tuple) {
+          final (updated, value) = tuple;
+          observer.onSome(
+            Step(value, () {
+              final next = unfold(updated, action);
+              return next;
+            }),
+          );
+        }),
+      );
+    });
+  }
+}
+
+final class Step<A> {
+  final A value;
+  final Cont<Step<A>> Function() next;
+
+  const Step(this.value, this.next);
 }
 
 // applicatives
