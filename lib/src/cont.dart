@@ -968,6 +968,38 @@ final class Cont<A> {
       }
     }).then(this);
   }
+
+  static Cont<Step<I, A>> Function(I) stepper<S, I, A>(
+    S initial,
+    Cont<(S, A)> Function(S, I) f,
+    //
+  ) {
+    return (input) {
+      return Cont.fromRun((observer) {
+        final cont = f(initial, input);
+        cont.run(
+          observer.onFatal,
+          onNone: observer.onNone,
+          onFail: observer.onFail,
+          onSome: (tuple) {
+            final (s, a) = tuple;
+            observer.onSome(
+              Step(a, (input) {
+                return stepper(s, f)(input);
+              }),
+            );
+          },
+        );
+      });
+    };
+  }
+}
+
+final class Step<I, A> {
+  final A value;
+  final Cont<Step<I, A>> Function(I) next;
+
+  const Step(this.value, this.next);
 }
 
 // applicatives
