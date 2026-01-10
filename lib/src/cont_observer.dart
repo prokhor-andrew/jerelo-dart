@@ -1,8 +1,7 @@
-import 'package:jerelo/src/cont_error.dart';
 
 final class ContObserver<A> {
   final void Function() onNone;
-  final void Function(ContError error, List<ContError> errors) _onFail;
+  final void Function(Object error, List<Object> errors) _onFail;
   final void Function(A value) onSome;
 
   const ContObserver(this.onNone, this._onFail, this.onSome);
@@ -11,7 +10,7 @@ final class ContObserver<A> {
     return ContObserver(() {}, (_, _) {}, (_) {});
   }
 
-  void onFail(ContError error, [List<ContError> errors = const []]) {
+  void onFail(Object error, [List<Object> errors = const []]) {
     _onFail(error, errors);
   }
 
@@ -19,7 +18,7 @@ final class ContObserver<A> {
     return ContObserver(onNone, _onFail, onSome);
   }
 
-  ContObserver<A> copyUpdateOnFail(void Function(ContError error, List<ContError> errors) onFail) {
+  ContObserver<A> copyUpdateOnFail(void Function(Object error, List<Object> errors) onFail) {
     return ContObserver(onNone, onFail, onSome);
   }
 

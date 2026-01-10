@@ -1,25 +1,28 @@
-import 'package:jerelo/src/cont_error.dart';
-
 final class ContReporter {
-  final void Function(ContError error) onNone;
-  final void Function(ContError error) onFail;
-  final void Function(ContError error) onSome;
+  final void Function(Object error, StackTrace st) onNone;
+  final void Function(Object error, StackTrace st) onFail;
+  final void Function(Object error, StackTrace st) onSome;
 
-  const ContReporter({required this.onNone, required this.onFail, required this.onSome});
+  const ContReporter({
+    required this.onNone,
+    required this.onFail,
+    required this.onSome,
+    //
+  });
 
   static ContReporter ignore() {
-    return ContReporter(onNone: (_) {}, onFail: (_) {}, onSome: (_) {});
+    return ContReporter(onNone: (_, _) {}, onFail: (_, _) {}, onSome: (_, _) {});
   }
 
-  ContReporter copyUpdateOnFail(void Function(ContError error) onFail) {
+  ContReporter copyUpdateOnNone(void Function(Object error, StackTrace st) onNone) {
     return ContReporter(onNone: onNone, onFail: onFail, onSome: onSome);
   }
 
-  ContReporter copyUpdateOnNone(void Function(ContError error) onNone) {
+  ContReporter copyUpdateOnFail(void Function(Object error, StackTrace st) onFail) {
     return ContReporter(onNone: onNone, onFail: onFail, onSome: onSome);
   }
 
-  ContReporter copyUpdateOnSome(void Function(ContError error) onSome) {
+  ContReporter copyUpdateOnSome(void Function(Object error, StackTrace st) onSome) {
     return ContReporter(onNone: onNone, onFail: onFail, onSome: onSome);
   }
 }
