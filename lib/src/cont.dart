@@ -3,6 +3,8 @@ import 'package:jerelo/src/cont_observer.dart';
 import 'package:jerelo/src/cont_signal.dart';
 import 'package:jerelo/src/ref_commit.dart';
 
+import 'cont_loop.dart';
+
 final class Cont<A> {
   final void Function(ContObserver<A> observer) subscribe;
 
@@ -967,6 +969,17 @@ final class Cont<A> {
         return Cont.unit();
       }
     }).then(this);
+  }
+
+  static Cont<A> loop<S, A>(S initial, Cont<ContLoop<S, A>> Function(S state) step) {
+    return Cont.fromDeferred(() {
+      return step(initial).flatMap((decision) {
+        return switch (decision) {
+          Done<S, A>(:final value) => Cont.of(value),
+          Continue<S, A>(:final state) => loop(state, step),
+        };
+      });
+    });
   }
 }
 
