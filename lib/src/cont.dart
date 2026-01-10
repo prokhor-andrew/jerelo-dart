@@ -90,6 +90,12 @@ final class Cont<A> {
     });
   }
 
+  static Cont<A> fromDeferred<A>(Cont<A> Function() thunk) {
+    return Cont.fromRun((reporter, observer) {
+      thunk().run(reporter, observer);
+    });
+  }
+
   // maps
   Cont<A2> map<A2>(A2 Function(A value) f) {
     return flatMap((a) {
@@ -107,40 +113,6 @@ final class Cont<A> {
   Cont<A2> mapTo<A2>(A2 value) {
     return map0(() {
       return value;
-    });
-  }
-
-  // constructors
-  static Cont<A> fromDeferred<A>(Cont<A> Function() thunk) {
-    return Cont.fromRun((reporter, observer) {
-      thunk().run(reporter, observer);
-    });
-  }
-
-  static Cont<()> fireAndForget<A>(Cont<A> Function() thunk) {
-    return Cont.fromDeferred(() {
-      try {
-        final cont = thunk();
-        cont.run(ContReporter.ignore(), ContObserver.ignore());
-      } catch (error, st) {
-        return Cont.raise(ContError(error, st));
-      }
-
-      return Cont.unit();
-    });
-  }
-
-  static Cont<A> fromThunk<A>(A Function() thunk) {
-    return Cont.fromRun((reporter, observer) {
-      final a = thunk();
-      observer.onSome(a);
-    });
-  }
-
-  static Cont<()> fromProcedure(void Function() procedure) {
-    return Cont.fromRun((reporter, observer) {
-      procedure();
-      observer.onSome(());
     });
   }
 
@@ -238,13 +210,9 @@ final class Cont<A> {
 
   // identities
   static Cont<A> of<A>(A value) {
-    return Cont.fromThunk(() {
-      return value;
+    return Cont.fromRun((reporter, observer) {
+      observer.onSome(value);
     });
-  }
-
-  static Cont<()> unit() {
-    return Cont.of(());
   }
 
   static Cont<A> empty<A>() {
@@ -253,19 +221,11 @@ final class Cont<A> {
     });
   }
 
-  static Cont<Never> zero() {
-    return empty<Never>();
-  }
-
   static Cont<A> raise<A>(ContError error, [List<ContError> errors = const []]) {
     final safeCopy = List<ContError>.from(errors);
     return Cont.fromRun((reporter, observer) {
       observer.onFail(error, safeCopy);
     });
-  }
-
-  static Cont<Never> panic(ContError error, [List<ContError> errors = const []]) {
-    return Cont.raise<Never>(error, errors);
   }
 
   // lax-monoidal
@@ -932,52 +892,6 @@ final class Cont<A> {
         return doProperRelease([ContError(error, st)]);
       }
     });
-  }
-
-  // fire-and-forget + monad
-
-  Cont<A> doOnNone<B>(Cont<B> Function() thunk) {
-    return catchEmpty(() {
-      try {
-        return Cont.fireAndForget(thunk).then(Cont.empty());
-      } catch (_) {
-        return Cont.empty();
-      }
-    });
-  }
-
-  Cont<A> doOnFail<B>(Cont<B> Function(ContError error, List<ContError> errors) f) {
-    return catchError((error, errors) {
-      try {
-        return Cont.fireAndForget(() {
-          return f(error, errors);
-        }).then(Cont.raise(error, errors));
-      } catch (_) {
-        return Cont.raise(error, errors);
-      }
-    });
-  }
-
-  Cont<A> doOnSome<B>(Cont<B> Function(A a) f) {
-    return flatMap((a) {
-      try {
-        return Cont.fireAndForget(() {
-          return f(a);
-        }).then(Cont.of(a));
-      } catch (_) {
-        return Cont.of(a);
-      }
-    });
-  }
-
-  Cont<A> doOnRun<B>(Cont<B> Function() thunk) {
-    return Cont.fromDeferred(() {
-      try {
-        return Cont.fireAndForget(thunk);
-      } catch (_) {
-        return Cont.unit();
-      }
-    }).then(this);
   }
 }
 
