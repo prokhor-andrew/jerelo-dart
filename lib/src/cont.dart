@@ -1,7 +1,6 @@
 import 'package:jerelo/src/cont_error.dart';
 import 'package:jerelo/src/cont_observer.dart';
 import 'package:jerelo/src/cont_signal.dart';
-import 'package:jerelo/src/ref_commit.dart';
 
 final class Cont<A> {
   final void Function(ContObserver<A> observer) subscribe;
@@ -1013,7 +1012,7 @@ final class Ref<S> {
 
   Ref._(S initial) : _state = initial;
 
-  Cont<V> commit<V>(Cont<RefCommit<S, V> Function(S after)> Function(S before) f) {
+  Cont<V> commit<V>(Cont<(S, V) Function(S after)> Function(S before) f) {
     return Cont.fromRun((observer) {
       final before = _state;
 
@@ -1024,11 +1023,11 @@ final class Ref<S> {
         onSome: (function) {
           final after = _state; // this "onSome" can be run later, when "_state" is not the same as it was
           // when we assigned it ton "before", and because of that, our expectation of what state is, can be wrong
-          final RefCommit<S, V> commit;
+          final (S, V) commit;
           try {
             commit = function(after);
-            _state = commit.state;
-            observer.onSome(commit.value);
+            _state = commit.$1;
+            observer.onSome(commit.$2);
           } catch (error, st) {
             observer.onFail(ContError(error, st), []);
           }
