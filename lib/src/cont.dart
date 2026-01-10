@@ -970,13 +970,6 @@ final class Cont<A> {
   }
 }
 
-final class Step<I, A> {
-  final A value;
-  final Cont<Step<I, A>> Function(I) next;
-
-  const Step(this.value, this.next);
-}
-
 // applicatives
 extension ContApplicativeExtension<A, A2> on Cont<A2 Function(A)> {
   Cont<A2> applySequentially(Cont<A> other) {
