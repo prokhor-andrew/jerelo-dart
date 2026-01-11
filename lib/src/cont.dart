@@ -197,45 +197,28 @@ final class Cont<A> {
   }
 
   // lax-monoidal
-  Cont<C> zipSequentially<A2, C>(Cont<A2> other, C Function(A a, A2 a2) f) {
-    return flatMap((a) {
-      return other.map((a2) {
-        return f(a, a2);
+
+  static Cont<C> both<A, B, C>(
+    Cont<A> left,
+    Cont<B> right,
+    C Function(A a, B b) f, {
+    bool isSequential = true,
+    //
+  }) {
+    if (isSequential) {
+      return left.flatMap((a) {
+        return right.map((a2) {
+          return f(a, a2);
+        });
       });
-    });
-  }
+    }
 
-  static Cont<List<A>> zipAllSequentially<A>(List<Cont<A>> list) {
-    final safeCopy = List<Cont<A>>.from(list);
-    return Cont.fromRun((reporter, observer) {
-      final List<A> result = [];
-      void add(int i) {
-        if (i >= safeCopy.length) {
-          observer.onSome(result);
-          return;
-        }
-
-        final cont = safeCopy[i];
-        cont.run(
-          reporter,
-          observer.copyUpdateOnSome((a) {
-            result.add(a);
-            add(i + 1);
-          }),
-        );
-      }
-
-      add(0);
-    });
-  }
-
-  Cont<C> zipConcurrently<A2, C>(Cont<A2> other, C Function(A a, A2 a2) f) {
     return Cont.fromRun((reporter, observer) {
       bool isOneFail = false;
       bool isOneSome = false;
 
       A? outerA;
-      A2? outerA2;
+      B? outerB;
       final List<Object> resultErrors = [];
 
       void handleSome() {
@@ -246,7 +229,7 @@ final class Cont<A> {
 
         if (isOneSome) {
           try {
-            final c = f(outerA as A, outerA2 as A2);
+            final c = f(outerA as A, outerB as B);
             observer.onSome(c);
           } catch (error) {
             observer.onFail(error, []);
@@ -273,7 +256,7 @@ final class Cont<A> {
         }
       }
 
-      run(
+      left.run(
         reporter,
         ContObserver(
           handleNoneAndFail,
@@ -291,7 +274,7 @@ final class Cont<A> {
         ),
       );
 
-      other.run(
+      right.run(
         reporter,
         ContObserver(
           handleNoneAndFail,
@@ -301,9 +284,9 @@ final class Cont<A> {
             resultErrors.addAll(errors);
             handleNoneAndFail();
           },
-          (a2) {
+          (b) {
             // strict order must be followed
-            outerA2 = a2;
+            outerB = b;
             handleSome();
           },
         ),
@@ -311,8 +294,44 @@ final class Cont<A> {
     });
   }
 
-  static Cont<List<A>> zipAllConcurrently<A>(List<Cont<A>> list) {
+  Cont<C> and<B, C>(
+    Cont<B> other,
+    C Function(A a, B b) f, {
+    bool isSequential = true,
+    //
+  }) {
+    return Cont.both(this, other, f, isSequential: isSequential);
+  }
+
+  static Cont<List<A>> all<A>(
+    List<Cont<A>> list, {
+    bool isSequential = true,
+    //
+  }) {
     final safeCopy = List<Cont<A>>.from(list);
+    if (isSequential) {
+      return Cont.fromRun((reporter, observer) {
+        final List<A> result = [];
+        void add(int i) {
+          if (i >= safeCopy.length) {
+            observer.onSome(result);
+            return;
+          }
+
+          final cont = safeCopy[i];
+          cont.run(
+            reporter,
+            observer.copyUpdateOnSome((a) {
+              result.add(a);
+              add(i + 1);
+            }),
+          );
+        }
+
+        add(0);
+      });
+    }
+
     return Cont.fromRun((reporter, observer) {
       if (safeCopy.isEmpty) {
         observer.onSome(<A>[]);
@@ -807,16 +826,10 @@ final class Cont<A> {
 
 // applicatives
 extension ContApplicativeExtension<A, A2> on Cont<A2 Function(A)> {
-  Cont<A2> applySequentially(Cont<A> other) {
-    return zipSequentially(other, (function, value) {
+  Cont<A2> apply(Cont<A> other, {bool isSequential = true}) {
+    return and(other, (function, value) {
       return function(value);
-    });
-  }
-
-  Cont<A2> applyConcurrently(Cont<A> other) {
-    return zipConcurrently(other, (function, value) {
-      return function(value);
-    });
+    }, isSequential: isSequential);
   }
 }
 
