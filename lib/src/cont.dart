@@ -833,10 +833,6 @@ A _idfunc<A>(A a) {
   return a;
 }
 
-A _absurd<A>(Never never) {
-  return never;
-}
-
 // a runner that runs an actions strictly once.
 // if invoked more than once - does not do anything
 
