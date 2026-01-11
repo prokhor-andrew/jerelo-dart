@@ -407,170 +407,92 @@ final class Cont<A> {
     });
   }
 
-  // always returns non-none and non-fail winner (first value)
-  Cont<C> racePickWinner<A2, C>(Cont<A2> other, C Function(A a) lf, C Function(A2 a2) rf) {
-    return Cont.fromRun((reporter, observer) {
-      final runner = _IdempotentRunner();
+  static Cont<A> race<A>(Cont<A> left, Cont<A> right, {bool pickWinner = true}) {
+    if (pickWinner) {
+      return Cont.fromRun((reporter, observer) {
+        final runner = _IdempotentRunner();
 
-      bool isOneFailed = false;
-      final List<Object> resultErrors = [];
+        bool isOneFailed = false;
+        final List<Object> resultErrors = [];
 
-      void handleNoneOrFail(void Function() codeToUpdateState) {
-        if (isOneFailed) {
-          codeToUpdateState();
+        void handleNoneOrFail(void Function() codeToUpdateState) {
+          if (isOneFailed) {
+            codeToUpdateState();
 
-          if (resultErrors.isEmpty) {
-            observer.onNone();
+            if (resultErrors.isEmpty) {
+              observer.onNone();
+              return;
+            }
+
+            observer.onFail(resultErrors.first, resultErrors.skip(1).toList());
             return;
           }
+          isOneFailed = true;
 
-          observer.onFail(resultErrors.first, resultErrors.skip(1).toList());
-          return;
-        }
-        isOneFailed = true;
-
-        codeToUpdateState();
-      }
-
-      run(
-        reporter,
-        ContObserver(
-          () {
-            handleNoneOrFail(() {});
-          },
-          (error, errors) {
-            handleNoneOrFail(() {
-              resultErrors.insert(0, error);
-              resultErrors.insertAll(1, errors);
-            });
-          },
-          (a) {
-            try {
-              final result = lf(a);
-              runner.runIfNotDone(() {
-                observer.onSome(result);
-              });
-            } catch (error) {
-              handleNoneOrFail(() {
-                resultErrors.insert(0, error);
-              });
-            }
-          },
-        ),
-      );
-
-      other.run(
-        reporter,
-        ContObserver(
-          () {
-            handleNoneOrFail(() {});
-          },
-          (error, errors) {
-            handleNoneOrFail(() {
-              resultErrors.add(error);
-              resultErrors.addAll(errors);
-            });
-          },
-          (a2) {
-            try {
-              final result = rf(a2);
-              runner.runIfNotDone(() {
-                observer.onSome(result);
-              });
-            } catch (error) {
-              handleNoneOrFail(() {
-                resultErrors.add(error);
-              });
-            }
-          },
-        ),
-      );
-    });
-  }
-
-  Cont<A> racePickWinnerSame(Cont<A> other) {
-    return racePickWinner(other, _idfunc<A>, _idfunc<A>);
-  }
-
-  static Cont<(int, A)> raceAllPickWinnerTagged<A>(List<Cont<A>> list) {
-    final safeCopy = List<Cont<A>>.from(list);
-    return Cont.fromRun((reporter, observer) {
-      if (safeCopy.isEmpty) {
-        observer.onNone();
-        return;
-      }
-
-      final List<List<Object>> resultOfErrors = List.generate(safeCopy.length, (_) {
-        return [];
-      });
-
-      bool isWinnerFound = false;
-      int numberOfFinished = 0;
-
-      void handleNoneAndFail(int index, List<Object> errors) {
-        if (isWinnerFound) {
-          return;
-        }
-        numberOfFinished += 1;
-
-        resultOfErrors[index] = errors;
-
-        if (numberOfFinished < safeCopy.length) {
-          return;
+          codeToUpdateState();
         }
 
-        final flattened = resultOfErrors.expand((list) {
-          return list;
-        }).toList();
-
-        if (flattened.isEmpty) {
-          observer.onNone();
-          return;
-        }
-
-        observer.onFail(flattened.first, flattened.skip(1).toList());
-      }
-
-      for (int i = 0; i < safeCopy.length; i++) {
-        final index = i; // this is important to capture. if we reference "i" from onSome block, we might pick wrong index
-        final cont = safeCopy[i];
-        cont.run(
+        left.run(
           reporter,
           ContObserver(
             () {
-              handleNoneAndFail(index, []);
+              handleNoneOrFail(() {});
             },
             (error, errors) {
-              handleNoneAndFail(index, [error, ...errors]);
+              handleNoneOrFail(() {
+                resultErrors.insert(0, error);
+                resultErrors.insertAll(1, errors);
+              });
             },
             (a) {
-              if (isWinnerFound) {
-                return;
+              try {
+                runner.runIfNotDone(() {
+                  observer.onSome(a);
+                });
+              } catch (error) {
+                handleNoneOrFail(() {
+                  resultErrors.insert(0, error);
+                });
               }
-              isWinnerFound = true;
-              observer.onSome((index, a));
             },
           ),
         );
-      }
-    });
-  }
 
-  static Cont<A> raceAllPickWinner<A>(List<Cont<A>> list) {
-    return raceAllPickWinnerTagged(list).map((tuple) {
-      return tuple.$2;
-    });
-  }
+        right.run(
+          reporter,
+          ContObserver(
+            () {
+              handleNoneOrFail(() {});
+            },
+            (error, errors) {
+              handleNoneOrFail(() {
+                resultErrors.add(error);
+                resultErrors.addAll(errors);
+              });
+            },
+            (a) {
+              try {
+                runner.runIfNotDone(() {
+                  observer.onSome(a);
+                });
+              } catch (error) {
+                handleNoneOrFail(() {
+                  resultErrors.add(error);
+                });
+              }
+            },
+          ),
+        );
+      });
+    }
 
-  // always returns non-onNone and non-fail loser (last value)
-  Cont<C> racePickLoser<A2, C>(Cont<A2> other, C Function(A a) lf, C Function(A2 a2) rf) {
     return Cont.fromRun((reporter, observer) {
       bool isFirstComputed = false;
 
       final List<Object> resultErrors = [];
 
       bool isResultAvailable = false;
-      C? result;
+      A? result;
 
       void handleNoneOrFail(void Function() codeToUpdateState) {
         if (!isFirstComputed) {
@@ -580,7 +502,7 @@ final class Cont<A> {
         }
 
         if (isResultAvailable) {
-          observer.onSome(result as C);
+          observer.onSome(result as A);
           return;
         }
 
@@ -594,7 +516,7 @@ final class Cont<A> {
         observer.onFail(resultErrors.first, resultErrors.skip(1).toList());
       }
 
-      run(
+      left.run(
         reporter,
         ContObserver(
           () {
@@ -609,11 +531,10 @@ final class Cont<A> {
           (a) {
             if (isFirstComputed) {
               try {
-                final result = lf(a);
-                observer.onSome(result);
+                observer.onSome(a);
               } catch (error) {
                 if (isResultAvailable) {
-                  observer.onSome(result as C);
+                  observer.onSome(result as A);
                 } else {
                   handleNoneOrFail(() {
                     resultErrors.insert(0, error);
@@ -624,7 +545,7 @@ final class Cont<A> {
             }
 
             try {
-              result = lf(a);
+              result = a;
               isFirstComputed = true;
               isResultAvailable = true;
             } catch (error) {
@@ -636,7 +557,7 @@ final class Cont<A> {
         ),
       );
 
-      other.run(
+      right.run(
         reporter,
         ContObserver(
           () {
@@ -648,11 +569,10 @@ final class Cont<A> {
               resultErrors.addAll(errors);
             });
           },
-          (a2) {
+          (a) {
             if (isFirstComputed) {
               try {
-                final result = rf(a2);
-                observer.onSome(result);
+                observer.onSome(a);
               } catch (error) {
                 handleNoneOrFail(() {
                   resultErrors.add(error);
@@ -662,7 +582,7 @@ final class Cont<A> {
             }
 
             try {
-              result = rf(a2);
+              result = a;
               isFirstComputed = true;
               isResultAvailable = true;
             } catch (error) {
@@ -676,12 +596,75 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> racePickLoserSame(Cont<A> other) {
-    return racePickLoser(other, _idfunc<A>, _idfunc<A>);
+  Cont<A> raceWith(Cont<A> other, {bool pickWinner = true}) {
+    return Cont.race(this, other, pickWinner: pickWinner);
   }
 
-  static Cont<(int, A)> raceAllPickLoserTagged<A>(List<Cont<A>> list) {
+  static Cont<A> raceAll<A>(List<Cont<A>> list, {bool pickWinner = true}) {
     final safeCopy = List<Cont<A>>.from(list);
+    if (pickWinner) {
+      return Cont.fromRun((reporter, observer) {
+        if (safeCopy.isEmpty) {
+          observer.onNone();
+          return;
+        }
+
+        final List<List<Object>> resultOfErrors = List.generate(safeCopy.length, (_) {
+          return [];
+        });
+
+        bool isWinnerFound = false;
+        int numberOfFinished = 0;
+
+        void handleNoneAndFail(int index, List<Object> errors) {
+          if (isWinnerFound) {
+            return;
+          }
+          numberOfFinished += 1;
+
+          resultOfErrors[index] = errors;
+
+          if (numberOfFinished < safeCopy.length) {
+            return;
+          }
+
+          final flattened = resultOfErrors.expand((list) {
+            return list;
+          }).toList();
+
+          if (flattened.isEmpty) {
+            observer.onNone();
+            return;
+          }
+
+          observer.onFail(flattened.first, flattened.skip(1).toList());
+        }
+
+        for (int i = 0; i < safeCopy.length; i++) {
+          final index = i; // this is important to capture. if we reference "i" from onSome block, we might pick wrong index
+          final cont = safeCopy[i];
+          cont.run(
+            reporter,
+            ContObserver(
+              () {
+                handleNoneAndFail(index, []);
+              },
+              (error, errors) {
+                handleNoneAndFail(index, [error, ...errors]);
+              },
+              (a) {
+                if (isWinnerFound) {
+                  return;
+                }
+                isWinnerFound = true;
+                observer.onSome(a);
+              },
+            ),
+          );
+        }
+      });
+    }
+
     return Cont.fromRun((reporter, observer) {
       if (safeCopy.isEmpty) {
         observer.onNone();
@@ -704,7 +687,7 @@ final class Cont<A> {
 
         if (lastValueIndex != -1) {
           // an element is there
-          observer.onSome((lastValueIndex, lastValue as A));
+          observer.onSome(lastValue as A);
           return;
         }
 
@@ -744,24 +727,17 @@ final class Cont<A> {
     });
   }
 
-  static Cont<A> raceAllPickLoser<A>(List<Cont<A>> list) {
-    return raceAllPickLoserTagged(list).map((tuple) {
-      return tuple.$2;
-    });
-  }
-
-  Cont<C> orElse<A2, C>(Cont<A2> other, C Function(A a) lf, C Function(A2 a2) rf) {
+  static Cont<A> either<A>(Cont<A> left, Cont<A> right) {
     return Cont.fromRun((reporter, observer) {
-      run(
+      left.run(
         reporter,
         ContObserver(
           () {
-            other.run(
+            right.run(
               reporter,
               observer.copyUpdateOnSome((a2) {
                 try {
-                  final result = rf(a2);
-                  observer.onSome(result);
+                  observer.onSome(a2);
                 } catch (error) {
                   observer.onFail(error, []);
                 }
@@ -769,7 +745,7 @@ final class Cont<A> {
             );
           },
           (error, errors) {
-            other.run(
+            right.run(
               reporter,
               ContObserver(
                 () {
@@ -780,8 +756,7 @@ final class Cont<A> {
                 },
                 (a2) {
                   try {
-                    final result = rf(a2);
-                    observer.onSome(result);
+                    observer.onSome(a2);
                   } catch (error) {
                     observer.onFail(error, []);
                   }
@@ -791,8 +766,7 @@ final class Cont<A> {
           },
           (a) {
             try {
-              final result = lf(a);
-              observer.onSome(result);
+              observer.onSome(a);
             } catch (error) {
               observer.onFail(error, []);
             }
@@ -802,25 +776,12 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> orElseSame(Cont<A> other) {
-    return orElse(other, _idfunc<A>, _idfunc<A>);
+  Cont<A> or(Cont<A> other) {
+    return Cont.either(this, other);
   }
 
-  static Cont<(int, A)> firstSuccessTagged<A>(List<Cont<A>> list) {
-    return list.indexed.fold<Cont<(int, A)>>(Cont.empty<(int, A)>(), (accumulator, element) {
-      final (index, cont) = element;
-      final indexedCont = cont.map((a) {
-        return (index, a);
-      });
-
-      return accumulator.orElseSame(indexedCont);
-    });
-  }
-
-  static Cont<A> firstSuccess<A>(List<Cont<A>> list) {
-    return firstSuccessTagged(list).map((tuple) {
-      return tuple.$2;
-    });
+  static Cont<A> any<A>(List<Cont<A>> list) {
+    return list.fold<Cont<A>>(Cont.empty<A>(), Cont.either<A>);
   }
 }
 
