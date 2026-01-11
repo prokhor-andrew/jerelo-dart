@@ -176,37 +176,6 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> filter(bool Function(A value) predicate) {
-    return flatMap((a) {
-      final isValid = predicate(a);
-      if (isValid) {
-        return Cont.of(a);
-      } else {
-        return Cont.empty();
-      }
-    });
-  }
-
-  Cont<A2> then<A2>(Cont<A2> cont) {
-    return flatMap0(() {
-      return cont;
-    });
-  }
-
-  Cont<A> after<A2>(Cont<A2> cont) {
-    return cont.then(this);
-  }
-
-  Cont<A> thenKeepFirst<A2>(Cont<A2> cont) {
-    return flatMap((a) {
-      return cont.mapTo(a);
-    });
-  }
-
-  Cont<A2> afterKeepSecond<A2>(Cont<A2> cont) {
-    return cont.thenKeepFirst(this);
-  }
-
   // identities
   static Cont<A> of<A>(A value) {
     return Cont.fromRun((reporter, observer) {
@@ -834,64 +803,6 @@ final class Cont<A> {
       return tuple.$2;
     });
   }
-
-  // life-cycle
-  static Cont<A> withRef<S, A>(
-    S initial,
-    Cont<A> Function(Ref<S> ref) use,
-    Cont<Never> Function(Ref<S> ref) release,
-    //
-  ) {
-    return Cont.fromDeferred(() {
-      final ref = Ref._(initial);
-
-      Cont<A> doProperRelease(List<Object> errors) {
-        try {
-          final releaseCont = release(ref);
-          return releaseCont
-              .catchEmpty(() {
-                if (errors.isNotEmpty) {
-                  return Cont.raise(errors.first, [...errors.skip(1)]);
-                }
-
-                return Cont.empty();
-              })
-              .catchError((error2, errors2) {
-                if (errors.isNotEmpty) {
-                  return Cont.raise(errors.first, [...errors.skip(1), error2, ...errors2]);
-                }
-
-                return Cont.raise(error2, errors2);
-              })
-              .map(_absurd);
-        } catch (error2) {
-          if (errors.isNotEmpty) {
-            return Cont.raise(errors.first, [...errors.skip(1), error2]);
-          } else {
-            return Cont.raise(error2);
-          }
-        }
-      }
-
-      try {
-        final mainCont = use(ref);
-        return mainCont
-            .catchEmpty(() {
-              return doProperRelease([]);
-            })
-            .catchError((error, errors) {
-              return doProperRelease([error, ...errors]);
-            })
-            .flatMap((a) {
-              return doProperRelease([]).catchEmpty(() {
-                return Cont.of(a);
-              });
-            });
-      } catch (error) {
-        return doProperRelease([error]);
-      }
-    });
-  }
 }
 
 // applicatives
@@ -912,51 +823,6 @@ extension ContApplicativeExtension<A, A2> on Cont<A2 Function(A)> {
 extension ContFlattenExtension<A> on Cont<Cont<A>> {
   Cont<A> flatten() {
     return flatMap(_idfunc<Cont<A>>);
-  }
-}
-
-extension FlatMapTrueFalseExtension on Cont<bool> {
-  Cont<A2> ifThenElse<A2>(Cont<A2> thenCont, Cont<A2> elseCont) {
-    return flatMap((condition) {
-      if (condition) {
-        return thenCont;
-      } else {
-        return elseCont;
-      }
-    });
-  }
-
-  Cont<A2> ifElseThen<A2>(Cont<A2> elseCont, Cont<A2> thenCont) {
-    return ifThenElse(thenCont, elseCont);
-  }
-}
-
-// little tooling
-final class Ref<S> {
-  S _state;
-
-  Ref._(S initial) : _state = initial;
-
-  Cont<V> commit<V>(Cont<(S, V) Function(S after)> Function(S before) f) {
-    return Cont.fromRun((reporter, observer) {
-      final before = _state;
-
-      f(before).run(
-        reporter,
-        observer.copyUpdateOnSome((function) {
-          final after = _state; // this "onSome" can be run later, when "_state" is not the same as it was
-          // when we assigned it ton "before", and because of that, our expectation of what state is, can be wrong
-          final (S, V) commit;
-          try {
-            commit = function(after);
-            _state = commit.$1;
-            observer.onSome(commit.$2);
-          } catch (error) {
-            observer.onFail(error, []);
-          }
-        }),
-      );
-    });
   }
 }
 
