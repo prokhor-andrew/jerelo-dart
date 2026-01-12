@@ -1,4 +1,3 @@
-
 final class ContObserver<A> {
   final void Function() onNone;
   final void Function(Object error, List<Object> errors) _onFail;

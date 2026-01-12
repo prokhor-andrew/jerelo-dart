@@ -7,7 +7,7 @@ final class Cont<A> {
   // ! constructor must not be called by anything other than "Cont.fromRun" !
   const Cont._(this.run);
 
-  // onNone and some should be called as a last instruction in "run" or saved to be called later
+  // onNone, onFail and onSome should be called as a last instruction in "run" or saved to be called later
   static Cont<A> fromRun<A>(void Function(ContReporter reporter, ContObserver<A> observer) run) {
     // guarantees idempotence
     // guarantees to catch throws
@@ -39,9 +39,10 @@ final class Cont<A> {
       }
 
       bool guardedFail(Object error, List<Object> errors) {
+        final List<Object> safeCopyErrors = List<Object>.from(errors);
         return runner.runIfNotDone(() {
           try {
-            observer.onFail(error, errors);
+            observer.onFail(error, safeCopyErrors);
           } catch (error, st) {
             handleUnrecoverableFailure(error, st, _ContSignal.fail);
           }
@@ -159,11 +160,12 @@ final class Cont<A> {
       run(
         reporter,
         observer.copyUpdateOnFail((error, errors) {
+          final List<Object> safeCopyErrors = List<Object>.from(errors);
           try {
-            final recoveryCont = f(error, errors);
+            final recoveryCont = f(error, safeCopyErrors);
             recoveryCont.run(reporter, observer);
           } catch (error2) {
-            observer.onFail(error, [...errors, error2]);
+            observer.onFail(error, [...safeCopyErrors, error2]);
           }
         }),
       );
@@ -190,9 +192,9 @@ final class Cont<A> {
   }
 
   static Cont<A> raise<A>(Object error, [List<Object> errors = const []]) {
-    final safeCopy = List<Object>.from(errors);
+    final safeCopyErrors = List<Object>.from(errors);
     return Cont.fromRun((reporter, observer) {
-      observer.onFail(error, safeCopy);
+      observer.onFail(error, safeCopyErrors);
     });
   }
 
@@ -256,41 +258,53 @@ final class Cont<A> {
         }
       }
 
-      left.run(
-        reporter,
-        ContObserver(
-          handleNoneAndFail,
-          (error, errors) {
-            // strict order must be followed
-            resultErrors.insert(0, error);
-            resultErrors.insertAll(1, errors);
-            handleNoneAndFail();
-          },
-          (a) {
-            // strict order must be followed
-            outerA = a;
-            handleSome();
-          },
-        ),
-      );
+      try {
+        left.run(
+          reporter,
+          ContObserver(
+            handleNoneAndFail,
+            (error, errors) {
+              // strict order must be followed
+              resultErrors.insert(0, error);
+              resultErrors.insertAll(1, errors);
+              handleNoneAndFail();
+            },
+            (a) {
+              // strict order must be followed
+              outerA = a;
+              handleSome();
+            },
+          ),
+        );
+      } catch (error) {
+        // strict order must be followed
+        resultErrors.insert(0, error);
+        handleNoneAndFail();
+      }
 
-      right.run(
-        reporter,
-        ContObserver(
-          handleNoneAndFail,
-          (error, errors) {
-            // strict order must be followed
-            resultErrors.add(error);
-            resultErrors.addAll(errors);
-            handleNoneAndFail();
-          },
-          (b) {
-            // strict order must be followed
-            outerB = b;
-            handleSome();
-          },
-        ),
-      );
+      try {
+        right.run(
+          reporter,
+          ContObserver(
+            handleNoneAndFail,
+            (error, errors) {
+              // strict order must be followed
+              resultErrors.add(error);
+              resultErrors.addAll(errors);
+              handleNoneAndFail();
+            },
+            (b) {
+              // strict order must be followed
+              outerB = b;
+              handleSome();
+            },
+          ),
+        );
+      } catch (error) {
+        // strict order must be followed
+        resultErrors.add(error);
+        handleNoneAndFail();
+      }
     });
   }
 
@@ -432,57 +446,69 @@ final class Cont<A> {
           codeToUpdateState();
         }
 
-        left.run(
-          reporter,
-          ContObserver(
-            () {
-              handleNoneOrFail(() {});
-            },
-            (error, errors) {
-              handleNoneOrFail(() {
-                resultErrors.insert(0, error);
-                resultErrors.insertAll(1, errors);
-              });
-            },
-            (a) {
-              try {
-                runner.runIfNotDone(() {
-                  observer.onSome(a);
-                });
-              } catch (error) {
+        try {
+          left.run(
+            reporter,
+            ContObserver(
+              () {
+                handleNoneOrFail(() {});
+              },
+              (error, errors) {
                 handleNoneOrFail(() {
                   resultErrors.insert(0, error);
+                  resultErrors.insertAll(1, errors);
                 });
-              }
-            },
-          ),
-        );
+              },
+              (a) {
+                try {
+                  runner.runIfNotDone(() {
+                    observer.onSome(a);
+                  });
+                } catch (error) {
+                  handleNoneOrFail(() {
+                    resultErrors.insert(0, error);
+                  });
+                }
+              },
+            ),
+          );
+        } catch (error) {
+          handleNoneOrFail(() {
+            resultErrors.insert(0, error);
+          });
+        }
 
-        right.run(
-          reporter,
-          ContObserver(
-            () {
-              handleNoneOrFail(() {});
-            },
-            (error, errors) {
-              handleNoneOrFail(() {
-                resultErrors.add(error);
-                resultErrors.addAll(errors);
-              });
-            },
-            (a) {
-              try {
-                runner.runIfNotDone(() {
-                  observer.onSome(a);
-                });
-              } catch (error) {
+        try {
+          right.run(
+            reporter,
+            ContObserver(
+              () {
+                handleNoneOrFail(() {});
+              },
+              (error, errors) {
                 handleNoneOrFail(() {
                   resultErrors.add(error);
+                  resultErrors.addAll(errors);
                 });
-              }
-            },
-          ),
-        );
+              },
+              (a) {
+                try {
+                  runner.runIfNotDone(() {
+                    observer.onSome(a);
+                  });
+                } catch (error) {
+                  handleNoneOrFail(() {
+                    resultErrors.add(error);
+                  });
+                }
+              },
+            ),
+          );
+        } catch (error) {
+          handleNoneOrFail(() {
+            resultErrors.add(error);
+          });
+        }
       });
     }
 
@@ -516,83 +542,95 @@ final class Cont<A> {
         observer.onFail(resultErrors.first, resultErrors.skip(1).toList());
       }
 
-      left.run(
-        reporter,
-        ContObserver(
-          () {
-            handleNoneOrFail(() {});
-          },
-          (error, errors) {
-            handleNoneOrFail(() {
-              resultErrors.insert(0, error);
-              resultErrors.insertAll(1, errors);
-            });
-          },
-          (a) {
-            if (isFirstComputed) {
-              try {
-                observer.onSome(a);
-              } catch (error) {
-                if (isResultAvailable) {
-                  observer.onSome(result as A);
-                } else {
-                  handleNoneOrFail(() {
-                    resultErrors.insert(0, error);
-                  });
-                }
-              }
-              return;
-            }
-
-            try {
-              result = a;
-              isFirstComputed = true;
-              isResultAvailable = true;
-            } catch (error) {
+      try {
+        left.run(
+          reporter,
+          ContObserver(
+            () {
+              handleNoneOrFail(() {});
+            },
+            (error, errors) {
               handleNoneOrFail(() {
                 resultErrors.insert(0, error);
+                resultErrors.insertAll(1, errors);
               });
-            }
-          },
-        ),
-      );
+            },
+            (a) {
+              if (isFirstComputed) {
+                try {
+                  observer.onSome(a);
+                } catch (error) {
+                  if (isResultAvailable) {
+                    observer.onSome(result as A);
+                  } else {
+                    handleNoneOrFail(() {
+                      resultErrors.insert(0, error);
+                    });
+                  }
+                }
+                return;
+              }
 
-      right.run(
-        reporter,
-        ContObserver(
-          () {
-            handleNoneOrFail(() {});
-          },
-          (error, errors) {
-            handleNoneOrFail(() {
-              resultErrors.add(error);
-              resultErrors.addAll(errors);
-            });
-          },
-          (a) {
-            if (isFirstComputed) {
               try {
-                observer.onSome(a);
+                result = a;
+                isFirstComputed = true;
+                isResultAvailable = true;
+              } catch (error) {
+                handleNoneOrFail(() {
+                  resultErrors.insert(0, error);
+                });
+              }
+            },
+          ),
+        );
+      } catch (error) {
+        handleNoneOrFail(() {
+          resultErrors.insert(0, error);
+        });
+      }
+
+      try {
+        right.run(
+          reporter,
+          ContObserver(
+            () {
+              handleNoneOrFail(() {});
+            },
+            (error, errors) {
+              handleNoneOrFail(() {
+                resultErrors.add(error);
+                resultErrors.addAll(errors);
+              });
+            },
+            (a) {
+              if (isFirstComputed) {
+                try {
+                  observer.onSome(a);
+                } catch (error) {
+                  handleNoneOrFail(() {
+                    resultErrors.add(error);
+                  });
+                }
+                return;
+              }
+
+              try {
+                result = a;
+                isFirstComputed = true;
+                isResultAvailable = true;
               } catch (error) {
                 handleNoneOrFail(() {
                   resultErrors.add(error);
                 });
               }
-              return;
-            }
-
-            try {
-              result = a;
-              isFirstComputed = true;
-              isResultAvailable = true;
-            } catch (error) {
-              handleNoneOrFail(() {
-                resultErrors.add(error);
-              });
-            }
-          },
-        ),
-      );
+            },
+          ),
+        );
+      } catch (error) {
+        handleNoneOrFail(() {
+          resultErrors.add(error);
+        });
+      }
     });
   }
 
@@ -620,9 +658,10 @@ final class Cont<A> {
           if (isWinnerFound) {
             return;
           }
+          final List<Object> safeCopyErrors = List<Object>.from(errors);
           numberOfFinished += 1;
 
-          resultOfErrors[index] = errors;
+          resultOfErrors[index] = safeCopyErrors;
 
           if (numberOfFinished < safeCopy.length) {
             return;
@@ -733,43 +772,39 @@ final class Cont<A> {
         reporter,
         ContObserver(
           () {
-            right.run(
-              reporter,
-              observer.copyUpdateOnSome((a2) {
-                try {
+            try {
+              right.run(
+                reporter,
+                observer.copyUpdateOnSome((a2) {
                   observer.onSome(a2);
-                } catch (error) {
-                  observer.onFail(error, []);
-                }
-              }),
-            );
+                }),
+              );
+            } catch (error) {
+              observer.onFail(error);
+            }
           },
           (error, errors) {
-            right.run(
-              reporter,
-              ContObserver(
-                () {
-                  observer.onFail(error, errors);
-                },
-                (error2, errors2) {
-                  observer.onFail(error, [...errors, error2, ...errors2]);
-                },
-                (a2) {
-                  try {
+            try {
+              right.run(
+                reporter,
+                ContObserver(
+                  () {
+                    observer.onFail(error, errors);
+                  },
+                  (error2, errors2) {
+                    observer.onFail(error, [...errors, error2, ...errors2]);
+                  },
+                  (a2) {
                     observer.onSome(a2);
-                  } catch (error) {
-                    observer.onFail(error, []);
-                  }
-                },
-              ),
-            );
+                  },
+                ),
+              );
+            } catch (error2) {
+              observer.onFail(error, [...errors, error2]);
+            }
           },
           (a) {
-            try {
-              observer.onSome(a);
-            } catch (error) {
-              observer.onFail(error, []);
-            }
+            observer.onSome(a);
           },
         ),
       );
@@ -796,16 +831,11 @@ extension ContApplicativeExtension<A, A2> on Cont<A2 Function(A)> {
 
 extension ContFlattenExtension<A> on Cont<Cont<A>> {
   Cont<A> flatten() {
-    return flatMap(_idfunc<Cont<A>>);
+    return flatMap((contA) => contA);
   }
 }
 
 // private
-
-// Identity function
-A _idfunc<A>(A a) {
-  return a;
-}
 
 // a runner that runs an actions strictly once.
 // if invoked more than once - does not do anything
