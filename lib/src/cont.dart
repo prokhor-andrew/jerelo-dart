@@ -327,24 +327,73 @@ final class Cont<A> {
     final safeCopy = List<Cont<A>>.from(list);
     if (isSequential) {
       return Cont.fromRun((reporter, observer) {
-        final List<A> result = [];
-        void add(int i) {
-          if (i >= safeCopy.length) {
-            observer.onSome(result);
-            return;
-          }
-
-          final cont = safeCopy[i];
-          cont.run(
-            reporter,
-            observer.copyUpdateOnSome((a) {
-              result.add(a);
-              add(i + 1);
-            }),
-          );
-        }
-
-        add(0);
+        _stackSafeLoop<_AllSequentialResult<A>, (int, List<A>), _AllSequentialResult<A>>(
+          seed: _AllSequentialResultSome<A>(0, []),
+          keepRunningIf: (state) {
+            return switch (state) {
+              _AllSequentialResultSome(i: final i, values: final values) => i < values.length ? _StackSafeLoopPolicyKeepRunning((i, values)) : _StackSafeLoopPolicyStop(state),
+              _AllSequentialResultFail() => _StackSafeLoopPolicyStop(state),
+              _AllSequentialResultNone() => _StackSafeLoopPolicyStop(state),
+              _AllSequentialResultFatal() => _StackSafeLoopPolicyStop(state),
+            };
+          },
+          computation: (tuple, callback) {
+            final (i, values) = tuple;
+            final cont = safeCopy[i];
+            cont.run(
+              ContReporter(
+                onNone: (error, st) {
+                  callback(_AllSequentialResultFatal(error, st, _ContSignal.none));
+                },
+                onFail: (error, st) {
+                  callback(_AllSequentialResultFatal(error, st, _ContSignal.fail));
+                },
+                onSome: (error, st) {
+                  callback(_AllSequentialResultFatal(error, st, _ContSignal.some));
+                },
+                //
+              ),
+              ContObserver(
+                () {
+                  callback(_AllSequentialResultNone());
+                },
+                (error, errors) {
+                  callback(_AllSequentialResultFail(error, [...errors]));
+                },
+                (a) {
+                  callback(_AllSequentialResultSome(i + 1, [...values, a]));
+                },
+                //
+              ),
+            );
+          },
+          escape: (state) {
+            switch (state) {
+              case _AllSequentialResultSome<A>(values: final values):
+                observer.onSome(values);
+                break;
+              case _AllSequentialResultFail<A>(error: final error, errors: final errors):
+                observer.onFail(error, errors);
+                break;
+              case _AllSequentialResultNone<A>():
+                observer.onNone();
+                break;
+              case _AllSequentialResultFatal<A>(error: final error, st: final st, signal: final signal):
+                switch (signal) {
+                  case _ContSignal.fail:
+                    reporter.onFail(error, st);
+                    break;
+                  case _ContSignal.none:
+                    reporter.onNone(error, st);
+                    break;
+                  case _ContSignal.some:
+                    reporter.onSome(error, st);
+                    break;
+                }
+            }
+          },
+          //
+        );
       });
     }
 
@@ -796,3 +845,104 @@ extension ContFlattenExtension<A> on Cont<Cont<A>> {
 }
 
 enum _ContSignal { fail, none, some }
+
+void _stackSafeLoop<A, B, C>({
+  required A seed,
+  required _StackSafeLoopPolicy<B, C> Function(A) keepRunningIf,
+  required void Function(B, void Function(A)) computation,
+  required void Function(C) escape,
+  //
+}) {
+  var mutableSeedCopy = seed;
+
+  while (true) {
+    final policy = keepRunningIf(mutableSeedCopy);
+
+    switch (policy) {
+      case _StackSafeLoopPolicyStop<B, C>(value: final value):
+        escape(value);
+        return;
+      case _StackSafeLoopPolicyKeepRunning<B, C>():
+        break;
+    }
+
+    bool isSchedulerUsed = false;
+    bool isSync1 = true;
+    bool isSync2 = false;
+
+    computation(policy.value, (updatedA) {
+      if (isSchedulerUsed) {
+        return;
+      }
+
+      isSchedulerUsed = true;
+
+      if (isSync1) {
+        isSync2 = true;
+        mutableSeedCopy = updatedA;
+        return;
+      }
+      // not sync
+
+      _stackSafeLoop(
+        seed: updatedA,
+        keepRunningIf: keepRunningIf,
+        computation: computation,
+        escape: escape,
+        //
+      );
+    });
+    isSync1 = false;
+    if (isSync2) {
+      continue;
+    } else {
+      break;
+    }
+  }
+}
+
+sealed class _StackSafeLoopPolicy<A, B> {
+  const _StackSafeLoopPolicy();
+}
+
+final class _StackSafeLoopPolicyKeepRunning<A, B> extends _StackSafeLoopPolicy<A, B> {
+  final A value;
+
+  const _StackSafeLoopPolicyKeepRunning(this.value);
+}
+
+final class _StackSafeLoopPolicyStop<A, B> extends _StackSafeLoopPolicy<A, B> {
+  final B value;
+
+  const _StackSafeLoopPolicyStop(this.value);
+}
+
+sealed class _AllSequentialResult<A> {
+  const _AllSequentialResult();
+}
+
+final class _AllSequentialResultSome<A> extends _AllSequentialResult<A> {
+  final int i;
+  final List<A> values;
+
+  const _AllSequentialResultSome(this.i, this.values);
+}
+
+final class _AllSequentialResultFail<A> extends _AllSequentialResult<A> {
+  final Object error;
+  final List<Object> errors;
+
+  const _AllSequentialResultFail(this.error, this.errors);
+}
+
+final class _AllSequentialResultNone<A> extends _AllSequentialResult<A> {
+  const _AllSequentialResultNone();
+}
+
+final class _AllSequentialResultFatal<A> extends _AllSequentialResult<A> {
+  final Object error;
+  final StackTrace st;
+  final _ContSignal signal;
+
+  const _AllSequentialResultFatal(this.error, this.st, this.signal);
+}
