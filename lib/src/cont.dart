@@ -327,58 +327,70 @@ final class Cont<A> {
     final safeCopy = List<Cont<A>>.from(list);
     if (isSequential) {
       return Cont.fromRun((reporter, observer) {
-        _stackSafeLoop<_AllSequentialResult<A>, (int, List<A>), _AllSequentialResult<A>>(
-          seed: _AllSequentialResultSome<A>(0, []),
+        _stackSafeLoop<_Triple<(int, List<A>), List<Object>, (Object, StackTrace, _ContSignal)>, (int, List<A>), _Triple<List<A>, List<Object>, (Object, StackTrace, _ContSignal)>>(
+          seed: _Value1((0, [])),
           keepRunningIf: (state) {
-            return switch (state) {
-              _AllSequentialResultSome(i: final i, values: final values) => i < values.length ? _StackSafeLoopPolicyKeepRunning((i, values)) : _StackSafeLoopPolicyStop(state),
-              _AllSequentialResultFail() => _StackSafeLoopPolicyStop(state),
-              _AllSequentialResultNone() => _StackSafeLoopPolicyStop(state),
-              _AllSequentialResultFatal() => _StackSafeLoopPolicyStop(state),
-            };
+            switch (state) {
+              case _Value1(value: final value):
+                final (index, results) = value;
+                if (index >= safeCopy.length) {
+                  return _StackSafeLoopPolicyStop(_Value1(results));
+                }
+                return _StackSafeLoopPolicyKeepRunning((index, results));
+              case _Value2(value: final value):
+                return _StackSafeLoopPolicyStop(_Value2(value));
+              case _Value3(value: final value):
+                return _StackSafeLoopPolicyStop(_Value3(value));
+            }
           },
           computation: (tuple, callback) {
             final (i, values) = tuple;
             final cont = safeCopy[i];
-            cont.run(
-              ContReporter(
-                onNone: (error, st) {
-                  callback(_AllSequentialResultFatal(error, st, _ContSignal.none));
-                },
-                onFail: (error, st) {
-                  callback(_AllSequentialResultFatal(error, st, _ContSignal.fail));
-                },
-                onSome: (error, st) {
-                  callback(_AllSequentialResultFatal(error, st, _ContSignal.some));
-                },
-                //
-              ),
-              ContObserver(
-                () {
-                  callback(_AllSequentialResultNone());
-                },
-                (error, errors) {
-                  callback(_AllSequentialResultFail(error, [...errors]));
-                },
-                (a) {
-                  callback(_AllSequentialResultSome(i + 1, [...values, a]));
-                },
-                //
-              ),
-            );
+            try {
+              cont.run(
+                ContReporter(
+                  onNone: (error, st) {
+                    callback(_Value3((error, st, _ContSignal.none)));
+                  },
+                  onFail: (error, st) {
+                    callback(_Value3((error, st, _ContSignal.fail)));
+                  },
+                  onSome: (error, st) {
+                    callback(_Value3((error, st, _ContSignal.some)));
+                  },
+                  //
+                ),
+                ContObserver(
+                  () {
+                    callback(_Value2([]));
+                  },
+                  (error, errors) {
+                    callback(_Value2([error, ...errors]));
+                  },
+                  (a) {
+                    callback(_Value1((i + 1, [...values, a])));
+                  },
+                  //
+                ),
+              );
+            } catch (error) {
+              callback(_Value2([error]));
+            }
           },
-          escape: (state) {
-            switch (state) {
-              case _AllSequentialResultSome<A>(values: final values):
-                observer.onSome(values);
+          escape: (triple) {
+            switch (triple) {
+              case _Value1(value: final results):
+                observer.onSome(results);
                 break;
-              case _AllSequentialResultFail<A>(error: final error, errors: final errors):
-                observer.onFail(error, errors);
+              case _Value2(value: final errors):
+                if (errors.isEmpty) {
+                  observer.onNone();
+                  return;
+                }
+                observer.onFail(errors.first, errors.skip(1).toList());
                 break;
-              case _AllSequentialResultNone<A>():
-                observer.onNone();
-                break;
-              case _AllSequentialResultFatal<A>(error: final error, st: final st, signal: final signal):
+              case _Value3(value: final value):
+                final (error, st, signal) = value;
                 switch (signal) {
                   case _ContSignal.fail:
                     reporter.onFail(error, st);
@@ -390,6 +402,7 @@ final class Cont<A> {
                     reporter.onSome(error, st);
                     break;
                 }
+                break;
             }
           },
           //
@@ -825,7 +838,90 @@ final class Cont<A> {
   }
 
   static Cont<A> any<A>(List<Cont<A>> list) {
-    return list.fold<Cont<A>>(Cont.empty<A>(), Cont.either<A>);
+    final List<Cont<A>> safeCopy = List<Cont<A>>.from(list);
+
+    return Cont.fromRun((reporter, observer) {
+      _stackSafeLoop<_Triple<(int, List<Object>), A, (Object, StackTrace, _ContSignal)>, (int, List<Object>), _Triple<List<Object>, A, (Object, StackTrace, _ContSignal)>>(
+        seed: _Value1((0, [])),
+        keepRunningIf: (triple) {
+          switch (triple) {
+            case _Value1(value: final tuple):
+              final (index, errors) = tuple;
+              if (index >= safeCopy.length) {
+                return _StackSafeLoopPolicyStop(_Value1(errors));
+              }
+              return _StackSafeLoopPolicyKeepRunning((index + 1, errors));
+            case _Value2(value: final a):
+              return _StackSafeLoopPolicyStop(_Value2(a));
+            case _Value3(value: final triple):
+              return _StackSafeLoopPolicyStop(_Value3(triple));
+          }
+        },
+        computation: (tuple, callback) {
+          final (index, errors) = tuple;
+          final cont = safeCopy[index];
+
+          try {
+            cont.run(
+              ContReporter(
+                onNone: (error, st) {
+                  callback(_Value3((error, st, _ContSignal.none)));
+                },
+                onFail: (error, st) {
+                  callback(_Value3((error, st, _ContSignal.fail)));
+                },
+                onSome: (error, st) {
+                  callback(_Value3((error, st, _ContSignal.some)));
+                },
+                //
+              ),
+              ContObserver(
+                () {
+                  callback(_Value1((index + 1, errors)));
+                },
+                (error, errors2) {
+                  callback(_Value1((index + 1, [...errors, error, ...errors2])));
+                },
+                (a) {
+                  callback(_Value2(a));
+                },
+                //
+              ),
+            );
+          } catch (error) {
+            callback(_Value1((index + 1, [...errors, error])));
+          }
+        },
+        escape: (triple) {
+          switch (triple) {
+            case _Value1(value: final errors):
+              if (errors.isEmpty) {
+                observer.onNone();
+                return;
+              }
+              observer.onFail(errors.first, errors.skip(1).toList());
+              return;
+            case _Value2(value: final a):
+              observer.onSome(a);
+              return;
+            case _Value3(value: final value):
+              final (error, st, signal) = value;
+              switch (signal) {
+                case _ContSignal.fail:
+                  reporter.onFail(error, st);
+                  return;
+                case _ContSignal.none:
+                  reporter.onNone(error, st);
+                  return;
+                case _ContSignal.some:
+                  reporter.onSome(error, st);
+                  return;
+              }
+          }
+        },
+        //
+      );
+    });
   }
 }
 
@@ -901,6 +997,28 @@ void _stackSafeLoop<A, B, C>({
   }
 }
 
+sealed class _Triple<A, B, C> {
+  const _Triple();
+}
+
+final class _Value1<A, B, C> extends _Triple<A, B, C> {
+  final A value;
+
+  const _Value1(this.value);
+}
+
+final class _Value2<A, B, C> extends _Triple<A, B, C> {
+  final B value;
+
+  const _Value2(this.value);
+}
+
+final class _Value3<A, B, C> extends _Triple<A, B, C> {
+  final C value;
+
+  const _Value3(this.value);
+}
+
 sealed class _StackSafeLoopPolicy<A, B> {
   const _StackSafeLoopPolicy();
 }
@@ -915,34 +1033,4 @@ final class _StackSafeLoopPolicyStop<A, B> extends _StackSafeLoopPolicy<A, B> {
   final B value;
 
   const _StackSafeLoopPolicyStop(this.value);
-}
-
-sealed class _AllSequentialResult<A> {
-  const _AllSequentialResult();
-}
-
-final class _AllSequentialResultSome<A> extends _AllSequentialResult<A> {
-  final int i;
-  final List<A> values;
-
-  const _AllSequentialResultSome(this.i, this.values);
-}
-
-final class _AllSequentialResultFail<A> extends _AllSequentialResult<A> {
-  final Object error;
-  final List<Object> errors;
-
-  const _AllSequentialResultFail(this.error, this.errors);
-}
-
-final class _AllSequentialResultNone<A> extends _AllSequentialResult<A> {
-  const _AllSequentialResultNone();
-}
-
-final class _AllSequentialResultFatal<A> extends _AllSequentialResult<A> {
-  final Object error;
-  final StackTrace st;
-  final _ContSignal signal;
-
-  const _AllSequentialResultFatal(this.error, this.st, this.signal);
 }
