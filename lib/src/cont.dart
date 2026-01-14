@@ -14,27 +14,34 @@ final class Cont<A> {
     return Cont._((reporter, observer) {
       bool isDone = false;
 
+      void scheduleFatalError(Object error, StackTrace st) {
+        // we schedule it in microtask to ensure that
+        // there is no try-catch around it and it does fail
+        // !best-effort crash unless a Zone catches it.!
+        Future.microtask(() {
+          Error.throwWithStackTrace(error, st);
+        });
+      }
+
       void handleUnrecoverableFailure(Object error, StackTrace st, _ContSignal signal) {
         try {
           final void Function() onFatal = switch (signal) {
             _ContSignal.none => () {
               reporter.onNone(error, st);
+              scheduleFatalError(error, st);
             },
             _ContSignal.fail => () {
               reporter.onFail(error, st);
+              scheduleFatalError(error, st);
             },
             _ContSignal.some => () {
               reporter.onSome(error, st);
+              scheduleFatalError(error, st);
             },
           };
           onFatal();
         } catch (error, st) {
-          // we schedule it in microtask to ensure that
-          // there is no try-catch around it and it does fail
-          // !best-effort crash unless a Zone catches it.!
-          Future.microtask(() {
-            Error.throwWithStackTrace(error, st);
-          });
+          scheduleFatalError(error, st);
         }
       }
 
