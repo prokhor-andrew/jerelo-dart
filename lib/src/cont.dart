@@ -850,7 +850,7 @@ final class Cont<A> {
               if (index >= safeCopy.length) {
                 return _StackSafeLoopPolicyStop(_Value1(errors));
               }
-              return _StackSafeLoopPolicyKeepRunning((index + 1, errors));
+              return _StackSafeLoopPolicyKeepRunning((index, errors));
             case _Value2(value: final a):
               return _StackSafeLoopPolicyStop(_Value2(a));
             case _Value3(value: final triple):
