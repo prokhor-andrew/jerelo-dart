@@ -811,7 +811,7 @@ final class Cont<A> {
                 reporter,
                 ContObserver(
                   () {
-                    observer.onFail(error, errors);
+                    observer.onFail(error, [...errors]);
                   },
                   (error2, errors2) {
                     observer.onFail(error, [...errors, error2, ...errors2]);
