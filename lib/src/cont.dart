@@ -199,8 +199,13 @@ final class Cont<A> {
   }
 
   static Cont<A> raise<A>(Object error, [List<Object> errors = const []]) {
-    final safeCopyErrors = List<Object>.from(errors);
+    // this makes sure that if anybody outside mutates "errors"
+    // we keep the same version as when function was called
+    final safeCopyErrors0 = List<Object>.from(errors);
     return Cont.fromRun((reporter, observer) {
+      // this copy makes sure that if 1 object of continuation is used to run multiple times
+      // and one of them mutates it, we still keep original version for both
+      final safeCopyErrors = List<Object>.from(safeCopyErrors0);
       observer.onFail(error, safeCopyErrors);
     });
   }
@@ -324,9 +329,10 @@ final class Cont<A> {
     bool isSequential = true,
     //
   }) {
-    final safeCopy = List<Cont<A>>.from(list);
+    final safeCopy0 = List<Cont<A>>.from(list);
     if (isSequential) {
       return Cont.fromRun((reporter, observer) {
+        final safeCopy = List<Cont<A>>.from(safeCopy0);
         _stackSafeLoop<_Triple<(int, List<A>), List<Object>, (Object, StackTrace, _ContSignal)>, (int, List<A>), _Triple<List<A>, List<Object>, (Object, StackTrace, _ContSignal)>>(
           seed: _Value1((0, [])),
           keepRunningIf: (state) {
@@ -411,6 +417,8 @@ final class Cont<A> {
     }
 
     return Cont.fromRun((reporter, observer) {
+      final safeCopy = List<Cont<A>>.from(safeCopy0);
+
       if (safeCopy.isEmpty) {
         observer.onSome(<A>[]);
         return;
@@ -644,8 +652,9 @@ final class Cont<A> {
     return Cont.race(this, other, pickWinner: pickWinner);
   }
 
-  static Cont<A> _raceAllPickWinner<A>(List<Cont<A>> list) {
+  static Cont<A> _raceAllPickWinner<A>(List<Cont<A>> list0) {
     return Cont.fromRun((reporter, observer) {
+      final list = List<Cont<A>>.from(list0);
       if (list.isEmpty) {
         observer.onNone();
         return;
@@ -711,8 +720,9 @@ final class Cont<A> {
     });
   }
 
-  static Cont<A> _raceAllPickLoser<A>(List<Cont<A>> list) {
+  static Cont<A> _raceAllPickLoser<A>(List<Cont<A>> list0) {
     return Cont.fromRun((reporter, observer) {
+      final list = List<Cont<A>>.from(list0);
       if (list.isEmpty) {
         observer.onNone();
         return;
@@ -838,9 +848,11 @@ final class Cont<A> {
   }
 
   static Cont<A> any<A>(List<Cont<A>> list) {
-    final List<Cont<A>> safeCopy = List<Cont<A>>.from(list);
+    final List<Cont<A>> safeCopy0 = List<Cont<A>>.from(list);
 
     return Cont.fromRun((reporter, observer) {
+      final safeCopy = List<Cont<A>>.from(safeCopy0);
+
       _stackSafeLoop<_Triple<(int, List<Object>), A, (Object, StackTrace, _ContSignal)>, (int, List<Object>), _Triple<List<Object>, A, (Object, StackTrace, _ContSignal)>>(
         seed: _Value1((0, [])),
         keepRunningIf: (triple) {
