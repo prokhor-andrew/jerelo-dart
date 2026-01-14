@@ -452,10 +452,10 @@ final class Cont<A> {
                   return;
                 }
 
+                results[index] = a;
                 amountOfFinishedContinuations += 1;
 
                 if (amountOfFinishedContinuations < safeCopy.length) {
-                  results[index] = a;
                   return;
                 }
 
