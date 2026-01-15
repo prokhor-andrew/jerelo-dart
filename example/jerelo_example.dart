@@ -1,8 +1,9 @@
 // send http request
 
 import 'package:jerelo/jerelo.dart';
-import 'package:jerelo/src/cont_observer.dart';
-import 'package:jerelo/src/cont_reporter.dart';
+
+import 'mock_transaction_service.dart';
+import 'print_reporter_observer.dart';
 
 void main() {
   /**
@@ -30,10 +31,10 @@ void main() {
             service.getReputationFromTransactionDraft(draft),
             (address, reputation) {
               return Transaction(
-                //
                 draft: draft,
                 address: address,
                 reputation: reputation,
+                //
               );
             },
           );
@@ -41,7 +42,7 @@ void main() {
         .flatMap((transaction) {
           return service
               .getDecisionForTransaction(transaction)
-              .flatMap((decision) {
+              .flatMap<TransactionResult>((decision) {
                 return switch (decision) {
                   Decision.rejected => Cont.raise("Rejected"),
                   Decision.approved => service.getTransactionResult(transaction),
@@ -57,66 +58,22 @@ void main() {
         .catchTerminate(service.getReportForErrors);
   });
 
-  // TODO: plug in consumers
-  program.run(ContReporter.ignore(), ContObserver.ignore());
-}
-
-// TODO:
-Cont<TransactionService> getTransactionService() {
-  return Cont.raise("mock");
-}
-
-final class TransactionService {
-  final Cont<TransactionDraft> Function() getTransactionDraft;
-
-  final Cont<()> Function(TransactionDraft draft) validateTransactionDraft;
-
-  final Cont<String> Function(TransactionDraft draft) getAddressFromTransactionDraft;
-
-  final Cont<double> Function(TransactionDraft draft) getReputationFromTransactionDraft;
-
-  final Cont<Transaction> Function({
-    required TransactionDraft draft,
-    required String address,
-    required double reputation,
-    //
-  })
-  getTransactionFromDraftAddressReputation;
-
-  final Cont<Decision> Function(Transaction transaction) getDecisionForTransaction;
-
-  final Cont<()> Function(Transaction transaction) reviewForTransaction;
-
-  final Cont<TransactionResult> Function(Transaction transaction) getTransactionResult;
-
-  final Cont<RiskReport> Function(Transaction transaction, TransactionResult result) getReportForTransactionAndResult;
-
-  final Cont<RiskReport> Function(List<Object> errors) getReportForErrors;
-
-  const TransactionService({
-    required this.getTransactionDraft,
-    required this.validateTransactionDraft,
-    required this.getAddressFromTransactionDraft,
-    required this.getReputationFromTransactionDraft,
-    required this.getTransactionFromDraftAddressReputation,
-    required this.getDecisionForTransaction,
-    required this.reviewForTransaction,
-    required this.getTransactionResult,
-    required this.getReportForTransactionAndResult,
-    required this.getReportForErrors,
-    //
-  });
+  program.run(getReporter(), getObserver());
 }
 
 final class TransactionDraft {
+  final String id;
   final double amount;
-  final String email;
+  final String currency;
   final String ip;
+  final String email;
 
   const TransactionDraft({
+    required this.id,
     required this.amount,
-    required this.email,
+    required this.currency,
     required this.ip,
+    required this.email,
     //
   });
 }
@@ -136,6 +93,49 @@ final class Transaction {
 
 enum Decision { rejected, approved, review }
 
-final class RiskReport {}
+final class RiskReport {
+  final double score; // 0..1
+  final String summary;
+  final List<String> reasons;
 
-final class TransactionResult {}
+  const RiskReport({
+    required this.score,
+    required this.summary,
+    required this.reasons,
+    //
+  });
+}
+
+sealed class TransactionResult {
+  const TransactionResult();
+
+  bool get isSuccess => this is _Success;
+
+  bool get isPending => this is _Pending;
+
+  bool get isDeclined => this is _Declined;
+
+  factory TransactionResult.success({required String authCode}) => _Success(authCode);
+
+  factory TransactionResult.pending({required String reason}) => _Pending(reason);
+
+  factory TransactionResult.declined({required String reason}) => _Declined(reason);
+}
+
+final class _Success extends TransactionResult {
+  final String authCode;
+
+  const _Success(this.authCode);
+}
+
+final class _Pending extends TransactionResult {
+  final String reason;
+
+  const _Pending(this.reason);
+}
+
+final class _Declined extends TransactionResult {
+  final String reason;
+
+  const _Declined(this.reason);
+}
