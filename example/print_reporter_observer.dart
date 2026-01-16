@@ -1,5 +1,4 @@
-import 'package:jerelo/src/cont_observer.dart';
-import 'package:jerelo/src/cont_reporter.dart';
+import 'package:jerelo/jerelo.dart';
 
 import 'adt/risk_report.dart';
 

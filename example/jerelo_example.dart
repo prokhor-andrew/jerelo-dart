@@ -1,5 +1,4 @@
 import 'package:jerelo/jerelo.dart';
-import 'package:jerelo/src/cont_error.dart';
 
 import 'adt/decision.dart';
 import 'adt/transaction.dart';
@@ -76,5 +75,3 @@ void main() {
 
   program.run(getReporter(), getObserver());
 }
-
-
