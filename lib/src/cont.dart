@@ -197,6 +197,16 @@ final class Cont<A> {
     });
   }
 
+  Cont<A> filter(bool Function(A value) f) {
+    return flatMap((a) {
+      if (!f(a)) {
+        return Cont.empty<A>();
+      }
+
+      return Cont.of(a);
+    });
+  }
+
   // identities
   static Cont<A> of<A>(A value) {
     return Cont.fromRun((reporter, observer) {
