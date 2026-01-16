@@ -1,6 +1,8 @@
 import 'package:jerelo/src/cont_observer.dart';
 import 'package:jerelo/src/cont_reporter.dart';
 
+import 'cont_error.dart';
+
 final class Cont<A> {
   final void Function(ContReporter reporter, ContObserver<A> observer) run;
 
@@ -14,34 +16,34 @@ final class Cont<A> {
     return Cont._((reporter, observer) {
       bool isDone = false;
 
-      void scheduleFatalError(Object error, StackTrace st) {
+      void scheduleFatalError(ContError error) {
         // we schedule it in microtask to ensure that
         // there is no try-catch around it and it does fail
         // !best-effort crash unless a Zone catches it.!
         Future.microtask(() {
-          Error.throwWithStackTrace(error, st);
+          Error.throwWithStackTrace(error.error, error.stackTrace);
         });
       }
 
-      void handleUnrecoverableFailure(Object error, StackTrace st, _ContSignal signal) {
+      void handleUnrecoverableFailure(ContError error, _ContSignal signal) {
         try {
           final void Function() onFatal = switch (signal) {
             _ContSignal.terminate => () {
-              reporter.onTerminate(error, st);
-              scheduleFatalError(error, st);
+              reporter.onTerminate(error);
+              scheduleFatalError(error);
             },
             _ContSignal.some => () {
-              reporter.onSome(error, st);
-              scheduleFatalError(error, st);
+              reporter.onSome(error);
+              scheduleFatalError(error);
             },
           };
           onFatal();
         } catch (error, st) {
-          scheduleFatalError(error, st);
+          scheduleFatalError(ContError(error, st));
         }
       }
 
-      void guardedTerminate(List<Object> errors) {
+      void guardedTerminate(List<ContError> errors) {
         if (isDone) {
           return;
         }
@@ -49,18 +51,18 @@ final class Cont<A> {
         try {
           observer.onTerminate(errors);
         } catch (error, st) {
-          handleUnrecoverableFailure(error, st, _ContSignal.terminate);
+          handleUnrecoverableFailure(ContError(error, st), _ContSignal.terminate);
         }
       }
 
       try {
         run(
           ContReporter(
-            onTerminate: (error, st) {
-              handleUnrecoverableFailure(error, st, _ContSignal.terminate);
+            onTerminate: (error) {
+              handleUnrecoverableFailure(error, _ContSignal.terminate);
             },
-            onSome: (error, st) {
-              handleUnrecoverableFailure(error, st, _ContSignal.some);
+            onSome: (error) {
+              handleUnrecoverableFailure(error, _ContSignal.some);
             },
           ),
           ContObserver(
@@ -75,13 +77,13 @@ final class Cont<A> {
               try {
                 observer.onSome(a);
               } catch (error, st) {
-                handleUnrecoverableFailure(error, st, _ContSignal.some);
+                handleUnrecoverableFailure(ContError(error, st), _ContSignal.some);
               }
             },
           ),
         );
-      } catch (error) {
-        guardedTerminate([error]);
+      } catch (error, st) {
+        guardedTerminate([ContError(error, st)]);
       }
     });
   }
@@ -121,8 +123,8 @@ final class Cont<A> {
           try {
             final contA2 = f(a);
             contA2.run(reporter, observer);
-          } catch (error) {
-            observer.onTerminate([error]);
+          } catch (error, st) {
+            observer.onTerminate([ContError(error, st)]);
           }
         }),
       );
@@ -135,7 +137,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> catchTerminate(Cont<A> Function(List<Object> errors) f) {
+  Cont<A> catchTerminate(Cont<A> Function(List<ContError> errors) f) {
     return Cont.fromRun((reporter, observer) {
       run(
         reporter,
@@ -143,8 +145,8 @@ final class Cont<A> {
           try {
             final contA = f(errors);
             contA.run(reporter, observer);
-          } catch (error) {
-            observer.onTerminate([...errors, error]);
+          } catch (error, st) {
+            observer.onTerminate([...errors, ContError(error, st)]);
           }
         }),
       );
@@ -167,7 +169,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> catchError(Cont<A> Function(Object error, List<Object> errors) f) {
+  Cont<A> catchError(Cont<A> Function(ContError error, List<ContError> errors) f) {
     return catchTerminate((errors) {
       if (errors.isEmpty) {
         return Cont.terminate([]);
@@ -194,16 +196,16 @@ final class Cont<A> {
     return Cont.terminate([]);
   }
 
-  static Cont<A> raise<A>(Object error, [List<Object> errors = const []]) {
+  static Cont<A> raise<A>(ContError error, [List<ContError> errors = const []]) {
     return Cont.terminate([error, ...errors]);
   }
 
-  static Cont<A> terminate<A>(List<Object> errors) {
-    final safeCopyErrors0 = List<Object>.from(errors);
+  static Cont<A> terminate<A>(List<ContError> errors) {
+    final safeCopyErrors0 = List<ContError>.from(errors);
     return Cont.fromRun((reporter, observer) {
       // this makes sure that if anybody outside mutates "errors"
       // we keep the same version as when function was called
-      final safeCopyErrors = List<Object>.from(safeCopyErrors0);
+      final safeCopyErrors = List<ContError>.from(safeCopyErrors0);
       observer.onTerminate(safeCopyErrors);
     });
   }
@@ -231,7 +233,7 @@ final class Cont<A> {
 
       A? outerA;
       B? outerB;
-      final List<Object> resultErrors = [];
+      final List<ContError> resultErrors = [];
 
       void handleSome() {
         if (isOneFail) {
@@ -246,8 +248,8 @@ final class Cont<A> {
         try {
           final c = f(outerA as A, outerB as B);
           observer.onSome(c);
-        } catch (error) {
-          observer.onTerminate([error]);
+        } catch (error, st) {
+          observer.onTerminate([ContError(error, st)]);
         }
       }
 
@@ -275,9 +277,9 @@ final class Cont<A> {
             },
           ),
         );
-      } catch (error) {
+      } catch (error, st) {
         // strict order must be followed
-        resultErrors.insert(0, error);
+        resultErrors.insert(0, ContError(error, st));
         handleTerminate();
       }
 
@@ -297,9 +299,9 @@ final class Cont<A> {
             },
           ),
         );
-      } catch (error) {
+      } catch (error, st) {
         // strict order must be followed
-        resultErrors.add(error);
+        resultErrors.add(ContError(error, st));
         handleTerminate();
       }
     });
@@ -323,7 +325,7 @@ final class Cont<A> {
     if (isSequential) {
       return Cont.fromRun((reporter, observer) {
         final safeCopy = List<Cont<A>>.from(safeCopy0);
-        _stackSafeLoop<_Triple<(int, List<A>), List<Object>, (Object, StackTrace, _ContSignal)>, (int, List<A>), _Triple<List<A>, List<Object>, (Object, StackTrace, _ContSignal)>>(
+        _stackSafeLoop<_Triple<(int, List<A>), List<ContError>, (ContError, _ContSignal)>, (int, List<A>), _Triple<List<A>, List<ContError>, (ContError, _ContSignal)>>(
           seed: _Value1((0, [])),
           keepRunningIf: (state) {
             switch (state) {
@@ -345,11 +347,11 @@ final class Cont<A> {
             try {
               cont.run(
                 ContReporter(
-                  onTerminate: (error, st) {
-                    callback(_Value3((error, st, _ContSignal.terminate)));
+                  onTerminate: (error) {
+                    callback(_Value3((error, _ContSignal.terminate)));
                   },
-                  onSome: (error, st) {
-                    callback(_Value3((error, st, _ContSignal.some)));
+                  onSome: (error) {
+                    callback(_Value3((error, _ContSignal.some)));
                   },
                   //
                 ),
@@ -363,8 +365,8 @@ final class Cont<A> {
                   //
                 ),
               );
-            } catch (error) {
-              callback(_Value2([error]));
+            } catch (error, st) {
+              callback(_Value2([ContError(error, st)]));
             }
           },
           escape: (triple) {
@@ -376,13 +378,13 @@ final class Cont<A> {
                 observer.onTerminate(errors);
                 return;
               case _Value3(value: final value):
-                final (error, st, signal) = value;
+                final (error, signal) = value;
                 switch (signal) {
                   case _ContSignal.terminate:
-                    reporter.onTerminate(error, st);
+                    reporter.onTerminate(error);
                     return;
                   case _ContSignal.some:
-                    reporter.onSome(error, st);
+                    reporter.onSome(error);
                     return;
                 }
             }
@@ -405,7 +407,7 @@ final class Cont<A> {
 
       int amountOfFinishedContinuations = 0;
 
-      void handleNoneOrFail(List<Object> errors) {
+      void handleNoneOrFail(List<ContError> errors) {
         if (isDone) {
           return;
         }
@@ -439,8 +441,8 @@ final class Cont<A> {
               },
             ),
           );
-        } catch (error) {
-          handleNoneOrFail([error]);
+        } catch (error, st) {
+          handleNoneOrFail([ContError(error, st)]);
         }
       }
     });
@@ -449,7 +451,7 @@ final class Cont<A> {
   static Cont<A> _racePickWinner<A>(Cont<A> left, Cont<A> right) {
     return Cont.fromRun((reporter, observer) {
       bool isOneFailed = false;
-      final List<Object> resultErrors = [];
+      final List<ContError> resultErrors = [];
       bool isDone = false;
 
       void handleNoneOrFail(void Function() codeToUpdateState) {
@@ -464,7 +466,7 @@ final class Cont<A> {
         codeToUpdateState();
       }
 
-      ContObserver<A> makeObserver(void Function(List<Object> errors) codeToUpdateState) {
+      ContObserver<A> makeObserver(void Function(List<ContError> errors) codeToUpdateState) {
         return ContObserver(
           (errors) {
             if (isDone) {
@@ -491,9 +493,9 @@ final class Cont<A> {
             resultErrors.insertAll(0, errors);
           }),
         );
-      } catch (error) {
+      } catch (error, st) {
         handleNoneOrFail(() {
-          resultErrors.insert(0, error);
+          resultErrors.insert(0, ContError(error, st));
         });
       }
 
@@ -504,9 +506,9 @@ final class Cont<A> {
             resultErrors.addAll(errors);
           }),
         );
-      } catch (error) {
+      } catch (error, st) {
         handleNoneOrFail(() {
-          resultErrors.add(error);
+          resultErrors.add(ContError(error, st));
         });
       }
     });
@@ -516,7 +518,7 @@ final class Cont<A> {
     return Cont.fromRun((reporter, observer) {
       bool isFirstComputed = false;
 
-      final List<Object> resultErrors = [];
+      final List<ContError> resultErrors = [];
 
       bool isResultAvailable = false;
       A? result;
@@ -538,7 +540,7 @@ final class Cont<A> {
         observer.onTerminate(resultErrors);
       }
 
-      ContObserver<A> makeObserver(void Function(List<Object> errors) codeToUpdateState) {
+      ContObserver<A> makeObserver(void Function(List<ContError> errors) codeToUpdateState) {
         return ContObserver(
           (errors) {
             handleNoneOrFail(() {
@@ -564,9 +566,9 @@ final class Cont<A> {
             resultErrors.insertAll(0, errors);
           }),
         );
-      } catch (error) {
+      } catch (error, st) {
         handleNoneOrFail(() {
-          resultErrors.insert(0, error);
+          resultErrors.insert(0, ContError(error, st));
         });
       }
 
@@ -577,9 +579,9 @@ final class Cont<A> {
             resultErrors.addAll(errors);
           }),
         );
-      } catch (error) {
+      } catch (error, st) {
         handleNoneOrFail(() {
-          resultErrors.add(error);
+          resultErrors.add(ContError(error, st));
         });
       }
     });
@@ -605,14 +607,14 @@ final class Cont<A> {
         return;
       }
 
-      final List<List<Object>> resultOfErrors = List.generate(list.length, (_) {
+      final List<List<ContError>> resultOfErrors = List.generate(list.length, (_) {
         return [];
       });
 
       bool isWinnerFound = false;
       int numberOfFinished = 0;
 
-      void handleTerminate(int index, List<Object> errors) {
+      void handleTerminate(int index, List<ContError> errors) {
         if (isWinnerFound) {
           return;
         }
@@ -650,8 +652,8 @@ final class Cont<A> {
               },
             ),
           );
-        } catch (error) {
-          handleTerminate(index, [error]);
+        } catch (error, st) {
+          handleTerminate(index, [ContError(error, st)]);
         }
       }
     });
@@ -665,7 +667,7 @@ final class Cont<A> {
         return;
       }
 
-      final List<List<Object>> resultErrors = List.generate(list.length, (_) {
+      final List<List<ContError>> resultErrors = List.generate(list.length, (_) {
         return [];
       });
 
@@ -711,8 +713,8 @@ final class Cont<A> {
               },
             ),
           );
-        } catch (error) {
-          resultErrors[index] = [error];
+        } catch (error, st) {
+          resultErrors[index] = [ContError(error, st)];
           incrementFinishedAndCheckExit();
         }
       }
@@ -747,8 +749,8 @@ final class Cont<A> {
                   },
                 ),
               );
-            } catch (error2) {
-              observer.onTerminate([...errors, error2]);
+            } catch (error, st) {
+              observer.onTerminate([...errors, ContError(error, st)]);
             }
           },
           (a) {
@@ -769,7 +771,7 @@ final class Cont<A> {
     return Cont.fromRun((reporter, observer) {
       final safeCopy = List<Cont<A>>.from(safeCopy0);
 
-      _stackSafeLoop<_Triple<(int, List<Object>), A, (Object, StackTrace, _ContSignal)>, (int, List<Object>), _Triple<List<Object>, A, (Object, StackTrace, _ContSignal)>>(
+      _stackSafeLoop<_Triple<(int, List<ContError>), A, (ContError, _ContSignal)>, (int, List<ContError>), _Triple<List<ContError>, A, (ContError, _ContSignal)>>(
         seed: _Value1((0, [])),
         keepRunningIf: (triple) {
           switch (triple) {
@@ -792,11 +794,11 @@ final class Cont<A> {
           try {
             cont.run(
               ContReporter(
-                onTerminate: (error, st) {
-                  callback(_Value3((error, st, _ContSignal.terminate)));
+                onTerminate: (error) {
+                  callback(_Value3((error, _ContSignal.terminate)));
                 },
-                onSome: (error, st) {
-                  callback(_Value3((error, st, _ContSignal.some)));
+                onSome: (error) {
+                  callback(_Value3((error, _ContSignal.some)));
                 },
                 //
               ),
@@ -810,8 +812,8 @@ final class Cont<A> {
                 //
               ),
             );
-          } catch (error) {
-            callback(_Value1((index + 1, [...errors, error])));
+          } catch (error, st) {
+            callback(_Value1((index + 1, [...errors, ContError(error, st)])));
           }
         },
         escape: (triple) {
@@ -823,13 +825,13 @@ final class Cont<A> {
               observer.onSome(a);
               return;
             case _Value3(value: final value):
-              final (error, st, signal) = value;
+              final (error, signal) = value;
               switch (signal) {
                 case _ContSignal.terminate:
-                  reporter.onTerminate(error, st);
+                  reporter.onTerminate(error);
                   return;
                 case _ContSignal.some:
-                  reporter.onSome(error, st);
+                  reporter.onSome(error);
                   return;
               }
           }

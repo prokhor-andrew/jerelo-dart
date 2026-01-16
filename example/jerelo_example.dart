@@ -1,4 +1,5 @@
 import 'package:jerelo/jerelo.dart';
+import 'package:jerelo/src/cont_error.dart';
 
 import 'mock_transaction_service.dart';
 import 'print_reporter_observer.dart';
@@ -42,7 +43,7 @@ void main() {
               .getDecisionForTransaction(transaction)
               .flatMap<TransactionResult>((decision) {
                 return switch (decision) {
-                  Decision.rejected => Cont.raise("Rejected"),
+                  Decision.rejected => Cont.raise(ContError("Rejected", StackTrace.current)),
                   Decision.approved => service.getTransactionResult(transaction),
                   Decision.review => service.reviewForTransaction(transaction).flatMap0(() {
                     return service.getTransactionResult(transaction);
@@ -60,14 +61,12 @@ void main() {
 }
 
 final class TransactionDraft {
-  final String id;
   final double amount;
   final String currency;
   final String ip;
   final String email;
 
   const TransactionDraft({
-    required this.id,
     required this.amount,
     required this.currency,
     required this.ip,

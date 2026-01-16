@@ -1,6 +1,8 @@
+import 'cont_error.dart';
+
 final class ContReporter {
-  final void Function(Object error, StackTrace st) onTerminate;
-  final void Function(Object error, StackTrace st) onSome;
+  final void Function(ContError error) onTerminate;
+  final void Function(ContError error) onSome;
 
   const ContReporter({
     required this.onTerminate,
@@ -9,14 +11,14 @@ final class ContReporter {
   });
 
   static ContReporter ignore() {
-    return ContReporter(onTerminate: (_, _) {}, onSome: (_, _) {});
+    return ContReporter(onTerminate: (_) {}, onSome: (_) {});
   }
 
-  ContReporter copyUpdateOnTerminate(void Function(Object error, StackTrace st) onNone) {
+  ContReporter copyUpdateOnTerminate(void Function(ContError error) onNone) {
     return ContReporter(onTerminate: onTerminate, onSome: onSome);
   }
 
-  ContReporter copyUpdateOnSome(void Function(Object error, StackTrace st) onSome) {
+  ContReporter copyUpdateOnSome(void Function(ContError error) onSome) {
     return ContReporter(onTerminate: onTerminate, onSome: onSome);
   }
 }

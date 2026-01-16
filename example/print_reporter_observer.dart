@@ -5,11 +5,11 @@ import 'jerelo_example.dart';
 
 ContReporter getReporter() {
   return ContReporter(
-    onTerminate: (error, st) {
-      print("error=$error st=$st");
+    onTerminate: (error) {
+      print("error=${error.error} st=${error.stackTrace}");
     },
-    onSome: (error, st) {
-      print("error=$error st=$st");
+    onSome: (error) {
+      print("error=${error.error} st=${error.stackTrace}");
     },
     //
   );
