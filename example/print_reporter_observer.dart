@@ -1,7 +1,7 @@
 import 'package:jerelo/src/cont_observer.dart';
 import 'package:jerelo/src/cont_reporter.dart';
 
-import 'jerelo_example.dart';
+import 'adt/risk_report.dart';
 
 ContReporter getReporter() {
   return ContReporter(

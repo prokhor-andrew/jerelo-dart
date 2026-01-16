@@ -1,28 +1,48 @@
 import 'package:jerelo/jerelo.dart';
 import 'package:jerelo/src/cont_error.dart';
 
-import 'mock_transaction_service.dart';
+import 'adt/decision.dart';
+import 'adt/transaction.dart';
+import 'adt/transaction_result.dart';
+import 'mock_draft_service.dart';
 import 'print_reporter_observer.dart';
 
 void main() {
   /**
-   * - get transaction draft
-   * - validate transaction draft -> throws error if invalid
-   * - get address for transaction draft
-   * - concurrently ( get address for draft, and get reputation for draft )
-   * - get transaction for draft, reputation and address
-   * - get decision for transaction -> throws error if decision reject
-   *    - for decision review -> review transaction -> throws  error if rejected
-   * - for decision approved -> get transaction result
-   * - get report for transaction result and transaction
-   * - catch any errors above and generate report
+   * Transaction pipeline (domain flow)
+   *
+   * 1) Draft
+   *    - Fetch transaction draft
+   *    - Validate draft
+   *      - if invalid -> error
+   *
+   * 2) Enrichment (concurrent)
+   *    - In parallel:
+   *        • resolve address from draft
+   *        • resolve reputation from draft
+   *    - Combine draft + address + reputation -> Transaction
+   *
+   * 3) Service selection
+   *    - Derive TransactionService from Transaction
+   *
+   * 4) Decision gate
+   *    - Ask for decision
+   *      - rejected -> error (terminates)
+   *      - approved -> produce TransactionResult
+   *      - review   -> run review
+   *          - if review rejects -> error
+   *          - else -> produce TransactionResult
+   *
+   * 5) Reporting
+   *    - Build report from TransactionResult (+ Transaction context)
+   *
+   * 6) Error reporting (catch-all)
+   *    - Any error above -> generate error report instead
    */
-  final program = getTransactionService().flatMap((service) {
+  final program = getMockDraftService().flatMap((service) {
     return service
         .getTransactionDraft()
-        .flatMap((draft) {
-          return service.validateTransactionDraft(draft).mapTo(draft);
-        })
+        .flatTap(service.validateTransactionDraft)
         .flatMap((draft) {
           return Cont.both(
             //
@@ -38,21 +58,18 @@ void main() {
             },
           );
         })
-        .flatMap((transaction) {
-          return service
-              .getDecisionForTransaction(transaction)
+        .flatMap(service.getTransactionService)
+        .flatMap((transactionService) {
+          return transactionService
+              .getDecisionForTransaction()
               .flatMap<TransactionResult>((decision) {
                 return switch (decision) {
                   Decision.rejected => Cont.raise(ContError("Rejected", StackTrace.current)),
-                  Decision.approved => service.getTransactionResult(transaction),
-                  Decision.review => service.reviewForTransaction(transaction).flatMap0(() {
-                    return service.getTransactionResult(transaction);
-                  }),
+                  Decision.approved => transactionService.getTransactionResult(),
+                  Decision.review => transactionService.reviewForTransaction().flatMap0(transactionService.getTransactionResult),
                 };
               })
-              .flatMap((result) {
-                return service.getReportForTransactionAndResult(transaction, result);
-              });
+              .flatMap(transactionService.getReportForTransactionAndResult);
         })
         .catchTerminate(service.getReportForErrors);
   });
@@ -60,79 +77,4 @@ void main() {
   program.run(getReporter(), getObserver());
 }
 
-final class TransactionDraft {
-  final double amount;
-  final String currency;
-  final String ip;
-  final String email;
 
-  const TransactionDraft({
-    required this.amount,
-    required this.currency,
-    required this.ip,
-    required this.email,
-    //
-  });
-}
-
-final class Transaction {
-  final TransactionDraft draft;
-  final String address;
-  final double reputation;
-
-  const Transaction({
-    required this.draft,
-    required this.address,
-    required this.reputation,
-    //
-  });
-}
-
-enum Decision { rejected, approved, review }
-
-final class RiskReport {
-  final double score; // 0..1
-  final String summary;
-  final List<String> reasons;
-
-  const RiskReport({
-    required this.score,
-    required this.summary,
-    required this.reasons,
-    //
-  });
-}
-
-sealed class TransactionResult {
-  const TransactionResult();
-
-  bool get isSuccess => this is _Success;
-
-  bool get isPending => this is _Pending;
-
-  bool get isDeclined => this is _Declined;
-
-  factory TransactionResult.success({required String authCode}) => _Success(authCode);
-
-  factory TransactionResult.pending({required String reason}) => _Pending(reason);
-
-  factory TransactionResult.declined({required String reason}) => _Declined(reason);
-}
-
-final class _Success extends TransactionResult {
-  final String authCode;
-
-  const _Success(this.authCode);
-}
-
-final class _Pending extends TransactionResult {
-  final String reason;
-
-  const _Pending(this.reason);
-}
-
-final class _Declined extends TransactionResult {
-  final String reason;
-
-  const _Declined(this.reason);
-}
