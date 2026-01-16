@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:jerelo/jerelo.dart';
+import 'package:jerelo/src/cont_error.dart';
 
 import 'jerelo_example.dart';
 import 'transaction_service.dart';
@@ -17,12 +18,12 @@ Cont<TransactionService> getTransactionService() {
         if (chance(0.05)) return Cont.empty();
 
         // 8%: fail
-        if (chance(0.08)) return Cont.raise(StateError("Draft service unavailable"));
+        // TODO:
+        if (chance(0.08)) return Cont.raise(ContError(StateError("Draft service unavailable"), StackTrace.current));
 
         // otherwise success
         return Cont.of(
           TransactionDraft(
-            id: "draft_${1000 + rng.nextInt(9000)}",
             amount: (10 + rng.nextInt(5000)).toDouble(),
             currency: "USD",
             ip: rng.nextBool() ? "203.0.113.10" : "198.51.100.44",
@@ -33,9 +34,9 @@ Cont<TransactionService> getTransactionService() {
 
       validateTransactionDraft: (draft) {
         // Hard validation rules -> fail with explicit reason
-        if (draft.amount <= 0) return Cont.raise(ArgumentError("Amount must be > 0"));
-        if (draft.currency != "USD") return Cont.raise(ArgumentError("Unsupported currency: ${draft.currency}"));
-        if (!draft.email.contains("@")) return Cont.raise(ArgumentError("Invalid email"));
+        if (draft.amount <= 0) return Cont.raise(ContError(ArgumentError("Amount must be > 0"), StackTrace.current));
+        if (draft.currency != "USD") return Cont.raise(ContError(ArgumentError("Unsupported currency: ${draft.currency}"), StackTrace.current));
+        if (!draft.email.contains("@")) return Cont.raise(ContError(ArgumentError("Invalid email"), StackTrace.current));
 
         // Soft validation -> none (treat as “cannot validate now”)
         if (chance(0.03)) return Cont.empty();
@@ -48,7 +49,7 @@ Cont<TransactionService> getTransactionService() {
         if (chance(0.10)) return Cont.empty();
 
         // 6%: fail
-        if (chance(0.06)) return Cont.raise(StateError("Address lookup timeout"));
+        if (chance(0.06)) return Cont.raise(ContError(StateError("Address lookup timeout"), StackTrace.current));
 
         final address = switch (draft.ip) {
           "203.0.113.10" => "Wichita, KS",
@@ -61,7 +62,7 @@ Cont<TransactionService> getTransactionService() {
 
       getReputationFromTransactionDraft: (draft) {
         // 7%: fail
-        if (chance(0.07)) return Cont.raise(StateError("Reputation service error"));
+        if (chance(0.07)) return Cont.raise(ContError(StateError("Reputation service error"), StackTrace.current));
 
         // 7%: none
         if (chance(0.07)) return Cont.empty();
@@ -76,23 +77,29 @@ Cont<TransactionService> getTransactionService() {
         return Cont.of(rep);
       },
 
-      getTransactionFromDraftAddressReputation: ({required draft, required address, required reputation}) {
-        // if we couldn't resolve meaningfully, return none
-        if (address == "Unknown") return Cont.empty();
-
-        return Cont.of(
-          Transaction(
-            draft: draft,
-            address: address,
-            reputation: reputation,
+      getTransactionFromDraftAddressReputation:
+          ({
+            required draft,
+            required address,
+            required reputation,
             //
-          ),
-        );
-      },
+          }) {
+            // if we couldn't resolve meaningfully, return none
+            if (address == "Unknown") return Cont.empty();
+
+            return Cont.of(
+              Transaction(
+                draft: draft,
+                address: address,
+                reputation: reputation,
+                //
+              ),
+            );
+          },
 
       getDecisionForTransaction: (transaction) {
         // 3%: fail to decide
-        if (chance(0.03)) return Cont.raise(StateError("Decision engine crashed"));
+        if (chance(0.03)) return Cont.raise(ContError(StateError("Decision engine crashed"), StackTrace.current));
 
         // 4%: none (engine unavailable / deferred)
         if (chance(0.04)) return Cont.empty();
@@ -104,7 +111,7 @@ Cont<TransactionService> getTransactionService() {
 
       reviewForTransaction: (transaction) {
         // Only meaningful for medium risk, but allow anyway.
-        if (chance(0.08)) return Cont.raise(StateError("Reviewer queue unavailable"));
+        if (chance(0.08)) return Cont.raise(ContError(StateError("Reviewer queue unavailable"), StackTrace.current));
         if (chance(0.05)) return Cont.empty();
 
         return Cont.of(());
@@ -112,7 +119,7 @@ Cont<TransactionService> getTransactionService() {
 
       getTransactionResult: (transaction) {
         // 5%: fail
-        if (chance(0.05)) return Cont.raise(StateError("Payment provider error"));
+        if (chance(0.05)) return Cont.raise(ContError(StateError("Payment provider error"), StackTrace.current));
 
         // 4%: none
         if (chance(0.04)) return Cont.empty();
@@ -122,7 +129,7 @@ Cont<TransactionService> getTransactionService() {
 
       getReportForTransactionAndResult: (transaction, result) {
         // 4%: fail
-        if (chance(0.04)) return Cont.raise(StateError("Report generator error"));
+        if (chance(0.04)) return Cont.raise(ContError(StateError("Report generator error"), StackTrace.current));
 
         // 3%: none
         if (chance(0.03)) return Cont.empty();
@@ -171,7 +178,11 @@ Decision _randomDecision() {
   };
 }
 
-double _scoreFrom({required Transaction transaction, required TransactionResult result}) {
+double _scoreFrom({
+  required Transaction transaction,
+  required TransactionResult result,
+  //
+}) {
   var score = 0.0;
   score += (1.0 - transaction.reputation) * 0.7;
   if (transaction.address.contains("NG")) score += 0.3;

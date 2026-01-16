@@ -1,5 +1,7 @@
+import 'cont_error.dart';
+
 final class ContObserver<A> {
-  final void Function(List<Object> errors) _onTerminate;
+  final void Function(List<ContError> errors) _onTerminate;
   final void Function(A value) onSome;
 
   const ContObserver(this._onTerminate, this.onSome);
@@ -8,11 +10,11 @@ final class ContObserver<A> {
     return ContObserver((_) {}, (_) {});
   }
 
-  void onTerminate([List<Object> errors = const []]) {
+  void onTerminate([List<ContError> errors = const []]) {
     _onTerminate(errors);
   }
 
-  ContObserver<A> copyUpdateOnTerminate(void Function(List<Object> errors) onTerminate) {
+  ContObserver<A> copyUpdateOnTerminate(void Function(List<ContError> errors) onTerminate) {
     return ContObserver(onTerminate, onSome);
   }
 
