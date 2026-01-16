@@ -137,6 +137,18 @@ final class Cont<A> {
     });
   }
 
+  Cont<A> flatTap<A2>(Cont<A2> Function(A value) f) {
+    return flatMap((a) {
+      return f(a).mapTo(a);
+    });
+  }
+
+  Cont<A> flatTap0<A2>(Cont<A2> Function() f) {
+    return flatTap((_) {
+      return f();
+    });
+  }
+
   Cont<A> catchTerminate(Cont<A> Function(List<ContError> errors) f) {
     return Cont.fromRun((reporter, observer) {
       run(
