@@ -55,6 +55,7 @@ void main() {
                 //
               );
             },
+            isSequential: false,
           );
         })
         .flatMap(service.getTransactionService)
