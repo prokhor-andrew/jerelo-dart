@@ -18,24 +18,19 @@ final class Cont<A> {
           return;
         }
         isDone = true;
-        observer.onTerminate(errors);
+        observer.onTerminate([...errors]);
+      }
+
+      void guardedSome(A a) {
+        if (isDone) {
+          return;
+        }
+        isDone = true;
+        observer.onSome(a);
       }
 
       try {
-        run(
-          ContObserver(
-            (errors) {
-              guardedTerminate([...errors]); // making a defensive copy
-            },
-            (a) {
-              if (isDone) {
-                return;
-              }
-              isDone = true;
-              observer.onSome(a);
-            },
-          ),
-        );
+        run(ContObserver(guardedTerminate, guardedSome));
       } catch (error, st) {
         guardedTerminate([ContError(error, st)]);
       }
