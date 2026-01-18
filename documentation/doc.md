@@ -152,48 +152,50 @@ program.run(
 
 The example above showcases how construction of computation is 
 separated from its execution. Any object of type ``Cont`` is cold,
-pure and lazy by definition. It can be safely executed multiple times.
+pure and lazy by design. It can be safely executed multiple times.
 
 # Data channels
 
 ```Cont``` has two data channels. One is for successful result 
-and another one for terminated computations.
+and another one for termination.
 
 Success is the one expressed by type parameter ``T`` in ``Cont<T>``.
 
 Termination - by ``List<Object>``. 
 The ``List<Object>`` stands for the list of errors that caused the termination.
 It can be empty or not.
-This channel is used when computation crashes. It can also be used
+This channel is used when a computation crashes. It can also be used
 to manually terminate the computation.
 
 
 # Constructors
 
-``Cont`` has two fundamental constructors:
-- Cont.fromRun
-- Cont.fromDeferred
+``Cont`` has one fundamental constructor:
+- ```Cont.fromRun```
+
+One utility:
+- ```Cont.fromDeferred```
 
 And lawful identities to some operators:
-- Cont.of
-- Cont.terminate
-- Cont.empty
-- Cont.raise
+- ```Cont.of```
+- ```Cont.terminate```
+- ```Cont.empty```
+- ```Cont.raise```
 
 # Operators
 
 ``Cont`` comes with a set of operators that allow to compose computations.
 
 They are:
-- map
-- flatMap
-- catchTerminate
-- catchError
-- catchEmpty
-- filter
-- Cont.both
-- Cont.all
-- Cont.race
-- Cont.raceAll
-- Cont.either
-- Cont.any
+- ```map```
+- ```flatMap``` 
+- ```catchTerminate```
+- ```catchError```
+- ```catchEmpty```
+- ```filter```
+- ```Cont.both```
+- ```Cont.all```
+- ```Cont.race```
+- ```Cont.raceAll```
+- ```Cont.either```
+- ```Cont.any```
