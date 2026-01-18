@@ -192,6 +192,7 @@ And lawful identities to some operators:
 They are:
 - ```map```
 - ```flatMap``` 
+- ```flatTap```
 - ```catchTerminate```
 - ```catchError```
 - ```catchEmpty```
