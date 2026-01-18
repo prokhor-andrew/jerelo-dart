@@ -137,6 +137,12 @@ final class Cont<A> {
     });
   }
 
+  Cont<A2> flatMapTo<A2>(Cont<A2> cont) {
+    return flatMap0(() {
+      return cont;
+    });
+  }
+
   Cont<A> flatTap<A2>(Cont<A2> Function(A value) f) {
     return flatMap((a) {
       return f(a).mapTo(a);
@@ -146,6 +152,12 @@ final class Cont<A> {
   Cont<A> flatTap0<A2>(Cont<A2> Function() f) {
     return flatTap((_) {
       return f();
+    });
+  }
+
+  Cont<A> flatTapTo<A2>(Cont<A2> cont) {
+    return flatTap0(() {
+      return cont;
     });
   }
 
@@ -171,6 +183,12 @@ final class Cont<A> {
     });
   }
 
+  Cont<A> catchTerminateTo(Cont<A> cont) {
+    return catchTerminate0(() {
+      return cont;
+    });
+  }
+
   Cont<A> catchEmpty(Cont<A> Function() f) {
     return catchTerminate((errors) {
       if (errors.isNotEmpty) {
@@ -178,6 +196,12 @@ final class Cont<A> {
       }
 
       return f();
+    });
+  }
+
+  Cont<A> catchEmptyTo(Cont<A> cont) {
+    return catchEmpty(() {
+      return cont;
     });
   }
 
@@ -196,6 +220,14 @@ final class Cont<A> {
       return f();
     });
   }
+
+  Cont<A> catchErrorTo(Cont<A> cont) {
+    return catchError0(() {
+      return cont;
+    });
+  }
+
+  // combinators)
 
   Cont<A> filter(bool Function(A value) f) {
     return flatMap((a) {
