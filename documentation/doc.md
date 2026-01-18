@@ -152,7 +152,7 @@ final class ContError {
 ``Cont`` has one fundamental constructor:
 - ```Cont.fromRun```
 
-One utility:
+One utility constructor:
 - ```Cont.fromDeferred```
 
 And lawful identities to some operators:
