@@ -4,7 +4,12 @@ import 'package:jerelo/src/cont_reporter.dart';
 import 'cont_error.dart';
 
 final class Cont<A> {
-  final void Function(ContReporter reporter, ContObserver<A> observer) run;
+  final void Function({
+    required ContReporter reporter,
+    required ContObserver<A> observer,
+    //
+  })
+  run;
 
   // ! constructor must not be called by anything other than "Cont.fromRun" !
   const Cont._(this.run);
@@ -13,7 +18,7 @@ final class Cont<A> {
   static Cont<A> fromRun<A>(void Function(ContReporter reporter, ContObserver<A> observer) run) {
     // guarantees idempotence
     // guarantees to catch throws
-    return Cont._((reporter, observer) {
+    return Cont._(({required reporter, required observer}) {
       bool isDone = false;
 
       void scheduleFatalError(ContError error) {
@@ -90,7 +95,7 @@ final class Cont<A> {
 
   static Cont<A> fromDeferred<A>(Cont<A> Function() thunk) {
     return Cont.fromRun((reporter, observer) {
-      thunk().run(reporter, observer);
+      thunk().run(reporter: reporter, observer: observer);
     });
   }
 
@@ -118,11 +123,11 @@ final class Cont<A> {
   Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
     return Cont.fromRun((reporter, observer) {
       run(
-        reporter,
-        observer.copyUpdateOnSome((a) {
+        reporter: reporter,
+        observer: observer.copyUpdateOnSome((a) {
           try {
             final contA2 = f(a);
-            contA2.run(reporter, observer);
+            contA2.run(reporter: reporter, observer: observer);
           } catch (error, st) {
             observer.onTerminate([ContError(error, st)]);
           }
@@ -164,11 +169,11 @@ final class Cont<A> {
   Cont<A> catchTerminate(Cont<A> Function(List<ContError> errors) f) {
     return Cont.fromRun((reporter, observer) {
       run(
-        reporter,
-        observer.copyUpdateOnTerminate((errors) {
+        reporter: reporter,
+        observer: observer.copyUpdateOnTerminate((errors) {
           try {
             final contA = f(errors);
-            contA.run(reporter, observer);
+            contA.run(reporter: reporter, observer: observer);
           } catch (error, st) {
             observer.onTerminate([...errors, ContError(error, st)]);
           }
@@ -317,8 +322,8 @@ final class Cont<A> {
 
       try {
         left.run(
-          reporter,
-          ContObserver(
+          reporter: reporter,
+          observer: ContObserver(
             (errors) {
               // strict order must be followed
               resultErrors.insertAll(0, errors);
@@ -339,8 +344,8 @@ final class Cont<A> {
 
       try {
         right.run(
-          reporter,
-          ContObserver(
+          reporter: reporter,
+          observer: ContObserver(
             (errors) {
               // strict order must be followed
               resultErrors.addAll(errors);
@@ -400,7 +405,7 @@ final class Cont<A> {
             final cont = safeCopy[i];
             try {
               cont.run(
-                ContReporter(
+                reporter: ContReporter(
                   onTerminate: (error) {
                     callback(_Value3((error, _ContSignal.terminate)));
                   },
@@ -409,7 +414,7 @@ final class Cont<A> {
                   },
                   //
                 ),
-                ContObserver(
+                observer: ContObserver(
                   (errors) {
                     callback(_Value2([...errors]));
                   },
@@ -474,8 +479,8 @@ final class Cont<A> {
         final index = i; // important
         try {
           cont.run(
-            reporter,
-            ContObserver(
+            reporter: reporter,
+            observer: ContObserver(
               (errors) {
                 handleNoneOrFail([...errors]); // defensive copy
               },
@@ -542,8 +547,8 @@ final class Cont<A> {
 
       try {
         left.run(
-          reporter,
-          makeObserver((errors) {
+          reporter: reporter,
+          observer: makeObserver((errors) {
             resultErrors.insertAll(0, errors);
           }),
         );
@@ -555,8 +560,8 @@ final class Cont<A> {
 
       try {
         right.run(
-          reporter,
-          makeObserver((errors) {
+          reporter: reporter,
+          observer: makeObserver((errors) {
             resultErrors.addAll(errors);
           }),
         );
@@ -615,8 +620,8 @@ final class Cont<A> {
 
       try {
         left.run(
-          reporter,
-          makeObserver((errors) {
+          reporter: reporter,
+          observer: makeObserver((errors) {
             resultErrors.insertAll(0, errors);
           }),
         );
@@ -628,8 +633,8 @@ final class Cont<A> {
 
       try {
         right.run(
-          reporter,
-          makeObserver((errors) {
+          reporter: reporter,
+          observer: makeObserver((errors) {
             resultErrors.addAll(errors);
           }),
         );
@@ -692,8 +697,8 @@ final class Cont<A> {
         final cont = list[i];
         try {
           cont.run(
-            reporter,
-            ContObserver(
+            reporter: reporter,
+            observer: ContObserver(
               (errors) {
                 handleTerminate(index, [...errors]); // defensive copy
               },
@@ -753,8 +758,8 @@ final class Cont<A> {
 
         try {
           cont.run(
-            reporter,
-            ContObserver(
+            reporter: reporter,
+            observer: ContObserver(
               (errors) {
                 resultErrors[index] = [...errors];
                 incrementFinishedAndCheckExit();
@@ -788,13 +793,13 @@ final class Cont<A> {
   static Cont<A> either<A>(Cont<A> left, Cont<A> right) {
     return Cont.fromRun((reporter, observer) {
       left.run(
-        reporter,
-        ContObserver(
+        reporter: reporter,
+        observer: ContObserver(
           (errors) {
             try {
               right.run(
-                reporter,
-                ContObserver(
+                reporter: reporter,
+                observer: ContObserver(
                   (errors2) {
                     observer.onTerminate([...errors, ...errors2]);
                   },
@@ -847,7 +852,7 @@ final class Cont<A> {
 
           try {
             cont.run(
-              ContReporter(
+              reporter: ContReporter(
                 onTerminate: (error) {
                   callback(_Value3((error, _ContSignal.terminate)));
                 },
@@ -856,7 +861,7 @@ final class Cont<A> {
                 },
                 //
               ),
-              ContObserver(
+              observer: ContObserver(
                 (errors2) {
                   callback(_Value1((index + 1, [...errors, ...errors2])));
                 },
