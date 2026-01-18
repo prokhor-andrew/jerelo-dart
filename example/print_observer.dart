@@ -2,18 +2,6 @@ import 'package:jerelo/jerelo.dart';
 
 import 'adt/risk_report.dart';
 
-ContReporter getReporter() {
-  return ContReporter(
-    onTerminate: (error) {
-      print("error=${error.error} st=${error.stackTrace}");
-    },
-    onSome: (error) {
-      print("error=${error.error} st=${error.stackTrace}");
-    },
-    //
-  );
-}
-
 ContObserver<RiskReport> getObserver() {
   return ContObserver(
     (errors) {

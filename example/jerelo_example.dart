@@ -4,7 +4,7 @@ import 'adt/decision.dart';
 import 'adt/transaction.dart';
 import 'adt/transaction_result.dart';
 import 'mock_draft_service.dart';
-import 'print_reporter_observer.dart';
+import 'print_observer.dart';
 
 void main() {
   /**
@@ -74,9 +74,5 @@ void main() {
         .catchTerminate(service.getReportForErrors);
   });
 
-  program.run(
-    reporter: getReporter(),
-    observer: getObserver(),
-    //
-  );
+  program.run(getObserver());
 }
