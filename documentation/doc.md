@@ -1,6 +1,4 @@
 
-
-
 # What is Jerelo?
 
 **Jerelo** is a minimal, lawful Dart functional toolkit built around 
@@ -29,6 +27,10 @@ Another way to achieve the same result is using **Continuation Passing Style** (
 void increment(int value, void Function(int result) callback) { 
   callback(value + 1);
 }
+
+increment(5, (result) { 
+  // result == 6
+});
 ```
 
 Instead of returning result, a callback is passed to the function. 
@@ -70,6 +72,7 @@ final result2 = function2(result1);
 
 // async composition
 // in async function
+
 final result1 = await function1(value);
 final result2 = await function2(result1);
 
@@ -100,11 +103,13 @@ Example:
 ```dart
 // Cont composition
 
-final program = function1(value).flatMap((result1) {
-  return function2(result1);
-}).flatMap((result2) {
-  // the rest of the program
-});
+final program = function1(value)
+    .flatMap((result1) {
+      return function2(result1);
+    })
+    .flatMap((result2) {
+      // the rest of the program
+    });
 ```
 
 Or even better
@@ -119,57 +124,28 @@ final program = function1(value)
     });
 ```
 
-# Running computations
-
-Both `program` objects are of type ```Cont<T>``` where ```T``` 
-is the result of the last computation.
-
-The computation won't start after its construction. In order 
-to actually run it, one has to call ``run`` on it, passing
-``ContReporter`` and ``ContObserver<T>``.
-
-Example:
-```dart 
-
-final Cont<String> program = getValueFromDatabase()
-    .flatMap(incrementValue)
-    .flatMap(isEven)
-    .flatMap(toString);
-
-
-// running the program
-program.run(
-  ContReporter.ignore(), // will be explained later
-  ContObserver(
-    (errors) {
-      // handle errors
-      print("FAILED with errors=$errors");
-    },
-    (value) {
-      // handle computed result  
-      print("SUCCEEDED with value=$value");
-    },
-  ),
-);
-```
-
-The example above showcases how construction of computation is 
-separated from its execution. Any object of type ``Cont`` is cold,
-pure and lazy by design. It can be safely executed multiple times.
-
 # Data channels
 
-```Cont``` has two data channels. One is for successful result 
+```Cont``` has two data channels. One is for successful result
 and another one for termination.
 
 Success is the one expressed by type parameter ``T`` in ``Cont<T>``.
 
-Termination - by ``List<Object>``. 
-The ``List<Object>`` stands for the list of errors that caused the termination.
+Termination - by ``List<ContError>``.
+The ``List<ContError>`` stands for the list of errors that caused the termination.
 It can be empty or not.
 This channel is used when a computation crashes. It can also be used
 to manually terminate the computation.
 
+For reference:
+```dart
+final class ContError {
+  final Object error;
+  final StackTrace stackTrace;
+
+  const ContError(this.error, this.stackTrace);
+}
+```
 
 # Constructors
 
@@ -191,7 +167,7 @@ And lawful identities to some operators:
 
 They are:
 - ```map```
-- ```flatMap``` 
+- ```flatMap```
 - ```flatTap```
 - ```catchTerminate```
 - ```catchError```
@@ -203,3 +179,46 @@ They are:
 - ```Cont.raceAll```
 - ```Cont.either```
 - ```Cont.any```
+
+# Extensions
+
+- ``flatten``
+- ``apply``
+
+# Running computations
+
+Both `program` objects are of type ```Cont<T>``` where ```T``` 
+is the result of the last computation.
+
+The computation won't start after its construction. In order 
+to actually run it, one has to call ``run`` on it, passing
+``ContReporter`` and ``ContObserver<T>``.
+
+Example:
+```dart 
+
+// constructing the program
+final Cont<String> program = getValueFromDatabase()
+    .flatMap(incrementValue)
+    .flatMap(isEven)
+    .flatMap(toString);
+
+// running the program
+program.run(
+    (errors) {
+      // handle errors
+      print("FAILED with errors=$errors");
+    },
+    (value) {
+      // handle computed result  
+      print("SUCCEEDED with value=$value");
+    },
+);
+```
+
+The example above showcases how construction of computation is 
+separated from its execution. Any object of type ``Cont`` is cold,
+pure and lazy by design. It can be safely executed multiple times.
+
+
+# Why bother?
