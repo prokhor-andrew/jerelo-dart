@@ -295,7 +295,7 @@ executed after ```run``` is called.
 
 When ```run``` is called, one goes "up" the chain, executes the edge
 computations (the ```Cont``` objects we get from ```getUser``` and ```getPaymentInfo```) 
-and then navigates down from each one back.
+and then navigates back down.
 
 The more detailed step by step guide can be found in [api.md](api.md).
 
