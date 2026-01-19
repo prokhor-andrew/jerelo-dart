@@ -74,5 +74,5 @@ void main() {
         .catchTerminate(service.getReportForErrors);
   });
 
-  program.run(getObserver());
+  program.runWith(getObserver());
 }
