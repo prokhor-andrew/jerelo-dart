@@ -798,6 +798,35 @@ final class Cont<A> {
     });
   }
 
+  Cont<A> subscribeOn(ContScheduler scheduler) {
+    return Cont.fromRun((observer) {
+      scheduler.schedule(() {
+        runWith(observer);
+      });
+    });
+  }
+
+  Cont<A> observeOn({
+    ContScheduler someOn = ContScheduler.immediate,
+    ContScheduler terminatedOn = ContScheduler.immediate,
+    //
+  }) {
+    return Cont.fromRun((observer) {
+      run(
+        (errors) {
+          terminatedOn.schedule(() {
+            observer.onTerminate(errors);
+          });
+        },
+        (a) {
+          someOn.schedule(() {
+            observer.onSome(a);
+          });
+        },
+      );
+    });
+  }
+
   static Cont<A> withRef<S, A>(
     S initial,
     Cont<A> Function(Ref<S> ref) use,
