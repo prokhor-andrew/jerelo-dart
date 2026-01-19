@@ -168,8 +168,9 @@ final class ContError {
 ``Cont`` has one base constructor:
 - ```Cont.fromRun```
 
-One utility constructor:
+Two utility constructors:
 - ```Cont.fromDeferred```
+- ```Cont.fromFutureComp```
 
 One stateful constructor:
 - ```Cont.withRef```
@@ -293,7 +294,7 @@ At first construct a computation, describing each step that has to be
 executed after ```run``` is called. 
 
 When ```run``` is called, you go "up" the chain, execute the edge
-computations (the ```Cont``` objects we get from ```getUser(userId)``` and ```getPaymentInfo(userId)```) 
+computations (the ```Cont``` objects we get from ```getUser``` and ```getPaymentInfo```) 
 and then navigate down from each one.
 
 The more detailed step by step guide can be found in [api.md](api.md).
@@ -336,3 +337,18 @@ passed around in functions, and stored as values in constants.
 
 
 # Why bother?
+
+Because real apps rot when the code stops being swappable. Today it’s one HTTP client, tomorrow it’s another. Today your “service” is direct calls, tomorrow it’s cached + retried + logged. UI changes, DB changes, APIs change, and suddenly your business logic is glued to details.
+
+Jerelo is my answer to that: a small, pure-Dart way to build business flows as LEGO blocks. When your flow is composable, everything becomes replaceable: a function, a service, or an entire 
+boundary (HTTP/UI/DB) can be swapped without rewriting the pipeline.
+
+It also makes two annoying realities explicit:
+
+- Dart can throw anywhere. Jerelo treats failure as part of the contract, so errors don’t leak as random crashes or scattered try/catch.
+
+- Async needs control. If you can’t control when things run, you can’t test them. Jerelo brings scheduling into the model so production can be async, and tests can be deterministic.
+
+It’s not another state/UI wiring tool. No Flutter opinions. No provider/riverpod vibe. Just a compact core for modular, scalable, swappable execution of real workflows.
+
+You can use those tools in addition to Jerelo though.
