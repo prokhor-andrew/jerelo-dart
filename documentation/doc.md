@@ -272,7 +272,7 @@ Example:
     .subscribeOn(ContScheduler.delayed());
 
   final getPaymentInfoCont = getPaymentInfo(userId)
-    .catchTerminate((errors) => Cont.of("No Payment Info Found"))
+    .catchTerminate((errors) => Cont.of(Failure("No Payment Info Found")))
     .subscribeOn(ContScheduler.microtask());
   
   final program = Cont.both(
