@@ -7,14 +7,14 @@ final class Cont<A> {
     _run(observer);
   }
 
-  void run(void Function(List<ContError> errors) onTerminate, void Function(A value) onSome) {
-    runWith(ContObserver(onTerminate, onSome));
+  void run(void Function(List<ContError> errors) onTerminate, void Function(A value) onValue) {
+    runWith(ContObserver(onTerminate, onValue));
   }
 
   // ! constructor must not be called by anything other than "Cont.fromRun" !
   const Cont._(this._run);
 
-  // onTerminate and onSome should be called as a last instruction in "run" or saved to be called later
+  // onTerminate and onValue should be called as a last instruction in "run" or saved to be called later
   static Cont<A> fromRun<A>(void Function(ContObserver<A> observer) run) {
     // guarantees idempotence
     // guarantees to catch throws
@@ -29,16 +29,16 @@ final class Cont<A> {
         observer.onTerminate([...errors]);
       }
 
-      void guardedSome(A a) {
+      void guardedValue(A a) {
         if (isDone) {
           return;
         }
         isDone = true;
-        observer.onSome(a);
+        observer.onValue(a);
       }
 
       try {
-        run(ContObserver(guardedTerminate, guardedSome));
+        run(ContObserver(guardedTerminate, guardedValue));
       } catch (error, st) {
         guardedTerminate([ContError(error, st)]);
       }
@@ -75,7 +75,7 @@ final class Cont<A> {
   Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
     return Cont.fromRun((observer) {
       _run(
-        observer.copyUpdateOnSome((a) {
+        observer.copyUpdateOnValue((a) {
           try {
             final contA2 = f(a);
             contA2._run(observer);
@@ -197,7 +197,7 @@ final class Cont<A> {
   // identities
   static Cont<A> of<A>(A value) {
     return Cont.fromRun((observer) {
-      observer.onSome(value);
+      observer.onValue(value);
     });
   }
 
@@ -238,25 +238,25 @@ final class Cont<A> {
 
     return Cont.fromRun((observer) {
       bool isOneFail = false;
-      bool isOneSome = false;
+      bool isOneValue = false;
 
       A? outerA;
       B? outerB;
       final List<ContError> resultErrors = [];
 
-      void handleSome() {
+      void handleValue() {
         if (isOneFail) {
           return;
         }
 
-        if (!isOneSome) {
-          isOneSome = true;
+        if (!isOneValue) {
+          isOneValue = true;
           return;
         }
 
         try {
           final c = f(outerA as A, outerB as B);
-          observer.onSome(c);
+          observer.onValue(c);
         } catch (error, st) {
           observer.onTerminate([ContError(error, st)]);
         }
@@ -282,7 +282,7 @@ final class Cont<A> {
             (a) {
               // strict order must be followed
               outerA = a;
-              handleSome();
+              handleValue();
             },
           ),
         );
@@ -303,7 +303,7 @@ final class Cont<A> {
             (b) {
               // strict order must be followed
               outerB = b;
-              handleSome();
+              handleValue();
             },
           ),
         );
@@ -369,7 +369,7 @@ final class Cont<A> {
           escape: (triple) {
             switch (triple) {
               case _Value1(value: final results):
-                observer.onSome(results);
+                observer.onValue(results);
                 return;
               case _Value2(value: final errors):
                 observer.onTerminate(errors);
@@ -385,7 +385,7 @@ final class Cont<A> {
       final safeCopy = List<Cont<A>>.from(safeCopy0);
 
       if (safeCopy.isEmpty) {
-        observer.onSome(<A>[]);
+        observer.onValue(<A>[]);
         return;
       }
 
@@ -423,7 +423,7 @@ final class Cont<A> {
                   return;
                 }
 
-                observer.onSome(results.cast<A>());
+                observer.onValue(results.cast<A>());
               },
             ),
           );
@@ -467,7 +467,7 @@ final class Cont<A> {
               return;
             }
             isDone = true;
-            observer.onSome(a);
+            observer.onValue(a);
           },
         );
       }
@@ -515,7 +515,7 @@ final class Cont<A> {
         }
 
         if (isResultAvailable) {
-          observer.onSome(result as A);
+          observer.onValue(result as A);
           return;
         }
 
@@ -533,7 +533,7 @@ final class Cont<A> {
           },
           (a) {
             if (isFirstComputed) {
-              observer.onSome(a);
+              observer.onValue(a);
               return;
             }
             result = a;
@@ -616,7 +616,7 @@ final class Cont<A> {
       }
 
       for (int i = 0; i < list.length; i++) {
-        final index = i; // this is important to capture. if we reference "i" from onSome block, we might pick wrong index
+        final index = i; // this is important to capture. if we reference "i" from onValue block, we might pick wrong index
         final cont = list[i];
         try {
           cont._run(
@@ -629,7 +629,7 @@ final class Cont<A> {
                   return;
                 }
                 isWinnerFound = true;
-                observer.onSome(a);
+                observer.onValue(a);
               },
             ),
           );
@@ -663,7 +663,7 @@ final class Cont<A> {
         }
 
         if (isItemFoundAvailable) {
-          observer.onSome(lastValue as A);
+          observer.onValue(lastValue as A);
           return;
         }
 
@@ -675,7 +675,7 @@ final class Cont<A> {
       }
 
       for (int i = 0; i < list.length; i++) {
-        final index = i; // this is important to capture. if we reference "i" from onSome block, we might pick wrong index
+        final index = i; // this is important to capture. if we reference "i" from onValue block, we might pick wrong index
         final cont = list[i];
 
         try {
@@ -723,7 +723,7 @@ final class Cont<A> {
                     observer.onTerminate([...errors, ...errors2]);
                   },
                   (a2) {
-                    observer.onSome(a2);
+                    observer.onValue(a2);
                   },
                 ),
               );
@@ -732,7 +732,7 @@ final class Cont<A> {
             }
           },
           (a) {
-            observer.onSome(a);
+            observer.onValue(a);
           },
         ),
       );
@@ -789,7 +789,7 @@ final class Cont<A> {
               observer.onTerminate([...errors]);
               return;
             case _Value2(value: final a):
-              observer.onSome(a);
+              observer.onValue(a);
               return;
           }
         },
@@ -807,7 +807,7 @@ final class Cont<A> {
   }
 
   Cont<A> observeOn({
-    ContScheduler someOn = ContScheduler.immediate,
+    ContScheduler valueOn = ContScheduler.immediate,
     ContScheduler terminatedOn = ContScheduler.immediate,
     //
   }) {
@@ -819,8 +819,8 @@ final class Cont<A> {
           });
         },
         (a) {
-          someOn.schedule(() {
-            observer.onSome(a);
+          valueOn.schedule(() {
+            observer.onValue(a);
           });
         },
       );
@@ -984,15 +984,15 @@ final class Ref<S> {
       final before = _state;
 
       f(before).runWith(
-        observer.copyUpdateOnSome((function) {
-          // this "onSome" can be run later, when "_state" is not the same as it was
+        observer.copyUpdateOnValue((function) {
+          // this "onValue" can be run later, when "_state" is not the same as it was
           // when we assigned it to "before", and because of that, our expectation of what state is, can be wrong
           final after = _state;
           final (S, V) commit;
           try {
             commit = function(after);
             _state = commit.$1;
-            observer.onSome(commit.$2);
+            observer.onValue(commit.$2);
           } catch (error, st) {
             observer.onTerminate([ContError(error, st)]);
           }
