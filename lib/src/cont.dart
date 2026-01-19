@@ -51,13 +51,6 @@ final class Cont<A> {
     });
   }
 
-  Cont<A2> withObserver<A2>(ContObserver<A> Function(ContObserver<A2> observer) f) {
-    return Cont.fromRun((observerA2) {
-      final observerA = f(observerA2);
-      _run(observerA);
-    });
-  }
-
   // maps
   Cont<A2> map<A2>(A2 Function(A value) f) {
     return flatMap((a) {
