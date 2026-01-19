@@ -1,10 +1,18 @@
 import 'package:jerelo/jerelo.dart';
 
 final class Cont<A> {
-  final void Function(ContObserver<A> observer) run;
+  final void Function(ContObserver<A> observer) _run;
+
+  void runWith(ContObserver<A> observer) {
+    _run(observer);
+  }
+
+  void run(void Function(List<ContError> errors) onTerminate, void Function(A value) onSome) {
+    runWith(ContObserver(onTerminate, onSome));
+  }
 
   // ! constructor must not be called by anything other than "Cont.fromRun" !
-  const Cont._(this.run);
+  const Cont._(this._run);
 
   // onTerminate and onSome should be called as a last instruction in "run" or saved to be called later
   static Cont<A> fromRun<A>(void Function(ContObserver<A> observer) run) {
@@ -39,14 +47,14 @@ final class Cont<A> {
 
   static Cont<A> fromDeferred<A>(Cont<A> Function() thunk) {
     return Cont.fromRun((observer) {
-      thunk().run(observer);
+      thunk()._run(observer);
     });
   }
 
   Cont<A2> withObserver<A2>(ContObserver<A> Function(ContObserver<A2> observer) f) {
     return Cont.fromRun((observerA2) {
       final observerA = f(observerA2);
-      run(observerA);
+      _run(observerA);
     });
   }
 
@@ -73,11 +81,11 @@ final class Cont<A> {
   // monadic-like
   Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
     return Cont.fromRun((observer) {
-      run(
+      _run(
         observer.copyUpdateOnSome((a) {
           try {
             final contA2 = f(a);
-            contA2.run(observer);
+            contA2._run(observer);
           } catch (error, st) {
             observer.onTerminate([ContError(error, st)]);
           }
@@ -118,11 +126,11 @@ final class Cont<A> {
 
   Cont<A> catchTerminate(Cont<A> Function(List<ContError> errors) f) {
     return Cont.fromRun((observer) {
-      run(
+      _run(
         observer.copyUpdateOnTerminate((errors) {
           try {
             final contA = f(errors);
-            contA.run(observer);
+            contA._run(observer);
           } catch (error, st) {
             observer.onTerminate([...errors, ContError(error, st)]);
           }
@@ -270,7 +278,7 @@ final class Cont<A> {
       }
 
       try {
-        left.run(
+        left._run(
           ContObserver(
             (errors) {
               // strict order must be followed
@@ -291,7 +299,7 @@ final class Cont<A> {
       }
 
       try {
-        right.run(
+        right._run(
           ContObserver(
             (errors) {
               // strict order must be followed
@@ -349,7 +357,7 @@ final class Cont<A> {
             final (i, values) = tuple;
             final cont = safeCopy[i];
             try {
-              cont.run(
+              cont._run(
                 ContObserver(
                   (errors) {
                     callback(_Value2([...errors]));
@@ -404,7 +412,7 @@ final class Cont<A> {
       for (final (i, cont) in safeCopy.indexed) {
         final index = i; // important
         try {
-          cont.run(
+          cont._run(
             ContObserver(
               (errors) {
                 handleNoneOrFail([...errors]); // defensive copy
@@ -471,7 +479,7 @@ final class Cont<A> {
       }
 
       try {
-        left.run(
+        left._run(
           makeObserver((errors) {
             resultErrors.insertAll(0, errors);
           }),
@@ -483,7 +491,7 @@ final class Cont<A> {
       }
 
       try {
-        right.run(
+        right._run(
           makeObserver((errors) {
             resultErrors.addAll(errors);
           }),
@@ -542,7 +550,7 @@ final class Cont<A> {
       }
 
       try {
-        left.run(
+        left._run(
           makeObserver((errors) {
             resultErrors.insertAll(0, errors);
           }),
@@ -554,7 +562,7 @@ final class Cont<A> {
       }
 
       try {
-        right.run(
+        right._run(
           makeObserver((errors) {
             resultErrors.addAll(errors);
           }),
@@ -617,7 +625,7 @@ final class Cont<A> {
         final index = i; // this is important to capture. if we reference "i" from onSome block, we might pick wrong index
         final cont = list[i];
         try {
-          cont.run(
+          cont._run(
             ContObserver(
               (errors) {
                 handleTerminate(index, [...errors]); // defensive copy
@@ -677,7 +685,7 @@ final class Cont<A> {
         final cont = list[i];
 
         try {
-          cont.run(
+          cont._run(
             ContObserver(
               (errors) {
                 resultErrors[index] = [...errors];
@@ -711,11 +719,11 @@ final class Cont<A> {
   // this one should be oky.
   static Cont<A> either<A>(Cont<A> left, Cont<A> right) {
     return Cont.fromRun((observer) {
-      left.run(
+      left._run(
         ContObserver(
           (errors) {
             try {
-              right.run(
+              right._run(
                 ContObserver(
                   (errors2) {
                     observer.onTerminate([...errors, ...errors2]);
@@ -766,7 +774,7 @@ final class Cont<A> {
           final cont = safeCopy[index];
 
           try {
-            cont.run(
+            cont._run(
               ContObserver(
                 (errors2) {
                   callback(_Value1((index + 1, [...errors, ...errors2])));
