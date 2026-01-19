@@ -269,11 +269,12 @@ final class Cont<A> {
         }
       }
 
-      void handleTerminate() {
+      void handleTerminate(void Function() codeToUpdate) {
         if (isOneFail) {
           return;
         }
         isOneFail = true;
+        codeToUpdate();
         observer.onTerminate(resultErrors);
       }
 
@@ -281,9 +282,9 @@ final class Cont<A> {
         left._run(
           ContObserver(
             (errors) {
-              // strict order must be followed
-              resultErrors.insertAll(0, errors);
-              handleTerminate();
+              handleTerminate(() {
+                resultErrors.insertAll(0, errors);
+              });
             },
             (a) {
               // strict order must be followed
@@ -293,18 +294,18 @@ final class Cont<A> {
           ),
         );
       } catch (error, st) {
-        // strict order must be followed
-        resultErrors.insert(0, ContError(error, st));
-        handleTerminate();
+        handleTerminate(() {
+          resultErrors.insert(0, ContError(error, st));
+        });
       }
 
       try {
         right._run(
           ContObserver(
             (errors) {
-              // strict order must be followed
-              resultErrors.addAll(errors);
-              handleTerminate();
+              handleTerminate(() {
+                resultErrors.addAll(errors);
+              });
             },
             (b) {
               // strict order must be followed
@@ -314,9 +315,9 @@ final class Cont<A> {
           ),
         );
       } catch (error, st) {
-        // strict order must be followed
-        resultErrors.add(ContError(error, st));
-        handleTerminate();
+        handleTerminate(() {
+          resultErrors.add(ContError(error, st));
+        });
       }
     });
   }
