@@ -258,8 +258,9 @@ The core idea - to compose computations, transform value, and control their exec
 Example:
 
 ```dart
-  final getUserCont = getUser(userId).flatMap(getUserAddress)
-    .filter((address) => address.country != Country.USA)
+  final getUserCont = getUser(userId)
+    .flatMap(getUserAddress)
+    .filter((address) => address.country == Country.USA)
     .map((address) => address.street)
     .catchEmpty(() => Cont.of(Failure("No address found")));
     .catchError((error, _) => Cont.of(Failure("Something went wrong")))
@@ -283,12 +284,14 @@ Example:
 
 
 If you are familiar with Rx, this is same idea. 
-TODO: describe flow.
+At first construct a computation, describing each step that has to be 
+executed after ```run``` is called. 
 
-# Extensions
+When ```run``` is called, you go "up" the chain, execute the edge
+computations (the ```Cont``` objects we get from ```getUser(userId)``` and ```getPaymentInfo(userId)```) 
+and then navigate down from each one.
 
-- ``flatten``
-- ``apply``
+The more detailed step by step guide can be found in [api.md](api.md).
 
 # Running computations
 
@@ -296,8 +299,8 @@ Both `program` objects are of type ```Cont<T>``` where ```T```
 is the result of the last computation.
 
 The computation won't start after its construction. In order 
-to actually run it, one has to call ``run`` on it, passing
-``ContReporter`` and ``ContObserver<T>``.
+to actually run it, one has to call ``run`` on it, passing ```onTerminate```
+callback as well as ```onValue``` one.
 
 Example:
 ```dart 
@@ -323,7 +326,8 @@ program.run(
 
 The example above showcases how construction of computation is 
 separated from its execution. Any object of type ``Cont`` is cold,
-pure and lazy by design. It can be safely executed multiple times.
+pure and lazy by design. It can be safely executed multiple times,
+passed around in functions, and stored as values in constants.
 
 
 # Why bother?
