@@ -61,7 +61,6 @@ final getUserComputation = Future(() {
 
 # The problem of CPS
 
-The problem of CPS is composition. 
 While normal functions and Futures compose nicely, CPS doesn't.
 
 ```dart
@@ -181,9 +180,9 @@ And lawful identities to some operators:
 - ```Cont.empty```
 - ```Cont.raise```
 
-To construct a Cont object you can use any of the above.
+To construct a ```Cont``` object - utilize any of the above.
 
-For example, you can wrap existing Future like this:
+For example, one can wrap an existing ```Future``` like this:
 
 ```dart
 Cont<User> getUser(String userId) {
@@ -204,10 +203,10 @@ Otherwise any potential errors will be lost with other unexpected behavior invol
 
 Sometimes one would prefer to defer a construction of a ``Cont``.
 In the example below, getting ``userId`` is expensive, so we want to 
-delay that until the ``Cont<Email>`` is run.
+delay that until the ``Cont<User>`` is run.
 
 ```dart 
-Cont<User> getUser(UserId Function() expensiveGetUserId) {
+Cont<User> getUserByIdThunk(UserId Function() expensiveGetUserId) {
   return Cont.fromDeferred(() {
     final userId = expensiveGetUserId();
     final userCont = getUser(userId);
@@ -220,7 +219,8 @@ Primitive constructors are also available:
 
 ```dart
 Cont<User> getUser(String userId) {
-  return Cont.of(getUserSync(userId)); // evaluated eagerly
+  final User user = getUserSync(userId); // evaluated eagerly
+  return Cont.of(user); 
 }
 ```
 
@@ -264,7 +264,7 @@ The core idea - to compose computations, transform value, and control their exec
 Example:
 
 ```dart
-  final getUserCont = getUser(userId)
+  final getUserStreetCont = getUser(userId)
     .flatMap(getUserAddress)
     .filter((address) => address.country == Country.USA)
     .map((address) => address.street)
@@ -277,9 +277,9 @@ Example:
     .subscribeOn(ContScheduler.microtask());
   
   final program = Cont.both(
-    getUserCont,
+    getUserStreetCont,
     getPaymentInfoCont,
-    (user, paymentInfo) => Success((user, paymentInfo)),
+    (userStreet, paymentInfo) => Success((userStreet, paymentInfo)),
     isSequential: false, // execute concurrently
   );
   
@@ -290,12 +290,12 @@ Example:
 
 
 If you are familiar with Rx, this is same idea. 
-At first construct a computation, describing each step that has to be 
+At first, construct a computation, describing each step that has to be 
 executed after ```run``` is called. 
 
-When ```run``` is called, you go "up" the chain, execute the edge
+When ```run``` is called, one goes "up" the chain, executes the edge
 computations (the ```Cont``` objects we get from ```getUser``` and ```getPaymentInfo```) 
-and then navigate down from each one.
+and then navigates down from each one back.
 
 The more detailed step by step guide can be found in [api.md](api.md).
 
