@@ -189,13 +189,18 @@ Cont<User> getUser(String userId) {
   return Cont.fromRun((observer) async {
     try {
       final user = await getUserById(userId);
-      observer.onSuccess(user);
+      observer.onValue(user);
     } catch (error, st) {
       observer.onTerminate([ContError(error, st)]);
     }
   });
 }
 ```
+A couple of things to note about ```observer```:
+- It is idempotent. Calling ```onValue``` or ```onTerminate``` more then once will do nothing.
+- It is mandatory to call ```onValue``` or ```onTerminate``` once the computation is over. 
+Otherwise any potential errors will be lost with other unexpected behavior involved. 
+
 Sometimes one would prefer to defer a construction of a ``Cont``.
 In the example below, getting ``userId`` is expensive, so we want to 
 delay that until the ``Cont<Email>`` is run.
