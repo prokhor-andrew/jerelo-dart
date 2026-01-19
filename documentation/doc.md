@@ -96,6 +96,7 @@ It comes with basic interface that allows to do every fundamental operation:
 - Sequence
 - Merge
 - Branch
+- Schedule
 
 
 Example:
@@ -103,7 +104,22 @@ Example:
 ```dart
 // Cont composition
 
-final program = function1(value)
+final Cont<Result1Type> result1Cont = function1(value);
+final Cont<Result2Type> result2Cont = result1Cont.flatMap((result1) {
+      return function2(result1);
+    });
+
+final Cont<ProgramType> program = result2Cont.flatMap((result2) {
+      // the rest of the program
+    });
+```
+
+But that is tedious and not the right way to use it. Here is the right one:
+
+```dart
+// Cont composition
+
+final Cont<ProgramType> program = function1(value)
     .flatMap((result1) {
       return function2(result1);
     })
@@ -147,13 +163,16 @@ final class ContError {
 }
 ```
 
-# Constructors
+# Construction
 
-``Cont`` has one fundamental constructor:
+``Cont`` has one base constructor:
 - ```Cont.fromRun```
 
 One utility constructor:
 - ```Cont.fromDeferred```
+
+One stateful constructor:
+- ```Cont.withRef```
 
 And lawful identities to some operators:
 - ```Cont.of```
@@ -161,11 +180,59 @@ And lawful identities to some operators:
 - ```Cont.empty```
 - ```Cont.raise```
 
+To construct a Cont object you can use any of the above.
+
+For example, you can wrap existing Future like this:
+
+```dart
+Cont<User> getUser(String userId) {
+  return Cont.fromRun((observer) async {
+    try {
+      final user = await getUserById(userId);
+      observer.onSuccess(user);
+    } catch (error, st) {
+      observer.onTerminate([ContError(error, st)]);
+    }
+  });
+}
+```
+Sometimes one would prefer to defer a construction of a ``Cont``.
+In the example below, getting ``userId`` is expensive, so we want to 
+delay that until the ``Cont<Email>`` is run.
+
+```dart 
+Cont<User> getUser(UserId Function() expensiveGetUserId) {
+  return Cont.fromDeferred(() {
+    final userId = expensiveGetUserId();
+    final userCont = getUser(userId);
+    return userCont;
+  });
+}
+```
+
+Primitive constructors are also available:
+
+```dart
+Cont<User> getUser(String userId) {
+  return Cont.of(getUserSync(userId)); // evaluated eagerly
+}
+```
+
+To represent terminated computation with or without errors use:
+
+```dart
+
+Cont.empty(); // no errors
+
+Cont.raise(ContError(error, stackTrace), []); // at least one error
+
+Cont.terminate([]); // combines both above
+```
+
 # Operators
 
-``Cont`` comes with a set of operators that allow to compose computations.
+``Cont`` comes with a set of operators that allow to compose computations:
 
-They are:
 - ```map```
 - ```flatMap```
 - ```flatTap```
@@ -179,6 +246,44 @@ They are:
 - ```Cont.raceAll```
 - ```Cont.either```
 - ```Cont.any```
+
+and to control the execution:
+- ```subscribeOn```
+- ```observeOn```
+
+The behavior of each individual operator is described in [api.md](api.md).
+
+The core idea - to compose computations, transform value, and control their execution.
+
+Example:
+
+```dart
+  final getUserCont = getUser(userId).flatMap(getUserAddress)
+    .filter((address) => address.country != Country.USA)
+    .map((address) => address.street)
+    .catchEmpty(() => Cont.of(Failure("No address found")));
+    .catchError((error, _) => Cont.of(Failure("Something went wrong")))
+    .subscribeOn(ContScheduler.delayed());
+
+  final getPaymentInfoCont = getPaymentInfo(userId)
+    .catchTerminate((errors) => Cont.of("No Payment Info Found"))
+    .subscribeOn(ContScheduler.microtask());
+  
+  final program = Cont.both(
+    getUserCont,
+    getPaymentInfoCont,
+    (user, paymentInfo) => Success((user, paymentInfo)),
+    isSequential: false, // execute concurrently
+  );
+  
+  // later run
+
+  program.run(print, print);
+```
+
+
+If you are familiar with Rx, this is same idea. 
+TODO: describe flow.
 
 # Extensions
 
