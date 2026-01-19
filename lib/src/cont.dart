@@ -47,7 +47,15 @@ final class Cont<A> {
 
   static Cont<A> fromDeferred<A>(Cont<A> Function() thunk) {
     return Cont.fromRun((observer) {
-      thunk()._run(observer);
+      thunk().runWith(observer);
+    });
+  }
+
+  static Cont<A> fromFutureComp<A>(Future<A> Function() thunk) {
+    return Cont.fromRun((observer) {
+      thunk().then(observer.onValue).catchError((error, st) {
+        observer.onTerminate([ContError(error, st)]);
+      });
     });
   }
 
@@ -74,11 +82,11 @@ final class Cont<A> {
   // monadic-like
   Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
     return Cont.fromRun((observer) {
-      _run(
+      runWith(
         observer.copyUpdateOnValue((a) {
           try {
             final contA2 = f(a);
-            contA2._run(observer);
+            contA2.runWith(observer);
           } catch (error, st) {
             observer.onTerminate([ContError(error, st)]);
           }
@@ -119,11 +127,11 @@ final class Cont<A> {
 
   Cont<A> catchTerminate(Cont<A> Function(List<ContError> errors) f) {
     return Cont.fromRun((observer) {
-      _run(
+      runWith(
         observer.copyUpdateOnTerminate((errors) {
           try {
             final contA = f(errors);
-            contA._run(observer);
+            contA.runWith(observer);
           } catch (error, st) {
             observer.onTerminate([...errors, ContError(error, st)]);
           }
@@ -272,7 +280,7 @@ final class Cont<A> {
       }
 
       try {
-        left._run(
+        left.runWith(
           ContObserver(
             (errors) {
               handleTerminate(() {
@@ -293,7 +301,7 @@ final class Cont<A> {
       }
 
       try {
-        right._run(
+        right.runWith(
           ContObserver(
             (errors) {
               handleTerminate(() {
@@ -351,7 +359,7 @@ final class Cont<A> {
             final (i, values) = tuple;
             final cont = safeCopy[i];
             try {
-              cont._run(
+              cont.runWith(
                 ContObserver(
                   (errors) {
                     callback(_Value2([...errors]));
@@ -406,7 +414,7 @@ final class Cont<A> {
       for (final (i, cont) in safeCopy.indexed) {
         final index = i; // important
         try {
-          cont._run(
+          cont.runWith(
             ContObserver(
               (errors) {
                 handleNoneOrFail([...errors]); // defensive copy
@@ -473,7 +481,7 @@ final class Cont<A> {
       }
 
       try {
-        left._run(
+        left.runWith(
           makeObserver((errors) {
             resultErrors.insertAll(0, errors);
           }),
@@ -485,7 +493,7 @@ final class Cont<A> {
       }
 
       try {
-        right._run(
+        right.runWith(
           makeObserver((errors) {
             resultErrors.addAll(errors);
           }),
@@ -544,7 +552,7 @@ final class Cont<A> {
       }
 
       try {
-        left._run(
+        left.runWith(
           makeObserver((errors) {
             resultErrors.insertAll(0, errors);
           }),
@@ -556,7 +564,7 @@ final class Cont<A> {
       }
 
       try {
-        right._run(
+        right.runWith(
           makeObserver((errors) {
             resultErrors.addAll(errors);
           }),
@@ -619,7 +627,7 @@ final class Cont<A> {
         final index = i; // this is important to capture. if we reference "i" from onValue block, we might pick wrong index
         final cont = list[i];
         try {
-          cont._run(
+          cont.runWith(
             ContObserver(
               (errors) {
                 handleTerminate(index, [...errors]); // defensive copy
@@ -679,7 +687,7 @@ final class Cont<A> {
         final cont = list[i];
 
         try {
-          cont._run(
+          cont.runWith(
             ContObserver(
               (errors) {
                 resultErrors[index] = [...errors];
@@ -713,11 +721,11 @@ final class Cont<A> {
   // this one should be oky.
   static Cont<A> either<A>(Cont<A> left, Cont<A> right) {
     return Cont.fromRun((observer) {
-      left._run(
+      left.runWith(
         ContObserver(
           (errors) {
             try {
-              right._run(
+              right.runWith(
                 ContObserver(
                   (errors2) {
                     observer.onTerminate([...errors, ...errors2]);
@@ -768,7 +776,7 @@ final class Cont<A> {
           final cont = safeCopy[index];
 
           try {
-            cont._run(
+            cont.runWith(
               ContObserver(
                 (errors2) {
                   callback(_Value1((index + 1, [...errors, ...errors2])));
