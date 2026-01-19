@@ -797,6 +797,50 @@ final class Cont<A> {
       );
     });
   }
+
+  static Cont<A> withRef<S, A>(
+    S initial,
+    Cont<A> Function(Ref<S> ref) use,
+    Cont<()> Function(Ref<S> ref) release,
+    //
+  ) {
+    return Cont.fromDeferred(() {
+      final ref = Ref._(initial);
+
+      Cont<()> doProperRelease() {
+        try {
+          return release(ref);
+        } catch (error, st) {
+          return Cont.raise(ContError(error, st));
+        }
+      }
+
+      try {
+        final mainCont = use(ref);
+        return mainCont
+            .catchTerminate((errors) {
+              return doProperRelease()
+                  .catchTerminate((errors2) {
+                    return Cont.terminate([...errors, ...errors2]);
+                  })
+                  .flatMap0(() {
+                    return Cont.terminate(errors);
+                  });
+            })
+            .flatMap((a) {
+              return doProperRelease().mapTo(a);
+            });
+      } catch (error, st) {
+        return doProperRelease()
+            .catchTerminate((errors2) {
+              return Cont.terminate([ContError(error, st), ...errors2]);
+            })
+            .flatMap0(() {
+              return Cont.raise(ContError(error, st));
+            });
+      }
+    });
+  }
 }
 
 // applicatives
@@ -899,4 +943,32 @@ final class _StackSafeLoopPolicyStop<A, B> extends _StackSafeLoopPolicy<A, B> {
   final B value;
 
   const _StackSafeLoopPolicyStop(this.value);
+}
+
+final class Ref<S> {
+  S _state;
+
+  Ref._(S initial) : _state = initial;
+
+  Cont<V> commit<V>(Cont<(S, V) Function(S after)> Function(S before) f) {
+    return Cont.fromRun((observer) {
+      final before = _state;
+
+      f(before).runWith(
+        observer.copyUpdateOnSome((function) {
+          // this "onSome" can be run later, when "_state" is not the same as it was
+          // when we assigned it to "before", and because of that, our expectation of what state is, can be wrong
+          final after = _state;
+          final (S, V) commit;
+          try {
+            commit = function(after);
+            _state = commit.$1;
+            observer.onSome(commit.$2);
+          } catch (error, st) {
+            observer.onTerminate([ContError(error, st)]);
+          }
+        }),
+      );
+    });
+  }
 }
