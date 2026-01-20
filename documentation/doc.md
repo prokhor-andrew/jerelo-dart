@@ -430,3 +430,14 @@ Jerelo also makes two practical constraints explicit:
 - **Async needs control**. If you cannot control when work runs, you cannot test it reliably. Jerelo brings scheduling into the model so production can be async while tests remain deterministic.
 
 Jerelo is not a UI/state wiring framework. It does not prescribe Flutter patterns or a specific ecosystem. It is a compact core for building modular, scalable workflows, and it can be used alongside tools like Provider or Riverpod when you want them.
+
+
+# What does "Jerelo" mean?
+
+**Jerelo** is a Ukrainian word meaning “source” or “spring”.
+
+Each Cont is a source of results. 
+Like a spring that feeds a stream, a `Cont` produces a 
+flow of data. Streams can branch, merge, filter, and 
+transform what they carry, and Jerelo’s API lets you model 
+the same kinds of operations in your workflows.
