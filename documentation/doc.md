@@ -19,7 +19,7 @@ int increment(int value) {
 final result = increment(5); // 6
 ```
 
-Another way to achieve the same result is using **Continuation Passing Style** (CPS).
+Another way to achieve the same result is by using **Continuation Passing Style** (CPS).
 
 
 ```dart
@@ -46,7 +46,7 @@ This enables async programming.
 
 # Why not Future?
 
-Dart's Future - is, in fact, CPS with language sugar on top of it.
+Dart's `Future` - is, in fact, CPS with language sugar on top of it.
 But its problem is it starts running as soon as it is created. 
 This does not allow us to separate construction of computation from 
 its execution.
@@ -62,7 +62,7 @@ final getUserComputation = Future(() {
 
 # The problem of CPS
 
-While normal functions and Futures compose nicely, CPS doesn't.
+While normal functions and `Future`s compose nicely, CPS doesn't.
 
 ```dart
 
@@ -90,13 +90,15 @@ As you can see, the more functions we want to compose, the uglier it becomes.
 # Solution
 
 
-**Cont** - is a computation that can be constructed and run later.
+**Cont** - is a type that represents an arbitrary computation. 
 It comes with basic interface that allows to do every fundamental operation:
 - Construct
-- Sequence
+- Transform
+- Chain
 - Merge
-- Branch
+- Choose
 - Schedule
+- Run
 
 
 Example:
@@ -162,6 +164,7 @@ final program = getUserAge(userId).map((age) {
 program.run((errors) {
   // will automatically catch thrown error here
 }, (value) {
+  // success channel. not called in this case
   print("value=$value");
 });
 ```
@@ -169,7 +172,6 @@ program.run((errors) {
 The type of thrown error is `ContError`. It is a holder for original error and 
 stack trace.
 
-For reference:
 ```dart
 final class ContError {
   final Object error;
@@ -199,24 +201,14 @@ And lawful identities to some operators:
 
 To construct a `Cont` object - utilize any of the above.
 
+
 For example, one can wrap an existing `Future` like this:
 
 ```dart
-Cont<User> getUser(String userId) {
-  return Cont.fromRun((observer) {
-    final userFuture = getUserById(userId); // <- returns Future<User> here
-    userFuture.then((user) {
-      observer.onValue(user);
-    }).catchError((error, st) {
-      observer.onTerminate([ContError(error, st)]);
-    });
-  });
+Future<User> getUserById(String userId) {
+  // implementation omitted
 }
-```
 
-But it is much better to use existing `Cont.fromFutureComp` to achieve the same result:
-
-```dart
 Cont<User> getUser(String userId) {
   return Cont.fromFutureComp(() {
     final userFuture = getUserById(userId);
@@ -225,7 +217,23 @@ Cont<User> getUser(String userId) {
 }
 ```
 
-There are a couple of things to note about `Cont.fromRun`:
+Or if you have callbacks, use `Cont.fromRun`:
+
+```dart
+Cont<User> getUser(String userId) {
+  return Cont.fromRun((observer) {
+    try {
+      final userFuture = getUserById(userId, (user) {
+        observer.onValue(user);
+      });
+    } catch (error, st) {
+      observer.onTerminate([ContError(error, st)]);
+    }
+  });
+}
+```
+
+There are a couple of things to note about `observer` here:
 - It is idempotent. Calling `onValue` or `onTerminate` more then once will do nothing.
 - It is mandatory to call `onValue` or `onTerminate` once the computation is over. 
 Otherwise, any potential errors will be lost, in addition to the other unexpected behavior involved. 
@@ -264,7 +272,50 @@ Cont.raise(ContError(error, stackTrace), []); // at least one error
 Cont.terminate([]); // combines both above
 ```
 
-# Operators
+If you need to resource lifecycle management, `Cont.withRef` is your friend.
+
+```dart
+ // TODO: 
+```
+
+# Transformation
+
+To transform value inside `Cont`, use `map`:
+
+```dart
+Cont.of(0).map((zero) { 
+  return zero + 1;
+}).run(print, print); // prints 1
+```
+
+# Chaining
+
+Chaining - is constructing and running a computation from the result 
+of the previous one. To achieve this one can use `flatMap`:
+
+```dart
+Cont.of(0).flatMap((zero) {
+  return Cont.of(zero + 1);
+}).run(print, print); // prints 1
+```
+
+# Merging
+
+When you have two independent computations, and you need to get
+the result from both, use `Cont.both`:
+
+```dart
+final zeroCont = Cont.of(0);
+final oneCont = Cont.of(1);
+
+Cont.both(
+  zeroCont, 
+  oneCont, 
+  (zero, one) => zero + one,
+).run(print, print); // prints 1
+```
+
+
 
 `Cont` comes with a set of operators that allow to compose computations:
 
