@@ -436,7 +436,7 @@ Jerelo is not a UI/state wiring framework. It does not prescribe Flutter pattern
 
 **Jerelo** is a Ukrainian word meaning “source” or “spring”.
 
-Each Cont is a source of results. 
+Each `Cont` is a source of results. 
 Like a spring that feeds a stream, a `Cont` produces a 
 flow of data. Streams can branch, merge, filter, and 
 transform what they carry, and Jerelo’s API lets you model 
