@@ -452,7 +452,7 @@ final class Cont<A> {
     });
   }
 
-  static Cont<A> _racePickWinner<A>(Cont<A> left, Cont<A> right) {
+  static Cont<A> raceForWinner<A>(Cont<A> left, Cont<A> right) {
     return Cont.fromRun((observer) {
       bool isOneFailed = false;
       final List<ContError> resultErrors = [];
@@ -516,7 +516,7 @@ final class Cont<A> {
     });
   }
 
-  static Cont<A> _racePickLoser<A>(Cont<A> left, Cont<A> right) {
+  static Cont<A> raceForLoser<A>(Cont<A> left, Cont<A> right) {
     return Cont.fromRun((observer) {
       bool isFirstComputed = false;
 
@@ -587,19 +587,16 @@ final class Cont<A> {
     });
   }
 
-  static Cont<A> race<A>(Cont<A> left, Cont<A> right, {bool pickWinner = true}) {
-    if (pickWinner) {
-      return _racePickWinner<A>(left, right);
-    }
-
-    return _racePickLoser(left, right);
+  Cont<A> raceForWinnerWith(Cont<A> other) {
+    return Cont.raceForWinner(this, other);
   }
 
-  Cont<A> raceWith(Cont<A> other, {bool pickWinner = true}) {
-    return Cont.race(this, other, pickWinner: pickWinner);
+  Cont<A> raceForLoserWith(Cont<A> other) {
+    return Cont.raceForLoser(this, other);
   }
 
-  static Cont<A> _raceAllPickWinner<A>(List<Cont<A>> list0) {
+  static Cont<A> raceForWinnerAll<A>(List<Cont<A>> list) {
+    final list0 = List<Cont<A>>.from(list);
     return Cont.fromRun((observer) {
       final list = List<Cont<A>>.from(list0);
       if (list.isEmpty) {
@@ -658,7 +655,8 @@ final class Cont<A> {
     });
   }
 
-  static Cont<A> _raceAllPickLoser<A>(List<Cont<A>> list0) {
+  static Cont<A> raceForLoserAll<A>(List<Cont<A>> list) {
+    final list0 = List<Cont<A>>.from(list);
     return Cont.fromRun((observer) {
       final list = List<Cont<A>>.from(list0);
       if (list.isEmpty) {
@@ -717,15 +715,6 @@ final class Cont<A> {
         }
       }
     });
-  }
-
-  static Cont<A> raceAll<A>(List<Cont<A>> list, {bool pickWinner = true}) {
-    final safeCopy = List<Cont<A>>.from(list);
-    if (pickWinner) {
-      return _raceAllPickWinner(safeCopy);
-    }
-
-    return _raceAllPickLoser(safeCopy);
   }
 
   // this one should be oky.
