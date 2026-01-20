@@ -97,6 +97,7 @@ It comes with basic interface that allows to do every fundamental operation:
 - Chain
 - Merge
 - Choose
+- Recover
 - Schedule
 - Run
 
