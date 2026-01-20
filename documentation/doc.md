@@ -36,7 +36,7 @@ increment(5, (result) {
 Instead of returning result, a callback is passed to the function. 
 When the result is computed, the callback is invoked with a result value.
 
-# What problem does CPS solve?
+# What problem CPS solves?
 
 The classic pure function can only be executed synchronously. 
 By its encoding, it is forced to return value immediately on the same call-stack.
