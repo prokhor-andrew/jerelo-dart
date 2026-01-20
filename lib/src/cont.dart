@@ -422,7 +422,6 @@ final class Cont<A> {
       }
 
       for (final (i, cont) in safeCopy.indexed) {
-        final index = i; // important
         try {
           cont.runWith(
             ContObserver(
@@ -434,7 +433,7 @@ final class Cont<A> {
                   return;
                 }
 
-                results[index] = a;
+                results[i] = a;
                 amountOfFinishedContinuations += 1;
 
                 if (amountOfFinishedContinuations < safeCopy.length) {
@@ -631,13 +630,12 @@ final class Cont<A> {
       }
 
       for (int i = 0; i < list.length; i++) {
-        final index = i; // this is important to capture. if we reference "i" from onValue block, we might pick wrong index
         final cont = list[i];
         try {
           cont.runWith(
             ContObserver(
               (errors) {
-                handleTerminate(index, [...errors]); // defensive copy
+                handleTerminate(i, [...errors]); // defensive copy
               },
               (a) {
                 if (isWinnerFound) {
@@ -649,7 +647,7 @@ final class Cont<A> {
             ),
           );
         } catch (error, st) {
-          handleTerminate(index, [ContError(error, st)]);
+          handleTerminate(i, [ContError(error, st)]);
         }
       }
     });
@@ -691,14 +689,13 @@ final class Cont<A> {
       }
 
       for (int i = 0; i < list.length; i++) {
-        final index = i; // this is important to capture. if we reference "i" from onValue block, we might pick wrong index
         final cont = list[i];
 
         try {
           cont.runWith(
             ContObserver(
               (errors) {
-                resultErrors[index] = [...errors];
+                resultErrors[i] = [...errors];
                 incrementFinishedAndCheckExit();
               },
               (a) {
@@ -710,7 +707,7 @@ final class Cont<A> {
             ),
           );
         } catch (error, st) {
-          resultErrors[index] = [ContError(error, st)];
+          resultErrors[i] = [ContError(error, st)];
           incrementFinishedAndCheckExit();
         }
       }
