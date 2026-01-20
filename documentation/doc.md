@@ -69,17 +69,21 @@ While normal functions and `Future`s compose nicely, CPS doesn't.
 // normal composition
 final result1 = function1(value);
 final result2 = function2(result1);
+final result3 = function2(result2);
 
 // async composition
 // in async function
 
 final result1 = await function1(value);
 final result2 = await function2(result1);
+final result3 = await function3(result2);
 
 // CPS composition
 function1(value, (result1) {
   function2(result1, (result2) {
-    // the rest of the program
+    function3(result2, (result3) {
+      // the rest of the program
+    });
   });
 });
 ```
