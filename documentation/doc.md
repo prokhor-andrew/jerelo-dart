@@ -89,7 +89,6 @@ As you can see, the more functions we want to compose, the uglier it becomes.
 
 # Solution
 
-
 **Cont** - is a type that represents an arbitrary computation. 
 It comes with basic interface that allows to do every fundamental operation:
 - Construct
@@ -279,115 +278,16 @@ If you need to resource lifecycle management, `Cont.withRef` is your friend.
  // TODO: 
 ```
 
-# Transformation
 
-To transform value inside `Cont`, use `map`:
+# Running 
 
-```dart
-Cont.of(0).map((zero) { 
-  return zero + 1;
-}).run(print, print); // prints 1
-```
+The resulting object of type `Cont<T>`, where `T`
+is the result of the last computation, won't just start after 
+its construction.
 
-# Chaining
-
-Chaining - is constructing and running a computation from the result 
-of the previous one. To achieve this one can use `flatMap`:
-
-```dart
-Cont.of(0).flatMap((zero) {
-  return Cont.of(zero + 1);
-}).run(print, print); // prints 1
-```
-
-# Merging
-
-When you have two independent computations, and you need to get
-the result from both, use `Cont.both`:
-
-```dart
-final zeroCont = Cont.of(0);
-final oneCont = Cont.of(1);
-
-Cont.both(
-  zeroCont, 
-  oneCont, 
-  (zero, one) => zero + one,
-).run(print, print); // prints 1
-```
-
-
-
-`Cont` comes with a set of operators that allow to compose computations:
-
-- `map`
-- `flatMap`
-- `flatTap`
-- `catchTerminate`
-- `catchError`
-- `catchEmpty`
-- `filter`
-- `Cont.both`
-- `Cont.all`
-- `Cont.race`
-- `Cont.raceAll`
-- `Cont.either`
-- `Cont.any`
-
-and to control the execution:
-- `subscribeOn`
-- `observeOn`
-
-The behavior of each individual operator is described in [api.md](api.md).
-
-The core idea - to compose computations, transform value, and control their execution.
-
-Example:
-
-```dart
-final getUserStreetCont = getUser(userId)
-  .flatMap(getUserAddress)
-  .filter((address) => address.country == Country.USA) // emits Cont.empty() when "false"
-  .map((address) => address.street)
-  .catchEmpty(() => Cont.of(Failure("No address found"))); // catches Cont.empty() from "filter"
-  .catchError((error, _) => Cont.of(Failure("Something went wrong")))
-  .subscribeOn(ContScheduler.delayed());
-
-final getPaymentInfoCont = getPaymentInfo(userId)
-  .catchTerminate((errors) => Cont.of(Failure("No Payment Info Found")))
-  .subscribeOn(ContScheduler.microtask());
-  
-final program = Cont.both(
-  getUserStreetCont,
-  getPaymentInfoCont,
-  (userStreet, paymentInfo) => Success((userStreet, paymentInfo)),
-  isSequential: false, // execute concurrently
-);
-  
-// later run
-
-program.run(print, print);
-```
-
-
-If you are familiar with Rx, this is same idea. 
-At first, construct a computation, describing each step that has to be 
-executed after `run` is called. 
-
-When `run` is called, one goes "up" the chain, executes the edge
-computations (the `Cont` objects we get from `getUser` and `getPaymentInfo`) 
-and then navigates back down.
-
-The more detailed step by step guide can be found in [api.md](api.md).
-
-# Running computations
-
-The resulting `program` object is of type `Cont<T>` where `T` 
-is the result of the last computation.
-
-The computation won't start after its construction. In order 
+In order
 to actually run it, one has to call `run` on it, passing `onTerminate`
-callback as well as `onValue` one.
+callback, as well as `onValue` one.
 
 Example:
 
@@ -411,11 +311,127 @@ program.run(
 );
 ```
 
-The example above showcases how construction of computation is 
+The example above showcases how construction of computation is
 separated from its execution. Any object of type `Cont` is cold,
 pure and lazy by design. It can be safely executed multiple times,
 passed around in functions, and stored as values in constants.
 
+
+
+# Transformation
+
+To transform value inside `Cont`, use `map`:
+
+```dart
+Cont.of(0).map((zero) { 
+  return zero + 1;
+}).run(print, print); // prints 1
+```
+
+# Chaining
+
+Chaining - is constructing and running a computation from the result 
+of the previous one. To achieve this one can use `flatMap`:
+
+```dart
+Cont.of(0).flatMap((zero) {
+  return Cont.of(zero + 1);
+}).run(print, print); // prints 1
+```
+
+Sometimes you want to construct and run a computation from a previous value,
+but ignore the result and pass the value you received in the first place.
+For that, use `flatTap`:
+
+```dart
+Cont.of(0).flatTap((zero) {
+  return Cont.of(zero + 100);
+}).run(print, print); // ignores + 100 and prints 0
+```
+
+# Merging
+
+When you have two independent computations, and you need to get
+the result from both, use `Cont.both`:
+
+```dart
+final zeroCont = Cont.of(0);
+final oneCont = Cont.of(1);
+
+Cont.both(
+  zeroCont, 
+  oneCont, 
+  (zero, one) => zero + one,
+).run(print, print); // prints 1
+```
+
+In case of a `List<Cont<T>>>` - use `Cont.all` to get `Cont<List<T>>`:
+
+```dart
+final List<Cont<int>> contList = [
+  Cont.of(1),
+  Cont.of(2),
+  Cont.of(3),
+]; 
+
+Cont.all(contList).run(print, print); // prints [1, 2, 3]
+```
+
+Basically, when you have a list of computations, and you want to
+wait for all their values, `Cont.all` is your tool. 
+
+# Choosing
+
+Imagine you have two or more computations. You run them, but end up with only
+one value as a result.
+
+// TODO: 
+
+# Recovering
+
+// TODO:
+
+# Scheduling
+
+// TODO:
+
+# Example
+
+Example:
+
+```dart
+final getUserStreetCont = getUser(userId)
+  .flatMap(getUserAddress)
+  .filter((address) => address.country == Country.USA) // emits Cont.empty() when "false"
+  .map((address) => address.street)
+  .catchEmpty(() => Cont.of(Failure("No address found"))) // catches Cont.empty() from "filter"
+  .catchError((error, _) => Cont.of(Failure("Something went wrong")))
+  .subscribeOn(ContScheduler.delayed());
+
+final getPaymentInfoCont = getPaymentInfo(userId)
+  .catchTerminate((errors) => Cont.of(Failure("No Payment Info Found")))
+  .subscribeOn(ContScheduler.microtask());
+  
+final program = Cont.both(
+  getUserStreetCont,
+  getPaymentInfoCont,
+  (userStreet, paymentInfo) => Success((userStreet, paymentInfo)),
+);
+  
+// later run
+
+program.run(print, print);
+```
+
+If you are familiar with Rx, this is same idea. 
+At first, construct a computation, describing each step that has to be 
+executed after `run` is called. 
+
+When `run` is called, one goes "up" the chain, executes the edge
+computations (the `Cont` objects we get from `getUser` and `getPaymentInfo`) 
+and then navigates back down.
+
+The more detailed step by step guide can be found in [api.md](api.md).
 
 # Why bother?
 
@@ -432,7 +448,7 @@ Jerelo also makes two practical constraints explicit:
 Jerelo is not a UI/state wiring framework. It does not prescribe Flutter patterns or a specific ecosystem. It is a compact core for building modular, scalable workflows, and it can be used alongside tools like Provider or Riverpod when you want them.
 
 
-# What does "Jerelo" mean?
+# What "Jerelo" means
 
 **Jerelo** is a Ukrainian word meaning “source” or “spring”.
 
