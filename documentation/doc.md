@@ -285,9 +285,8 @@ The resulting object of type `Cont<T>`, where `T`
 is the result of the last computation, won't just start after 
 its construction.
 
-In order
-to actually run it, one has to call `run` on it, passing `onTerminate`
-callback, as well as `onValue` one.
+In order to actually run it, one has to call `run` on it, 
+passing `onTerminate` callback, as well as `onValue` one.
 
 Example:
 
@@ -302,7 +301,7 @@ final Cont<String> program = getValueFromDatabase()
 program.run(
   (errors) {
     // handle errors
-    print("FAILED with errors=$errors");
+    print("TERMINATED with errors=$errors");
   },
   (value) {
     // handle computed result  
@@ -312,11 +311,20 @@ program.run(
 ```
 
 The example above showcases how construction of computation is
-separated from its execution. Any object of type `Cont` is cold,
+separated from its execution. 
+
+Any object of type `Cont` is cold,
 pure and lazy by design. It can be safely executed multiple times,
 passed around in functions, and stored as values in constants.
 
 
+When `run` is called, the flow goes "up" the chain, executes the edge
+computation (the `Cont` object we get from `getValueFromDatabase`)
+and then navigates back down to `flatMap(incrementValue)`, then to `flatMap(isEven)`, 
+to `flatMap(toString)`, and finally to `run` itself.
+
+If any computation emits termination event, the whole chain after that 
+is skipped and first callback passed into `run` is invoked.
 
 # Transformation
 
@@ -382,9 +390,6 @@ wait for all their values, `Cont.all` is your tool.
 
 # Choosing
 
-Imagine you have two or more computations. You run them, but end up with only
-one value as a result.
-
 // TODO: 
 
 # Recovering
@@ -397,41 +402,8 @@ one value as a result.
 
 # Example
 
-Example:
+// TODO: 
 
-```dart
-final getUserStreetCont = getUser(userId)
-  .flatMap(getUserAddress)
-  .filter((address) => address.country == Country.USA) // emits Cont.empty() when "false"
-  .map((address) => address.street)
-  .catchEmpty(() => Cont.of(Failure("No address found"))) // catches Cont.empty() from "filter"
-  .catchError((error, _) => Cont.of(Failure("Something went wrong")))
-  .subscribeOn(ContScheduler.delayed());
-
-final getPaymentInfoCont = getPaymentInfo(userId)
-  .catchTerminate((errors) => Cont.of(Failure("No Payment Info Found")))
-  .subscribeOn(ContScheduler.microtask());
-  
-final program = Cont.both(
-  getUserStreetCont,
-  getPaymentInfoCont,
-  (userStreet, paymentInfo) => Success((userStreet, paymentInfo)),
-);
-  
-// later run
-
-program.run(print, print);
-```
-
-If you are familiar with Rx, this is same idea. 
-At first, construct a computation, describing each step that has to be 
-executed after `run` is called. 
-
-When `run` is called, one goes "up" the chain, executes the edge
-computations (the `Cont` objects we get from `getUser` and `getPaymentInfo`) 
-and then navigates back down.
-
-The more detailed step by step guide can be found in [api.md](api.md).
 
 # Why bother?
 
