@@ -2,7 +2,7 @@
 # What is Jerelo?
 
 **Jerelo** is a minimal, lawful Dart functional toolkit built around 
-a CPS-based ```Cont<A>``` abstraction for composing synchronous/asynchronous 
+a CPS-based `Cont<A>` abstraction for composing synchronous/asynchronous 
 workflows with structured termination and error reporting, 
 plus practical operators for sequencing and concurrency.
 
@@ -48,7 +48,8 @@ This enables async programming.
 
 Dart's Future - is, in fact, CPS with language sugar on top of it.
 But its problem is it starts running as soon as it is created. 
-This does not allow us to separate construction of computation from its execution.
+This does not allow us to separate construction of computation from 
+its execution.
 
 ```dart
 
@@ -105,12 +106,12 @@ Example:
 
 final Cont<Result1Type> result1Cont = function1(value);
 final Cont<Result2Type> result2Cont = result1Cont.flatMap((result1) {
-      return function2(result1);
-    });
+  return function2(result1);
+});
 
 final Cont<ProgramType> program = result2Cont.flatMap((result2) {
-      // the rest of the program
-    });
+  // the rest of the program
+});
 ```
 
 But that is tedious and not the right way to use it. Here is the right one:
@@ -127,7 +128,7 @@ final Cont<ProgramType> program = function1(value)
     });
 ```
 
-Or even better
+Or even better:
 
 ```dart
 // Cont composition
@@ -141,16 +142,32 @@ final program = function1(value)
 
 # Data channels
 
-```Cont``` has two data channels. One is for successful result
+`Cont` has two data channels. One is for successful result
 and another one for termination.
 
-Success is the one expressed by type parameter ``T`` in ``Cont<T>``.
+Success is the one expressed by type parameter `T` in `Cont<T>`.
 
-Termination - by ``List<ContError>``.
-The ``List<ContError>`` stands for the list of errors that caused the termination.
+Termination - by `List<ContError>`.
+The `List<ContError>` stands for the list of errors that caused the termination.
 It can be empty or not.
 This channel is used when a computation crashes. It can also be used
 to manually terminate the computation.
+
+```dart
+
+final program = getUserAge(userId).map((age) {
+  return age / 0; // <- throws here
+});
+
+program.run((errors) {
+  // will automatically catch thrown error here
+}, (value) {
+  print("value=$value");
+});
+```
+
+The type of thrown error is `ContError`. It is a holder for original error and 
+stack trace.
 
 For reference:
 ```dart
@@ -164,46 +181,58 @@ final class ContError {
 
 # Construction
 
-``Cont`` has one base constructor:
-- ```Cont.fromRun```
+`Cont` has one base constructor:
+- `Cont.fromRun`
 
 Two utility constructors:
-- ```Cont.fromDeferred```
-- ```Cont.fromFutureComp```
+- `Cont.fromDeferred`
+- `Cont.fromFutureComp`
 
 One stateful constructor:
-- ```Cont.withRef```
+- `Cont.withRef`
 
 And lawful identities to some operators:
-- ```Cont.of```
-- ```Cont.terminate```
-- ```Cont.empty```
-- ```Cont.raise```
+- `Cont.of`
+- `Cont.terminate`
+- `Cont.empty`
+- `Cont.raise`
 
-To construct a ```Cont``` object - utilize any of the above.
+To construct a `Cont` object - utilize any of the above.
 
-For example, one can wrap an existing ```Future``` like this:
+For example, one can wrap an existing `Future` like this:
 
 ```dart
 Cont<User> getUser(String userId) {
-  return Cont.fromRun((observer) async {
-    try {
-      final user = await getUserById(userId);
+  return Cont.fromRun((observer) {
+    final userFuture = getUserById(userId); // <- returns Future<User> here
+    userFuture.then((user) {
       observer.onValue(user);
-    } catch (error, st) {
+    }).catchError((error, st) {
       observer.onTerminate([ContError(error, st)]);
-    }
+    });
   });
 }
 ```
-A couple of things to note about ```observer```:
-- It is idempotent. Calling ```onValue``` or ```onTerminate``` more then once will do nothing.
-- It is mandatory to call ```onValue``` or ```onTerminate``` once the computation is over. 
-Otherwise any potential errors will be lost with other unexpected behavior involved. 
 
-Sometimes one would prefer to defer a construction of a ``Cont``.
-In the example below, getting ``userId`` is expensive, so we want to 
-delay that until the ``Cont<User>`` is run.
+But it is much better to use existing `Cont.fromFutureComp` to achieve the same result:
+
+```dart
+Cont<User> getUser(String userId) {
+  return Cont.fromFutureComp(() {
+    final userFuture = getUserById(userId);
+    return userFuture;
+  });
+}
+```
+
+There are a couple of things to note about `Cont.fromRun`:
+- It is idempotent. Calling `onValue` or `onTerminate` more then once will do nothing.
+- It is mandatory to call `onValue` or `onTerminate` once the computation is over. 
+Otherwise, any potential errors will be lost, in addition to the other unexpected behavior involved. 
+
+Sometimes one would prefer to defer a construction of a `Cont`.
+In the example below, getting `userId` is expensive, so we want to 
+delay that until the `Cont<User>` is run.
 
 ```dart 
 Cont<User> getUserByIdThunk(UserId Function() expensiveGetUserId) {
@@ -237,25 +266,25 @@ Cont.terminate([]); // combines both above
 
 # Operators
 
-``Cont`` comes with a set of operators that allow to compose computations:
+`Cont` comes with a set of operators that allow to compose computations:
 
-- ```map```
-- ```flatMap```
-- ```flatTap```
-- ```catchTerminate```
-- ```catchError```
-- ```catchEmpty```
-- ```filter```
-- ```Cont.both```
-- ```Cont.all```
-- ```Cont.race```
-- ```Cont.raceAll```
-- ```Cont.either```
-- ```Cont.any```
+- `map`
+- `flatMap`
+- `flatTap`
+- `catchTerminate`
+- `catchError`
+- `catchEmpty`
+- `filter`
+- `Cont.both`
+- `Cont.all`
+- `Cont.race`
+- `Cont.raceAll`
+- `Cont.either`
+- `Cont.any`
 
 and to control the execution:
-- ```subscribeOn```
-- ```observeOn```
+- `subscribeOn`
+- `observeOn`
 
 The behavior of each individual operator is described in [api.md](api.md).
 
@@ -264,53 +293,53 @@ The core idea - to compose computations, transform value, and control their exec
 Example:
 
 ```dart
-  final getUserStreetCont = getUser(userId)
-    .flatMap(getUserAddress)
-    .filter((address) => address.country == Country.USA)
-    .map((address) => address.street)
-    .catchEmpty(() => Cont.of(Failure("No address found")));
-    .catchError((error, _) => Cont.of(Failure("Something went wrong")))
-    .subscribeOn(ContScheduler.delayed());
+final getUserStreetCont = getUser(userId)
+  .flatMap(getUserAddress)
+  .filter((address) => address.country == Country.USA) // emits Cont.empty() when "false"
+  .map((address) => address.street)
+  .catchEmpty(() => Cont.of(Failure("No address found"))); // catches Cont.empty() from "filter"
+  .catchError((error, _) => Cont.of(Failure("Something went wrong")))
+  .subscribeOn(ContScheduler.delayed());
 
-  final getPaymentInfoCont = getPaymentInfo(userId)
-    .catchTerminate((errors) => Cont.of(Failure("No Payment Info Found")))
-    .subscribeOn(ContScheduler.microtask());
+final getPaymentInfoCont = getPaymentInfo(userId)
+  .catchTerminate((errors) => Cont.of(Failure("No Payment Info Found")))
+  .subscribeOn(ContScheduler.microtask());
   
-  final program = Cont.both(
-    getUserStreetCont,
-    getPaymentInfoCont,
-    (userStreet, paymentInfo) => Success((userStreet, paymentInfo)),
-    isSequential: false, // execute concurrently
-  );
+final program = Cont.both(
+  getUserStreetCont,
+  getPaymentInfoCont,
+  (userStreet, paymentInfo) => Success((userStreet, paymentInfo)),
+  isSequential: false, // execute concurrently
+);
   
-  // later run
+// later run
 
-  program.run(print, print);
+program.run(print, print);
 ```
 
 
 If you are familiar with Rx, this is same idea. 
 At first, construct a computation, describing each step that has to be 
-executed after ```run``` is called. 
+executed after `run` is called. 
 
-When ```run``` is called, one goes "up" the chain, executes the edge
-computations (the ```Cont``` objects we get from ```getUser``` and ```getPaymentInfo```) 
+When `run` is called, one goes "up" the chain, executes the edge
+computations (the `Cont` objects we get from `getUser` and `getPaymentInfo`) 
 and then navigates back down.
 
 The more detailed step by step guide can be found in [api.md](api.md).
 
 # Running computations
 
-Both `program` objects are of type ```Cont<T>``` where ```T``` 
+The resulting `program` object is of type `Cont<T>` where `T` 
 is the result of the last computation.
 
 The computation won't start after its construction. In order 
-to actually run it, one has to call ``run`` on it, passing ```onTerminate```
-callback as well as ```onValue``` one.
+to actually run it, one has to call `run` on it, passing `onTerminate`
+callback as well as `onValue` one.
 
 Example:
-```dart 
 
+```dart
 // constructing the program
 final Cont<String> program = getValueFromDatabase()
     .flatMap(incrementValue)
@@ -319,19 +348,19 @@ final Cont<String> program = getValueFromDatabase()
 
 // running the program
 program.run(
-    (errors) {
-      // handle errors
-      print("FAILED with errors=$errors");
-    },
-    (value) {
-      // handle computed result  
-      print("SUCCEEDED with value=$value");
-    },
+  (errors) {
+    // handle errors
+    print("FAILED with errors=$errors");
+  },
+  (value) {
+    // handle computed result  
+    print("SUCCEEDED with value=$value");
+  },
 );
 ```
 
 The example above showcases how construction of computation is 
-separated from its execution. Any object of type ``Cont`` is cold,
+separated from its execution. Any object of type `Cont` is cold,
 pure and lazy by design. It can be safely executed multiple times,
 passed around in functions, and stored as values in constants.
 
