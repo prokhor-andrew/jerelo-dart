@@ -120,12 +120,12 @@ But that is tedious and not the right way to use it. Here is the right one:
 // Cont composition
 
 final Cont<ProgramType> program = function1(value)
-    .flatMap((result1) {
-      return function2(result1);
-    })
-    .flatMap((result2) {
-      // the rest of the program
-    });
+  .flatMap((result1) {
+    return function2(result1);
+  })
+  .flatMap((result2) {
+    // the rest of the program
+  });
 ```
 
 Or even better:
@@ -134,10 +134,10 @@ Or even better:
 // Cont composition
 
 final program = function1(value)
-    .flatMap(function2)
-    .flatMap((result2) {
-      // the rest of the program
-    });
+  .flatMap(function2)
+  .flatMap((result2) {
+    // the rest of the program
+  });
 ```
 
 # Data channels
@@ -342,9 +342,9 @@ Example:
 ```dart
 // constructing the program
 final Cont<String> program = getValueFromDatabase()
-    .flatMap(incrementValue)
-    .flatMap(isEven)
-    .flatMap(toString);
+  .flatMap(incrementValue)
+  .flatMap(isEven)
+  .flatMap(toString);
 
 // running the program
 program.run(
