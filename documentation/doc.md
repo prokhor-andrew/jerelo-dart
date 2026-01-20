@@ -419,17 +419,14 @@ passed around in functions, and stored as values in constants.
 
 # Why bother?
 
-Because real apps rot when the code stops being swappable. Today it’s one HTTP client, tomorrow it’s another. Today your “service” is direct calls, tomorrow it’s cached + retried + logged. UI changes, DB changes, APIs change, and suddenly your business logic is glued to details.
+Software tends to degrade when core logic becomes tightly coupled to implementation details. One release uses one HTTP client; the next swaps it out. A “service” that started as direct calls later needs caching, retries, and logging. UI, databases, and APIs evolve, and without a composable boundary, business logic ends up entangled with those changes.
 
-Jerelo is my answer to that: a small, pure-Dart way to build business flows as LEGO blocks. When your flow is composable, everything becomes replaceable: a function, a service, or an entire 
-boundary (HTTP/UI/DB) can be swapped without rewriting the pipeline.
+Jerelo is a small, pure-Dart library for expressing business workflows as composable building blocks. When flows are composable, dependencies stay replaceable: you can swap a function, a service, or an entire boundary (HTTP/UI/DB) without rewriting the pipeline.
 
-It also makes two annoying realities explicit:
+Jerelo also makes two practical constraints explicit:
 
-- Dart can throw anywhere. Jerelo treats failure as part of the contract, so errors don’t leak as random crashes or scattered try/catch.
+- **Dart can throw anywhere**. Jerelo models failure as part of the contract, so errors do not surface as surprise crashes or scattered try/catch.
 
-- Async needs control. If you can’t control when things run, you can’t test them. Jerelo brings scheduling into the model so production can be async, and tests can be deterministic.
+- **Async needs control**. If you cannot control when work runs, you cannot test it reliably. Jerelo brings scheduling into the model so production can be async while tests remain deterministic.
 
-It’s not another state/UI wiring tool. No Flutter opinions. No provider/riverpod vibe. Just a compact core for modular, scalable, swappable execution of real workflows.
-
-You can use those tools in addition to Jerelo though.
+Jerelo is not a UI/state wiring framework. It does not prescribe Flutter patterns or a specific ecosystem. It is a compact core for building modular, scalable workflows, and it can be used alongside tools like Provider or Riverpod when you want them.
