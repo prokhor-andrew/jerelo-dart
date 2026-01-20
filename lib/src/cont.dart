@@ -47,7 +47,15 @@ final class Cont<A> {
 
   static Cont<A> fromDeferred<A>(Cont<A> Function() thunk) {
     return Cont.fromRun((observer) {
-      thunk()._run(observer);
+      thunk().runWith(observer);
+    });
+  }
+
+  static Cont<A> fromFutureComp<A>(Future<A> Function() thunk) {
+    return Cont.fromRun((observer) {
+      thunk().then(observer.onValue).catchError((error, st) {
+        observer.onTerminate([ContError(error, st)]);
+      });
     });
   }
 
@@ -74,11 +82,11 @@ final class Cont<A> {
   // monadic-like
   Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
     return Cont.fromRun((observer) {
-      _run(
+      runWith(
         observer.copyUpdateOnValue((a) {
           try {
             final contA2 = f(a);
-            contA2._run(observer);
+            contA2.runWith(observer);
           } catch (error, st) {
             observer.onTerminate([ContError(error, st)]);
           }
@@ -117,13 +125,87 @@ final class Cont<A> {
     });
   }
 
+  Cont<A3> flatMapTap<A2, A3>(Cont<A2> Function(A value) f, A3 Function(A a1, A2 a2) combine) {
+    return flatMap((a1) {
+      return f(a1).map((a2) {
+        return combine(a1, a2);
+      });
+    });
+  }
+
+  Cont<A3> flatMapTap0<A2, A3>(Cont<A2> Function() f, A3 Function(A a1, A2 a2) combine) {
+    return flatMap((a1) {
+      return f().map((a2) {
+        return combine(a1, a2);
+      });
+    });
+  }
+
+  Cont<A3> flatMapTapTo<A2, A3>(Cont<A2> other, A3 Function(A a1, A2 a2) f) {
+    return flatMapTap0(() {
+      return other;
+    }, f);
+  }
+
+  static Cont<List<A>> sequence<A>(List<Cont<A>> list) {
+    final safeCopy0 = List<Cont<A>>.from(list);
+    return Cont.fromRun((observer) {
+      final safeCopy = List<Cont<A>>.from(safeCopy0);
+      _stackSafeLoop<_Either<(int, List<A>), List<ContError>>, (int, List<A>), _Either<List<A>, List<ContError>>>(
+        seed: _Value1((0, [])),
+        keepRunningIf: (state) {
+          switch (state) {
+            case _Value1(value: final value):
+              final (index, results) = value;
+              if (index >= safeCopy.length) {
+                return _StackSafeLoopPolicyStop(_Value1(results));
+              }
+              return _StackSafeLoopPolicyKeepRunning((index, results));
+            case _Value2(value: final value):
+              return _StackSafeLoopPolicyStop(_Value2(value));
+          }
+        },
+        computation: (tuple, callback) {
+          final (i, values) = tuple;
+          final cont = safeCopy[i];
+          try {
+            cont.runWith(
+              ContObserver(
+                (errors) {
+                  callback(_Value2([...errors]));
+                },
+                (a) {
+                  callback(_Value1((i + 1, [...values, a])));
+                },
+                //
+              ),
+            );
+          } catch (error, st) {
+            callback(_Value2([ContError(error, st)]));
+          }
+        },
+        escape: (triple) {
+          switch (triple) {
+            case _Value1(value: final results):
+              observer.onValue(results);
+              return;
+            case _Value2(value: final errors):
+              observer.onTerminate(errors);
+              return;
+          }
+        },
+        //
+      );
+    });
+  }
+
   Cont<A> catchTerminate(Cont<A> Function(List<ContError> errors) f) {
     return Cont.fromRun((observer) {
-      _run(
+      runWith(
         observer.copyUpdateOnTerminate((errors) {
           try {
             final contA = f(errors);
-            contA._run(observer);
+            contA.runWith(observer);
           } catch (error, st) {
             observer.onTerminate([...errors, ContError(error, st)]);
           }
@@ -224,18 +306,9 @@ final class Cont<A> {
   static Cont<C> both<A, B, C>(
     Cont<A> left,
     Cont<B> right,
-    C Function(A a, B b) f, {
-    bool isSequential = true,
+    C Function(A a, B b) f,
     //
-  }) {
-    if (isSequential) {
-      return left.flatMap((a) {
-        return right.map((a2) {
-          return f(a, a2);
-        });
-      });
-    }
-
+  ) {
     return Cont.fromRun((observer) {
       bool isOneFail = false;
       bool isOneValue = false;
@@ -272,7 +345,7 @@ final class Cont<A> {
       }
 
       try {
-        left._run(
+        left.runWith(
           ContObserver(
             (errors) {
               handleTerminate(() {
@@ -293,7 +366,7 @@ final class Cont<A> {
       }
 
       try {
-        right._run(
+        right.runWith(
           ContObserver(
             (errors) {
               handleTerminate(() {
@@ -317,69 +390,14 @@ final class Cont<A> {
 
   Cont<C> and<B, C>(
     Cont<B> other,
-    C Function(A a, B b) f, {
-    bool isSequential = true,
+    C Function(A a, B b) f,
     //
-  }) {
-    return Cont.both(this, other, f, isSequential: isSequential);
+  ) {
+    return Cont.both(this, other, f);
   }
 
-  static Cont<List<A>> all<A>(
-    List<Cont<A>> list, {
-    bool isSequential = true,
-    //
-  }) {
+  static Cont<List<A>> all<A>(List<Cont<A>> list) {
     final safeCopy0 = List<Cont<A>>.from(list);
-    if (isSequential) {
-      return Cont.fromRun((observer) {
-        final safeCopy = List<Cont<A>>.from(safeCopy0);
-        _stackSafeLoop<_Either<(int, List<A>), List<ContError>>, (int, List<A>), _Either<List<A>, List<ContError>>>(
-          seed: _Value1((0, [])),
-          keepRunningIf: (state) {
-            switch (state) {
-              case _Value1(value: final value):
-                final (index, results) = value;
-                if (index >= safeCopy.length) {
-                  return _StackSafeLoopPolicyStop(_Value1(results));
-                }
-                return _StackSafeLoopPolicyKeepRunning((index, results));
-              case _Value2(value: final value):
-                return _StackSafeLoopPolicyStop(_Value2(value));
-            }
-          },
-          computation: (tuple, callback) {
-            final (i, values) = tuple;
-            final cont = safeCopy[i];
-            try {
-              cont._run(
-                ContObserver(
-                  (errors) {
-                    callback(_Value2([...errors]));
-                  },
-                  (a) {
-                    callback(_Value1((i + 1, [...values, a])));
-                  },
-                  //
-                ),
-              );
-            } catch (error, st) {
-              callback(_Value2([ContError(error, st)]));
-            }
-          },
-          escape: (triple) {
-            switch (triple) {
-              case _Value1(value: final results):
-                observer.onValue(results);
-                return;
-              case _Value2(value: final errors):
-                observer.onTerminate(errors);
-                return;
-            }
-          },
-          //
-        );
-      });
-    }
 
     return Cont.fromRun((observer) {
       final safeCopy = List<Cont<A>>.from(safeCopy0);
@@ -406,7 +424,7 @@ final class Cont<A> {
       for (final (i, cont) in safeCopy.indexed) {
         final index = i; // important
         try {
-          cont._run(
+          cont.runWith(
             ContObserver(
               (errors) {
                 handleNoneOrFail([...errors]); // defensive copy
@@ -473,7 +491,7 @@ final class Cont<A> {
       }
 
       try {
-        left._run(
+        left.runWith(
           makeObserver((errors) {
             resultErrors.insertAll(0, errors);
           }),
@@ -485,7 +503,7 @@ final class Cont<A> {
       }
 
       try {
-        right._run(
+        right.runWith(
           makeObserver((errors) {
             resultErrors.addAll(errors);
           }),
@@ -544,7 +562,7 @@ final class Cont<A> {
       }
 
       try {
-        left._run(
+        left.runWith(
           makeObserver((errors) {
             resultErrors.insertAll(0, errors);
           }),
@@ -556,7 +574,7 @@ final class Cont<A> {
       }
 
       try {
-        right._run(
+        right.runWith(
           makeObserver((errors) {
             resultErrors.addAll(errors);
           }),
@@ -619,7 +637,7 @@ final class Cont<A> {
         final index = i; // this is important to capture. if we reference "i" from onValue block, we might pick wrong index
         final cont = list[i];
         try {
-          cont._run(
+          cont.runWith(
             ContObserver(
               (errors) {
                 handleTerminate(index, [...errors]); // defensive copy
@@ -679,7 +697,7 @@ final class Cont<A> {
         final cont = list[i];
 
         try {
-          cont._run(
+          cont.runWith(
             ContObserver(
               (errors) {
                 resultErrors[index] = [...errors];
@@ -713,11 +731,11 @@ final class Cont<A> {
   // this one should be oky.
   static Cont<A> either<A>(Cont<A> left, Cont<A> right) {
     return Cont.fromRun((observer) {
-      left._run(
+      left.runWith(
         ContObserver(
           (errors) {
             try {
-              right._run(
+              right.runWith(
                 ContObserver(
                   (errors2) {
                     observer.onTerminate([...errors, ...errors2]);
@@ -768,7 +786,7 @@ final class Cont<A> {
           final cont = safeCopy[index];
 
           try {
-            cont._run(
+            cont.runWith(
               ContObserver(
                 (errors2) {
                   callback(_Value1((index + 1, [...errors, ...errors2])));
@@ -869,15 +887,6 @@ final class Cont<A> {
             });
       }
     });
-  }
-}
-
-// applicatives
-extension ContApplicativeExtension<A, A2> on Cont<A2 Function(A)> {
-  Cont<A2> apply(Cont<A> other, {bool isSequential = true}) {
-    return and(other, (function, value) {
-      return function(value);
-    }, isSequential: isSequential);
   }
 }
 
