@@ -547,8 +547,16 @@ Cont.fromRun((observer) {
 
 # Example
 
-// TODO: 
+There is a little bit more of operators in [api.md](api.md), and 
+I highly recommend to get to know them. They are not different, from the ones
+described in this document, but rather minor sugar extensions of them.
 
+Lastly, I want to showcase an example of everything in one place:
+
+
+```dart
+// TODO: 
+```
 
 # Why bother?
 
