@@ -34,7 +34,7 @@ increment(5, (result) {
 ```
 
 Instead of returning result, a callback is passed to the function. 
-When the result is computed, the callback is invoked with a result value.
+When the result is computed, the callback is invoked with a resulting value.
 
 # What problem CPS solves?
 
@@ -93,13 +93,13 @@ As you can see, the more functions we want to compose, the uglier it becomes.
 
 # Solution
 
-**Cont** - is a type that represents an arbitrary computation. 
-It comes with basic interface that allows to do every fundamental operation:
+**Cont** - is a type that represents an arbitrary computation. It has two result 
+channels, and comes with a basic interface that allows to do every fundamental operation:
 - Construct
 - Transform
 - Chain
 - Merge
-- Choose
+- Racing
 - Recover
 - Schedule
 - Run
@@ -146,9 +146,9 @@ final program = function1(value)
   });
 ```
 
-# Data channels
+# Result channels
 
-`Cont` has two data channels. One is for successful result
+As mentioned before, `Cont` has two channels. One is for successful result
 and another one for termination.
 
 Success is the one expressed by type parameter `T` in `Cont<T>`.
@@ -276,7 +276,7 @@ Cont.raise(ContError(error, stackTrace), []); // at least one error
 Cont.terminate([]); // combines both above
 ```
 
-If you need to resource lifecycle management, `Cont.withRef` is your friend.
+If you need to manage resource lifecycle, `Cont.withRef` is your friend.
 
 ```dart
  // TODO: 
@@ -285,14 +285,10 @@ If you need to resource lifecycle management, `Cont.withRef` is your friend.
 
 # Running 
 
-The resulting object of type `Cont<T>`, where `T`
-is the result of the last computation, won't just start after 
-its construction.
+Constructing computation is only a first step. To actually trigger its execution, 
+one has to call `run` on it, passing `onTerminate` callback, as well as `onValue` one.
 
-In order to actually run it, one has to call `run` on it, 
-passing `onTerminate` callback, as well as `onValue` one.
 
-Example:
 
 ```dart
 // constructing the program
@@ -342,23 +338,13 @@ Cont.of(0).map((zero) {
 
 # Chaining
 
-Chaining - is constructing and running a computation from the result 
+Chaining - is constructing a computation from the result 
 of the previous one. To achieve this one can use `flatMap`:
 
 ```dart
 Cont.of(0).flatMap((zero) {
   return Cont.of(zero + 1);
 }).run(print, print); // prints 1
-```
-
-Sometimes you want to construct and run a computation from a previous value,
-but ignore the result and pass the value you received in the first place.
-For that, use `flatTap`:
-
-```dart
-Cont.of(0).flatTap((zero) {
-  return Cont.of(zero + 100);
-}).run(print, print); // ignores + 100 and prints 0
 ```
 
 # Merging
@@ -377,7 +363,8 @@ Cont.both(
 ).run(print, print); // prints 1
 ```
 
-In case of a `List<Cont<T>>>` - use `Cont.all` to get `Cont<List<T>>`:
+When you have a list of computations, and you want to
+wait for all their values, `Cont.all` is your tool.
 
 ```dart
 final List<Cont<int>> contList = [
@@ -389,20 +376,174 @@ final List<Cont<int>> contList = [
 Cont.all(contList).run(print, print); // prints [1, 2, 3]
 ```
 
-Basically, when you have a list of computations, and you want to
-wait for all their values, `Cont.all` is your tool. 
+# Racing
 
-# Choosing
+You can also run independent computations, and pick the first non terminal value.
+This is called `raceForWinner`:
 
-// TODO: 
+```dart
+Cont.raceForWinner(
+  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
+  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
+).run(print, print); // prints "second"
+```
+
+Note on `raceForWinner`, it will emit the value as soon as it is available,
+without waiting for other computations to complete.
+
+
+In case you want to get the last non terminal value, use `raceForLoser`:
+
+```dart
+Cont.raceForLoser(
+  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
+  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
+).run(print, print); // prints "first"
+```
+
+In the loser case, all computations must be finished, in order to properly determine
+last non-terminal value.
+
+There are also two variants for `List<Cont<A>>` - `raceForWinnerAll`:
+
+
+```dart
+Cont.raceForWinnerAll([
+  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
+  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
+  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
+]).run(print, print); // prints "second"
+```
+
+And `raceForLoserAll`:
+
+```dart
+Cont.raceForLoserAll([
+  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
+  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
+  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
+]).run(print, print); // prints "third"
+```
 
 # Recovering
 
-// TODO:
+Dart is fragile. Anything can throw. Luckily, Jerelo does most of the work for you.
+Any failed computation will be propagated downstream via terminate channel. 
+
+But sometimes we may want to recover from error, and continue.
+
+To do this there are three operators:
+- `catchError` - catches termination when `errors` value is **non-empty.**
+- `catchEmpty`- catches termination when `errors` value is **empty.**
+- `catchTerminate` - catches any termination event.
+
+All of them require to return a new Cont object, that should be run in case of an halt.
+
+```dart
+Cont.empty()
+  .catchEmpty(() => Cont.of(1))
+  .catchError((error, errors) => Cont.of(2)) // not called
+  .run(print, print); // prints 1
+
+Cont.raise("Error object")
+    .catchEmpty(() => Cont.of(1)) // not called
+    .catchError((error, errors) => Cont.of(2)) 
+    .run(print, print); // prints 2
+```
 
 # Scheduling
 
-// TODO:
+By default any computation is run on the same queue that `run` is called on.
+To better understand how scheduling works, we have to understand how `run` itself works.
+
+At first, when we create an edge computation via constructor, there
+is nothing wrapping it. Calling `run` on such computation will immediately execute it.
+
+```dart
+// Numbers are used to demonstrate the 
+// order of instructions executed
+
+// 1
+final cont = Cont.fromRun((observer) {
+  // 4
+  observer.run("value");
+});
+// 2
+
+cont.run((errors) { // 3
+  // do nothing
+}, (value) {
+  // 5
+  print(value); // prints "value"
+});
+
+// 6
+```
+
+In the case above, when `run` is used, the closure inside `Cont.fromRun` 
+is immediately started. 
+
+In order to customize this behavior, there are two operators to be utilized:
+- `subscribeOn`
+- `observeOn`
+
+Instead of thousand words, I will show an example:
+
+```dart
+// Numbers are used to demonstrate the 
+// order of instructions executed
+
+// 1
+final cont = Cont.fromRun((observer) {
+  // 5 - run after 2 seconds
+  observer.run("value");
+})
+.subscribeOn(ContScheduler.delayed(Duration(seconds: 2)))
+.observeOn(ContScheduler.microtask());
+// 2
+
+cont.run((errors) { // 3 - schedules to run after 2 seconds
+  // do nothing
+}, (value) {
+  // 6 - run as microtask
+  print(value); // prints "value"
+});
+
+// 4
+```
+
+
+To clear things up - `subscribeOn` schedules "up", while `observeOn` schedules
+"down". 
+
+Multiple `subscribeOn` will compound upwards, meaning first one
+from the bottom will schedule scheduling of the upper one, and so on.
+
+Multiple `observeOn` will compound downwards, meaning first one
+from the top will schedule execution of the lower one, and so on.
+
+
+```dart
+Cont.fromRun((observer) {
+  // executed as microtask, cause of `subscribeOn`
+  observer.onValue(199);
+})
+.subscribeOn(ContScheduler.microtask())
+.flatMap((v199) {
+  return Cont.fromRun((observer) {
+    // still executed as microtask
+    observer.onSome(599);
+  })
+  .observeOn(ContScheduler.delayed(Duration(seconds: 5)));
+})
+.flatMap((v599) {
+  // executed after 5 seconds on event queue
+  // cause of `observeOn`
+  return Cont.of(799);
+})
+.run(print, print); // prints 799 after min 5 seconds
+```
+
 
 # Example
 
