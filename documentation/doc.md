@@ -502,7 +502,8 @@ final cont = Cont.fromRun((observer) {
 .observeOn(ContScheduler.microtask());
 // 2
 
-cont.run((errors) { // 3 - schedules to run after 2 seconds
+// 3 - schedules to run after 2 seconds
+cont.run((errors) { 
   // do nothing
 }, (value) {
   // 6 - run as microtask
@@ -522,6 +523,33 @@ from the bottom will schedule scheduling of the upper one, and so on.
 Multiple `observeOn` will compound downwards, meaning first one
 from the top will schedule execution of the lower one, and so on.
 
+```dart
+// Numbers are used to demonstrate the 
+// order of instructions executed
+
+// 1
+final cont = Cont.fromRun((observer) {
+  // 5 - run after 2 seconds
+  observer.run("value");
+})
+.subscribeOn(ContScheduler.delayed(Duration(seconds: 5)))
+.subscribeOn(ContScheduler.delayed(Duration(seconds: 2)))
+.observeOn(ContScheduler.Duration(seconds: 3))
+.observeOn(ContScheduler.microtask());
+// 2
+
+// 3 - schedules to run after 2 seconds
+cont.run((errors) { 
+  // do nothing
+}, (value) {
+  // 6 - run as microtask
+  print(value); // prints "value"
+});
+
+// 4
+```
+
+TODO: describe operators
 
 ```dart
 Cont.fromRun((observer) {
