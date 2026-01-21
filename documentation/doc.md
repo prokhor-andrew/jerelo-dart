@@ -99,7 +99,7 @@ channels, and comes with a basic interface that allows to do every fundamental o
 - Transform
 - Chain
 - Merge
-- Racing
+- Race
 - Recover
 - Schedule
 - Run
