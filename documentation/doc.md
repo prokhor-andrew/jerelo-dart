@@ -185,7 +185,7 @@ final class ContError {
 }
 ```
 
-# Construction
+# Constructing
 
 `Cont` has one base constructor:
 - `Cont.fromRun`
@@ -326,7 +326,7 @@ to `flatMap(toString)`, and finally to `run` itself.
 If any computation emits termination event, the whole chain after that 
 is skipped and first callback passed into `run` is invoked.
 
-# Transformation
+# Transforming
 
 To transform value inside `Cont`, use `map`:
 
