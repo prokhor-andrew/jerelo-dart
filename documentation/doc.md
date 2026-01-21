@@ -437,7 +437,7 @@ To do this there are three operators:
 - `catchEmpty`- catches termination when `errors` value is **empty.**
 - `catchTerminate` - catches any termination event.
 
-All of them require to return a new Cont object, that should be run in case of an halt.
+All of them require to return a new `Cont` object, that should be run in case of an halt.
 
 ```dart
 Cont.empty()
