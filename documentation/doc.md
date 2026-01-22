@@ -165,6 +165,12 @@ final program = getUserAge(userId).map((age) {
   throw "Armageddon!"; // <- throws here
 });
 
+// or
+
+final program = getUserAge(userId).flatMap((age) {
+  return Cont.raise(ContError("Armageddon!", StackTrace.curret));
+});
+
 program.run((errors) {
   // will automatically catch thrown error here
 }, (value) {
