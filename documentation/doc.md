@@ -540,15 +540,15 @@ cont.run((_) {}, (value) {
 - Then `run` on `subscribeOn`, which will immediately 
 schedule next `run` to be on `ContScheduler.delayed(Duration(seconds: 2))`.
 3. We go all the way back to our `cont.run` invocation. 
-4. Finally, after minimum 2 seconds - `Cont.fromRun`'s run is 
+4. Finally, after minimum 2 seconds, `Cont.fromRun`'s run is 
 triggered, emitting `value`.
 - `value` will be passed into `subscribeOn`'s success channel, 
 and propagated further downstream.
 - Then, it is passed into `observeOn`'s success channel, where it 
 schedules to run next success channel as microtask.
-- Then, it unwinds the stack back all the way 
+- Then, it unwinds the stack all the way back 
 up to `observer.onValue("value")` in `Cont.fromRun`'s closure.
-5. Later, when microtask is ready to be executed, it is finally
+5. Later, when microtask is ready to be executed, it finally calls
 `print(value)` from our `cont.run` closure.
 
 As you can see, both operators are used to schedule, but differ in which
@@ -595,7 +595,7 @@ final cont = Cont.fromRun<int>((observer) { // constructing
 .map((int value) => value.isEven) // transforming
 .flatMap((isEven) { // chaining
   if (isEven) {
-    return Cont.both(
+    return Cont.both( // merging
       Cont.of(10),
       Cont.of(20),
       (ten, twenty) => ten + twenty,
@@ -612,7 +612,7 @@ final cont = Cont.fromRun<int>((observer) { // constructing
       );
 
     // try swapping delays to see the winner to change
-    return Cont.raceForWinner(cache, network);
+    return Cont.raceForWinner(cache, network); // racing
   }
 })
 .catchTerminate((errors) => Cont.of(-1)) // recovering
