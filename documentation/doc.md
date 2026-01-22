@@ -93,7 +93,7 @@ As you can see, the more functions we want to compose, the uglier it becomes.
 
 # Solution
 
-**Cont** - is a type that represents an arbitrary computation. It has two result 
+**Cont** is a type that represents an arbitrary computation. It has two result 
 channels, and comes with a basic interface that allows to do every fundamental operation:
 - Construct
 - Transform
@@ -331,7 +331,7 @@ Cont.of(0).map((zero) {
 
 # Chaining
 
-Chaining - is constructing a computation from the result 
+Chaining is constructing a computation from the result 
 of the previous one. To achieve this one can use `flatMap`:
 
 ```dart
