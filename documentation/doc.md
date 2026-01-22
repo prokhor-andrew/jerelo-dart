@@ -19,7 +19,7 @@ int increment(int value) {
 final result = increment(5); // 6
 ```
 
-Another way to achieve the same result is by using **Continuation Passing Style** (CPS).
+Another way to achieve the same result is by using **Continuation-Passing Style** (CPS).
 
 
 ```dart
@@ -33,22 +33,22 @@ increment(5, (result) {
 });
 ```
 
-Instead of returning result, a callback is passed to the function. 
-When the result is computed, the callback is invoked with a resulting value.
+Instead of returning a result, a callback is passed to the function. 
+When the result is computed, the callback is invoked with a value.
 
 # What problem CPS solves?
 
 The classic pure function can only be executed synchronously. 
-By its encoding, it is forced to return a value immediately on the same call-stack.
+By its encoding, it is forced to return a value immediately on the same call stack.
 In CPS, the continuation is passed, which can be saved and executed at any time later.
 This enables async programming.
 
 
 # Why not Future?
 
-Dart's `Future` is, in fact, CPS with language sugar on top of it.
+Dart's `Future` is, in fact, CPS with syntactic sugar on top of it.
 But its problem is it starts running as soon as it is created. 
-This does not allow us to separate construction of computation from 
+This does not allow us to separate construction of a computation from 
 its execution.
 
 ```dart
@@ -153,7 +153,7 @@ and another one for termination.
 
 Success is the one expressed by type parameter `T` in `Cont<T>`.
 
-Termination - by `List<ContError>`.
+Termination is represented by `List<ContError>`.
 The `List<ContError>` stands for the list of errors that caused the termination.
 It can be empty or not.
 This channel is used when a computation crashes. It can also be used
@@ -307,7 +307,7 @@ The example above showcases how construction of computation is
 separated from its execution. 
 
 Any object of type `Cont` is cold,
-pure and lazy by design. It can be safely executed multiple times,
+pure, and lazy by design. It can be safely executed multiple times,
 passed around in functions, and stored as values in constants.
 
 
@@ -371,7 +371,7 @@ Cont.all(contList).run((_) {}, print); // prints [1, 2, 3]
 
 # Racing
 
-You can also run independent computations, and pick the first non-terminal value.
+You can also run independent computations, and pick the first non-terminating value.
 This is called `raceForWinner`:
 
 ```dart
@@ -385,7 +385,7 @@ Note on `raceForWinner`, it will emit the value as soon as it is available,
 without waiting for other computations to complete.
 
 
-In case you want to get the last non-terminal value, use `raceForLoser`:
+In case you want to get the last non-terminating value, use `raceForLoser`:
 
 ```dart
 Cont.raceForLoser(
@@ -395,7 +395,7 @@ Cont.raceForLoser(
 ```
 
 In the loser case, all computations must be finished, in order to properly determine
-last non-terminal value.
+last non-terminating value.
 
 There are also two variants for `List<Cont<A>>` - `raceForWinnerAll`:
 
@@ -451,7 +451,7 @@ To better understand how scheduling works, we have to understand how `run` itsel
 
 This understanding can be split in two parts.
 
-**Part1:**
+**Part 1:**
 At first, when we create an edge computation via constructor, there
 is nothing wrapping it. Calling `run` on such computation will immediately execute it.
 
@@ -552,7 +552,7 @@ Cont.fromRun((observer) {
 # Final Example
 
 There are more operators in [api.md](api.md), and 
-I highly recommend to get to know them. They are not different from the ones
+I highly recommend getting to know them. They are not different from the ones
 described in this document, but rather minor sugar extensions of them.
 
 Lastly, I want to showcase an example of everything in one place:
