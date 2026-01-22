@@ -456,7 +456,8 @@ By default, every computation is run on the same queue that `run` is called on.
 To better understand how scheduling works, we have to understand how `run` itself works.
 
 At first, when we create an edge computation via constructor, there
-is nothing wrapping it. Calling `run` on such computation will immediately execute it.
+is nothing wrapping it. Calling `run` on such computation will 
+immediately execute it.
 
 ```dart
 // Numbers are used to demonstrate the 
@@ -480,6 +481,31 @@ cont.run((_) {}, (value) {
 
 In the case above, when `run` is used, the closure inside `Cont.fromRun` 
 is immediately started. 
+
+When we add operators on a `Cont` object, we start creating something like
+layers of `Cont.fromRun`s. 
+
+```dart
+final cont = Cont.fromRun((observer) {
+  observer.onValue("value");
+}).map((value) {
+  return value.toUpperCase();
+});
+```
+
+The above structure can be roughly visualized as follows:
+```dart
+// pseudo code, won't compile
+Cont.fromRun((observer1) {
+  Cont.fromRun((observer2) {
+    ...
+  }).run(...);
+});
+```
+
+With every operator used, we create wrapper around original `Cont`, and
+later when `run` is called, we proxy runs all the way up. By default, these 
+runs are executed in a synchronous manner.
 
 In order to customize this behavior, there are two operators to be utilized:
 - `subscribeOn`
