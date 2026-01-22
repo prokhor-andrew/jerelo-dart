@@ -212,7 +212,7 @@ And lawful identities to some operators:
 To construct a `Cont` object - utilize any of the above.
 
 
-For example, one can wrap an existing `Future` like this:
+For example, you can wrap an existing `Future` like this:
 
 ```dart
 Future<User> getUserById(String userId) {
