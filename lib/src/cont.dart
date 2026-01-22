@@ -202,8 +202,11 @@ final class Cont<A> {
       runWith(
         observer.copyUpdateOnTerminate((errors) {
           try {
-            final contA = f(errors);
-            contA.runWith(observer);
+            f(errors).runWith(
+              observer.copyUpdateOnTerminate((errors2) {
+                observer.onTerminate([...errors, ...errors2]);
+              }),
+            );
           } catch (error, st) {
             observer.onTerminate([...errors, ContError(error, st)]);
           }
@@ -218,47 +221,64 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> catchTerminateTo(Cont<A> cont) {
+  Cont<A> or(Cont<A> other) {
     return catchTerminate0(() {
-      return cont;
+      return other;
     });
   }
 
-  Cont<A> catchEmpty(Cont<A> Function() f) {
-    return catchTerminate((errors) {
-      if (errors.isNotEmpty) {
-        return Cont.terminate(errors);
-      }
+  static Cont<A> any<A>(List<Cont<A>> list) {
+    final List<Cont<A>> safeCopy0 = List<Cont<A>>.from(list);
 
-      return f();
-    });
-  }
+    return Cont.fromRun((observer) {
+      final safeCopy = List<Cont<A>>.from(safeCopy0);
 
-  Cont<A> catchEmptyTo(Cont<A> cont) {
-    return catchEmpty(() {
-      return cont;
-    });
-  }
+      _stackSafeLoop<_Either<(int, List<ContError>), A>, (int, List<ContError>), _Either<List<ContError>, A>>(
+        seed: _Value1((0, [])),
+        keepRunningIf: (triple) {
+          switch (triple) {
+            case _Value1(value: final tuple):
+              final (index, errors) = tuple;
+              if (index >= safeCopy.length) {
+                return _StackSafeLoopPolicyStop(_Value1(errors));
+              }
+              return _StackSafeLoopPolicyKeepRunning((index, errors));
+            case _Value2(value: final a):
+              return _StackSafeLoopPolicyStop(_Value2(a));
+          }
+        },
+        computation: (tuple, callback) {
+          final (index, errors) = tuple;
+          final cont = safeCopy[index];
 
-  Cont<A> catchError(Cont<A> Function(ContError error, List<ContError> errors) f) {
-    return catchTerminate((errors) {
-      if (errors.isEmpty) {
-        return Cont.terminate([]);
-      }
-
-      return f(errors.first, errors.skip(1).toList());
-    });
-  }
-
-  Cont<A> catchError0(Cont<A> Function() f) {
-    return catchError((_, _) {
-      return f();
-    });
-  }
-
-  Cont<A> catchErrorTo(Cont<A> cont) {
-    return catchError0(() {
-      return cont;
+          try {
+            cont.runWith(
+              ContObserver(
+                (errors2) {
+                  callback(_Value1((index + 1, [...errors, ...errors2])));
+                },
+                (a) {
+                  callback(_Value2(a));
+                },
+                //
+              ),
+            );
+          } catch (error, st) {
+            callback(_Value1((index + 1, [...errors, ContError(error, st)])));
+          }
+        },
+        escape: (triple) {
+          switch (triple) {
+            case _Value1(value: final errors):
+              observer.onTerminate([...errors]);
+              return;
+            case _Value2(value: final a):
+              observer.onValue(a);
+              return;
+          }
+        },
+        //
+      );
     });
   }
 
@@ -267,7 +287,7 @@ final class Cont<A> {
   Cont<A> filter(bool Function(A value) f) {
     return flatMap((a) {
       if (!f(a)) {
-        return Cont.empty<A>();
+        return Cont.terminate<A>([]);
       }
 
       return Cont.of(a);
@@ -281,15 +301,7 @@ final class Cont<A> {
     });
   }
 
-  static Cont<A> empty<A>() {
-    return Cont.terminate([]);
-  }
-
-  static Cont<A> raise<A>(ContError error, [List<ContError> errors = const []]) {
-    return Cont.terminate([error, ...errors]);
-  }
-
-  static Cont<A> terminate<A>(List<ContError> errors) {
+  static Cont<A> terminate<A>([List<ContError> errors = const []]) {
     final safeCopyErrors0 = List<ContError>.from(errors);
     return Cont.fromRun((observer) {
       // this makes sure that if anybody outside mutates "errors"
@@ -712,94 +724,6 @@ final class Cont<A> {
     });
   }
 
-  // this one should be oky.
-  static Cont<A> either<A>(Cont<A> left, Cont<A> right) {
-    return Cont.fromRun((observer) {
-      left.runWith(
-        ContObserver(
-          (errors) {
-            try {
-              right.runWith(
-                ContObserver(
-                  (errors2) {
-                    observer.onTerminate([...errors, ...errors2]);
-                  },
-                  (a2) {
-                    observer.onValue(a2);
-                  },
-                ),
-              );
-            } catch (error, st) {
-              observer.onTerminate([...errors, ContError(error, st)]);
-            }
-          },
-          (a) {
-            observer.onValue(a);
-          },
-        ),
-      );
-    });
-  }
-
-  Cont<A> or(Cont<A> other) {
-    return Cont.either(this, other);
-  }
-
-  static Cont<A> any<A>(List<Cont<A>> list) {
-    final List<Cont<A>> safeCopy0 = List<Cont<A>>.from(list);
-
-    return Cont.fromRun((observer) {
-      final safeCopy = List<Cont<A>>.from(safeCopy0);
-
-      _stackSafeLoop<_Either<(int, List<ContError>), A>, (int, List<ContError>), _Either<List<ContError>, A>>(
-        seed: _Value1((0, [])),
-        keepRunningIf: (triple) {
-          switch (triple) {
-            case _Value1(value: final tuple):
-              final (index, errors) = tuple;
-              if (index >= safeCopy.length) {
-                return _StackSafeLoopPolicyStop(_Value1(errors));
-              }
-              return _StackSafeLoopPolicyKeepRunning((index, errors));
-            case _Value2(value: final a):
-              return _StackSafeLoopPolicyStop(_Value2(a));
-          }
-        },
-        computation: (tuple, callback) {
-          final (index, errors) = tuple;
-          final cont = safeCopy[index];
-
-          try {
-            cont.runWith(
-              ContObserver(
-                (errors2) {
-                  callback(_Value1((index + 1, [...errors, ...errors2])));
-                },
-                (a) {
-                  callback(_Value2(a));
-                },
-                //
-              ),
-            );
-          } catch (error, st) {
-            callback(_Value1((index + 1, [...errors, ContError(error, st)])));
-          }
-        },
-        escape: (triple) {
-          switch (triple) {
-            case _Value1(value: final errors):
-              observer.onTerminate([...errors]);
-              return;
-            case _Value2(value: final a):
-              observer.onValue(a);
-              return;
-          }
-        },
-        //
-      );
-    });
-  }
-
   Cont<A> subscribeOn(ContScheduler scheduler) {
     return Cont.fromRun((observer) {
       scheduler.schedule(() {
@@ -846,7 +770,7 @@ final class Cont<A> {
         try {
           return release(ref);
         } catch (error, st) {
-          return Cont.raise(ContError(error, st));
+          return Cont.terminate([ContError(error, st)]);
         }
       }
 
@@ -871,7 +795,7 @@ final class Cont<A> {
               return Cont.terminate([ContError(error, st), ...errors2]);
             })
             .flatMap0(() {
-              return Cont.raise(ContError(error, st));
+              return Cont.terminate([ContError(error, st)]);
             });
       }
     });

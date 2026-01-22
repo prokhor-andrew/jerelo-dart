@@ -63,7 +63,7 @@ void main() {
               .getDecisionForTransaction()
               .flatMap<TransactionResult>((decision) {
                 return switch (decision) {
-                  Decision.rejected => Cont.raise(ContError("Rejected", StackTrace.current)),
+                  Decision.rejected => Cont.terminate([ContError("Rejected", StackTrace.current)]),
                   Decision.approved => transactionService.getTransactionResult(),
                   Decision.review => transactionService.reviewForTransaction().flatMap0(transactionService.getTransactionResult),
                 };

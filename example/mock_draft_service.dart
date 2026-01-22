@@ -17,10 +17,10 @@ Cont<DraftService> getMockDraftService() {
     DraftService(
       getTransactionDraft: () {
         // 5%: none (no draft available)
-        if (chance(0.05)) return Cont.empty();
+        if (chance(0.05)) return Cont.terminate();
 
         // 8%: fail
-        if (chance(0.08)) return Cont.raise(ContError(StateError("Draft service unavailable"), StackTrace.current));
+        if (chance(0.08)) return Cont.terminate([ContError(StateError("Draft service unavailable"), StackTrace.current)]);
 
         // otherwise success
         return Cont.of(
@@ -30,22 +30,22 @@ Cont<DraftService> getMockDraftService() {
 
       validateTransactionDraft: (draft) {
         // Hard validation rules -> fail with explicit reason
-        if (draft.amount <= 0) return Cont.raise(ContError(ArgumentError("Amount must be > 0"), StackTrace.current));
-        if (draft.currency != "USD") return Cont.raise(ContError(ArgumentError("Unsupported currency: ${draft.currency}"), StackTrace.current));
-        if (!draft.email.contains("@")) return Cont.raise(ContError(ArgumentError("Invalid email"), StackTrace.current));
+        if (draft.amount <= 0) return Cont.terminate([ContError(ArgumentError("Amount must be > 0"), StackTrace.current)]);
+        if (draft.currency != "USD") return Cont.terminate([ContError(ArgumentError("Unsupported currency: ${draft.currency}"), StackTrace.current)]);
+        if (!draft.email.contains("@")) return Cont.terminate([ContError(ArgumentError("Invalid email"), StackTrace.current)]);
 
         // Soft validation -> none (treat as “cannot validate now”)
-        if (chance(0.03)) return Cont.empty();
+        if (chance(0.03)) return Cont.terminate();
 
         return Cont.of(());
       },
 
       getAddressFromTransactionDraft: (draft) {
         // 10%: none (no address)
-        if (chance(0.10)) return Cont.empty();
+        if (chance(0.10)) return Cont.terminate();
 
         // 6%: fail
-        if (chance(0.06)) return Cont.raise(ContError(StateError("Address lookup timeout"), StackTrace.current));
+        if (chance(0.06)) return Cont.terminate([ContError(StateError("Address lookup timeout"), StackTrace.current)]);
 
         final address = switch (draft.ip) {
           "203.0.113.10" => "Wichita, KS",
@@ -58,10 +58,10 @@ Cont<DraftService> getMockDraftService() {
 
       getReputationFromTransactionDraft: (draft) {
         // 7%: fail
-        if (chance(0.07)) return Cont.raise(ContError(StateError("Reputation service error"), StackTrace.current));
+        if (chance(0.07)) return Cont.terminate([ContError(StateError("Reputation service error"), StackTrace.current)]);
 
         // 7%: none
-        if (chance(0.07)) return Cont.empty();
+        if (chance(0.07)) return Cont.terminate();
 
         // Very rough scoring
         var rep = 0.6;
@@ -81,7 +81,7 @@ Cont<DraftService> getMockDraftService() {
             //
           }) {
             // if we couldn't resolve meaningfully, return none
-            if (address == "Unknown") return Cont.empty();
+            if (address == "Unknown") return Cont.terminate();
 
             return Cont.of(
               Transaction(
