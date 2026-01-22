@@ -59,10 +59,6 @@
 ### raceForLoserWith
 ### raceForLoserAll
 
-### Cont.either
-### or
-### Cont.any
-
 # Recovering
 ### catchTerminate
 ### catchTerminate0
@@ -74,6 +70,12 @@
 
 ### catchEmpty
 ### catchEmptyTo
+
+### Cont.either
+### or
+### Cont.any
+
+## Filtering
 
 ### filter
 
