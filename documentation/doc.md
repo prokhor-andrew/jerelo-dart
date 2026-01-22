@@ -168,7 +168,7 @@ final program = getUserAge(userId).map((age) {
 // or
 
 final program = getUserAge(userId).flatMap((age) {
-  return Cont.raise(ContError("Armageddon!", StackTrace.curret));
+  return Cont.terminate([ContError("Armageddon!", StackTrace.curret)]);
 });
 
 program.run((errors) {
@@ -206,8 +206,6 @@ One stateful constructor:
 And lawful identities to some operators:
 - `Cont.of`
 - `Cont.terminate`
-- `Cont.empty`
-- `Cont.raise`
 
 To construct a `Cont` object - utilize any of the above.
 
@@ -274,12 +272,9 @@ Cont<User> getUser(String userId) {
 To represent terminated computation with or without errors use:
 
 ```dart
-
-Cont.empty(); // no errors
-
-Cont.raise(ContError(error, stackTrace), []); // at least one error
-
-Cont.terminate([]); // combines both above
+Cont.terminate([
+  ContError("payload", StackTrace.current),
+]); // 
 ```
 
 # Running 
@@ -344,6 +339,20 @@ of the previous one. To achieve this one can use `flatMap`:
 Cont.of(0).flatMap((zero) {
   return Cont.of(zero + 1);
 }).run((_) {}, print); // prints 1
+```
+
+There is also a variant for `List` of continuations. It is called
+`Cont.sequence`. It runs every computation one by one, until it reaches 
+the end, and emits the last value.
+
+```dart
+Cont.sequence([
+    Cont.of(5),
+    Cont.of(4),
+    Cont.of(3),
+    Cont.of(2),
+    Cont.of(1),
+]).run((_) { }, print); // prints 1
 ```
 
 # Merging
@@ -431,23 +440,26 @@ Any failed computation will be propagated downstream via terminate channel.
 
 But sometimes we may want to recover from an error, and continue.
 
-To do this there are three operators:
-- `catchError` - catches termination when `errors` value is **non-empty.**
-- `catchEmpty` - catches termination when `errors` value is **empty.**
-- `catchTerminate` - catches any termination event.
-
-All of them require to return a new `Cont` object that should be run in case of a halt.
+To do this there is `catchTerminate` operator. It catches any termination event.
 
 ```dart
-Cont.empty()
-  .catchEmpty(() => Cont.of(1))
-  .catchError((error, errors) => Cont.of(2)) // not called
-  .run((_) {}, print); // prints 1
+Cont.terminate([
+  ContError("Error object", StackTrace.current)
+])
+.catchTerminate((errors) => Cont.of(2)) 
+.run((_) {}, print); // prints 2
+```
 
-Cont.raise(ContError("Error object", StackTrace.current))
-  .catchEmpty(() => Cont.of(1)) // not called
-  .catchError((error, errors) => Cont.of(2)) 
-  .run((_) {}, print); // prints 2
+There is a variant for a `List` of continuations: `Cont.any`. It
+runs computations one by one, until it finds one that succeeds.
+
+```dart
+Cont.any([ 
+  Cont.terminate(),
+  Cont.of(0),
+  Cont.of(5),
+])
+.run((_) {}, print); // prints 0
 ```
 
 # Scheduling
