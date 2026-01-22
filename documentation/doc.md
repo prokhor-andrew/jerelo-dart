@@ -276,13 +276,6 @@ Cont.raise(ContError(error, stackTrace), []); // at least one error
 Cont.terminate([]); // combines both above
 ```
 
-If you need to manage resource lifecycle, `Cont.withRef` is your friend.
-
-```dart
- // TODO: 
-```
-
-
 # Running 
 
 Constructing computation is only a first step. To actually trigger its execution, 
