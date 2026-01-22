@@ -8,7 +8,7 @@ plus practical operators for sequencing and concurrency.
 
 # What is Continuation?
 
-Usually when you need to encode a computation you use functions.
+Usually when you need to encode a computation, you use functions.
 
 
 ```dart
@@ -19,7 +19,7 @@ int increment(int value) {
 final result = increment(5); // 6
 ```
 
-Another way to achieve the same result is by using **Continuation-Passing Style** (CPS).
+Another way to achieve the same result is to use **Continuation-Passing Style** (CPS).
 
 
 ```dart
@@ -49,7 +49,7 @@ This enables async programming.
 Dart's `Future` is, in fact, CPS with syntactic sugar on top of it.
 But the problem is it starts running as soon as it is created. 
 This does not allow us to separate construction of a computation from 
-its execution.
+execution.
 
 ```dart
 
@@ -148,14 +148,14 @@ final program = function1(value)
 
 # Result channels
 
-As mentioned before, `Cont` has two channels. One is for successful a result
+As mentioned before, `Cont` has two channels. One is for a successful result
 and another one for termination.
 
-Success is the one expressed by type the parameter `T` in `Cont<T>`.
+Success is represented by the type parameter `T` in `Cont<T>`.
 
 Termination is represented by `List<ContError>`.
 The `List<ContError>` stands for the list of errors that caused the termination.
-It can be empty or not.
+It may be empty or not.
 This channel is used when a computation crashes. It can also be used
 to manually terminate the computation.
 
@@ -173,7 +173,7 @@ program.run((errors) {
 });
 ```
 
-The type of thrown error is `ContError`. It is a holder for original error and 
+The type of a thrown error is `ContError`. It is a holder for the original error and 
 stack trace.
 
 ```dart
@@ -238,9 +238,9 @@ Cont<User> getUser(String userId) {
 ```
 
 There are a couple of things to note about `observer` here:
-- It is idempotent. Calling `onValue` or `onTerminate` more than once will do nothing.
+- It is idempotent. Calling `onValue` or `onTerminate` more than once, will do nothing.
 - It is mandatory to call `onValue` or `onTerminate` once the computation is over. 
-Otherwise, any potential errors will be lost, in addition to the other unexpected behavior involved. 
+Otherwise, errors will be lost, and behavior becomes undefined. 
 
 Sometimes one would prefer to defer a construction of a `Cont`.
 In the example below, getting `userId` is expensive, so we want to 
@@ -316,7 +316,7 @@ computation (the `Cont` object we get from `getValueFromDatabase`)
 and then navigates back down to `flatMap(incrementValue)`, then to `flatMap(isEven)`, 
 to `flatMap(toString)`, and finally to `run` itself.
 
-If any computation emits termination event, the whole chain after that 
+If any computation emits a termination event, the whole chain after that 
 is skipped and first callback passed into `run` is invoked.
 
 # Transforming
@@ -371,7 +371,7 @@ Cont.all(contList).run((_) {}, print); // prints [1, 2, 3]
 
 # Racing
 
-You can also run independent computations, and pick the first non-terminating value.
+You can also run independent computations, and pick the first successful value.
 This is called `raceForWinner`:
 
 ```dart
@@ -582,7 +582,7 @@ final cont = Cont.fromRun<int>((observer) { // constructing
         ContScheduler.delayed(Duration(milliseconds: 80))
       );
 
-    // try swapping delays to see the winner change
+    // try swapping delays to see the winner to change
     return Cont.raceForWinner(cache, network);
   }
 })
