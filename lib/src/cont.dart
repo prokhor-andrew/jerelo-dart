@@ -810,15 +810,15 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> observeOn({
+  Cont<A> observeChannelOn({
     ContScheduler valueOn = ContScheduler.immediate,
-    ContScheduler terminatedOn = ContScheduler.immediate,
+    ContScheduler terminateOn = ContScheduler.immediate,
     //
   }) {
     return Cont.fromRun((observer) {
       run(
         (errors) {
-          terminatedOn.schedule(() {
+          terminateOn.schedule(() {
             observer.onTerminate(errors);
           });
         },
@@ -829,6 +829,10 @@ final class Cont<A> {
         },
       );
     });
+  }
+
+  Cont<A> observeOn(ContScheduler scheduler) {
+    return observeChannelOn(valueOn: scheduler, terminateOn: scheduler);
   }
 
   static Cont<A> withRef<S, A>(
