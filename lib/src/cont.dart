@@ -125,7 +125,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A3> flatMapTap<A2, A3>(Cont<A2> Function(A value) f, A3 Function(A a1, A2 a2) combine) {
+  Cont<A3> flatMapZipWith<A2, A3>(Cont<A2> Function(A value) f, A3 Function(A a1, A2 a2) combine) {
     return flatMap((a1) {
       return f(a1).map((a2) {
         return combine(a1, a2);
@@ -133,16 +133,14 @@ final class Cont<A> {
     });
   }
 
-  Cont<A3> flatMapTap0<A2, A3>(Cont<A2> Function() f, A3 Function(A a1, A2 a2) combine) {
-    return flatMap((a1) {
-      return f().map((a2) {
-        return combine(a1, a2);
-      });
-    });
+  Cont<A3> flatMapZipWith0<A2, A3>(Cont<A2> Function() f, A3 Function(A a1, A2 a2) combine) {
+    return flatMapZipWith((_) {
+      return f();
+    }, combine);
   }
 
-  Cont<A3> flatMapTapTo<A2, A3>(Cont<A2> other, A3 Function(A a1, A2 a2) f) {
-    return flatMapTap0(() {
+  Cont<A3> flatMapZipWithTo<A2, A3>(Cont<A2> other, A3 Function(A a1, A2 a2) f) {
+    return flatMapZipWith0(() {
       return other;
     }, f);
   }
