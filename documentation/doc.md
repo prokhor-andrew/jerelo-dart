@@ -94,7 +94,7 @@ As you can see, the more functions we want to compose, the uglier it becomes.
 # Solution
 
 **Cont** is a type that represents an arbitrary computation. It has two result 
-channels, and comes with a basic interface that allows to do every fundamental operation:
+channels, and comes with a basic interface that allows you to do every fundamental operation:
 - Construct
 - Transform
 - Chain
@@ -516,7 +516,7 @@ triggered, emitting `value`.
 - `value` will be passed into `subscribeOn`'s success channel, 
 and propagated further downstream.
 - Then, it is passed into `observeOn`'s success channel, where it 
-is schedules to run next success channel as microtask.
+schedules to run next success channel as microtask.
 - Then, it unwinds the stack back all the way 
 up to `observer.onValue("value")` in `Cont.fromRun`'s closure.
 5. Later, when microtask is ready to be executed, it is finally
@@ -529,7 +529,7 @@ Another example to solidify understanding:
 
 ```dart
 Cont.fromRun((observer) {
-  // executed as microtask, cause of `subscribeOn`
+  // executed as microtask, because of `subscribeOn`
   observer.onValue(199);
 })
 .subscribeOn(ContScheduler.microtask())
@@ -542,7 +542,7 @@ Cont.fromRun((observer) {
 })
 .flatMap((v599) {
   // executed after 5 seconds on event queue
-  // cause of `observeOn`
+  // because of `observeOn`
   return Cont.of(799);
 })
 .run((_) { }, print); // prints 799 after min 5 seconds
@@ -551,8 +551,8 @@ Cont.fromRun((observer) {
 
 # Final Example
 
-There are more of operators in [api.md](api.md), and 
-I highly recommend to get to know them. They are not different, from the ones
+There are more operators in [api.md](api.md), and 
+I highly recommend to get to know them. They are not different from the ones
 described in this document, but rather minor sugar extensions of them.
 
 Lastly, I want to showcase an example of everything in one place:
@@ -591,7 +591,7 @@ final cont = Cont.fromRun<int>((observer) { // constructing
 .subscribeOn(ContScheduler.microtask());
 
 // whenever you are ready    
-cont.run(print, print) // running
+cont.run(print, print); // running
 ```
 
 # What "Jerelo" means
