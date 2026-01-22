@@ -453,9 +453,12 @@ Cont.raise("Error object")
 
 # Scheduling
 
-By default any computation is run on the same queue that `run` is called on.
+By default, every computation is run on the same queue that `run` is called on.
 To better understand how scheduling works, we have to understand how `run` itself works.
 
+This understanding can be split in two parts.
+
+**Part1:**
 At first, when we create an edge computation via constructor, there
 is nothing wrapping it. Calling `run` on such computation will immediately execute it.
 
@@ -486,7 +489,7 @@ In order to customize this behavior, there are two operators to be utilized:
 - `subscribeOn`
 - `observeOn`
 
-Instead of thousand words, I will show an example:
+The first one schedules "upwards", while the latter "downwards":
 
 ```dart
 // Numbers are used to demonstrate the 
@@ -509,40 +512,27 @@ cont.run((_) {}, (value) {
 // 3
 ```
 
+1. At first, we construct a computation with `Cont.run`.
+2. Then, we run it via `run` method. 
+- It will immediately invoke `run` on `observeOn`.
+- Then `run` on `subscribeOn`, which will immediately 
+schedule next `run` to be on `ContScheduler.delayed(Duration(seconds: 2))`.
+3. We go all the way back to our `cont.run` invocation. 
+4. Finally, after minimum 2 seconds - `Cont.fromRun`'s run is 
+triggered, emitting `value`.
+- `value` will be passed into `subscribeOn`'s success channel, 
+and propagated further downstream.
+- Then, it is passed into `observeOn`'s success channel, where it 
+is schedules to run next success channel as microtask.
+- Then, it unwinds the stack back all the way 
+up to `observer.run("value")` in `Cont.fromRun`'s closure.
+5. Later, when microtask is ready to be executed, it is finally
+`print(value)` from our `cont.run` closure.
 
-To clear things up - `subscribeOn` schedules "up", while `observeOn` schedules
-"down". 
+As you can see, both operators are used to schedule, but differ in which
+direction they do that.
 
-Multiple `subscribeOn` will compound upwards, meaning first one
-from the bottom will schedule scheduling of the upper one, and so on.
-
-Multiple `observeOn` will compound downwards, meaning first one
-from the top will schedule execution of the lower one, and so on.
-
-```dart
-// Numbers are used to demonstrate the 
-// order of instructions executed
-
-// 1
-final cont = Cont.fromRun((observer) {
-  // 4 - run after 2 seconds
-  observer.run("value");
-})
-.subscribeOn(ContScheduler.delayed(Duration(seconds: 5)))
-.subscribeOn(ContScheduler.delayed(Duration(seconds: 2)))
-.observeOn(ContScheduler.Duration(seconds: 3))
-.observeOn(ContScheduler.microtask());
-
-// 2 - schedules to run after 2 seconds
-cont.run((_) {}, (value) {
-  // 5 - run as microtask
-  print(value); // prints "value"
-});
-
-// 3
-```
-
-TODO: describe operators
+Another example to solidify understanding: 
 
 ```dart
 Cont.fromRun((observer) {
@@ -566,9 +556,9 @@ Cont.fromRun((observer) {
 ```
 
 
-# Example
+# Final Example
 
-There is a little bit more of operators in [api.md](api.md), and 
+There are more of operators in [api.md](api.md), and 
 I highly recommend to get to know them. They are not different, from the ones
 described in this document, but rather minor sugar extensions of them.
 
@@ -576,7 +566,37 @@ Lastly, I want to showcase an example of everything in one place:
 
 
 ```dart
-// TODO: 
+final cont = Cont.fromRun<int>((observer) { // constructing
+  final n = Random().nextInt(10); // 0..9 randomized
+  o.onSome(n);
+})
+.map((int value) => value.isEven) // transforming
+.flatMap((isEven) { // chaining
+  if (isEven) {
+    return Cont.both(
+      Cont.of(10),
+      Cont.of(20),
+      (ten, twenty) => ten + twenty,
+    );
+  } else {
+    final cache = Cont.of(111)
+      .observeOn(ContSchedulers.delayed(Duration(milliseconds: 5))
+    );
+
+    final network = Cont.of(222)
+      .observeOn(ContSchedulers.delayed(Duration(milliseconds: 80))
+    );
+
+    // try swapping delays to see the winner change
+    return Cont.race(cache, network);
+  }
+})
+.catchTerminate((errors) => Cont.of(-1)) // recovering
+.observeOn(ContSchedulers.delayed()) // scheduling
+.subscribeOn(ContSchedulers.microtask());
+
+// whenever you are ready    
+cont.run(print, print) // running
 ```
 
 # Why bother?
