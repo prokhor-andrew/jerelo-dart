@@ -17,10 +17,10 @@ Cont<TransactionService> getMockTransactionService(Transaction transaction) {
     TransactionService(
       getDecisionForTransaction: () {
         // 3%: fail to decide
-        if (chance(0.03)) return Cont.raise(ContError(StateError("Decision engine crashed"), StackTrace.current));
+        if (chance(0.03)) return Cont.terminate([ContError(StateError("Decision engine crashed"), StackTrace.current)]);
 
         // 4%: none (engine unavailable / deferred)
-        if (chance(0.04)) return Cont.empty();
+        if (chance(0.04)) return Cont.terminate();
 
         final decision = _randomDecision();
 
@@ -29,28 +29,28 @@ Cont<TransactionService> getMockTransactionService(Transaction transaction) {
 
       reviewForTransaction: () {
         // Only meaningful for medium risk, but allow anyway.
-        if (chance(0.08)) return Cont.raise(ContError(StateError("Reviewer queue unavailable"), StackTrace.current));
-        if (chance(0.05)) return Cont.empty();
+        if (chance(0.08)) return Cont.terminate([ContError(StateError("Reviewer queue unavailable"), StackTrace.current)]);
+        if (chance(0.05)) return Cont.terminate();
 
         return Cont.of(());
       },
 
       getTransactionResult: () {
         // 5%: fail
-        if (chance(0.05)) return Cont.raise(ContError(StateError("Payment provider error"), StackTrace.current));
+        if (chance(0.05)) return Cont.terminate([ContError(StateError("Payment provider error"), StackTrace.current)]);
 
         // 4%: none
-        if (chance(0.04)) return Cont.empty();
+        if (chance(0.04)) return Cont.terminate();
 
         return Cont.of(TransactionResult.success(authCode: ""));
       },
 
       getReportForTransactionAndResult: (result) {
         // 4%: fail
-        if (chance(0.04)) return Cont.raise(ContError(StateError("Report generator error"), StackTrace.current));
+        if (chance(0.04)) return Cont.terminate([ContError(StateError("Report generator error"), StackTrace.current)]);
 
         // 3%: none
-        if (chance(0.03)) return Cont.empty();
+        if (chance(0.03)) return Cont.terminate();
 
         final score = _scoreFrom(transaction: transaction, result: result);
         final reasons = <String>[
