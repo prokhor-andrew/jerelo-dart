@@ -429,7 +429,7 @@ Cont.raceForLoserAll([
 Dart is fragile. Anything can throw. Luckily, Jerelo does most of the work for you.
 Any failed computation will be propagated downstream via terminate channel. 
 
-But sometimes we may want to recover from error, and continue.
+But sometimes we may want to recover from an error, and continue.
 
 To do this there are three operators:
 - `catchError` - catches termination when `errors` value is **non-empty.**
