@@ -449,9 +449,6 @@ Cont.raise(ContError("Error object", StackTrace.current))
 By default, every computation is run on the same queue that `run` is called on.
 To better understand how scheduling works, we have to understand how `run` itself works.
 
-This understanding can be split in two parts.
-
-**Part 1:**
 At first, when we create an edge computation via constructor, there
 is nothing wrapping it. Calling `run` on such computation will immediately execute it.
 
