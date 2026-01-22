@@ -62,16 +62,6 @@
 # Recovering
 ### catchTerminate
 ### catchTerminate0
-### catchTerminateTo
-
-### catchError
-### catchError0
-### catchErrorTo
-
-### catchEmpty
-### catchEmptyTo
-
-### Cont.either
 ### or
 ### Cont.any
 
