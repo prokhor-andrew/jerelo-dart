@@ -333,7 +333,7 @@ To transform value inside `Cont`, use `map`:
 ```dart
 Cont.of(0).map((zero) { 
   return zero + 1;
-}).run(print, print); // prints 1
+}).run((_) {}, print); // prints 1
 ```
 
 # Chaining
@@ -344,7 +344,7 @@ of the previous one. To achieve this one can use `flatMap`:
 ```dart
 Cont.of(0).flatMap((zero) {
   return Cont.of(zero + 1);
-}).run(print, print); // prints 1
+}).run((_) {}, print); // prints 1
 ```
 
 # Merging
@@ -360,7 +360,7 @@ Cont.both(
   zeroCont, 
   oneCont, 
   (zero, one) => zero + one,
-).run(print, print); // prints 1
+).run((_) {}, print); // prints 1
 ```
 
 When you have a list of computations, and you want to
@@ -373,7 +373,7 @@ final List<Cont<int>> contList = [
   Cont.of(3),
 ]; 
 
-Cont.all(contList).run(print, print); // prints [1, 2, 3]
+Cont.all(contList).run((_) {}, print); // prints [1, 2, 3]
 ```
 
 # Racing
@@ -385,7 +385,7 @@ This is called `raceForWinner`:
 Cont.raceForWinner(
   Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
   Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
-).run(print, print); // prints "second"
+).run((_) {}, print); // prints "second"
 ```
 
 Note on `raceForWinner`, it will emit the value as soon as it is available,
@@ -398,7 +398,7 @@ In case you want to get the last non terminal value, use `raceForLoser`:
 Cont.raceForLoser(
   Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
   Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
-).run(print, print); // prints "first"
+).run((_) {}, print); // prints "first"
 ```
 
 In the loser case, all computations must be finished, in order to properly determine
@@ -412,7 +412,7 @@ Cont.raceForWinnerAll([
   Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
   Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
   Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
-]).run(print, print); // prints "second"
+]).run((_) {}, print); // prints "second"
 ```
 
 And `raceForLoserAll`:
@@ -422,7 +422,7 @@ Cont.raceForLoserAll([
   Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
   Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
   Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
-]).run(print, print); // prints "third"
+]).run((_) {}, print); // prints "third"
 ```
 
 # Recovering
@@ -443,12 +443,12 @@ All of them require to return a new `Cont` object, that should be run in case of
 Cont.empty()
   .catchEmpty(() => Cont.of(1))
   .catchError((error, errors) => Cont.of(2)) // not called
-  .run(print, print); // prints 1
+  .run((_) {}, print); // prints 1
 
 Cont.raise("Error object")
-    .catchEmpty(() => Cont.of(1)) // not called
-    .catchError((error, errors) => Cont.of(2)) 
-    .run(print, print); // prints 2
+  .catchEmpty(() => Cont.of(1)) // not called
+  .catchError((error, errors) => Cont.of(2)) 
+  .run((_) {}, print); // prints 2
 ```
 
 # Scheduling
@@ -465,19 +465,18 @@ is nothing wrapping it. Calling `run` on such computation will immediately execu
 
 // 1
 final cont = Cont.fromRun((observer) {
-  // 4
+  // 3
   observer.run("value");
 });
-// 2
 
-cont.run((errors) { // 3
-  // do nothing
-}, (value) {
-  // 5
+
+// 2
+cont.run((_) {}, (value) {
+  // 4
   print(value); // prints "value"
 });
 
-// 6
+// 5
 ```
 
 In the case above, when `run` is used, the closure inside `Cont.fromRun` 
@@ -495,22 +494,19 @@ Instead of thousand words, I will show an example:
 
 // 1
 final cont = Cont.fromRun((observer) {
-  // 5 - run after 2 seconds
+  // 4 - run after 2 seconds
   observer.run("value");
 })
 .subscribeOn(ContScheduler.delayed(Duration(seconds: 2)))
 .observeOn(ContScheduler.microtask());
-// 2
 
-// 3 - schedules to run after 2 seconds
-cont.run((errors) { 
-  // do nothing
-}, (value) {
-  // 6 - run as microtask
+// 2 - schedules to run after 2 seconds
+cont.run((_) {}, (value) {
+  // 5 - run as microtask
   print(value); // prints "value"
 });
 
-// 4
+// 3
 ```
 
 
@@ -529,24 +525,21 @@ from the top will schedule execution of the lower one, and so on.
 
 // 1
 final cont = Cont.fromRun((observer) {
-  // 5 - run after 2 seconds
+  // 4 - run after 2 seconds
   observer.run("value");
 })
 .subscribeOn(ContScheduler.delayed(Duration(seconds: 5)))
 .subscribeOn(ContScheduler.delayed(Duration(seconds: 2)))
 .observeOn(ContScheduler.Duration(seconds: 3))
 .observeOn(ContScheduler.microtask());
-// 2
 
-// 3 - schedules to run after 2 seconds
-cont.run((errors) { 
-  // do nothing
-}, (value) {
-  // 6 - run as microtask
+// 2 - schedules to run after 2 seconds
+cont.run((_) {}, (value) {
+  // 5 - run as microtask
   print(value); // prints "value"
 });
 
-// 4
+// 3
 ```
 
 TODO: describe operators
@@ -569,7 +562,7 @@ Cont.fromRun((observer) {
   // cause of `observeOn`
   return Cont.of(799);
 })
-.run(print, print); // prints 799 after min 5 seconds
+.run((_) { }, print); // prints 799 after min 5 seconds
 ```
 
 
