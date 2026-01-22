@@ -162,7 +162,7 @@ to manually terminate the computation.
 ```dart
 
 final program = getUserAge(userId).map((age) {
-  return throw "Armageddon!"; // <- throws here
+  throw "Armageddon!"; // <- throws here
 });
 
 program.run((errors) {
