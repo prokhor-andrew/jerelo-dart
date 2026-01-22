@@ -599,21 +599,6 @@ final cont = Cont.fromRun<int>((observer) { // constructing
 cont.run(print, print) // running
 ```
 
-# Why bother?
-
-Software tends to degrade when core logic becomes tightly coupled to implementation details. One release uses one HTTP client; the next swaps it out. A “service” that started as direct calls later needs caching, retries, and logging. UI, databases, and APIs evolve, and without a composable boundary, business logic ends up entangled with those changes.
-
-Jerelo is a small, pure-Dart library for expressing business workflows as composable building blocks. When flows are composable, dependencies stay replaceable: you can swap a function, a service, or an entire boundary (HTTP/UI/DB) without rewriting the pipeline.
-
-Jerelo also makes two practical constraints explicit:
-
-- **Dart can throw anywhere**. Jerelo models failure as part of the contract, so errors do not surface as surprise crashes or scattered try/catch.
-
-- **Async needs control**. If you cannot control when work runs, you cannot test it reliably. Jerelo brings scheduling into the model so production can be async while tests remain deterministic.
-
-Jerelo is not a UI/state wiring framework. It does not prescribe Flutter patterns or a specific ecosystem. It is a compact core for building modular, scalable workflows, and it can be used alongside tools like Provider or Riverpod when you want them.
-
-
 # What "Jerelo" means
 
 **Jerelo** is a Ukrainian word meaning “source” or “spring”.
