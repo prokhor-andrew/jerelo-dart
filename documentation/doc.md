@@ -8,7 +8,7 @@ plus practical operators for sequencing and concurrency.
 
 # What is Continuation?
 
-Usually when one needs to encode a computation he uses functions.
+Usually when you need to encode a computation you use functions.
 
 
 ```dart
@@ -39,14 +39,14 @@ When the result is computed, the callback is invoked with a resulting value.
 # What problem CPS solves?
 
 The classic pure function can only be executed synchronously. 
-By its encoding, it is forced to return value immediately on the same call-stack.
-In CPS, the continuation is passed, which can be saved and executed any time later.
+By its encoding, it is forced to return a value immediately on the same call-stack.
+In CPS, the continuation is passed, which can be saved and executed at any time later.
 This enables async programming.
 
 
 # Why not Future?
 
-Dart's `Future` - is, in fact, CPS with language sugar on top of it.
+Dart's `Future` is, in fact, CPS with language sugar on top of it.
 But its problem is it starts running as soon as it is created. 
 This does not allow us to separate construction of computation from 
 its execution.
@@ -69,7 +69,7 @@ While normal functions and `Future`s compose nicely, CPS doesn't.
 // normal composition
 final result1 = function1(value);
 final result2 = function2(result1);
-final result3 = function2(result2);
+final result3 = function3(result2);
 
 // async composition
 // in async function
@@ -238,7 +238,7 @@ Cont<User> getUser(String userId) {
 ```
 
 There are a couple of things to note about `observer` here:
-- It is idempotent. Calling `onValue` or `onTerminate` more then once will do nothing.
+- It is idempotent. Calling `onValue` or `onTerminate` more than once will do nothing.
 - It is mandatory to call `onValue` or `onTerminate` once the computation is over. 
 Otherwise, any potential errors will be lost, in addition to the other unexpected behavior involved. 
 
@@ -371,7 +371,7 @@ Cont.all(contList).run((_) {}, print); // prints [1, 2, 3]
 
 # Racing
 
-You can also run independent computations, and pick the first non terminal value.
+You can also run independent computations, and pick the first non-terminal value.
 This is called `raceForWinner`:
 
 ```dart
@@ -385,7 +385,7 @@ Note on `raceForWinner`, it will emit the value as soon as it is available,
 without waiting for other computations to complete.
 
 
-In case you want to get the last non terminal value, use `raceForLoser`:
+In case you want to get the last non-terminal value, use `raceForLoser`:
 
 ```dart
 Cont.raceForLoser(
@@ -438,7 +438,7 @@ Cont.empty()
   .catchError((error, errors) => Cont.of(2)) // not called
   .run((_) {}, print); // prints 1
 
-Cont.raise("Error object")
+Cont.raise(ContError("Error object", StackTrace.current))
   .catchEmpty(() => Cont.of(1)) // not called
   .catchError((error, errors) => Cont.of(2)) 
   .run((_) {}, print); // prints 2
@@ -462,7 +462,7 @@ is nothing wrapping it. Calling `run` on such computation will immediately execu
 // 1
 final cont = Cont.fromRun((observer) {
   // 3
-  observer.run("value");
+  observer.onValue("value");
 });
 
 
@@ -491,7 +491,7 @@ The first one schedules "upwards", while the latter "downwards":
 // 1
 final cont = Cont.fromRun((observer) {
   // 4 - run after 2 seconds
-  observer.run("value");
+  observer.onValue("value");
 })
 .subscribeOn(ContScheduler.delayed(Duration(seconds: 2)))
 .observeOn(ContScheduler.microtask());
@@ -518,7 +518,7 @@ and propagated further downstream.
 - Then, it is passed into `observeOn`'s success channel, where it 
 is schedules to run next success channel as microtask.
 - Then, it unwinds the stack back all the way 
-up to `observer.run("value")` in `Cont.fromRun`'s closure.
+up to `observer.onValue("value")` in `Cont.fromRun`'s closure.
 5. Later, when microtask is ready to be executed, it is finally
 `print(value)` from our `cont.run` closure.
 
@@ -536,7 +536,7 @@ Cont.fromRun((observer) {
 .flatMap((v199) {
   return Cont.fromRun((observer) {
     // still executed as microtask
-    observer.onSome(599);
+    observer.onValue(599);
   })
   .observeOn(ContScheduler.delayed(Duration(seconds: 5)));
 })
@@ -561,7 +561,7 @@ Lastly, I want to showcase an example of everything in one place:
 ```dart
 final cont = Cont.fromRun<int>((observer) { // constructing
   final n = Random().nextInt(10); // 0..9 randomized
-  o.onSome(n);
+  observer.onValue(n);
 })
 .map((int value) => value.isEven) // transforming
 .flatMap((isEven) { // chaining
@@ -573,20 +573,22 @@ final cont = Cont.fromRun<int>((observer) { // constructing
     );
   } else {
     final cache = Cont.of(111)
-      .observeOn(ContSchedulers.delayed(Duration(milliseconds: 5))
-    );
+      .observeOn(
+        ContScheduler.delayed(Duration(milliseconds: 5))
+      );
 
     final network = Cont.of(222)
-      .observeOn(ContSchedulers.delayed(Duration(milliseconds: 80))
-    );
+      .observeOn(
+        ContScheduler.delayed(Duration(milliseconds: 80))
+      );
 
     // try swapping delays to see the winner change
-    return Cont.race(cache, network);
+    return Cont.raceForWinner(cache, network);
   }
 })
 .catchTerminate((errors) => Cont.of(-1)) // recovering
-.observeOn(ContSchedulers.delayed()) // scheduling
-.subscribeOn(ContSchedulers.microtask());
+.observeOn(ContScheduler.delayed()) // scheduling
+.subscribeOn(ContScheduler.microtask());
 
 // whenever you are ready    
 cont.run(print, print) // running
