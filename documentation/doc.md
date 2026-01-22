@@ -47,7 +47,7 @@ This enables async programming.
 # Why not Future?
 
 Dart's `Future` is, in fact, CPS with syntactic sugar on top of it.
-But its problem is it starts running as soon as it is created. 
+But the problem is it starts running as soon as it is created. 
 This does not allow us to separate construction of a computation from 
 its execution.
 
@@ -148,10 +148,10 @@ final program = function1(value)
 
 # Result channels
 
-As mentioned before, `Cont` has two channels. One is for successful result
+As mentioned before, `Cont` has two channels. One is for successful a result
 and another one for termination.
 
-Success is the one expressed by type parameter `T` in `Cont<T>`.
+Success is the one expressed by type the parameter `T` in `Cont<T>`.
 
 Termination is represented by `List<ContError>`.
 The `List<ContError>` stands for the list of errors that caused the termination.
@@ -162,7 +162,7 @@ to manually terminate the computation.
 ```dart
 
 final program = getUserAge(userId).map((age) {
-  return age / 0; // <- throws here
+  return throw "Armageddon!"; // <- throws here
 });
 
 program.run((errors) {
@@ -278,7 +278,7 @@ Cont.terminate([]); // combines both above
 
 # Running 
 
-Constructing computation is only a first step. To actually trigger its execution, 
+Constructing a computation is only a first step. To actually trigger its execution, 
 one has to call `run` on it, passing `onTerminate` callback, as well as `onValue` one.
 
 
@@ -427,10 +427,10 @@ But sometimes we may want to recover from error, and continue.
 
 To do this there are three operators:
 - `catchError` - catches termination when `errors` value is **non-empty.**
-- `catchEmpty`- catches termination when `errors` value is **empty.**
+- `catchEmpty` - catches termination when `errors` value is **empty.**
 - `catchTerminate` - catches any termination event.
 
-All of them require to return a new `Cont` object, that should be run in case of a halt.
+All of them require to return a new `Cont` object that should be run in case of a halt.
 
 ```dart
 Cont.empty()
@@ -505,7 +505,7 @@ cont.run((_) {}, (value) {
 // 3
 ```
 
-1. At first, we construct a computation with `Cont.run`.
+1. At first, we construct a computation with `Cont.fromRun`.
 2. Then, we run it via `run` method. 
 - It will immediately invoke `run` on `observeOn`.
 - Then `run` on `subscribeOn`, which will immediately 
