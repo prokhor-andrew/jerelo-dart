@@ -1,23 +1,44 @@
 import 'package:jerelo/jerelo.dart';
 
+/// A continuation monad representing a computation that will eventually
+/// produce a value of type [A] or terminate with errors.
+///
+/// [Cont] provides a powerful abstraction for managing asynchronous operations,
+/// error handling, and composition of effectful computations. It follows the
+/// continuation-passing style where computations are represented as functions
+/// that take callbacks for success and failure.
 final class Cont<A> {
   final void Function(ContObserver<A> observer) _run;
 
+  /// Executes the continuation with the provided observer.
+  ///
+  /// - [observer]: The observer containing callbacks for value and termination.
   void runWith(ContObserver<A> observer) {
     _run(observer);
   }
 
+  /// Executes the continuation with separate callbacks for termination and value.
+  ///
+  /// Initiates execution of the continuation with separate handlers for success
+  /// and failure cases.
+  ///
+  /// - [onTerminate]: Callback invoked when the continuation terminates with errors.
+  /// - [onValue]: Callback invoked when the continuation produces a successful value.
   void run(void Function(List<ContError> errors) onTerminate, void Function(A value) onValue) {
     runWith(ContObserver(onTerminate, onValue));
   }
 
-  // ! constructor must not be called by anything other than "Cont.fromRun" !
   const Cont._(this._run);
 
-  // onTerminate and onValue should be called as a last instruction in "run" or saved to be called later
+  /// Creates a [Cont] from a run function that accepts an observer.
+  ///
+  /// Constructs a continuation with guaranteed idempotence and exception catching.
+  /// The run function receives an observer with `onValue` and `onTerminate` callbacks.
+  /// The callbacks should be called as the last instruction in the run function
+  /// or saved to be called later.
+  ///
+  /// - [run]: Function that executes the continuation and calls observer callbacks.
   static Cont<A> fromRun<A>(void Function(ContObserver<A> observer) run) {
-    // guarantees idempotence
-    // guarantees to catch throws
     return Cont._((observer) {
       bool isDone = false;
 
@@ -45,12 +66,24 @@ final class Cont<A> {
     });
   }
 
+  /// Creates a [Cont] from a deferred continuation computation.
+  ///
+  /// Lazily evaluates a continuation-returning function. The inner [Cont] is
+  /// not created until the outer one is executed.
+  ///
+  /// - [thunk]: Function that returns a [Cont] when called.
   static Cont<A> fromDeferred<A>(Cont<A> Function() thunk) {
     return Cont.fromRun((observer) {
       thunk().runWith(observer);
     });
   }
 
+  /// Creates a [Cont] from a Future computation.
+  ///
+  /// Converts a Future-returning function into a continuation. Handles Future
+  /// completion via `onValue` and errors via `onTerminate`.
+  ///
+  /// - [thunk]: Function that returns a [Future] when called.
   static Cont<A> fromFutureComp<A>(Future<A> Function() thunk) {
     return Cont.fromRun((observer) {
       thunk().then(observer.onValue).catchError((error, st) {
@@ -59,7 +92,12 @@ final class Cont<A> {
     });
   }
 
-  // maps
+  /// Transforms the value inside a [Cont] using a pure function.
+  ///
+  /// Applies a function to the successful value of the continuation without
+  /// affecting the termination case.
+  ///
+  /// - [f]: Transformation function to apply to the value.
   Cont<A2> map<A2>(A2 Function(A value) f) {
     return flatMap((a) {
       final a2 = f(a);
@@ -67,19 +105,34 @@ final class Cont<A> {
     });
   }
 
+  /// Transforms the value inside a [Cont] using a zero-argument function.
+  ///
+  /// Similar to [map] but ignores the current value and computes a new one.
+  ///
+  /// - [f]: Zero-argument transformation function.
   Cont<A2> map0<A2>(A2 Function() f) {
     return map((_) {
       return f();
     });
   }
 
+  /// Replaces the value inside a [Cont] with a constant.
+  ///
+  /// Discards the current value and replaces it with a fixed value.
+  ///
+  /// - [value]: The constant value to replace with.
   Cont<A2> mapTo<A2>(A2 value) {
     return map0(() {
       return value;
     });
   }
 
-  // monadic-like
+  /// Chains a [Cont]-returning function to create dependent computations.
+  ///
+  /// Monadic bind operation. Sequences continuations where the second depends
+  /// on the result of the first.
+  ///
+  /// - [f]: Function that takes a value and returns a continuation.
   Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
     return Cont.fromRun((observer) {
       runWith(
@@ -95,36 +148,67 @@ final class Cont<A> {
     });
   }
 
+  /// Chains a [Cont]-returning zero-argument function.
+  ///
+  /// Similar to [flatMap] but ignores the current value.
+  ///
+  /// - [f]: Zero-argument function that returns a continuation.
   Cont<A2> flatMap0<A2>(Cont<A2> Function() f) {
     return flatMap((_) {
       return f();
     });
   }
 
+  /// Chains to a constant [Cont].
+  ///
+  /// Sequences to a fixed continuation, ignoring the current value.
+  ///
+  /// - [cont]: The continuation to chain to.
   Cont<A2> flatMapTo<A2>(Cont<A2> cont) {
     return flatMap0(() {
       return cont;
     });
   }
 
+  /// Chains a side-effect continuation while preserving the original value.
+  ///
+  /// Executes a continuation for its side effects, then returns the original value.
+  ///
+  /// - [f]: Side-effect function that returns a continuation.
   Cont<A> flatTap<A2>(Cont<A2> Function(A value) f) {
     return flatMap((a) {
       return f(a).mapTo(a);
     });
   }
 
+  /// Chains a zero-argument side-effect continuation.
+  ///
+  /// Similar to [flatTap] but with a zero-argument function.
+  ///
+  /// - [f]: Zero-argument side-effect function.
   Cont<A> flatTap0<A2>(Cont<A2> Function() f) {
     return flatTap((_) {
       return f();
     });
   }
 
+  /// Chains to a constant side-effect continuation.
+  ///
+  /// Executes a fixed continuation for its side effects, preserving the original value.
+  ///
+  /// - [cont]: The side-effect continuation.
   Cont<A> flatTapTo<A2>(Cont<A2> cont) {
     return flatTap0(() {
       return cont;
     });
   }
 
+  /// Chains and combines two continuation values.
+  ///
+  /// Sequences two continuations and combines their results using the provided function.
+  ///
+  /// - [f]: Function to produce the second continuation from the first value.
+  /// - [combine]: Function to combine both values into a result.
   Cont<A3> flatMapZipWith<A2, A3>(Cont<A2> Function(A value) f, A3 Function(A a1, A2 a2) combine) {
     return flatMap((a1) {
       return f(a1).map((a2) {
@@ -133,18 +217,37 @@ final class Cont<A> {
     });
   }
 
+  /// Chains and combines with a zero-argument function.
+  ///
+  /// Similar to [flatMapZipWith] but the second continuation doesn't depend
+  /// on the first value.
+  ///
+  /// - [f]: Zero-argument function to produce the second continuation.
+  /// - [combine]: Function to combine both values into a result.
   Cont<A3> flatMapZipWith0<A2, A3>(Cont<A2> Function() f, A3 Function(A a1, A2 a2) combine) {
     return flatMapZipWith((_) {
       return f();
     }, combine);
   }
 
+  /// Chains and combines with a constant continuation.
+  ///
+  /// Sequences to a fixed continuation and combines their results.
+  ///
+  /// - [other]: The second continuation.
+  /// - [f]: Function to combine both values into a result.
   Cont<A3> flatMapZipWithTo<A2, A3>(Cont<A2> other, A3 Function(A a1, A2 a2) f) {
     return flatMapZipWith0(() {
       return other;
     }, f);
   }
 
+  /// Runs a list of continuations sequentially and collects results.
+  ///
+  /// Executes continuations one by one, collecting all successful values.
+  /// Terminates on first error. Uses stack-safe recursion to handle large lists.
+  ///
+  /// - [list]: List of continuations to execute sequentially.
   static Cont<List<A>> sequence<A>(List<Cont<A>> list) {
     final safeCopy0 = List<Cont<A>>.from(list);
     return Cont.fromRun((observer) {
@@ -197,6 +300,12 @@ final class Cont<A> {
     });
   }
 
+  /// Provides a fallback continuation in case of termination.
+  ///
+  /// If the continuation terminates, executes the fallback. Accumulates
+  /// errors from both attempts if the fallback also fails.
+  ///
+  /// - [f]: Function that receives errors and produces a fallback continuation.
   Cont<A> orElseWith(Cont<A> Function(List<ContError> errors) f) {
     return Cont.fromRun((observer) {
       runWith(
@@ -215,18 +324,34 @@ final class Cont<A> {
     });
   }
 
+  /// Provides a zero-argument fallback continuation.
+  ///
+  /// Similar to [orElseWith] but doesn't use the error information.
+  ///
+  /// - [f]: Zero-argument function that produces a fallback continuation.
   Cont<A> orElseWith0(Cont<A> Function() f) {
     return orElseWith((_) {
       return f();
     });
   }
 
+  /// Provides a constant fallback continuation.
+  ///
+  /// If the continuation terminates, tries the fixed alternative.
+  ///
+  /// - [other]: The fallback continuation.
   Cont<A> orElse(Cont<A> other) {
     return orElseWith0(() {
       return other;
     });
   }
 
+  /// Tries multiple continuations until one succeeds.
+  ///
+  /// Executes continuations one by one until one succeeds. Terminates only
+  /// if all fail, accumulating all errors.
+  ///
+  /// - [list]: List of continuations to try sequentially.
   static Cont<A> orElseAll<A>(List<Cont<A>> list) {
     final List<Cont<A>> safeCopy0 = List<Cont<A>>.from(list);
 
@@ -282,37 +407,55 @@ final class Cont<A> {
     });
   }
 
-  // combinators
-
+  /// Conditionally allows a value to pass through.
+  ///
+  /// If the predicate returns false, the continuation terminates without errors.
+  /// Otherwise, passes the value through unchanged.
+  ///
+  /// - [f]: Predicate function to test the value.
   Cont<A> filter(bool Function(A value) f) {
     return flatMap((a) {
       if (!f(a)) {
-        return Cont.terminate<A>([]);
+        return Cont.terminate<A>();
       }
 
       return Cont.of(a);
     });
   }
 
-  // identities
+  /// Creates a [Cont] that immediately succeeds with a value.
+  ///
+  /// Identity operation that wraps a pure value in a continuation context.
+  ///
+  /// - [value]: The value to wrap.
   static Cont<A> of<A>(A value) {
     return Cont.fromRun((observer) {
       observer.onValue(value);
     });
   }
 
+  /// Creates a [Cont] that immediately terminates with optional errors.
+  ///
+  /// Creates a continuation that terminates without producing a value.
+  /// Used to represent failure states.
+  ///
+  /// - [errors]: List of errors to terminate with. Defaults to an empty list.
   static Cont<A> terminate<A>([List<ContError> errors = const []]) {
     final safeCopyErrors0 = List<ContError>.from(errors);
     return Cont.fromRun((observer) {
-      // this makes sure that if anybody outside mutates "errors"
-      // we keep the same version as when function was called
       final safeCopyErrors = List<ContError>.from(safeCopyErrors0);
       observer.onTerminate(safeCopyErrors);
     });
   }
 
-  // lax-monoidal
-
+  /// Runs two continuations in parallel and combines their results.
+  ///
+  /// Executes both continuations concurrently. Succeeds when both succeed,
+  /// terminates if either fails.
+  ///
+  /// - [left]: First continuation.
+  /// - [right]: Second continuation.
+  /// - [f]: Function to combine results from both continuations.
   static Cont<C> both<A, B, C>(
     Cont<A> left,
     Cont<B> right,
@@ -398,6 +541,12 @@ final class Cont<A> {
     });
   }
 
+  /// Instance method for combining with another continuation in parallel.
+  ///
+  /// Convenient instance method wrapper for [Cont.both].
+  ///
+  /// - [other]: The other continuation to run in parallel.
+  /// - [f]: Function to combine results from both continuations.
   Cont<C> and<B, C>(
     Cont<B> other,
     C Function(A a, B b) f,
@@ -406,6 +555,12 @@ final class Cont<A> {
     return Cont.both(this, other, f);
   }
 
+  /// Runs multiple continuations in parallel and collects all results.
+  ///
+  /// Executes all continuations concurrently. Succeeds only when all succeed,
+  /// preserving result order.
+  ///
+  /// - [list]: List of continuations to execute in parallel.
   static Cont<List<A>> all<A>(List<Cont<A>> list) {
     final safeCopy0 = List<Cont<A>>.from(list);
 
@@ -461,6 +616,13 @@ final class Cont<A> {
     });
   }
 
+  /// Races two continuations, returning the first successful value.
+  ///
+  /// Returns the result of whichever continuation succeeds first.
+  /// Terminates only if both fail, accumulating all errors.
+  ///
+  /// - [left]: First continuation to race.
+  /// - [right]: Second continuation to race.
   static Cont<A> raceForWinner<A>(Cont<A> left, Cont<A> right) {
     return Cont.fromRun((observer) {
       bool isOneFailed = false;
@@ -525,6 +687,13 @@ final class Cont<A> {
     });
   }
 
+  /// Races two continuations, returning the value from the last to complete.
+  ///
+  /// Waits for both to complete, returns the slower one's value. Useful for
+  /// timeout scenarios. Terminates if both fail.
+  ///
+  /// - [left]: First continuation.
+  /// - [right]: Second continuation.
   static Cont<A> raceForLoser<A>(Cont<A> left, Cont<A> right) {
     return Cont.fromRun((observer) {
       bool isFirstComputed = false;
@@ -596,14 +765,30 @@ final class Cont<A> {
     });
   }
 
+  /// Instance method to race with another continuation for the first success.
+  ///
+  /// Convenient instance method wrapper for [Cont.raceForWinner].
+  ///
+  /// - [other]: The other continuation to race with.
   Cont<A> raceForWinnerWith(Cont<A> other) {
     return Cont.raceForWinner(this, other);
   }
 
+  /// Instance method to race for loser with another continuation.
+  ///
+  /// Convenient instance method wrapper for [Cont.raceForLoser].
+  ///
+  /// - [other]: The other continuation to race with.
   Cont<A> raceForLoserWith(Cont<A> other) {
     return Cont.raceForLoser(this, other);
   }
 
+  /// Races multiple continuations for the first success.
+  ///
+  /// Returns the first successful result. Terminates only when all fail,
+  /// accumulating all errors.
+  ///
+  /// - [list]: List of continuations to race.
   static Cont<A> raceForWinnerAll<A>(List<Cont<A>> list) {
     final list0 = List<Cont<A>>.from(list);
     return Cont.fromRun((observer) {
@@ -663,6 +848,12 @@ final class Cont<A> {
     });
   }
 
+  /// Races multiple continuations for the last to complete.
+  ///
+  /// Returns the result of the last continuation to finish successfully.
+  /// Terminates only if all fail.
+  ///
+  /// - [list]: List of continuations to race.
   static Cont<A> raceForLoserAll<A>(List<Cont<A>> list) {
     final list0 = List<Cont<A>>.from(list);
     return Cont.fromRun((observer) {
@@ -724,6 +915,12 @@ final class Cont<A> {
     });
   }
 
+  /// Schedules the subscription (start) of the continuation.
+  ///
+  /// Controls which scheduler the continuation starts on. Useful for
+  /// offloading work to a different execution context.
+  ///
+  /// - [scheduler]: Scheduler for execution.
   Cont<A> subscribeOn(ContScheduler scheduler) {
     return Cont.fromRun((observer) {
       scheduler.schedule(() {
@@ -732,6 +929,13 @@ final class Cont<A> {
     });
   }
 
+  /// Separately schedules value and termination observations.
+  ///
+  /// Fine-grained control over callback scheduling with separate schedulers
+  /// for success and failure paths.
+  ///
+  /// - [valueOn]: Scheduler for value callback. Defaults to [ContScheduler.immediate].
+  /// - [terminateOn]: Scheduler for termination callback. Defaults to [ContScheduler.immediate].
   Cont<A> observeChannelOn({
     ContScheduler valueOn = ContScheduler.immediate,
     ContScheduler terminateOn = ContScheduler.immediate,
@@ -753,10 +957,24 @@ final class Cont<A> {
     });
   }
 
+  /// Schedules observation of both value and termination on the same scheduler.
+  ///
+  /// Controls which scheduler callbacks are delivered on. Both `onValue` and
+  /// `onTerminate` use the same scheduler.
+  ///
+  /// - [scheduler]: Scheduler for all callbacks.
   Cont<A> observeOn(ContScheduler scheduler) {
     return observeChannelOn(valueOn: scheduler, terminateOn: scheduler);
   }
 
+  /// Creates a [Cont] with a mutable reference that manages resource lifecycle.
+  ///
+  /// Resource management combinator that guarantees proper cleanup. The release
+  /// function is called whether the use function succeeds or fails.
+  ///
+  /// - [initial]: Initial state value for the reference.
+  /// - [use]: Function to use the reference and produce a result.
+  /// - [release]: Function to release/cleanup the reference.
   static Cont<A> withRef<S, A>(
     S initial,
     Cont<A> Function(Ref<S> ref) use,
@@ -802,7 +1020,11 @@ final class Cont<A> {
   }
 }
 
+/// Extension providing flatten operation for nested continuations.
 extension ContFlattenExtension<A> on Cont<Cont<A>> {
+  /// Flattens a nested [Cont] structure.
+  ///
+  /// Converts `Cont<Cont<A>>` to `Cont<A>`. Equivalent to `flatMap((contA) => contA)`.
   Cont<A> flatten() {
     return flatMap((contA) => contA);
   }
@@ -895,19 +1117,30 @@ final class _StackSafeLoopPolicyStop<A, B> extends _StackSafeLoopPolicy<A, B> {
   const _StackSafeLoopPolicyStop(this.value);
 }
 
+/// A mutable reference used within [Cont.withRef] for resource management.
+///
+/// Provides a way to hold mutable state that can be atomically updated
+/// within continuation chains.
 final class Ref<S> {
   S _state;
 
   Ref._(S initial) : _state = initial;
 
+  /// Atomically commits a state transformation.
+  ///
+  /// Performs a state transformation with consistency guarantees. Receives the
+  /// state before the computation starts and the actual state after (which may
+  /// differ due to concurrent updates), allowing safe state updates.
+  ///
+  /// - [f]: Function that takes the state before and returns a continuation
+  ///   producing a function. That function receives the state after and returns
+  ///   a tuple of the new state and a result value.
   Cont<V> commit<V>(Cont<(S, V) Function(S after)> Function(S before) f) {
     return Cont.fromRun((observer) {
       final before = _state;
 
       f(before).runWith(
         observer.copyUpdateOnValue((function) {
-          // this "onValue" can be run later, when "_state" is not the same as it was
-          // when we assigned it to "before", and because of that, our expectation of what state is, can be wrong
           final after = _state;
           final (S, V) commit;
           try {

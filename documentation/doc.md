@@ -440,21 +440,21 @@ Any failed computation will be propagated downstream via terminate channel.
 
 But sometimes we may want to recover from an error, and continue.
 
-To do this there is `catchTerminate` operator. It catches any termination event.
+To do this there is `orElseWith` operator. It catches any termination event.
 
 ```dart
 Cont.terminate([
   ContError("Error object", StackTrace.current)
 ])
-.catchTerminate((errors) => Cont.of(2)) 
+.orElseWith((errors) => Cont.of(2)) 
 .run((_) {}, print); // prints 2
 ```
 
-There is a variant for a `List` of continuations: `Cont.any`. It
+There is a variant for a `List` of continuations: `Cont.orElseAll`. It
 runs computations one by one, until it finds one that succeeds.
 
 ```dart
-Cont.any([ 
+Cont.orElseAll([ 
   Cont.terminate(),
   Cont.of(0),
   Cont.of(5),
@@ -479,6 +479,7 @@ immediately execute it.
 final cont = Cont.fromRun((observer) {
   // 3
   observer.onValue("value");
+  // 5
 });
 
 
@@ -488,7 +489,7 @@ cont.run((_) {}, (value) {
   print(value); // prints "value"
 });
 
-// 5
+// 6
 ```
 
 In the case above, when `run` is used, the closure inside `Cont.fromRun` 
@@ -508,8 +509,8 @@ final cont = Cont.fromRun((observer) {
 The above structure can be roughly visualized as follows:
 ```dart
 // pseudo code, won't compile
-Cont.fromRun((observer1) {
-  Cont.fromRun((observer2) {
+Cont.fromRun((observer1) { // map's Cont.fromRun
+  Cont.fromRun((observer2) { // inner Cont.fromRun
     ...
   }).run(...);
 });
@@ -533,13 +534,14 @@ The first one schedules "upwards", while the latter "downwards":
 final cont = Cont.fromRun((observer) {
   // 4 - run after 2 seconds
   observer.onValue("value");
+  // 5
 })
 .subscribeOn(ContScheduler.delayed(Duration(seconds: 2)))
 .observeOn(ContScheduler.microtask());
 
 // 2 - schedules to run after 2 seconds
 cont.run((_) {}, (value) {
-  // 5 - run as microtask
+  // 6 - run as microtask
   print(value); // prints "value"
 });
 
@@ -627,7 +629,7 @@ final cont = Cont.fromRun<int>((observer) { // constructing
     return Cont.raceForWinner(cache, network); // racing
   }
 })
-.catchTerminate((errors) => Cont.of(-1)) // recovering
+.orElseWith((errors) => Cont.of(-1)) // recovering
 .observeOn(ContScheduler.delayed()) // scheduling
 .subscribeOn(ContScheduler.microtask());
 
