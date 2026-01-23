@@ -70,7 +70,7 @@ void main() {
               })
               .flatMap(transactionService.getReportForTransactionAndResult);
         })
-        .catchTerminate(service.getReportForErrors);
+        .orElseWith(service.getReportForErrors);
   });
 
   program.runWith(getObserver());
