@@ -157,7 +157,6 @@ void main() {
         expect(receivedErrors![0].error, equals('test'));
       });
 
-// TODO: 
       test('passes errors to new handler', () {
         List<ContError>? receivedErrors;
 
