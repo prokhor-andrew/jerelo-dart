@@ -60,10 +60,10 @@
 ### raceForLoserAll
 
 # Recovering
-### catchTerminate
-### catchTerminate0
-### or
-### Cont.any
+### orElseWith
+### orElseWith0
+### orElse
+### Cont.orElseAll
 
 ## Filtering
 
