@@ -197,7 +197,7 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> catchTerminate(Cont<A> Function(List<ContError> errors) f) {
+  Cont<A> orElseWith(Cont<A> Function(List<ContError> errors) f) {
     return Cont.fromRun((observer) {
       runWith(
         observer.copyUpdateOnTerminate((errors) {
@@ -215,19 +215,19 @@ final class Cont<A> {
     });
   }
 
-  Cont<A> catchTerminate0(Cont<A> Function() f) {
-    return catchTerminate((_) {
+  Cont<A> orElseWith0(Cont<A> Function() f) {
+    return orElseWith((_) {
       return f();
     });
   }
 
-  Cont<A> or(Cont<A> other) {
-    return catchTerminate0(() {
+  Cont<A> orElse(Cont<A> other) {
+    return orElseWith0(() {
       return other;
     });
   }
 
-  static Cont<A> any<A>(List<Cont<A>> list) {
+  static Cont<A> orElseAll<A>(List<Cont<A>> list) {
     final List<Cont<A>> safeCopy0 = List<Cont<A>>.from(list);
 
     return Cont.fromRun((observer) {
@@ -777,9 +777,9 @@ final class Cont<A> {
       try {
         final mainCont = use(ref);
         return mainCont
-            .catchTerminate((errors) {
+            .orElseWith((errors) {
               return doProperRelease()
-                  .catchTerminate((errors2) {
+                  .orElseWith((errors2) {
                     return Cont.terminate([...errors, ...errors2]);
                   })
                   .flatMap0(() {
@@ -791,7 +791,7 @@ final class Cont<A> {
             });
       } catch (error, st) {
         return doProperRelease()
-            .catchTerminate((errors2) {
+            .orElseWith((errors2) {
               return Cont.terminate([ContError(error, st), ...errors2]);
             })
             .flatMap0(() {
