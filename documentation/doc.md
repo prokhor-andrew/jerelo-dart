@@ -479,6 +479,7 @@ immediately execute it.
 final cont = Cont.fromRun((observer) {
   // 3
   observer.onValue("value");
+  // 5
 });
 
 
@@ -488,7 +489,7 @@ cont.run((_) {}, (value) {
   print(value); // prints "value"
 });
 
-// 5
+// 6
 ```
 
 In the case above, when `run` is used, the closure inside `Cont.fromRun` 
@@ -508,8 +509,8 @@ final cont = Cont.fromRun((observer) {
 The above structure can be roughly visualized as follows:
 ```dart
 // pseudo code, won't compile
-Cont.fromRun((observer1) {
-  Cont.fromRun((observer2) {
+Cont.fromRun((observer1) { // map's Cont.fromRun
+  Cont.fromRun((observer2) { // inner Cont.fromRun
     ...
   }).run(...);
 });
@@ -533,13 +534,14 @@ The first one schedules "upwards", while the latter "downwards":
 final cont = Cont.fromRun((observer) {
   // 4 - run after 2 seconds
   observer.onValue("value");
+  // 5
 })
 .subscribeOn(ContScheduler.delayed(Duration(seconds: 2)))
 .observeOn(ContScheduler.microtask());
 
 // 2 - schedules to run after 2 seconds
 cont.run((_) {}, (value) {
-  // 5 - run as microtask
+  // 6 - run as microtask
   print(value); // prints "value"
 });
 
