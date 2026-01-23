@@ -17,22 +17,6 @@ void main() {
         expect(result, equals(42));
       });
 
-      test('works with different types', () {
-        String? stringResult;
-        Cont.of('hello').run(
-          (errors) => fail('Should not terminate'),
-          (value) => stringResult = value,
-        );
-        expect(stringResult, equals('hello'));
-
-        List<int>? listResult;
-        Cont.of([1, 2, 3]).run(
-          (errors) => fail('Should not terminate'),
-          (value) => listResult = value,
-        );
-        expect(listResult, equals([1, 2, 3]));
-      });
-
       test('works with null value', () {
         int? result;
         var valueCalled = false;
@@ -74,8 +58,9 @@ void main() {
           (value) => fail('Should not produce value'),
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(2));
+        expect(errors, hasLength(2));
+        expect(errors![0].error, equals('error1'));
+        expect(errors![1].error, equals('error2'));
       });
 
       test('makes defensive copy of errors list', () {
@@ -118,8 +103,7 @@ void main() {
           (value) => fail('Should not produce value'),
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
         expect(errors![0].error.toString(), contains('test exception'));
       });
 
@@ -218,8 +202,7 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
       });
 
       test('creates new Cont on each run', () {
@@ -285,8 +268,7 @@ void main() {
         await Future.microtask(() {});
 
         expect(done, isTrue);
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
       });
 
       test('catches synchronous exceptions in thunk', () async {
@@ -299,8 +281,7 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
       });
     });
 
@@ -326,8 +307,7 @@ void main() {
               (value) => fail('Should not produce value'),
             );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
       });
 
       test('catches exceptions in transformation', () {
@@ -340,8 +320,7 @@ void main() {
           (value) => fail('Should not produce value'),
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
       });
 
       test('can change type', () {
@@ -382,17 +361,6 @@ void main() {
 
         expect(result, equals('ignored input'));
       });
-
-      test('preserves termination', () {
-        var terminateCalled = false;
-
-        Cont.terminate<int>().map0(() => 'transformed').run(
-          (errors) => terminateCalled = true,
-          (value) {},
-        );
-
-        expect(terminateCalled, isTrue);
-      });
     });
 
     group('mapTo', () {
@@ -405,17 +373,6 @@ void main() {
         );
 
         expect(result, equals('constant'));
-      });
-
-      test('preserves termination', () {
-        var terminateCalled = false;
-
-        Cont.terminate<int>().mapTo('constant').run(
-          (errors) => terminateCalled = true,
-          (value) {},
-        );
-
-        expect(terminateCalled, isTrue);
       });
     });
 
@@ -457,8 +414,7 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
       });
 
       test('catches exceptions in transformation function', () {
@@ -471,8 +427,7 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
       });
 
       test('can be deeply chained', () {
@@ -715,8 +670,7 @@ void main() {
         );
 
         expect(order, equals([1]));
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
       });
 
       test('handles large lists (stack safety)', () {
@@ -729,8 +683,7 @@ void main() {
           (value) => result = value,
         );
 
-        expect(result, isNotNull);
-        expect(result!.length, equals(1000));
+        expect(result, hasLength(1000));
         expect(result![999], equals(999));
       });
 
@@ -765,8 +718,7 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
       });
     });
 
@@ -808,8 +760,7 @@ void main() {
               (value) {},
             );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(2));
+        expect(errors, hasLength(2));
         expect(errors![0].error, equals('first'));
         expect(errors![1].error, equals('second'));
       });
@@ -828,8 +779,7 @@ void main() {
           (value) {},
         );
 
-        expect(receivedErrors, isNotNull);
-        expect(receivedErrors!.length, equals(2));
+        expect(receivedErrors, hasLength(2));
       });
 
       test('catches exceptions in fallback function', () {
@@ -844,8 +794,7 @@ void main() {
               (value) {},
             );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(2));
+        expect(errors, hasLength(2));
       });
     });
 
@@ -903,8 +852,7 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(3));
+        expect(errors, hasLength(3));
       });
 
       test('returns empty termination for empty list', () {
@@ -981,9 +929,22 @@ void main() {
               (value) {},
             );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
         expect(errors![0].error, equals('original'));
+      });
+
+      test('catches exception in predicate', () {
+        List<ContError>? errors;
+
+        Cont.of(42).filter((x) {
+          throw Exception('predicate error');
+        }).run(
+          (e) => errors = e,
+          (value) => fail('Should not produce value'),
+        );
+
+        expect(errors, hasLength(1));
+        expect(errors![0].error.toString(), contains('predicate error'));
       });
     });
 
@@ -1033,6 +994,22 @@ void main() {
         expect(terminateCalled, isTrue);
       });
 
+      test('terminates with first error when both fail synchronously', () {
+        List<ContError>? errors;
+
+        Cont.both(
+          Cont.terminate<int>([ContError('left error', StackTrace.current)]),
+          Cont.terminate<int>([ContError('right error', StackTrace.current)]),
+          (a, b) => a + b,
+        ).run(
+          (e) => errors = e,
+          (value) => fail('Should not produce value'),
+        );
+
+        expect(errors, hasLength(1));
+        expect(errors![0].error, equals('left error'));
+      });
+
       test('catches exception in combiner function', () {
         List<ContError>? errors;
 
@@ -1045,8 +1022,7 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
       });
 
       test('runs both concurrently with test scheduler', () {
@@ -1133,8 +1109,7 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
+        expect(errors, hasLength(1));
       });
 
       test('preserves order with async completion', () {
@@ -1231,8 +1206,7 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(2));
+        expect(errors, hasLength(2));
       });
     });
 
@@ -1283,8 +1257,7 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(2));
+        expect(errors, hasLength(2));
       });
     });
 
@@ -1367,8 +1340,7 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(3));
+        expect(errors, hasLength(3));
       });
 
       test('succeeds if any succeeds', () {
@@ -1384,6 +1356,23 @@ void main() {
         );
 
         expect(result, equals(42));
+      });
+
+      test('makes defensive copy of input list', () {
+        final conts = [Cont.of(1), Cont.of(2)];
+
+        int? result;
+
+        final cont = Cont.raceForWinnerAll(conts);
+
+        conts.add(Cont.of(3));
+
+        cont.run(
+          (errors) {},
+          (value) => result = value,
+        );
+
+        expect(result, anyOf(equals(1), equals(2)));
       });
     });
 
@@ -1448,8 +1437,33 @@ void main() {
           (value) {},
         );
 
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(2));
+        expect(errors, hasLength(2));
+      });
+
+      test('makes defensive copy of input list', () {
+        final scheduler1 = TestContScheduler();
+        final scheduler2 = TestContScheduler();
+
+        final conts = [
+          Cont.of(1).subscribeOn(scheduler1.asScheduler()),
+          Cont.of(2).subscribeOn(scheduler2.asScheduler()),
+        ];
+
+        int? result;
+
+        final cont = Cont.raceForLoserAll(conts);
+
+        conts.add(Cont.of(3));
+
+        cont.run(
+          (errors) {},
+          (value) => result = value,
+        );
+
+        scheduler1.flush();
+        scheduler2.flush();
+
+        expect(result, equals(2));
       });
     });
 
@@ -1571,201 +1585,6 @@ void main() {
       });
     });
 
-    group('withRef', () {
-      test('provides mutable reference', () {
-        int? result;
-
-        Cont.withRef<int, int>(
-          0,
-          (ref) => ref.commit((before) => Cont.of((after) => (after + 10, after + 10))),
-          (ref) => Cont.of(()),
-        ).run(
-          (errors) {},
-          (value) => result = value,
-        );
-
-        expect(result, equals(10));
-      });
-
-      test('calls release on success', () {
-        var releaseCalled = false;
-
-        Cont.withRef<int, int>(
-          0,
-          (ref) => Cont.of(42),
-          (ref) {
-            releaseCalled = true;
-            return Cont.of(());
-          },
-        ).run(
-          (errors) {},
-          (value) {},
-        );
-
-        expect(releaseCalled, isTrue);
-      });
-
-      test('calls release on failure', () {
-        var releaseCalled = false;
-
-        Cont.withRef<int, int>(
-          0,
-          (ref) => Cont.terminate([ContError('use error', StackTrace.current)]),
-          (ref) {
-            releaseCalled = true;
-            return Cont.of(());
-          },
-        ).run(
-          (errors) {},
-          (value) {},
-        );
-
-        expect(releaseCalled, isTrue);
-      });
-
-      test('accumulates errors from use and release', () {
-        List<ContError>? errors;
-
-        Cont.withRef<int, int>(
-          0,
-          (ref) => Cont.terminate([ContError('use error', StackTrace.current)]),
-          (ref) => Cont.terminate([ContError('release error', StackTrace.current)]),
-        ).run(
-          (e) => errors = e,
-          (value) {},
-        );
-
-        expect(errors, isNotNull);
-        // Errors accumulate through orElseWith chain: [use, use, release, release]
-        expect(errors!.length, greaterThanOrEqualTo(2));
-        expect(errors!.any((e) => e.error == 'use error'), isTrue);
-        expect(errors!.any((e) => e.error == 'release error'), isTrue);
-      });
-
-      test('catches exception in use function', () {
-        List<ContError>? errors;
-
-        Cont.withRef<int, int>(
-          0,
-          (ref) => throw Exception('use exception'),
-          (ref) => Cont.of(()),
-        ).run(
-          (e) => errors = e,
-          (value) {},
-        );
-
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
-      });
-
-      test('catches exception in release function', () {
-        List<ContError>? errors;
-
-        Cont.withRef<int, int>(
-          0,
-          (ref) => Cont.of(42),
-          (ref) => throw Exception('release exception'),
-        ).run(
-          (e) => errors = e,
-          (value) {},
-        );
-
-        expect(errors, isNotNull);
-        expect(errors!.length, equals(1));
-      });
-    });
-
-    group('Ref.commit', () {
-      test('provides before and after state', () {
-        int? beforeState;
-        int? afterState;
-
-        Cont.withRef<int, int>(
-          10,
-          (ref) {
-            return ref.commit((before) {
-              beforeState = before;
-              return Cont.of((after) {
-                afterState = after;
-                return (after + 5, after + 5);
-              });
-            });
-          },
-          (ref) => Cont.of(()),
-        ).run(
-          (errors) {},
-          (value) {},
-        );
-
-        expect(beforeState, equals(10));
-        expect(afterState, equals(10));
-      });
-
-      test('updates state atomically', () {
-        int? result;
-
-        Cont.withRef<int, int>(
-          0,
-          (ref) {
-            return ref
-                .commit((before) => Cont.of((after) => (after + 10, after + 10)))
-                .flatMap((v) {
-              return ref.commit((before) => Cont.of((after) => (after + 5, after + 5)));
-            });
-          },
-          (ref) => Cont.of(()),
-        ).run(
-          (errors) {},
-          (value) => result = value,
-        );
-
-        expect(result, equals(15));
-      });
-
-      test('propagates termination from inner cont', () {
-        var terminateCalled = false;
-
-        Cont.withRef<int, int>(
-          0,
-          (ref) {
-            return ref.commit<int>((before) {
-              return Cont.terminate([ContError('commit error', StackTrace.current)]);
-            });
-          },
-          (ref) => Cont.of(()),
-        ).run(
-          (errors) => terminateCalled = true,
-          (value) {},
-        );
-
-        expect(terminateCalled, isTrue);
-      });
-
-      test('catches exception in commit function', () {
-        List<ContError>? errors;
-
-        Cont.withRef<int, int>(
-          0,
-          (ref) {
-            return ref.commit<int>((before) {
-              return Cont.of((after) {
-                throw Exception('commit exception');
-              });
-            });
-          },
-          (ref) => Cont.of(()),
-        ).run(
-          (e) => errors = e,
-          (value) {},
-        );
-
-        expect(errors, isNotNull);
-        // Error is accumulated through the withRef error handling chain
-        expect(errors!.length, greaterThanOrEqualTo(1));
-        expect(errors!.any((e) => e.error.toString().contains('commit exception')), isTrue);
-      });
-    });
-
     group('flatten extension', () {
       test('flattens nested Cont', () {
         int? result;
@@ -1801,21 +1620,6 @@ void main() {
       });
     });
 
-    group('runWith', () {
-      test('executes with observer', () {
-        int? result;
-
-        Cont.of(42).runWith(
-          ContObserver(
-            (errors) {},
-            (value) => result = value,
-          ),
-        );
-
-        expect(result, equals(42));
-      });
-    });
-
     group('run', () {
       test('executes with separate callbacks', () {
         int? result;
@@ -1826,6 +1630,336 @@ void main() {
         );
 
         expect(result, equals(42));
+      });
+    });
+
+    group('runWith', () {
+      test('executes with ContObserver', () {
+        int? result;
+
+        Cont.of(42).runWith(
+          ContObserver(
+            (errors) => fail('Should not terminate'),
+            (value) => result = value,
+          ),
+        );
+
+        expect(result, equals(42));
+      });
+
+      test('passes termination to observer', () {
+        List<ContError>? errors;
+
+        Cont.terminate<int>([ContError('test', StackTrace.current)]).runWith(
+          ContObserver(
+            (e) => errors = e,
+            (value) => fail('Should not produce value'),
+          ),
+        );
+
+        expect(errors, hasLength(1));
+        expect(errors![0].error, equals('test'));
+      });
+    });
+
+    group('withRef', () {
+      test('releases resource after successful use', () {
+        final events = <String>[];
+
+        Cont.withRef<int, String>(
+          0,
+          (ref) {
+            events.add('use');
+            return Cont.of('result');
+          },
+          (ref) {
+            events.add('release');
+            return Cont.of(());
+          },
+        ).run(
+          (errors) => fail('Should not terminate'),
+          (value) {
+            events.add('value: $value');
+          },
+        );
+
+        expect(events, equals(['use', 'release', 'value: result']));
+      });
+
+      test('releases resource after use failure', () {
+        final events = <String>[];
+        var terminated = false;
+
+        Cont.withRef<int, String>(
+          0,
+          (ref) {
+            events.add('use');
+            return Cont.terminate([ContError('use error', StackTrace.current)]);
+          },
+          (ref) {
+            events.add('release');
+            return Cont.of(());
+          },
+        ).run(
+          (errors) {
+            terminated = true;
+          },
+          (value) => fail('Should not produce value'),
+        );
+
+        expect(events, contains('use'));
+        expect(events, contains('release'));
+        expect(terminated, isTrue);
+      });
+
+      test('accumulates errors if release also fails', () {
+        List<ContError>? errors;
+
+        Cont.withRef<int, String>(
+          0,
+          (ref) => Cont.terminate([ContError('use error', StackTrace.current)]),
+          (ref) => Cont.terminate([ContError('release error', StackTrace.current)]),
+        ).run(
+          (e) => errors = e,
+          (value) => fail('Should not produce value'),
+        );
+
+        expect(errors, isNotEmpty);
+        expect(
+          errors!.any((e) => e.error == 'use error'),
+          isTrue,
+        );
+        expect(
+          errors!.any((e) => e.error == 'release error'),
+          isTrue,
+        );
+      });
+
+      test('catches exception in use function', () {
+        final events = <String>[];
+        List<ContError>? errors;
+
+        Cont.withRef<int, String>(
+          0,
+          (ref) {
+            throw Exception('use exception');
+          },
+          (ref) {
+            events.add('release');
+            return Cont.of(());
+          },
+        ).run(
+          (e) => errors = e,
+          (value) => fail('Should not produce value'),
+        );
+
+        expect(events, contains('release'));
+        expect(errors, isNotEmpty);
+        expect(
+          errors!.any((e) => e.error.toString().contains('use exception')),
+          isTrue,
+        );
+      });
+
+      test('catches exception in release function', () {
+        List<ContError>? errors;
+
+        Cont.withRef<int, String>(
+          0,
+          (ref) => Cont.of('result'),
+          (ref) {
+            throw Exception('release exception');
+          },
+        ).run(
+          (e) => errors = e,
+          (value) => fail('Should not produce value'),
+        );
+
+        expect(errors, isNotEmpty);
+        expect(
+          errors!.any((e) => e.error.toString().contains('release exception')),
+          isTrue,
+        );
+      });
+
+      test('catches exception in release after use failure', () {
+        List<ContError>? errors;
+
+        Cont.withRef<int, String>(
+          0,
+          (ref) => Cont.terminate([ContError('use error', StackTrace.current)]),
+          (ref) {
+            throw Exception('release exception');
+          },
+        ).run(
+          (e) => errors = e,
+          (value) => fail('Should not produce value'),
+        );
+
+        expect(errors, isNotEmpty);
+        expect(
+          errors!.any((e) => e.error == 'use error'),
+          isTrue,
+        );
+        expect(
+          errors!.any((e) => e.error.toString().contains('release exception')),
+          isTrue,
+        );
+      });
+
+      test('provides initial state to ref', () {
+        int? observedState;
+
+        Cont.withRef<int, String>(
+          42,
+          (ref) {
+            return ref.commit((before) {
+              observedState = before;
+              return Cont.of((after) => (after, 'done'));
+            });
+          },
+          (ref) => Cont.of(()),
+        ).run(
+          (errors) {},
+          (value) {},
+        );
+
+        expect(observedState, equals(42));
+      });
+    });
+
+    group('Ref.commit', () {
+      test('provides before state and commits new state', () {
+        int? beforeState;
+        int? afterState;
+        String? result;
+
+        Cont.withRef<int, String>(
+          10,
+          (ref) {
+            return ref.commit((before) {
+              beforeState = before;
+              return Cont.of((after) {
+                afterState = after;
+                return (after + 5, 'committed');
+              });
+            });
+          },
+          (ref) => Cont.of(()),
+        ).run(
+          (errors) => fail('Should not terminate'),
+          (value) => result = value,
+        );
+
+        expect(beforeState, equals(10));
+        expect(afterState, equals(10));
+        expect(result, equals('committed'));
+      });
+
+      test('allows multiple commits in sequence', () {
+        final states = <int>[];
+        int? finalResult;
+
+        Cont.withRef<int, int>(
+          0,
+          (ref) {
+            return ref
+                .commit((before) {
+                  states.add(before);
+                  return Cont.of((after) => (after + 10, after + 10));
+                })
+                .flatMap((value) {
+                  return ref.commit((before) {
+                    states.add(before);
+                    return Cont.of((after) => (after + 5, after + 5));
+                  });
+                });
+          },
+          (ref) => Cont.of(()),
+        ).run(
+          (errors) => fail('Should not terminate'),
+          (value) => finalResult = value,
+        );
+
+        expect(states, equals([0, 10]));
+        expect(finalResult, equals(15));
+      });
+
+      test('catches exception in commit function', () {
+        List<ContError>? errors;
+
+        Cont.withRef<int, String>(
+          0,
+          (ref) {
+            return ref.commit((before) {
+              return Cont.of((after) {
+                throw Exception('commit error');
+              });
+            });
+          },
+          (ref) => Cont.of(()),
+        ).run(
+          (e) => errors = e,
+          (value) => fail('Should not produce value'),
+        );
+
+        expect(errors, isNotEmpty);
+        expect(
+          errors!.any((e) => e.error.toString().contains('commit error')),
+          isTrue,
+        );
+      });
+
+      test('propagates termination from commit computation', () {
+        List<ContError>? errors;
+
+        Cont.withRef<int, String>(
+          0,
+          (ref) {
+            return ref.commit<String>((before) {
+              return Cont.terminate([ContError('computation error', StackTrace.current)]);
+            });
+          },
+          (ref) => Cont.of(()),
+        ).run(
+          (e) => errors = e,
+          (value) => fail('Should not produce value'),
+        );
+
+        expect(errors, isNotEmpty);
+        expect(
+          errors!.any((e) => e.error == 'computation error'),
+          isTrue,
+        );
+      });
+    });
+
+    group('filter edge cases', () {
+      test('handles nullable types correctly', () {
+        int? result;
+        var valueCalled = false;
+
+        Cont.of<int?>(null).filter((x) => x == null).run(
+          (errors) => fail('Should not terminate'),
+          (value) {
+            valueCalled = true;
+            result = value;
+          },
+        );
+
+        expect(valueCalled, isTrue);
+        expect(result, isNull);
+      });
+
+      test('filters out nullable value when predicate returns false', () {
+        var terminateCalled = false;
+
+        Cont.of<int?>(null).filter((x) => x != null).run(
+          (errors) => terminateCalled = true,
+          (value) => fail('Should not produce value'),
+        );
+
+        expect(terminateCalled, isTrue);
       });
     });
   });

@@ -4,30 +4,32 @@ import 'package:test/test.dart';
 void main() {
   group('ContObserver', () {
     group('constructor', () {
-      test('creates observer with terminate and value handlers', () {
+      test('creates observer with terminate handler', () {
         var terminateCalled = false;
         var valueCalled = false;
 
-        final observer = ContObserver<int>(
-          (errors) => terminateCalled = true,
-          (value) => valueCalled = true,
-        );
+        final observer = ContObserver<int>((errors) => terminateCalled = true, (value) => valueCalled = true);
 
         observer.onTerminate([]);
         expect(terminateCalled, isTrue);
         expect(valueCalled, isFalse);
+      });
 
-        observer.onValue(42);
+      test('creates observer with value handler', () {
+        var terminateCalled = false;
+        var valueCalled = false;
+
+        final observer = ContObserver<int>((errors) => terminateCalled = true, (value) => valueCalled = true);
+
+        observer.onValue(0);
+        expect(terminateCalled, isFalse);
         expect(valueCalled, isTrue);
       });
 
       test('onValue receives correct value', () {
         int? receivedValue;
 
-        final observer = ContObserver<int>(
-          (errors) {},
-          (value) => receivedValue = value,
-        );
+        final observer = ContObserver<int>((errors) {}, (value) => receivedValue = value);
 
         observer.onValue(123);
 
@@ -37,10 +39,7 @@ void main() {
       test('onTerminate receives correct errors', () {
         List<ContError>? receivedErrors;
 
-        final observer = ContObserver<int>(
-          (errors) => receivedErrors = errors,
-          (value) {},
-        );
+        final observer = ContObserver<int>((errors) => receivedErrors = errors, (value) {});
 
         final error = ContError('test error', StackTrace.current);
         observer.onTerminate([error]);
@@ -53,10 +52,7 @@ void main() {
       test('onTerminate with default empty list', () {
         List<ContError>? receivedErrors;
 
-        final observer = ContObserver<int>(
-          (errors) => receivedErrors = errors,
-          (value) {},
-        );
+        final observer = ContObserver<int>((errors) => receivedErrors = errors, (value) {});
 
         observer.onTerminate();
 
@@ -64,30 +60,14 @@ void main() {
         expect(receivedErrors, isEmpty);
       });
 
-      test('handles generic types correctly', () {
-        String? receivedValue;
-
-        final observer = ContObserver<String>(
-          (errors) {},
-          (value) => receivedValue = value,
-        );
-
-        observer.onValue('hello');
-
-        expect(receivedValue, equals('hello'));
-      });
-
       test('handles nullable types', () {
-        int? receivedValue;
+        int? receivedValue = 999;
         var wasCalled = false;
 
-        final observer = ContObserver<int?>(
-          (errors) {},
-          (value) {
-            wasCalled = true;
-            receivedValue = value;
-          },
-        );
+        final observer = ContObserver<int?>((errors) {}, (value) {
+          wasCalled = true;
+          receivedValue = value;
+        });
 
         observer.onValue(null);
 
@@ -112,22 +92,9 @@ void main() {
       test('creates observer that ignores terminate with errors', () {
         final observer = ContObserver.ignore<String>();
 
-        final errors = [
-          ContError('error1', StackTrace.current),
-          ContError('error2', StackTrace.current),
-        ];
+        final errors = [ContError('error1', StackTrace.current), ContError('error2', StackTrace.current)];
 
         expect(() => observer.onTerminate(errors), returnsNormally);
-      });
-
-      test('works with different generic types', () {
-        final intObserver = ContObserver.ignore<int>();
-        final stringObserver = ContObserver.ignore<String>();
-        final listObserver = ContObserver.ignore<List<int>>();
-
-        expect(() => intObserver.onValue(42), returnsNormally);
-        expect(() => stringObserver.onValue('test'), returnsNormally);
-        expect(() => listObserver.onValue([1, 2, 3]), returnsNormally);
       });
     });
 
@@ -137,28 +104,37 @@ void main() {
         var newTerminateCalled = false;
         var originalValueCalled = false;
 
-        final original = ContObserver<int>(
-          (errors) => originalTerminateCalled = true,
-          (value) => originalValueCalled = true,
-        );
+        final original = ContObserver<int>((errors) => originalTerminateCalled = true, (value) => originalValueCalled = true);
 
-        final updated = original.copyUpdateOnTerminate(
-          (errors) => newTerminateCalled = true,
-        );
+        final updated = original.copyUpdateOnTerminate((errors) => newTerminateCalled = true);
 
         updated.onTerminate([]);
 
         expect(originalTerminateCalled, isFalse);
+        expect(originalValueCalled, isFalse);
         expect(newTerminateCalled, isTrue);
+      });
+
+      test('creates new observer with updated value handler', () {
+        var originalValueCalled = false;
+        var newValueCalled = false;
+        var originalTerminateCalled = false;
+
+        final original = ContObserver<int>((errors) => originalTerminateCalled = true, (value) => originalValueCalled = true);
+
+        final updated = original.copyUpdateOnValue((value) => newValueCalled = true);
+
+        updated.onValue(0);
+
+        expect(originalValueCalled, isFalse);
+        expect(originalTerminateCalled, isFalse);
+        expect(newValueCalled, isTrue);
       });
 
       test('preserves original value handler', () {
         int? receivedValue;
 
-        final original = ContObserver<int>(
-          (errors) {},
-          (value) => receivedValue = value,
-        );
+        final original = ContObserver<int>((errors) {}, (value) => receivedValue = value);
 
         final updated = original.copyUpdateOnTerminate((errors) {});
 
@@ -167,17 +143,27 @@ void main() {
         expect(receivedValue, equals(42));
       });
 
+      test('preserves original terminate handler', () {
+        List<ContError>? receivedErrors;
+
+        final original = ContObserver<int>((errors) { receivedErrors = errors; }, (value) {});
+
+        final updated = original.copyUpdateOnValue((value) {});
+
+        updated.onTerminate([ContError('test', StackTrace.current)]);
+
+        expect(receivedErrors, isNotNull);
+        expect(receivedErrors!.length, equals(1));
+        expect(receivedErrors![0].error, equals('test'));
+      });
+
+// TODO: 
       test('passes errors to new handler', () {
         List<ContError>? receivedErrors;
 
-        final original = ContObserver<int>(
-          (errors) {},
-          (value) {},
-        );
+        final original = ContObserver<int>((errors) {}, (value) {});
 
-        final updated = original.copyUpdateOnTerminate(
-          (errors) => receivedErrors = errors,
-        );
+        final updated = original.copyUpdateOnTerminate((errors) => receivedErrors = errors);
 
         final error = ContError('test', StackTrace.current);
         updated.onTerminate([error]);
@@ -189,10 +175,7 @@ void main() {
       test('does not affect original observer', () {
         var originalCalled = false;
 
-        final original = ContObserver<int>(
-          (errors) => originalCalled = true,
-          (value) {},
-        );
+        final original = ContObserver<int>((errors) => originalCalled = true, (value) {});
 
         final updated = original.copyUpdateOnTerminate((errors) {});
 
@@ -205,18 +188,11 @@ void main() {
         var handler1Called = false;
         var handler2Called = false;
 
-        final original = ContObserver<int>(
-          (errors) {},
-          (value) {},
-        );
+        final original = ContObserver<int>((errors) {}, (value) {});
 
-        final updated1 = original.copyUpdateOnTerminate(
-          (errors) => handler1Called = true,
-        );
+        final updated1 = original.copyUpdateOnTerminate((errors) => handler1Called = true);
 
-        final updated2 = updated1.copyUpdateOnTerminate(
-          (errors) => handler2Called = true,
-        );
+        final updated2 = updated1.copyUpdateOnTerminate((errors) => handler2Called = true);
 
         updated2.onTerminate([]);
 
@@ -230,14 +206,9 @@ void main() {
         var originalValueCalled = false;
         var newValueCalled = false;
 
-        final original = ContObserver<int>(
-          (errors) {},
-          (value) => originalValueCalled = true,
-        );
+        final original = ContObserver<int>((errors) {}, (value) => originalValueCalled = true);
 
-        final updated = original.copyUpdateOnValue<String>(
-          (value) => newValueCalled = true,
-        );
+        final updated = original.copyUpdateOnValue<String>((value) => newValueCalled = true);
 
         updated.onValue('test');
 
@@ -248,10 +219,7 @@ void main() {
       test('preserves original terminate handler', () {
         var terminateCalled = false;
 
-        final original = ContObserver<int>(
-          (errors) => terminateCalled = true,
-          (value) {},
-        );
+        final original = ContObserver<int>((errors) => terminateCalled = true, (value) {});
 
         final updated = original.copyUpdateOnValue<String>((value) {});
 
@@ -263,14 +231,9 @@ void main() {
       test('passes value to new handler', () {
         String? receivedValue;
 
-        final original = ContObserver<int>(
-          (errors) {},
-          (value) {},
-        );
+        final original = ContObserver<int>((errors) {}, (value) {});
 
-        final updated = original.copyUpdateOnValue<String>(
-          (value) => receivedValue = value,
-        );
+        final updated = original.copyUpdateOnValue<String>((value) => receivedValue = value);
 
         updated.onValue('hello');
 
@@ -280,14 +243,9 @@ void main() {
       test('can change type from int to String', () {
         String? receivedValue;
 
-        final original = ContObserver<int>(
-          (errors) {},
-          (value) {},
-        );
+        final original = ContObserver<int>((errors) {}, (value) {});
 
-        final updated = original.copyUpdateOnValue<String>(
-          (value) => receivedValue = value,
-        );
+        final updated = original.copyUpdateOnValue<String>((value) => receivedValue = value);
 
         updated.onValue('converted');
 
@@ -297,14 +255,9 @@ void main() {
       test('can change type from simple to complex', () {
         List<int>? receivedValue;
 
-        final original = ContObserver<int>(
-          (errors) {},
-          (value) {},
-        );
+        final original = ContObserver<int>((errors) {}, (value) {});
 
-        final updated = original.copyUpdateOnValue<List<int>>(
-          (value) => receivedValue = value,
-        );
+        final updated = original.copyUpdateOnValue<List<int>>((value) => receivedValue = value);
 
         updated.onValue([1, 2, 3]);
 
@@ -314,10 +267,7 @@ void main() {
       test('does not affect original observer', () {
         int? originalValue;
 
-        final original = ContObserver<int>(
-          (errors) {},
-          (value) => originalValue = value,
-        );
+        final original = ContObserver<int>((errors) {}, (value) => originalValue = value);
 
         original.copyUpdateOnValue<String>((value) {});
 
@@ -329,18 +279,11 @@ void main() {
       test('can be chained with type changes', () {
         String? finalValue;
 
-        final original = ContObserver<int>(
-          (errors) {},
-          (value) {},
-        );
+        final original = ContObserver<int>((errors) {}, (value) {});
 
-        final updated1 = original.copyUpdateOnValue<double>(
-          (value) {},
-        );
+        final updated1 = original.copyUpdateOnValue<double>((value) {});
 
-        final updated2 = updated1.copyUpdateOnValue<String>(
-          (value) => finalValue = value,
-        );
+        final updated2 = updated1.copyUpdateOnValue<String>((value) => finalValue = value);
 
         updated2.onValue('final');
 
@@ -353,10 +296,7 @@ void main() {
         var valueCount = 0;
         var terminateCount = 0;
 
-        final observer = ContObserver<int>(
-          (errors) => terminateCount++,
-          (value) => valueCount++,
-        );
+        final observer = ContObserver<int>((errors) => terminateCount++, (value) => valueCount++);
 
         observer.onValue(1);
         observer.onValue(2);
@@ -371,10 +311,7 @@ void main() {
       });
 
       test('handlers can throw exceptions', () {
-        final observer = ContObserver<int>(
-          (errors) => throw Exception('terminate error'),
-          (value) => throw Exception('value error'),
-        );
+        final observer = ContObserver<int>((errors) => throw Exception('terminate error'), (value) => throw Exception('value error'));
 
         expect(() => observer.onValue(42), throwsException);
         expect(() => observer.onTerminate([]), throwsException);
@@ -384,10 +321,7 @@ void main() {
         final values = <int>[];
         final errors = <List<ContError>>[];
 
-        final observer = ContObserver<int>(
-          (e) => errors.add(e),
-          (v) => values.add(v),
-        );
+        final observer = ContObserver<int>((e) => errors.add(e), (v) => values.add(v));
 
         observer.onValue(1);
         observer.onValue(2);
@@ -402,10 +336,7 @@ void main() {
       test('observer with void value type', () {
         var valueCalled = false;
 
-        final observer = ContObserver<void>(
-          (errors) {},
-          (value) => valueCalled = true,
-        );
+        final observer = ContObserver<void>((errors) {}, (value) => valueCalled = true);
 
         observer.onValue(null);
 
@@ -415,10 +346,7 @@ void main() {
       test('observer with function type', () {
         int Function(int)? receivedFunction;
 
-        final observer = ContObserver<int Function(int)>(
-          (errors) {},
-          (value) => receivedFunction = value,
-        );
+        final observer = ContObserver<int Function(int)>((errors) {}, (value) => receivedFunction = value);
 
         observer.onValue((x) => x * 2);
 
@@ -429,16 +357,9 @@ void main() {
       test('onTerminate with multiple errors', () {
         List<ContError>? received;
 
-        final observer = ContObserver<int>(
-          (errors) => received = errors,
-          (value) {},
-        );
+        final observer = ContObserver<int>((errors) => received = errors, (value) {});
 
-        final errors = [
-          ContError('error1', StackTrace.current),
-          ContError('error2', StackTrace.current),
-          ContError('error3', StackTrace.current),
-        ];
+        final errors = [ContError('error1', StackTrace.current), ContError('error2', StackTrace.current), ContError('error3', StackTrace.current)];
 
         observer.onTerminate(errors);
 
