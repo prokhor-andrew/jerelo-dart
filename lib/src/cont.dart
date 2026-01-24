@@ -92,6 +92,22 @@ final class Cont<A> {
     });
   }
 
+  static Cont<()> forkAndReturn<A>(Cont<A> cont) {
+    return Cont.fromRun((observer) {
+      cont.runWith(ContObserver.ignore());
+      observer.onValue(());
+    });
+  }
+
+  static Cont<Never> forkAndTerminate<A>(Cont<A> cont, [List<ContError> errors = const []]) {
+    final safeCopyErrors0 = List<ContError>.from(errors);
+    return Cont.fromRun((observer) {
+      final safeCopyErrors = List<ContError>.from(safeCopyErrors0);
+      cont.runWith(ContObserver.ignore());
+      observer.onTerminate(safeCopyErrors);
+    });
+  }
+
   /// Transforms the value inside a [Cont] using a pure function.
   ///
   /// Applies a function to the successful value of the continuation without
