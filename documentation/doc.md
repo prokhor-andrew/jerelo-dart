@@ -196,9 +196,11 @@ final class ContError {
 `Cont` has one base constructor:
 - `Cont.fromRun`
 
-Two utility constructors:
+Four utility constructors:
 - `Cont.fromDeferred`
 - `Cont.fromFutureComp`
+- `Cont.forkAndReturn`
+- `Cont.forkAndTerminate`
 
 One stateful constructor:
 - `Cont.withRef`
@@ -259,6 +261,68 @@ Cont<User> getUserByIdThunk(UserId Function() expensiveGetUserId) {
   });
 }
 ```
+
+And sometimes you need to trigger a side effect or background operation that shouldn't
+block or affect the current computation flow. For these cases, use:
+- `Cont.forkAndReturn`
+- `Cont.forkAndTerminate`
+
+`forkAndReturn` executes a continuation in the background and immediately returns
+with a unit value `()`. The forked continuation's result or errors are ignored.
+
+```dart
+Cont<String> logActivity(String message) {
+  return Cont.fromRun((observer) {
+    // expensive logging operation
+    print("LOG: $message");
+    observer.onValue(message);
+  });
+}
+
+Cont<int> processData(int value) {
+  return Cont.forkAndReturn(logActivity("Processing started"))
+    .flatMap((_) {
+      // continues immediately without waiting for logging
+      return Cont.of(value * 2);
+    });
+}
+
+processData(5).run((_) {}, print); // prints 10 immediately
+```
+
+`forkAndTerminate` is similar, but immediately terminates the current flow
+with optional errors after forking the background operation.
+
+```dart
+Cont<Never> cleanupAndExit(String reason) {
+  final cleanup = Cont.fromRun((observer) {
+    // cleanup operations like closing connections
+    print("Cleaning up resources...");
+    observer.onValue(());
+  });
+
+  return Cont.forkAndTerminate(
+    cleanup,
+    [ContError("Exit requested: $reason", StackTrace.current)],
+  );
+}
+
+Cont.of(42)
+  .flatMap((value) {
+    if (value > 40) {
+      return cleanupAndExit("Value too large");
+    }
+    return Cont.of(value);
+  })
+  .run(
+    (errors) => print("Terminated: ${errors.first.error}"),
+    (value) => print("Success: $value"),
+  );
+// Prints: "Cleaning up resources..." and "Terminated: Exit requested: Value too large"
+```
+
+Both constructors are useful for triggering operations that should happen
+independently of the main computation flow.
 
 Primitive constructors are also available:
 
