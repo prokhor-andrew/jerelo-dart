@@ -23,6 +23,21 @@ Creates a Cont from a deferred continuation computation.
   - `thunk`: `Cont<A> Function()` - Function that returns a Cont
 - **Description:** Lazily evaluates a continuation-returning function. The inner Cont is not created until the outer one is executed.
 
+### Cont.forkAndReturn
+Creates a Cont that forks (fires-and-forgets) another continuation and immediately returns with unit value.
+- **Return type:** `Cont<()>`
+- **Arguments:**
+  - `cont`: `Cont<A>` - The continuation to fork and execute in the background
+- **Description:** Executes the provided continuation without waiting for its result or errors. The forked continuation runs independently with its results ignored. The returned continuation completes immediately with success. Useful for triggering side effects or background operations that don't affect the current computation flow.
+
+### Cont.forkAndTerminate
+Creates a Cont that forks (fires-and-forgets) another continuation and immediately terminates with optional errors.
+- **Return type:** `Cont<Never>`
+- **Arguments:**
+  - `cont`: `Cont<A>` - The continuation to fork and execute in the background
+  - `errors`: `List<ContError>` (optional, default: `[]`) - List of errors to terminate with
+- **Description:** Executes the provided continuation without waiting for its result or errors. The forked continuation runs independently with its results ignored. The returned continuation terminates immediately with the provided errors. Useful for triggering cleanup or side effects while terminating the current computation flow.
+
 ### Cont.of
 Creates a Cont that immediately succeeds with a value.
 - **Return type:** `Cont<A>`

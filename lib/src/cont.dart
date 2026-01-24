@@ -92,6 +92,17 @@ final class Cont<A> {
     });
   }
 
+  /// Creates a [Cont] that forks (fires-and-forgets) another continuation
+  /// and immediately returns with unit value.
+  ///
+  /// Executes the provided continuation without waiting for its result or errors.
+  /// The forked continuation runs independently with its results ignored.
+  /// The returned continuation completes immediately with success.
+  ///
+  /// Useful for triggering side effects or background operations that don't
+  /// affect the current computation flow.
+  ///
+  /// - [cont]: The continuation to fork and execute in the background.
   static Cont<()> forkAndReturn<A>(Cont<A> cont) {
     return Cont.fromRun((observer) {
       cont.runWith(ContObserver.ignore());
@@ -99,6 +110,18 @@ final class Cont<A> {
     });
   }
 
+  /// Creates a [Cont] that forks (fires-and-forgets) another continuation
+  /// and immediately terminates with optional errors.
+  ///
+  /// Executes the provided continuation without waiting for its result or errors.
+  /// The forked continuation runs independently with its results ignored.
+  /// The returned continuation terminates immediately with the provided errors.
+  ///
+  /// Useful for triggering cleanup or side effects while terminating the
+  /// current computation flow.
+  ///
+  /// - [cont]: The continuation to fork and execute in the background.
+  /// - [errors]: Optional list of errors to terminate with. Defaults to empty list.
   static Cont<Never> forkAndTerminate<A>(Cont<A> cont, [List<ContError> errors = const []]) {
     final safeCopyErrors0 = List<ContError>.from(errors);
     return Cont.fromRun((observer) {
