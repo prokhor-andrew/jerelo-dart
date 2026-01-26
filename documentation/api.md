@@ -30,21 +30,17 @@ Creates a Cont that immediately terminates with optional errors.
   - `errors`: `List<ContError>` (optional, default: `[]`) - List of errors to terminate with
 - **Description:** Creates a continuation that terminates without producing a value. Used to represent failure states.
 
-### Cont.withRef
-Creates a Cont with a mutable reference that manages resource lifecycle.
+### Cont.bracket
+Manages resource lifecycle with guaranteed cleanup.
 - **Return type:** `Cont<A>`
+- **Type parameters:**
+  - `R` - The type of the resource
+  - `A` - The type of the result
 - **Arguments:**
-  - `initial`: `S` - Initial state value
-  - `use`: `Cont<A> Function(Ref<S> ref)` - Function to use the reference
-  - `release`: `Cont<()> Function(Ref<S> ref)` - Function to release/cleanup the reference
-- **Description:** Resource management combinator that guarantees proper cleanup. The release function is called whether the use function succeeds or fails.
-
-### Ref.commit
-Atomically commits a state transformation.
-- **Return type:** `Cont<V>`
-- **Arguments:**
-  - `f`: `Cont<(S, V) Function(S after)> Function(S before)` - Function that produces a state update computation
-- **Description:** Performs a state transformation with consistency guarantees. Receives the state before and after, allowing safe concurrent state updates.
+  - `acquire`: `Cont<R>` - Continuation that acquires the resource
+  - `release`: `Cont<()> Function(R resource)` - Function that returns a continuation to release the resource
+  - `use`: `Cont<A> Function(R resource)` - Function that returns a continuation using the resource
+- **Description:** Ensures a resource is properly released after use, even if an error occurs. The execution order is: acquire → use → release. If `use` fails, `release` still runs and errors are accumulated. This is the functional equivalent of try-with-resources or using statements.
 
 ## Transforming
 

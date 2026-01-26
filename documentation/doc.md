@@ -218,13 +218,15 @@ One utility constructors:
 - `Cont.fromDeferred`
 
 One constructor with lifecycle:
-- `Cont.withRef`
+- `Cont.bracket`
 
 And lawful identities to some operators:
 - `Cont.of`
 - `Cont.terminate`
 
 To construct a `Cont` object - utilize any of the above.
+
+## Basic construction
 
 ```dart
 Cont<User> getUser(String userId) {
@@ -245,6 +247,8 @@ There are a couple of things to note about `observer` here:
 - It is mandatory to call `onValue` or `onTerminate` once the computation is over. 
 Otherwise, errors will be lost, and behavior becomes undefined. 
 
+## Deferred construction
+
 Sometimes one would prefer to defer a construction of a `Cont`.
 In the example below, getting `userId` is expensive, so we want to 
 delay that until the `Cont<User>` is run.
@@ -259,6 +263,7 @@ Cont<User> getUserByIdThunk(UserId Function() expensiveGetUserId) {
 }
 ```
 
+## Primitive constructors
 
 Primitive constructors are also available:
 
@@ -277,11 +282,63 @@ Cont.terminate([
 ]); // 
 ```
 
+## Resource management
+
+When working with resources that need cleanup (files, connections, locks),
+the `bracket` pattern guarantees the resource is released even if an error occurs.
+
+```dart
+Cont<String> readFileContents(String path) {
+  return Cont.bracket<RandomAccessFile, String>(
+    // acquire: open the file
+    Cont.fromRun((observer) {
+      try {
+        final file = File(path).openSync();
+        observer.onValue(file);
+      } catch (error, st) {
+        observer.onTerminate([ContError(error, st)]);
+      }
+    }),
+    // release: close the file (always runs)
+    (file) => Cont.fromRun((observer) {
+      try {
+        file.closeSync();
+        observer.onValue(());
+      } catch (error, st) {
+        observer.onTerminate([ContError(error, st)]);
+      }
+    }),
+    // use: read the contents
+    (file) => Cont.fromRun((observer) {
+      try {
+        final contents = file.readStringSync();
+        observer.onValue(contents);
+      } catch (error, st) {
+        observer.onTerminate([ContError(error, st)]);
+      }
+    }),
+  );
+}
+```
+
+The execution order is always:
+1. **Acquire** the resource
+2. **Use** the resource
+3. **Release** the resource
+
+If the `use` phase fails, `release` still executes. Error handling follows these rules:
+- Both succeed → returns the value from `use`
+- `use` succeeds, `release` fails → terminates with release errors
+- `use` fails, `release` succeeds → terminates with use errors
+- Both fail → terminates with all errors combined
+
+This pattern is essential for writing leak-free code when dealing with
+external resources like file handles, database connections, or network sockets.
+
 # Running 
 
 Constructing a computation is only a first step. To actually trigger its execution, 
 one has to call `run` on it, passing `onTerminate` callback, as well as `onValue` one.
-
 
 
 ```dart

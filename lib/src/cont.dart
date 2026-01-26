@@ -2,7 +2,6 @@ import 'package:jerelo/jerelo.dart';
 
 typedef _Run<A> = void Function(ContObserver<A>);
 
-
 /// A continuation monad representing a computation that will eventually
 /// produce a value of type [A] or terminate with errors.
 ///
@@ -975,55 +974,72 @@ final class Cont<A> {
     });
   }
 
-  /// Creates a [Cont] with a mutable reference that manages resource lifecycle.
+  /// Manages resource lifecycle with guaranteed cleanup.
   ///
-  /// Resource management combinator that guarantees proper cleanup. The release
-  /// function is called whether the use function succeeds or fails.
+  /// The bracket pattern ensures that a resource is properly released after use,
+  /// even if an error occurs during the [use] phase. This is the functional
+  /// equivalent of try-with-resources or using statements.
   ///
-  /// - [initial]: Initial state value for the reference.
-  /// - [use]: Function to use the reference and produce a result.
-  /// - [release]: Function to release/cleanup the reference.
-  static Cont<A> withRef<S, A>(
-    S initial,
-    Cont<A> Function(Ref<S> ref) use,
-    Cont<()> Function(Ref<S> ref) release,
+  /// The execution order is:
+  /// 1. [acquire] - Obtain the resource
+  /// 2. [use] - Use the resource to produce a value
+  /// 3. [release] - Release the resource (always runs, even if [use] fails)
+  ///
+  /// Error handling behavior:
+  /// - If [use] succeeds and [release] succeeds: returns the value from [use]
+  /// - If [use] succeeds and [release] fails: terminates with release errors
+  /// - If [use] fails and [release] succeeds: terminates with use errors
+  /// - If [use] fails and [release] fails: terminates with both errors combined
+  ///
+  /// Example:
+  /// ```dart
+  /// final result = Cont.bracket<File, String>(
+  ///   openFile('data.txt'),           // acquire
+  ///   (file) => closeFile(file),      // release
+  ///   (file) => readContents(file),   // use
+  /// );
+  /// ```
+  static Cont<A> bracket<R, A>(
+    Cont<R> acquire,
+    Cont<()> Function(R resource) release,
+    Cont<A> Function(R resource) use,
     //
   ) {
-    return Cont.fromDeferred(() {
-      final ref = Ref._(initial);
-
-      Cont<()> doProperRelease() {
-        try {
-          return release(ref);
-        } catch (error, st) {
-          return Cont.terminate([ContError(error, st)]);
+    return acquire.flatMap((resource) {
+      return Cont.fromDeferred(() {
+        Cont<()> doProperRelease() {
+          try {
+            return release(resource);
+          } catch (error, st) {
+            return Cont.terminate([ContError(error, st)]);
+          }
         }
-      }
 
-      try {
-        final mainCont = use(ref);
-        return mainCont
-            .orElseWith((errors) {
-              return doProperRelease()
-                  .orElseWith((errors2) {
-                    return Cont.terminate([...errors, ...errors2]);
-                  })
-                  .flatMap0(() {
-                    return Cont.terminate(errors);
-                  });
-            })
-            .flatMap((a) {
-              return doProperRelease().mapTo(a);
-            });
-      } catch (error, st) {
-        return doProperRelease()
-            .orElseWith((errors2) {
-              return Cont.terminate([ContError(error, st), ...errors2]);
-            })
-            .flatMap0(() {
-              return Cont.terminate([ContError(error, st)]);
-            });
-      }
+        try {
+          final mainCont = use(resource);
+          return mainCont
+              .orElseWith((errors) {
+                return doProperRelease()
+                    .orElseWith((errors2) {
+                      return Cont.terminate([...errors, ...errors2]);
+                    })
+                    .flatMap0(() {
+                      return Cont.terminate(errors);
+                    });
+              })
+              .flatMap((a) {
+                return doProperRelease().mapTo(a);
+              });
+        } catch (error, st) {
+          return doProperRelease()
+              .orElseWith((errors2) {
+                return Cont.terminate([ContError(error, st), ...errors2]);
+              })
+              .flatMap0(() {
+                return Cont.terminate([ContError(error, st)]);
+              });
+        }
+      });
     });
   }
 }
@@ -1123,43 +1139,4 @@ final class _StackSafeLoopPolicyStop<A, B> extends _StackSafeLoopPolicy<A, B> {
   final B value;
 
   const _StackSafeLoopPolicyStop(this.value);
-}
-
-/// A mutable reference used within [Cont.withRef] for resource management.
-///
-/// Provides a way to hold mutable state that can be atomically updated
-/// within continuation chains.
-final class Ref<S> {
-  S _state;
-
-  Ref._(S initial) : _state = initial;
-
-  /// Atomically commits a state transformation.
-  ///
-  /// Performs a state transformation with consistency guarantees. Receives the
-  /// state before the computation starts and the actual state after (which may
-  /// differ due to concurrent updates), allowing safe state updates.
-  ///
-  /// - [f]: Function that takes the state before and returns a continuation
-  ///   producing a function. That function receives the state after and returns
-  ///   a tuple of the new state and a result value.
-  Cont<V> commit<V>(Cont<(S, V) Function(S after)> Function(S before) f) {
-    return Cont.fromRun((observer) {
-      final before = _state;
-
-      f(before).runWith(
-        observer.copyUpdateOnValue((function) {
-          final after = _state;
-          final (S, V) commit;
-          try {
-            commit = function(after);
-            _state = commit.$1;
-            observer.onValue(commit.$2);
-          } catch (error, st) {
-            observer.onTerminate([ContError(error, st)]);
-          }
-        }),
-      );
-    });
-  }
 }
