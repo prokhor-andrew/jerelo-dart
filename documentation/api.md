@@ -69,6 +69,13 @@ Replaces the value inside a Cont with a constant.
   - `value`: `A2` - The constant value to replace with
 - **Description:** Discards the current value and replaces it with a fixed value.
 
+### hoist
+Transforms the execution of the continuation using a natural transformation.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `nt`: `_Run<A> Function(_Run<A>)` - A natural transformation function that takes a run function and returns a modified run function
+- **Description:** Applies a function that wraps or modifies the underlying run behavior. Useful for intercepting execution to add middleware-like behavior such as logging, timing, or modifying how observers receive callbacks.
+
 ## Chaining
 
 ### flatMap

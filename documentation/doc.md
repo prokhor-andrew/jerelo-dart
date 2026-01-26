@@ -97,6 +97,7 @@ As you can see, the more functions we want to compose, the uglier it becomes.
 channels, and comes with a basic interface that allows you to do every fundamental operation:
 - Construct
 - Transform
+- Hoist
 - Chain
 - Merge
 - Race
@@ -306,10 +307,44 @@ is skipped and first callback passed into `run` is invoked.
 To transform value inside `Cont`, use `map`:
 
 ```dart
-Cont.of(0).map((zero) { 
+Cont.of(0).map((zero) {
   return zero + 1;
 }).run((_) {}, print); // prints 1
 ```
+
+# Hoisting
+
+Sometimes you need to intercept or modify how a continuation executes,
+without changing the value it produces. The `hoist` operator lets you
+wrap the underlying run function with custom behavior.
+
+This is useful for adding middleware-like functionality such as:
+- Logging when execution starts
+- Adding timing/profiling
+- Wrapping with try-catch for additional error handling
+- Scheduling
+- Modifying observer behavior
+
+```dart
+final cont = Cont.of(42);
+
+// Add logging around execution
+final logged = cont.hoist((run) => (observer) {
+  print('Execution starting...');
+  run(observer);
+  print('Execution initiated');
+});
+
+logged.run((_) {}, print);
+// Prints:
+// Execution starting...
+// Execution initiated
+// 42
+```
+
+The transformation receives the original run function and returns a new one.
+The new run function can call the original at any point, allowing you to
+add behavior before, after, or around the actual execution.
 
 # Chaining
 
