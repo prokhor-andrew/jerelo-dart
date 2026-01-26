@@ -945,58 +945,6 @@ final class Cont<A> {
     });
   }
 
-  /// Schedules the subscription (start) of the continuation.
-  ///
-  /// Controls which scheduler the continuation starts on. Useful for
-  /// offloading work to a different execution context.
-  ///
-  /// - [scheduler]: Scheduler for execution.
-  Cont<A> subscribeOn(ContScheduler scheduler) {
-    return Cont.fromRun((observer) {
-      scheduler.schedule(() {
-        runWith(observer);
-      });
-    });
-  }
-
-  /// Separately schedules value and termination observations.
-  ///
-  /// Fine-grained control over callback scheduling with separate schedulers
-  /// for success and failure paths.
-  ///
-  /// - [valueOn]: Scheduler for value callback. Defaults to [ContScheduler.immediate].
-  /// - [terminateOn]: Scheduler for termination callback. Defaults to [ContScheduler.immediate].
-  Cont<A> observeChannelOn({
-    ContScheduler valueOn = ContScheduler.immediate,
-    ContScheduler terminateOn = ContScheduler.immediate,
-    //
-  }) {
-    return Cont.fromRun((observer) {
-      run(
-        (errors) {
-          terminateOn.schedule(() {
-            observer.onTerminate(errors);
-          });
-        },
-        (a) {
-          valueOn.schedule(() {
-            observer.onValue(a);
-          });
-        },
-      );
-    });
-  }
-
-  /// Schedules observation of both value and termination on the same scheduler.
-  ///
-  /// Controls which scheduler callbacks are delivered on. Both `onValue` and
-  /// `onTerminate` use the same scheduler.
-  ///
-  /// - [scheduler]: Scheduler for all callbacks.
-  Cont<A> observeOn(ContScheduler scheduler) {
-    return observeChannelOn(valueOn: scheduler, terminateOn: scheduler);
-  }
-
   /// Creates a [Cont] with a mutable reference that manages resource lifecycle.
   ///
   /// Resource management combinator that guarantees proper cleanup. The release

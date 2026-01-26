@@ -101,7 +101,6 @@ channels, and comes with a basic interface that allows you to do every fundament
 - Merge
 - Race
 - Recover
-- Schedule
 - Run
 
 
@@ -444,136 +443,6 @@ Cont.orElseAll([
 .run((_) {}, print); // prints 0
 ```
 
-# Scheduling
-
-By default, every computation is run on the same queue that `run` is called on.
-To better understand how scheduling works, we have to understand how `run` itself works.
-
-At first, when we create an edge computation via constructor, there
-is nothing wrapping it. Calling `run` on such computation will 
-immediately execute it.
-
-```dart
-// Numbers are used to demonstrate the 
-// order of instructions executed
-
-// 1
-final cont = Cont.fromRun((observer) {
-  // 3
-  observer.onValue("value");
-  // 5
-});
-
-
-// 2
-cont.run((_) {}, (value) {
-  // 4
-  print(value); // prints "value"
-});
-
-// 6
-```
-
-In the case above, when `run` is used, the closure inside `Cont.fromRun` 
-is immediately started. 
-
-When we add operators on a `Cont` object, we start creating something like
-layers of `Cont.fromRun`s. 
-
-```dart
-final cont = Cont.fromRun((observer) {
-  observer.onValue("value");
-}).map((value) {
-  return value.toUpperCase();
-});
-```
-
-The above structure can be roughly visualized as follows:
-```dart
-// pseudo code, won't compile
-Cont.fromRun((observer1) { // map's Cont.fromRun
-  Cont.fromRun((observer2) { // inner Cont.fromRun
-    ...
-  }).run(...);
-});
-```
-
-With every operator used, we create wrapper around original `Cont`, and
-later when `run` is called, we proxy runs all the way up. By default, these 
-runs are executed in a synchronous manner.
-
-In order to customize this behavior, there are two operators to be utilized:
-- `subscribeOn`
-- `observeOn`
-
-The first one schedules "upwards", while the latter "downwards":
-
-```dart
-// Numbers are used to demonstrate the 
-// order of instructions executed
-
-// 1
-final cont = Cont.fromRun((observer) {
-  // 4 - run after 2 seconds
-  observer.onValue("value");
-  // 5
-})
-.subscribeOn(ContScheduler.delayed(Duration(seconds: 2)))
-.observeOn(ContScheduler.microtask());
-
-// 2 - schedules to run after 2 seconds
-cont.run((_) {}, (value) {
-  // 6 - run as microtask
-  print(value); // prints "value"
-});
-
-// 3
-```
-
-1. At first, we construct a computation with `Cont.fromRun`.
-2. Then, we run it via `run` method. 
-- It will immediately invoke `run` on `observeOn`.
-- Then `run` on `subscribeOn`, which will immediately 
-schedule next `run` to be on `ContScheduler.delayed(Duration(seconds: 2))`.
-3. We go all the way back to our `cont.run` invocation. 
-4. Finally, after minimum 2 seconds, `Cont.fromRun`'s run is 
-triggered, emitting `value`.
-- `value` will be passed into `subscribeOn`'s success channel, 
-and propagated further downstream.
-- Then, it is passed into `observeOn`'s success channel, where it 
-schedules to run next success channel as microtask.
-- Then, it unwinds the stack all the way back 
-up to `observer.onValue("value")` in `Cont.fromRun`'s closure.
-5. Later, when microtask is ready to be executed, it finally calls
-`print(value)` from our `cont.run` closure.
-
-As you can see, both operators are used to schedule, but differ in which
-direction they do that.
-
-Another example to solidify understanding: 
-
-```dart
-Cont.fromRun((observer) {
-  // executed as microtask, because of `subscribeOn`
-  observer.onValue(199);
-})
-.subscribeOn(ContScheduler.microtask())
-.flatMap((v199) {
-  return Cont.fromRun((observer) {
-    // still executed as microtask
-    observer.onValue(599);
-  })
-  .observeOn(ContScheduler.delayed(Duration(seconds: 5)));
-})
-.flatMap((v599) {
-  // executed after 5 seconds on event queue
-  // because of `observeOn`
-  return Cont.of(799);
-})
-.run((_) { }, print); // prints 799 after min 5 seconds
-```
-
-
 # Final Example
 
 There are more operators in [api.md](api.md), and 
@@ -597,23 +466,13 @@ final cont = Cont.fromRun<int>((observer) { // constructing
       (ten, twenty) => ten + twenty,
     );
   } else {
-    final cache = Cont.of(111)
-      .observeOn(
-        ContScheduler.delayed(Duration(milliseconds: 5))
-      );
+    final cache = Cont.of(111); // 5 milliseconds
+    final network = Cont.of(222); // 80 milliseconds
 
-    final network = Cont.of(222)
-      .observeOn(
-        ContScheduler.delayed(Duration(milliseconds: 80))
-      );
-
-    // try swapping delays to see the winner to change
     return Cont.raceForWinner(cache, network); // racing
   }
 })
-.orElseWith((errors) => Cont.of(-1)) // recovering
-.observeOn(ContScheduler.delayed()) // scheduling
-.subscribeOn(ContScheduler.microtask());
+.orElseWith((errors) => Cont.of(-1)); // recovering
 
 // whenever you are ready    
 cont.run(print, print); // running
