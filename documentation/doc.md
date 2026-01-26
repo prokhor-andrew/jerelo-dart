@@ -3,12 +3,30 @@
 
 **Jerelo** is a minimal, lawful Dart functional toolkit built around 
 a CPS-based `Cont<A>` abstraction for composing synchronous/asynchronous 
-workflows with structured termination and error reporting, 
+computations with structured termination and error reporting, 
 plus practical operators for sequencing and concurrency.
+
+# What is Computation?
+
+Computation is a constructable description of **how** a value could be obtained.
+Main feature of a computation is a **separation** of **construction** from **execution**. 
+
+```dart
+
+// construction of the computation
+Future<int> getValue() {
+  return Future.delayed(Duration(seconds: 1), () {
+    return 42;
+  });
+}
+
+// execution of the computation
+getValue(); 
+```
 
 # What is Continuation?
 
-Usually when you need to encode a computation, you use functions.
+Usually when you need to encode a computation, you use functions that return a value.
 
 
 ```dart
