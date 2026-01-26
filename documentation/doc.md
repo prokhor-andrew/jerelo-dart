@@ -9,7 +9,7 @@ plus practical operators for sequencing and concurrency.
 # What is Computation?
 
 Computation is a constructable description of **how** a value could be obtained.
-Main feature of a computation is a **separation** of **construction** from **execution**. 
+Main feature of a computation is the **separation** of the **construction** from the **execution**. 
 
 ```dart
 
