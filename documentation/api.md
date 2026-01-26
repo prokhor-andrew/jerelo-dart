@@ -120,6 +120,27 @@ Chains to a constant side-effect continuation.
   - `cont`: `Cont<A2>` - The side-effect continuation
 - **Description:** Executes a fixed continuation for its side effects, preserving the original value.
 
+### forkTap
+Executes a side-effect continuation in a fire-and-forget manner.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `f`: `Cont<A2> Function(A a)` - Function that returns a side-effect continuation
+- **Description:** Unlike `flatTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started immediately, and the original value is returned without delay. Any errors from the side-effect are silently ignored.
+
+### forkTap0
+Executes a zero-argument side-effect continuation in a fire-and-forget manner.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `f`: `Cont<A2> Function()` - Zero-argument function that returns a side-effect continuation
+- **Description:** Similar to `forkTap` but ignores the current value.
+
+### forkTapTo
+Executes a constant side-effect continuation in a fire-and-forget manner.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `other`: `Cont<A2>` - The side-effect continuation to execute
+- **Description:** Similar to `forkTap0` but takes a fixed continuation instead of a function.
+
 ### flatMapZipWith
 Chains and combines two continuation values.
 - **Return type:** `Cont<A3>`

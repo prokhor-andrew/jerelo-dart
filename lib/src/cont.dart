@@ -242,6 +242,50 @@ final class Cont<A> {
     }, f);
   }
 
+  /// Executes a side-effect continuation in a fire-and-forget manner.
+  ///
+  /// Unlike [flatTap], this method does not wait for the side-effect to complete.
+  /// The side-effect continuation is started immediately, and the original value
+  /// is returned without delay. Any errors from the side-effect are silently ignored.
+  ///
+  /// - [f]: Function that takes the current value and returns a side-effect continuation.
+  Cont<A> forkTap<A2>(Cont<A2> Function(A a) f) {
+    return flatMap((a) {
+      final contA2 = f(a); // this should not be inside try-catch block
+
+      try {
+        contA2.runWith(ContObserver.ignore());
+      } catch (_) {
+        // do nothing, if anything happens to side-effect, it's not
+        // a concern of the forkTap
+      }
+
+      return Cont.of(a);
+    });
+  }
+
+  /// Executes a zero-argument side-effect continuation in a fire-and-forget manner.
+  ///
+  /// Similar to [forkTap] but ignores the current value.
+  ///
+  /// - [f]: Zero-argument function that returns a side-effect continuation.
+  Cont<A> forkTap0<A2>(Cont<A2> Function() f) {
+    return forkTap((_) {
+      return f();
+    });
+  }
+
+  /// Executes a constant side-effect continuation in a fire-and-forget manner.
+  ///
+  /// Similar to [forkTap0] but takes a fixed continuation instead of a function.
+  ///
+  /// - [other]: The side-effect continuation to execute.
+  Cont<A> forkTapTo<A2>(Cont<A2> other) {
+    return forkTap0(() {
+      return other;
+    });
+  }
+
   /// Runs a list of continuations sequentially and collects results.
   ///
   /// Executes continuations one by one, collecting all successful values.
