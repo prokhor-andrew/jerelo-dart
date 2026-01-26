@@ -78,20 +78,6 @@ final class Cont<A> {
     });
   }
 
-  /// Creates a [Cont] from a Future computation.
-  ///
-  /// Converts a Future-returning function into a continuation. Handles Future
-  /// completion via `onValue` and errors via `onTerminate`.
-  ///
-  /// - [thunk]: Function that returns a [Future] when called.
-  static Cont<A> fromFutureComp<A>(Future<A> Function() thunk) {
-    return Cont.fromRun((observer) {
-      thunk().then(observer.onValue).catchError((error, st) {
-        observer.onTerminate([ContError(error, st)]);
-      });
-    });
-  }
-
   /// Transforms the value inside a [Cont] using a pure function.
   ///
   /// Applies a function to the successful value of the continuation without

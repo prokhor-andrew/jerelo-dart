@@ -196,11 +196,10 @@ final class ContError {
 `Cont` has one base constructor:
 - `Cont.fromRun`
 
-Two utility constructors:
+One utility constructors:
 - `Cont.fromDeferred`
-- `Cont.fromFutureComp`
 
-One stateful constructor:
+One constructor with lifecycle:
 - `Cont.withRef`
 
 And lawful identities to some operators:
@@ -208,24 +207,6 @@ And lawful identities to some operators:
 - `Cont.terminate`
 
 To construct a `Cont` object - utilize any of the above.
-
-
-For example, you can wrap an existing `Future` like this:
-
-```dart
-Future<User> getUserById(String userId) {
-  // implementation omitted
-}
-
-Cont<User> getUser(String userId) {
-  return Cont.fromFutureComp(() {
-    final userFuture = getUserById(userId);
-    return userFuture;
-  });
-}
-```
-
-Or if you have callbacks, use `Cont.fromRun`:
 
 ```dart
 Cont<User> getUser(String userId) {

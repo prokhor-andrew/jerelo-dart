@@ -9,13 +9,6 @@ Creates a Cont from a run function that accepts an observer.
   - `run`: `void Function(ContObserver<A> observer)` - Function that executes the continuation
 - **Description:** Constructs a continuation with guaranteed idempotence and exception catching. The run function receives an observer with `onValue` and `onTerminate` callbacks.
 
-### Cont.fromFutureComp
-Creates a Cont from a Future computation.
-- **Return type:** `Cont<A>`
-- **Arguments:**
-  - `thunk`: `Future<A> Function()` - Function that returns a Future
-- **Description:** Converts a Future-returning function into a continuation. Handles Future completion via `onValue` and errors via `onTerminate`.
-
 ### Cont.fromDeferred
 Creates a Cont from a deferred continuation computation.
 - **Return type:** `Cont<A>`
