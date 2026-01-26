@@ -8,8 +8,8 @@ plus practical operators for sequencing and concurrency.
 
 # What is Computation?
 
-Computation is a constructable description of **how** a value could be obtained.
-Main feature of a computation is the **separation** of the **construction** from the **execution**. 
+A computation is a constructible description of how a value can be produced.
+Its key feature is the separation of construction from execution. 
 
 ```dart
 
@@ -23,6 +23,29 @@ Future<int> getValue() {
 // execution of the computation
 getValue(); 
 ```
+
+It's worth noting, that `Future<int>` is **not** a computation. 
+`getValue` is.
+
+Whenever we construct a future object, its execution starts immediately. 
+We cannot run it later. 
+
+# Composition
+
+The reason we care about computations is their ability to compose.
+
+**Composition** is a technique of combining two or more computations
+together to get a new one.
+
+Composability guarantees many important features such as:
+
+- Reusability
+- Testability
+- Substitution
+- Observability
+- Refactorability (if that's a word)
+
+and many more.
 
 # What is Continuation?
 
@@ -59,15 +82,15 @@ When the result is computed, the callback is invoked with a value.
 The classic pure function can only be executed synchronously. 
 By its encoding, it is forced to return a value immediately on the same call stack.
 In CPS, the continuation is passed, which can be saved and executed at any time later.
-This enables async programming.
+This enables asynchronous programming.
 
 
 # Why not Future?
 
 Dart's `Future` is, in fact, CPS with syntactic sugar on top of it.
-But the problem is it starts running as soon as it is created. 
-This does not allow us to separate construction of a computation from 
-execution.
+But as it was mentioned above, `Future` starts running as soon as it is created,
+thus it is not composable.
+
 
 ```dart
 
@@ -123,7 +146,7 @@ channels, and comes with a basic interface that allows you to do every fundament
 - Run
 
 
-Example:
+Example of `Cont`'s composition:
 
 ```dart
 // Cont composition
@@ -217,7 +240,7 @@ final class ContError {
 One utility constructors:
 - `Cont.fromDeferred`
 
-One constructor with lifecycle:
+One constructor with resource management:
 - `Cont.bracket`
 
 And lawful identities to some operators:
