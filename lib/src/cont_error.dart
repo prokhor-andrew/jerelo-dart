@@ -14,4 +14,9 @@ final class ContError {
   /// - [error]: The error object to wrap.
   /// - [stackTrace]: The stack trace associated with the error.
   const ContError(this.error, this.stackTrace);
+
+  @override
+  String toString() {
+    return "{ error=$error, stackTrace=$stackTrace }";
+  }
 }
