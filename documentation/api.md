@@ -69,8 +69,8 @@ Replaces the value inside a Cont with a constant.
 Transforms the execution of the continuation using a natural transformation.
 - **Return type:** `Cont<A>`
 - **Arguments:**
-  - `nt`: `_Run<A> Function(_Run<A>)` - A natural transformation function that takes a run function and returns a modified run function
-- **Description:** Applies a function that wraps or modifies the underlying run behavior. Useful for intercepting execution to add middleware-like behavior such as logging, timing, or modifying how observers receive callbacks.
+  - `f`: `void Function(void Function(ContObserver<A>) run, ContObserver<A> observer)` - A transformation function that receives the run function and observer, and implements custom execution logic
+- **Description:** Applies a function that wraps or modifies the underlying run behavior. The transformation function receives both the original run function and the observer, allowing custom execution behavior to be injected. Useful for intercepting execution to add middleware-like behavior such as logging, timing, or modifying how observers receive callbacks.
 
 ## Chaining
 

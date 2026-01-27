@@ -424,7 +424,7 @@ This is useful for adding middleware-like functionality such as:
 final cont = Cont.of(42);
 
 // Add logging around execution
-final logged = cont.hoist((run) => (observer) {
+final logged = cont.hoist((run, observer) {
   print('Execution starting...');
   run(observer);
   print('Execution initiated');
@@ -437,8 +437,8 @@ logged.run((_) {}, print);
 // 42
 ```
 
-The transformation receives the original run function and returns a new one.
-The new run function can call the original at any point, allowing you to
+The transformation receives both the original run function and the observer.
+You can call the run function with the observer at any point, allowing you to
 add behavior before, after, or around the actual execution.
 
 # Chaining

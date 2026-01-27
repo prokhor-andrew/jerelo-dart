@@ -1,7 +1,5 @@
 import 'package:jerelo/jerelo.dart';
 
-typedef _Run<A> = void Function(ContObserver<A>);
-
 /// A continuation monad representing a computation that will eventually
 /// produce a value of type [A] or terminate with errors.
 ///
@@ -121,24 +119,25 @@ final class Cont<A> {
   /// This is useful for intercepting execution to add middleware-like behavior
   /// such as logging, timing, or modifying how observers receive callbacks.
   ///
-  /// The transformation function receives the original run function and returns
-  /// a new run function that will be used when the continuation is executed.
+  /// The transformation function receives both the original run function and
+  /// the observer, allowing custom execution behavior to be injected.
   ///
-  /// - [nt]: A natural transformation function that takes a run function and
-  ///   returns a modified run function.
+  /// - [f]: A transformation function that receives the run function and observer,
+  ///   and implements custom execution logic by calling the run function with the
+  ///   observer at the appropriate time.
   ///
   /// Example:
   /// ```dart
   /// // Add logging around execution
-  /// final logged = cont.hoist((run) => (observer) {
+  /// final logged = cont.hoist((run, observer) {
   ///   print('Starting execution');
   ///   run(observer);
   ///   print('Execution initiated');
   /// });
   /// ```
-  Cont<A> hoist(_Run<A> Function(_Run<A>) nt) {
+  Cont<A> hoist(void Function(void Function(ContObserver<A>) run, ContObserver<A> observer) f) {
     return Cont.fromRun((obs) {
-      nt(runWith)(obs);
+      f(runWith, obs);
     });
   }
 
