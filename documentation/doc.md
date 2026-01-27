@@ -313,8 +313,7 @@ the `bracket` pattern guarantees the resource is released even if an error occur
 ```dart
 Cont<String> readFileContents(String path) {
   return Cont.bracket<RandomAccessFile, String>(
-    // acquire: open the file
-    Cont.fromRun((observer) {
+    acquire: Cont.fromRun((observer) {
       try {
         final file = File(path).openSync();
         observer.onValue(file);
@@ -322,8 +321,7 @@ Cont<String> readFileContents(String path) {
         observer.onTerminate([ContError(error, st)]);
       }
     }),
-    // release: close the file (always runs)
-    (file) => Cont.fromRun((observer) {
+    release: (file) => Cont.fromRun((observer) {
       try {
         file.closeSync();
         observer.onValue(());
@@ -331,8 +329,7 @@ Cont<String> readFileContents(String path) {
         observer.onTerminate([ContError(error, st)]);
       }
     }),
-    // use: read the contents
-    (file) => Cont.fromRun((observer) {
+    use: (file) => Cont.fromRun((observer) {
       try {
         final contents = file.readStringSync();
         observer.onValue(contents);

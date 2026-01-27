@@ -994,17 +994,17 @@ final class Cont<A> {
   /// Example:
   /// ```dart
   /// final result = Cont.bracket<File, String>(
-  ///   openFile('data.txt'),           // acquire
-  ///   (file) => closeFile(file),      // release
-  ///   (file) => readContents(file),   // use
+  ///   acquire: openFile('data.txt'),           // acquire
+  ///   release: (file) => closeFile(file),      // release
+  ///   use: (file) => readContents(file),   // use
   /// );
   /// ```
-  static Cont<A> bracket<R, A>(
-    Cont<R> acquire,
-    Cont<()> Function(R resource) release,
-    Cont<A> Function(R resource) use,
+  static Cont<A> bracket<R, A>({
+    required Cont<R> acquire,
+    required Cont<()> Function(R resource) release,
+    required Cont<A> Function(R resource) use,
     //
-  ) {
+  }) {
     return acquire.flatMap((resource) {
       return Cont.fromDeferred(() {
         Cont<()> doProperRelease() {
