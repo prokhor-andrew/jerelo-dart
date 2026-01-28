@@ -1085,6 +1085,31 @@ extension ContFlattenExtension<A> on Cont<Cont<A>> {
   }
 }
 
+/// Extension for running continuations that never produce a value.
+///
+/// This extension provides specialized methods for [Cont]<[Never]> where only
+/// termination is expected, simplifying the API by removing the unused value callback.
+extension ContRunExtension on Cont<Never> {
+  /// Executes the continuation expecting only termination.
+  ///
+  /// This is a convenience method for [Cont]<[Never]> that executes the
+  /// continuation with only a termination handler, since a value callback
+  /// would never be called for a [Cont]<[Never]>.
+  ///
+  /// - [onTerminate]: Callback invoked when the continuation terminates with errors.
+  ///
+  /// Example:
+  /// ```dart
+  /// final cont = Cont.terminate([ContError(Exception('Failed'), StackTrace.current)]);
+  /// cont.trap((errors) {
+  ///   print('Terminated with ${errors.length} error(s)');
+  /// });
+  /// ```
+  void trap(void Function(List<ContError>) onTerminate) {
+    run(onTerminate, (_) {});
+  }
+}
+
 void _stackSafeLoop<A, B, C>({
   required A seed,
   required _StackSafeLoopPolicy<B, C> Function(A) keepRunningIf,

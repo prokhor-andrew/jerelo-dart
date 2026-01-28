@@ -296,6 +296,13 @@ Flattens a nested Cont structure.
 - **Arguments:** None
 - **Description:** Converts `Cont<Cont<A>>` to `Cont<A>`. Equivalent to `flatMap((contA) => contA)`.
 
+### trap
+Executes a continuation that never produces a value.
+- **Return type:** `void` (on `Cont<Never>`)
+- **Arguments:**
+  - `onTerminate`: `void Function(List<ContError> errors)` - Callback for termination
+- **Description:** Convenience method for `Cont<Never>` that executes the continuation with only a termination handler. Since `Cont<Never>` never produces a value, the value callback is unnecessary and omitted.
+
 ## Running
 
 ### run
