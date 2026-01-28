@@ -270,16 +270,16 @@ Tries multiple continuations until one succeeds.
   - `list`: `List<Cont<A>>` - List of continuations to try sequentially
 - **Description:** Executes continuations one by one until one succeeds. Terminates only if all fail.
 
-## Filtering
+## Branching
 
 ### ifThenElse
 Conditionally branches to different continuations based on a predicate.
 - **Return type:** `Cont<A2>`
 - **Arguments:**
-  - `predicate`: `bool Function(A)` - Function that tests the current value
+  - `predicate`: `Cont<bool> Function(A)` - Function that tests the current value and returns a continuation
   - `thenF`: `Cont<A2> Function(A)` - Function to execute if predicate returns true
   - `elseF`: `Cont<A2> Function(A)` - Function to execute if predicate returns false
-- **Description:** Evaluates the predicate against the current value and executes either the `thenF` branch (if true) or the `elseF` branch (if false). Both branches receive the current value and can return a continuation with a different result type.
+- **Description:** Evaluates the predicate against the current value and executes either the `thenF` branch (if true) or the `elseF` branch (if false). Both branches receive the current value and can return a continuation with a different result type. The predicate itself returns a continuation, allowing for effectful condition checking.
 
 ### filter
 Conditionally allows a value to pass through.
@@ -374,3 +374,9 @@ The error object.
 The stack trace.
 - **Type:** `StackTrace`
 - **Description:** Public final field containing the stack trace where the error occurred.
+
+### toString
+Returns a string representation of the error.
+- **Return type:** `String`
+- **Arguments:** None
+- **Description:** Provides a readable string representation of the error in the format `{ error=<error>, stackTrace=<stackTrace> }`.

@@ -485,18 +485,15 @@ final class Cont<A> {
   /// );
   /// ```
   Cont<A2> ifThenElse<A2>(
-    bool Function(A) predicate, {
+    Cont<bool> Function(A) predicate, {
     required Cont<A2> Function(A) thenF,
     required Cont<A2> Function(A) elseF,
     //
   }) {
     return flatMap((a) {
-      final condition = predicate(a);
-      if (condition) {
-        return thenF(a);
-      } else {
-        return elseF(a);
-      }
+      return predicate(a).flatMap((condition) {
+        return condition ? thenF(a) : elseF(a);
+      });
     });
   }
 
@@ -508,7 +505,7 @@ final class Cont<A> {
   /// - [f]: Predicate function to test the value.
   Cont<A> filter(bool Function(A value) f) {
     return ifThenElse(
-      f,
+      (a) => Cont.of(f(a)),
       thenF: Cont.of,
       elseF: (_) {
         return Cont.terminate();
