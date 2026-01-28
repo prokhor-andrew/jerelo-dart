@@ -573,8 +573,6 @@ getUserById(userId)
   );
 ```
 
-## Guard Pattern
-
 The `guard/fail/pass` operators provide an alternative branching API with inverted
 semantics compared to `when/then/other`. While `when/then/other` reads as "if condition
 then do this, otherwise do that", the guard pattern reads as "guard against failure by
