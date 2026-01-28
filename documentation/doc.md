@@ -140,6 +140,7 @@ channels, and comes with a basic interface that allows you to do every fundament
 - Transform
 - Hoist
 - Chain
+- Branch
 - Merge
 - Race
 - Recover
@@ -421,7 +422,8 @@ This is useful for adding middleware-like functionality such as:
 - Modifying observer behavior
 
 ```dart
-final cont = Cont.of(42);
+// `delay` is not real operator, it simulates delayed computation
+final cont = Cont.of(42).delay(Duration(milliseconds: 2)); 
 
 // Add logging around execution
 final logged = cont.hoist((run, observer) {
@@ -568,8 +570,8 @@ This is called `raceForWinner`:
 
 ```dart
 Cont.raceForWinner(
-  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
-  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
 ).run((_) {}, print); // prints "second"
 ```
 
@@ -581,8 +583,8 @@ In case you want to get the last non-terminating value, use `raceForLoser`:
 
 ```dart
 Cont.raceForLoser(
-  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
-  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
 ).run((_) {}, print); // prints "first"
 ```
 
@@ -594,9 +596,9 @@ There are also two variants for `List<Cont<A>>` - `raceForWinnerAll`:
 
 ```dart
 Cont.raceForWinnerAll([
-  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
-  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
-  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
 ]).run((_) {}, print); // prints "second"
 ```
 
@@ -604,9 +606,9 @@ And `raceForLoserAll`:
 
 ```dart
 Cont.raceForLoserAll([
-  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
-  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
-  Cont.fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
 ]).run((_) {}, print); // prints "third"
 ```
 
