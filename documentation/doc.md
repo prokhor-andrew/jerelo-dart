@@ -573,6 +573,65 @@ getUserById(userId)
   );
 ```
 
+## Guard Pattern
+
+The `guard/fail/pass` operators provide an alternative branching API with inverted
+semantics compared to `when/then/other`. While `when/then/other` reads as "if condition
+then do this, otherwise do that", the guard pattern reads as "guard against failure by
+checking a condition; if it fails do this, if it passes do that".
+
+This pattern is particularly useful for validation scenarios where you want to express
+early exit conditions more explicitly:
+
+```dart
+Cont<User> validateAndProcessUser(String userId) {
+  return getUser(userId)
+    .guard((user) => Cont.of(user.isActive))
+    .fail((user) => Cont.terminate([
+      ContError("User ${user.id} is not active", StackTrace.current)
+    ]))
+    .pass((user) => processUser(user));
+}
+```
+
+The guard pattern follows this execution flow:
+- If the condition is **false**, the `fail` branch executes
+- If the condition is **true**, the `pass` branch executes
+
+This is semantically equivalent to `when`, but with different naming that makes
+validation logic more readable:
+
+```dart
+// Using when/then/other (condition-first thinking)
+Cont.of(user)
+  .when((u) => Cont.of(u.age >= 18))
+  .then((u) => processAdult(u))
+  .other((u) => rejectMinor(u));
+
+// Using guard/fail/pass (validation-first thinking)
+Cont.of(user)
+  .guard((u) => Cont.of(u.age >= 18))
+  .fail((u) => rejectMinor(u))
+  .pass((u) => processAdult(u));
+```
+
+Like the other branching operators, guard comes with variants that ignore the current value:
+- `guard0` / `fail0` / `pass0` - Take zero-argument functions
+- `guardTo` / `failTo` / `passTo` - Take constant continuations
+
+```dart
+Cont.of(request)
+  .guard0(() => checkRateLimit()) // Check external condition
+  .fail0(() => Cont.terminate([
+    ContError("Rate limit exceeded", StackTrace.current)
+  ]))
+  .pass((req) => handleRequest(req))
+  .run((_) {}, print);
+```
+
+The guard pattern is internally implemented using `when/then/other`, making it a
+zero-cost abstraction that simply provides better semantic clarity for guard-style logic.
+
 # Racing
 
 You can also run independent computations, and pick the first successful value.

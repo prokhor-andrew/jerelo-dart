@@ -234,6 +234,69 @@ Specifies the false branch with a constant continuation.
     - `cont`: `Cont<A2>` - A fixed continuation for the false branch
 - **Description:** Similar to `other0` but takes a constant continuation.
 
+### guard
+Creates a guarded conditional branch by evaluating a predicate.
+- **Return type:** `ContFailBuilder<A>`
+- **Arguments:**
+    - `f`: `Cont<bool> Function(A)` - Function that tests the current value and returns a continuation
+- **Description:** Starts a fluent guard expression. Unlike `when`, guard inverts the branching logic: when the condition is true, the `pass` branch executes; when false, the `fail` branch executes. Chain with `fail` to specify the false branch.
+
+### guard0
+Creates a guarded conditional branch with a zero-argument predicate.
+- **Return type:** `ContFailBuilder<A>`
+- **Arguments:**
+    - `f`: `Cont<bool> Function()` - Zero-argument function that returns a boolean continuation
+- **Description:** Similar to `guard` but ignores the current value. Useful for guard expressions based on external state.
+
+### guardTo
+Creates a guarded conditional branch with a constant boolean continuation.
+- **Return type:** `ContFailBuilder<A>`
+- **Arguments:**
+    - `cont`: `Cont<bool>` - A fixed boolean continuation
+- **Description:** Similar to `guard0` but takes a constant continuation instead of a function.
+
+### fail (on ContFailBuilder)
+Specifies the false branch of a guard expression.
+- **Return type:** `ContPassBuilder<A, A2>`
+- **Arguments:**
+    - `f`: `Cont<A2> Function(A)` - Function to execute if predicate is false
+- **Description:** Defines what happens when the predicate evaluates to false. The function receives the original value and can return a continuation with a different type. Chain with `pass` to complete the guard.
+
+### fail0 (on ContFailBuilder)
+Specifies the false branch with a zero-argument function.
+- **Return type:** `ContPassBuilder<A, A2>`
+- **Arguments:**
+    - `f`: `Cont<A2> Function()` - Zero-argument function for the false branch
+- **Description:** Similar to `fail` but ignores the current value.
+
+### failTo (on ContFailBuilder)
+Specifies the false branch with a constant continuation.
+- **Return type:** `ContPassBuilder<A, A2>`
+- **Arguments:**
+    - `cont`: `Cont<A2>` - A fixed continuation for the false branch
+- **Description:** Similar to `fail0` but takes a constant continuation.
+
+### pass (on ContPassBuilder)
+Specifies the true branch to complete a guard expression.
+- **Return type:** `Cont<A2>`
+- **Arguments:**
+    - `f`: `Cont<A2> Function(A)` - Function to execute if predicate is true
+- **Description:** Completes the guard expression by defining what happens when the predicate evaluates to true. The function receives the original value and must return the same type as the `fail` branch.
+
+### pass0 (on ContPassBuilder)
+Specifies the true branch with a zero-argument function.
+- **Return type:** `Cont<A2>`
+- **Arguments:**
+    - `f`: `Cont<A2> Function()` - Zero-argument function for the true branch
+- **Description:** Similar to `pass` but ignores the current value.
+
+### passTo (on ContPassBuilder)
+Specifies the true branch with a constant continuation.
+- **Return type:** `Cont<A2>`
+- **Arguments:**
+    - `cont`: `Cont<A2>` - A fixed continuation for the true branch
+- **Description:** Similar to `pass0` but takes a constant continuation.
+
 ### filter
 Conditionally allows a value to pass through.
 - **Return type:** `Cont<A>`
