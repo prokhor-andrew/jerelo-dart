@@ -248,12 +248,12 @@ final class Cont<A> {
   ///
   /// Sequences to a fixed continuation and combines their results.
   ///
-  /// - [other]: The second continuation.
-  /// - [f]: Function to combine both values into a result.
-  Cont<A3> flatMapZipWithTo<A2, A3>(Cont<A2> other, A3 Function(A a1, A2 a2) f) {
+  /// - [cont]: The second continuation.
+  /// - [combine]: Function to combine both values into a result.
+  Cont<A3> flatMapZipWithTo<A2, A3>(Cont<A2> cont, A3 Function(A a1, A2 a2) combine) {
     return flatMapZipWith0(() {
-      return other;
-    }, f);
+      return cont;
+    }, combine);
   }
 
   /// Executes a side-effect continuation in a fire-and-forget manner.
@@ -293,10 +293,10 @@ final class Cont<A> {
   ///
   /// Similar to [forkTap0] but takes a fixed continuation instead of a function.
   ///
-  /// - [other]: The side-effect continuation to execute.
-  Cont<A> forkTapTo<A2>(Cont<A2> other) {
+  /// - [cont]: The side-effect continuation to execute.
+  Cont<A> forkTapTo<A2>(Cont<A2> cont) {
     return forkTap0(() {
-      return other;
+      return cont;
     });
   }
 
@@ -397,10 +397,10 @@ final class Cont<A> {
   ///
   /// If the continuation terminates, tries the fixed alternative.
   ///
-  /// - [other]: The fallback continuation.
-  Cont<A> orElseTo(Cont<A> other) {
+  /// - [cont]: The fallback continuation.
+  Cont<A> orElseTo(Cont<A> cont) {
     return orElse0(() {
-      return other;
+      return cont;
     });
   }
 
@@ -507,19 +507,19 @@ final class Cont<A> {
   ///
   /// - [left]: First continuation.
   /// - [right]: Second continuation.
-  /// - [f]: Function to combine results from both continuations.
-  static Cont<C> both<A, B, C>(
-    Cont<A> left,
-    Cont<B> right,
-    C Function(A a, B b) f,
+  /// - [combine]: Function to combine results from both continuations.
+  static Cont<A3> both<A1, A2, A3>(
+    Cont<A1> left,
+    Cont<A2> right,
+    A3 Function(A1 a1, A2 a2) combine,
     //
   ) {
     return Cont.fromRun((observer) {
       bool isOneFail = false;
       bool isOneValue = false;
 
-      A? outerA;
-      B? outerB;
+      A1? outerA1;
+      A2? outerA2;
       final List<ContError> resultErrors = [];
 
       void handleValue() {
@@ -533,7 +533,7 @@ final class Cont<A> {
         }
 
         try {
-          final c = f(outerA as A, outerB as B);
+          final c = combine(outerA1 as A1, outerA2 as A2);
           observer.onValue(c);
         } catch (error, st) {
           observer.onTerminate([ContError(error, st)]);
@@ -559,7 +559,7 @@ final class Cont<A> {
             },
             (a) {
               // strict order must be followed
-              outerA = a;
+              outerA1 = a;
               handleValue();
             },
           ),
@@ -580,7 +580,7 @@ final class Cont<A> {
             },
             (b) {
               // strict order must be followed
-              outerB = b;
+              outerA2 = b;
               handleValue();
             },
           ),
@@ -597,14 +597,14 @@ final class Cont<A> {
   ///
   /// Convenient instance method wrapper for [Cont.both].
   ///
-  /// - [other]: The other continuation to run in parallel.
-  /// - [f]: Function to combine results from both continuations.
-  Cont<C> and<B, C>(
-    Cont<B> other,
-    C Function(A a, B b) f,
+  /// - [cont]: The other continuation to run in parallel.
+  /// - [combine]: Function to combine results from both continuations.
+  Cont<A3> and<A2, A3>(
+    Cont<A2> cont,
+    A3 Function(A a1, A2 a2) combine,
     //
   ) {
-    return Cont.both(this, other, f);
+    return Cont.both(this, cont, combine);
   }
 
   /// Runs multiple continuations in parallel and collects all results.
@@ -821,18 +821,18 @@ final class Cont<A> {
   ///
   /// Convenient instance method wrapper for [Cont.raceForWinner].
   ///
-  /// - [other]: The other continuation to race with.
-  Cont<A> raceForWinnerWith(Cont<A> other) {
-    return Cont.raceForWinner(this, other);
+  /// - [cont]: The other continuation to race with.
+  Cont<A> raceForWinnerWith(Cont<A> cont) {
+    return Cont.raceForWinner(this, cont);
   }
 
   /// Instance method to race for loser with another continuation.
   ///
   /// Convenient instance method wrapper for [Cont.raceForLoser].
   ///
-  /// - [other]: The other continuation to race with.
-  Cont<A> raceForLoserWith(Cont<A> other) {
-    return Cont.raceForLoser(this, other);
+  /// - [cont]: The other continuation to race with.
+  Cont<A> raceForLoserWith(Cont<A> cont) {
+    return Cont.raceForLoser(this, cont);
   }
 
   /// Races multiple continuations for the first success.
@@ -1043,7 +1043,9 @@ extension ContFlattenExtension<A> on Cont<Cont<A>> {
   ///
   /// Converts `Cont<Cont<A>>` to `Cont<A>`. Equivalent to `flatMap((contA) => contA)`.
   Cont<A> flatten() {
-    return flatMap((contA) => contA);
+    return flatMap((contA) {
+      return contA;
+    });
   }
 }
 

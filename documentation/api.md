@@ -134,7 +134,7 @@ Executes a zero-argument side-effect continuation in a fire-and-forget manner.
 Executes a constant side-effect continuation in a fire-and-forget manner.
 - **Return type:** `Cont<A>`
 - **Arguments:**
-  - `other`: `Cont<A2>` - The side-effect continuation to execute
+  - `cont`: `Cont<A2>` - The side-effect continuation to execute
 - **Description:** Similar to `forkTap0` but takes a fixed continuation instead of a function.
 
 ### flatMapZipWith
@@ -157,8 +157,8 @@ Chains and combines with a zero-argument function.
 Chains and combines with a constant continuation.
 - **Return type:** `Cont<A3>`
 - **Arguments:**
-  - `other`: `Cont<A2>` - The second continuation
-  - `f`: `A3 Function(A a1, A2 a2)` - Function to combine both values
+  - `cont`: `Cont<A2>` - The second continuation
+  - `combine`: `A3 Function(A a1, A2 a2)` - Function to combine both values
 - **Description:** Sequences to a fixed continuation and combines their results.
 
 ### Cont.sequence
@@ -309,19 +309,26 @@ Conditionally allows a value to pass through.
 
 ### Cont.both
 Runs two continuations in parallel and combines their results.
-- **Return type:** `Cont<C>`
+- **Return type:** `Cont<A3>`
+- **Type parameters:**
+  - `A1` - The type of the first continuation's result
+  - `A2` - The type of the second continuation's result
+  - `A3` - The type of the combined result
 - **Arguments:**
-  - `left`: `Cont<A>` - First continuation
-  - `right`: `Cont<B>` - Second continuation
-  - `f`: `C Function(A a, B b)` - Function to combine results
+  - `left`: `Cont<A1>` - First continuation
+  - `right`: `Cont<A2>` - Second continuation
+  - `combine`: `A3 Function(A1 a1, A2 a2)` - Function to combine results
 - **Description:** Executes both continuations concurrently. Succeeds when both succeed, terminates if either fails.
 
 ### and
 Instance method for combining with another continuation.
-- **Return type:** `Cont<C>`
+- **Return type:** `Cont<A3>`
+- **Type parameters:**
+  - `A2` - The type of the other continuation's result
+  - `A3` - The type of the combined result
 - **Arguments:**
-  - `other`: `Cont<B>` - The other continuation
-  - `f`: `C Function(A a, B b)` - Function to combine results
+  - `cont`: `Cont<A2>` - The other continuation
+  - `combine`: `A3 Function(A a1, A2 a2)` - Function to combine results
 - **Description:** Convenient instance method wrapper for `Cont.both`.
 
 ### Cont.all
@@ -345,7 +352,7 @@ Races two continuations, returning the first successful value.
 Instance method to race with another continuation.
 - **Return type:** `Cont<A>`
 - **Arguments:**
-  - `other`: `Cont<A>` - The other continuation to race with
+  - `cont`: `Cont<A>` - The other continuation to race with
 - **Description:** Convenient instance method wrapper for `Cont.raceForWinner`.
 
 ### Cont.raceForWinnerAll
@@ -367,7 +374,7 @@ Races two continuations, returning the value from the last to complete.
 Instance method to race for loser with another continuation.
 - **Return type:** `Cont<A>`
 - **Arguments:**
-  - `other`: `Cont<A>` - The other continuation to race with
+  - `cont`: `Cont<A>` - The other continuation to race with
 - **Description:** Convenient instance method wrapper for `Cont.raceForLoser`.
 
 ### Cont.raceForLoserAll
@@ -397,7 +404,7 @@ Provides a zero-argument fallback continuation.
 Provides a constant fallback continuation.
 - **Return type:** `Cont<A>`
 - **Arguments:**
-  - `other`: `Cont<A>` - The fallback continuation
+  - `cont`: `Cont<A>` - The fallback continuation
 - **Description:** If the continuation terminates, tries the fixed alternative.
 
 ### Cont.orElseAll
