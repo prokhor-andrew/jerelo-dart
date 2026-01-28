@@ -138,7 +138,6 @@ As you can see, the more functions we want to compose, the uglier it becomes.
 channels, and comes with a basic interface that allows you to do every fundamental operation:
 - Construct
 - Transform
-- Hoist
 - Chain
 - Branch
 - Merge
@@ -407,8 +406,6 @@ Cont.of(0).map((zero) {
   return zero + 1;
 }).run((_) {}, print); // prints 1
 ```
-
-# Hoisting
 
 Sometimes you need to intercept or modify how a continuation executes,
 without changing the value it produces. The `hoist` operator lets you
