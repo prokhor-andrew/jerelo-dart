@@ -137,13 +137,13 @@ As you can see, the more functions we want to compose, the uglier it becomes.
 **Cont** is a type that represents an arbitrary computation. It has two result 
 channels, and comes with a basic interface that allows you to do every fundamental operation:
 - Construct
+- Run
 - Transform
 - Chain
 - Branch
 - Merge
 - Race
 - Recover
-- Run
 
 
 Example of `Cont`'s composition:
@@ -399,6 +399,7 @@ is skipped and first callback passed into `run` is invoked.
 
 # Transforming
 
+## Mapping
 To transform value inside `Cont`, use `map`:
 
 ```dart
@@ -406,6 +407,8 @@ Cont.of(0).map((zero) {
   return zero + 1;
 }).run((_) {}, print); // prints 1
 ```
+
+## Hoisting
 
 Sometimes you need to intercept or modify how a continuation executes,
 without changing the value it produces. The `hoist` operator lets you
@@ -496,6 +499,7 @@ Cont.all(contList).run((_) {}, print); // prints [1, 2, 3]
 
 # Branching
 
+## If-then-else
 Sometimes you need to conditionally execute different computations based on
 the current value. Jerelo provides a fluent API for branching logic that works
 within the continuation context.
@@ -537,41 +541,7 @@ Cont.of(user)
   .other0(() => Cont.terminate())
   .run((_) {}, print);
 ```
-
-The `filter` operator allows values to pass through only if they satisfy a predicate.
-If the predicate returns false, the continuation terminates silently (without errors).
-The predicate itself returns a `Cont<bool>`, allowing for effectful filtering.
-
-```dart
-Cont.of(42)
-  .filter((n) => Cont.of(n > 50))
-  .run(
-    (_) => print("Terminated"), // prints "Terminated"
-    print,
-  );
-
-Cont.of(42)
-  .filter((n) => Cont.of(n > 0))
-  .run(
-    (_) => print("Terminated"),
-    print, // prints 42
-  );
-```
-
-This is particularly useful for validation chains or when you want to
-short-circuit computation based on certain conditions. Note that `filter`
-is now internally implemented using the branching operators (`when(f).then(Cont.of).other0(Cont.terminate)`):
-
-```dart
-getUserById(userId)
-  .filter((user) => Cont.of(user.isActive))
-  .filter((user) => Cont.of(user.hasPermission('read')))
-  .flatMap((user) => loadUserData(user))
-  .run(
-    (_) => print("User doesn't meet requirements"),
-    (data) => print("User data: $data"),
-  );
-```
+## Guard-fail-pass
 
 The `guard/fail/pass` operators provide an alternative branching API with inverted
 semantics compared to `when/then/other`. While `when/then/other` reads as "if condition
@@ -630,8 +600,46 @@ Cont.of(request)
 The guard pattern is internally implemented using `when/then/other`, making it a
 zero-cost abstraction that simply provides better semantic clarity for guard-style logic.
 
+
+## Filtering
+The `filter` operator allows values to pass through only if they satisfy a predicate.
+If the predicate returns false, the continuation terminates silently (without errors).
+The predicate itself returns a `Cont<bool>`, allowing for effectful filtering.
+
+```dart
+Cont.of(42)
+  .filter((n) => Cont.of(n > 50))
+  .run(
+    (_) => print("Terminated"), // prints "Terminated"
+    print,
+  );
+
+Cont.of(42)
+  .filter((n) => Cont.of(n > 0))
+  .run(
+    (_) => print("Terminated"),
+    print, // prints 42
+  );
+```
+
+This is particularly useful for validation chains or when you want to
+short-circuit computation based on certain conditions. Note that `filter`
+is now internally implemented using the branching operators (`when(f).then(Cont.of).other0(Cont.terminate)`):
+
+```dart
+getUserById(userId)
+  .filter((user) => Cont.of(user.isActive))
+  .filter((user) => Cont.of(user.hasPermission('read')))
+  .flatMap((user) => loadUserData(user))
+  .run(
+    (_) => print("User doesn't meet requirements"),
+    (data) => print("User data: $data"),
+  );
+```
+
 # Racing
 
+## For winner
 You can also run independent computations, and pick the first successful value.
 This is called `raceForWinner`:
 
@@ -646,6 +654,18 @@ Note on `raceForWinner`, it will emit the value as soon as it is available,
 without waiting for other computations to complete.
 
 
+There is also a variant for `List<Cont<A>>` - `raceForWinnerAll`:
+
+```dart
+Cont.raceForWinnerAll([
+  fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
+  fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
+]).run((_) {}, print); // prints "second"
+```
+
+## For loser
+
 In case you want to get the last non-terminating value, use `raceForLoser`:
 
 ```dart
@@ -658,18 +678,8 @@ Cont.raceForLoser(
 In the loser case, all computations must be finished, in order to properly determine
 last non-terminating value.
 
-There are also two variants for `List<Cont<A>>` - `raceForWinnerAll`:
 
-
-```dart
-Cont.raceForWinnerAll([
-  fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
-  fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
-  fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
-]).run((_) {}, print); // prints "second"
-```
-
-And `raceForLoserAll`:
+List variant is called `raceForLoserAll`:
 
 ```dart
 Cont.raceForLoserAll([
