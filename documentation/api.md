@@ -272,6 +272,15 @@ Tries multiple continuations until one succeeds.
 
 ## Filtering
 
+### ifThenElse
+Conditionally branches to different continuations based on a predicate.
+- **Return type:** `Cont<A2>`
+- **Arguments:**
+  - `predicate`: `bool Function(A)` - Function that tests the current value
+  - `thenF`: `Cont<A2> Function(A)` - Function to execute if predicate returns true
+  - `elseF`: `Cont<A2> Function(A)` - Function to execute if predicate returns false
+- **Description:** Evaluates the predicate against the current value and executes either the `thenF` branch (if true) or the `elseF` branch (if false). Both branches receive the current value and can return a continuation with a different result type.
+
 ### filter
 Conditionally allows a value to pass through.
 - **Return type:** `Cont<A>`

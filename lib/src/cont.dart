@@ -465,6 +465,41 @@ final class Cont<A> {
     });
   }
 
+  /// Conditionally branches to different continuations based on a predicate.
+  ///
+  /// Evaluates the predicate against the current value and executes either
+  /// the `thenF` branch if the predicate returns true, or the `elseF` branch
+  /// if it returns false. Both branches receive the current value and return
+  /// a continuation that can have a different result type.
+  ///
+  /// - [predicate]: Function that tests the current value to determine which branch to take.
+  /// - [thenF]: Function to execute if the predicate returns true. Receives the current value.
+  /// - [elseF]: Function to execute if the predicate returns false. Receives the current value.
+  ///
+  /// Example:
+  /// ```dart
+  /// Cont.of(42).ifThenElse(
+  ///   (n) => n > 0,
+  ///   thenF: (n) => Cont.of('positive: $n'),
+  ///   elseF: (n) => Cont.of('non-positive: $n'),
+  /// );
+  /// ```
+  Cont<A2> ifThenElse<A2>(
+    bool Function(A) predicate, {
+    required Cont<A2> Function(A) thenF,
+    required Cont<A2> Function(A) elseF,
+    //
+  }) {
+    return flatMap((a) {
+      final condition = predicate(a);
+      if (condition) {
+        return thenF(a);
+      } else {
+        return elseF(a);
+      }
+    });
+  }
+
   /// Conditionally allows a value to pass through.
   ///
   /// If the predicate returns false, the continuation terminates without errors.
@@ -472,13 +507,13 @@ final class Cont<A> {
   ///
   /// - [f]: Predicate function to test the value.
   Cont<A> filter(bool Function(A value) f) {
-    return flatMap((a) {
-      if (!f(a)) {
-        return Cont.terminate<A>();
-      }
-
-      return Cont.of(a);
-    });
+    return ifThenElse(
+      f,
+      thenF: Cont.of,
+      elseF: (_) {
+        return Cont.terminate();
+      },
+    );
   }
 
   /// Creates a [Cont] that immediately succeeds with a value.
