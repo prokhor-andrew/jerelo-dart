@@ -472,7 +472,7 @@ final class Cont<A> {
   /// if it returns false. Both branches receive the current value and return
   /// a continuation that can have a different result type.
   ///
-  /// - [predicate]: Function that tests the current value to determine which branch to take.
+  /// - [ifF]: Function that tests the current value to determine which branch to take.
   /// - [thenF]: Function to execute if the predicate returns true. Receives the current value.
   /// - [elseF]: Function to execute if the predicate returns false. Receives the current value.
   ///
@@ -485,13 +485,13 @@ final class Cont<A> {
   /// );
   /// ```
   Cont<A2> ifThenElse<A2>(
-    Cont<bool> Function(A) predicate, {
+    Cont<bool> Function(A) ifF, {
     required Cont<A2> Function(A) thenF,
     required Cont<A2> Function(A) elseF,
     //
   }) {
     return flatMap((a) {
-      return predicate(a).flatMap((condition) {
+      return ifF(a).flatMap((condition) {
         return condition ? thenF(a) : elseF(a);
       });
     });
