@@ -364,7 +364,7 @@ final class Cont<A> {
   /// errors from both attempts if the fallback also fails.
   ///
   /// - [f]: Function that receives errors and produces a fallback continuation.
-  Cont<A> orElseWith(Cont<A> Function(List<ContError> errors) f) {
+  Cont<A> orElse(Cont<A> Function(List<ContError> errors) f) {
     return Cont.fromRun((observer) {
       runWith(
         observer.copyUpdateOnTerminate((errors) {
@@ -384,11 +384,11 @@ final class Cont<A> {
 
   /// Provides a zero-argument fallback continuation.
   ///
-  /// Similar to [orElseWith] but doesn't use the error information.
+  /// Similar to [orElse] but doesn't use the error information.
   ///
   /// - [f]: Zero-argument function that produces a fallback continuation.
-  Cont<A> orElseWith0(Cont<A> Function() f) {
-    return orElseWith((_) {
+  Cont<A> orElse0(Cont<A> Function() f) {
+    return orElse((_) {
       return f();
     });
   }
@@ -398,8 +398,8 @@ final class Cont<A> {
   /// If the continuation terminates, tries the fixed alternative.
   ///
   /// - [other]: The fallback continuation.
-  Cont<A> orElse(Cont<A> other) {
-    return orElseWith0(() {
+  Cont<A> orElseTo(Cont<A> other) {
+    return orElse0(() {
       return other;
     });
   }
@@ -1049,9 +1049,9 @@ final class Cont<A> {
         try {
           final mainCont = use(resource);
           return mainCont
-              .orElseWith((errors) {
+              .orElse((errors) {
                 return doProperRelease()
-                    .orElseWith((errors2) {
+                    .orElse((errors2) {
                       return Cont.terminate([...errors, ...errors2]);
                     })
                     .flatMap0(() {
@@ -1063,7 +1063,7 @@ final class Cont<A> {
               });
         } catch (error, st) {
           return doProperRelease()
-              .orElseWith((errors2) {
+              .orElse((errors2) {
                 return Cont.terminate([ContError(error, st), ...errors2]);
               })
               .flatMap0(() {

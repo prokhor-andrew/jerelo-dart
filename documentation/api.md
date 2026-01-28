@@ -168,6 +168,26 @@ Runs a list of continuations sequentially and collects results.
   - `list`: `List<Cont<A>>` - List of continuations to execute
 - **Description:** Executes continuations one by one, collecting all successful values. Terminates on first error with stack-safe recursion.
 
+
+## Branching
+
+### ifThenElse
+Conditionally branches to different continuations based on a predicate.
+- **Return type:** `Cont<A2>`
+- **Arguments:**
+    - `predicate`: `Cont<bool> Function(A)` - Function that tests the current value and returns a continuation
+    - `thenF`: `Cont<A2> Function(A)` - Function to execute if predicate returns true
+    - `elseF`: `Cont<A2> Function(A)` - Function to execute if predicate returns false
+- **Description:** Evaluates the predicate against the current value and executes either the `thenF` branch (if true) or the `elseF` branch (if false). Both branches receive the current value and can return a continuation with a different result type. The predicate itself returns a continuation, allowing for effectful condition checking.
+
+### filter
+Conditionally allows a value to pass through.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+    - `f`: `bool Function(A value)` - Predicate function
+- **Description:** If the predicate returns false, the continuation terminates. Otherwise, passes the value through.
+
+
 ## Merging
 
 ### Cont.both
@@ -242,21 +262,21 @@ Races multiple continuations for the last to complete.
 
 ## Recovering
 
-### orElseWith
+### orElse
 Provides a fallback continuation in case of termination.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A> Function(List<ContError> errors)` - Function to produce fallback continuation
 - **Description:** If the continuation terminates, executes the fallback. Accumulates errors from both attempts.
 
-### orElseWith0
+### orElse0
 Provides a zero-argument fallback continuation.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A> Function()` - Zero-argument function to produce fallback
-- **Description:** Similar to `orElseWith` but doesn't use the error information.
+- **Description:** Similar to `orElse` but doesn't use the error information.
 
-### orElse
+### orElseTo
 Provides a constant fallback continuation.
 - **Return type:** `Cont<A>`
 - **Arguments:**
@@ -269,24 +289,6 @@ Tries multiple continuations until one succeeds.
 - **Arguments:**
   - `list`: `List<Cont<A>>` - List of continuations to try sequentially
 - **Description:** Executes continuations one by one until one succeeds. Terminates only if all fail.
-
-## Branching
-
-### ifThenElse
-Conditionally branches to different continuations based on a predicate.
-- **Return type:** `Cont<A2>`
-- **Arguments:**
-  - `predicate`: `Cont<bool> Function(A)` - Function that tests the current value and returns a continuation
-  - `thenF`: `Cont<A2> Function(A)` - Function to execute if predicate returns true
-  - `elseF`: `Cont<A2> Function(A)` - Function to execute if predicate returns false
-- **Description:** Evaluates the predicate against the current value and executes either the `thenF` branch (if true) or the `elseF` branch (if false). Both branches receive the current value and can return a continuation with a different result type. The predicate itself returns a continuation, allowing for effectful condition checking.
-
-### filter
-Conditionally allows a value to pass through.
-- **Return type:** `Cont<A>`
-- **Arguments:**
-  - `f`: `bool Function(A value)` - Predicate function
-- **Description:** If the predicate returns false, the continuation terminates. Otherwise, passes the value through.
 
 ## Extensions
 

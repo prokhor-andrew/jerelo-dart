@@ -616,13 +616,13 @@ Any failed computation will be propagated downstream via terminate channel.
 
 But sometimes we may want to recover from an error, and continue.
 
-To do this there is `orElseWith` operator. It catches any termination event.
+To do this there is `orElse` operator. It catches any termination event.
 
 ```dart
 Cont.terminate([
   ContError("Error object", StackTrace.current)
 ])
-.orElseWith((errors) => Cont.of(2)) 
+.orElse((errors) => Cont.of(2))
 .run((_) {}, print); // prints 2
 ```
 
@@ -667,7 +667,7 @@ final cont = Cont.fromRun<int>((observer) { // constructing
     return Cont.raceForWinner(cache, network); // racing
   }
 })
-.orElseWith((errors) => Cont.of(-1)); // recovering
+.orElse((errors) => Cont.of(-1)); // recovering
 
 // whenever you are ready    
 cont.run(print, print); // running
