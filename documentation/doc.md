@@ -497,49 +497,61 @@ Cont.all(contList).run((_) {}, print); // prints [1, 2, 3]
 # Branching
 
 Sometimes you need to conditionally execute different computations based on
-the current value. Jerelo provides operators for branching logic that work
+the current value. Jerelo provides a fluent API for branching logic that works
 within the continuation context.
 
-The `ifThenElse` operator evaluates a predicate against the current value and
-executes one of two branches depending on the result. Both branches can return
-a continuation with a different result type.
+The `when/then/other` operators provide a readable way to express conditional
+logic. The pattern evaluates a predicate and executes one of two branches depending
+on the result. Both branches can return a continuation with a different result type.
 
 ```dart
-Cont.of(42).ifThenElse(
-  (n) => Cont.of(n > 0),
-  thenF: (n) => Cont.of('positive: $n'),
-  elseF: (n) => Cont.of('non-positive: $n'),
-).run((_) {}, print); // prints "positive: 42"
+Cont.of(42)
+  .when((n) => Cont.of(n > 0))
+  .then((n) => Cont.of('positive: $n'))
+  .other((n) => Cont.of('non-positive: $n'))
+  .run((_) {}, print); // prints "positive: 42"
 ```
 
-The predicate itself returns a `Cont<bool>`, which allows it to perform
+The predicate returns a `Cont<bool>`, which allows it to perform
 asynchronous checks or complex computations before deciding which branch to take.
 
 ```dart
 Cont<User> getUserWithValidation(String userId) {
-  return getUser(userId).ifThenElse(
-    (user) => validateUser(user), // returns Cont<bool>
-    thenF: (user) => Cont.of(user),
-    elseF: (user) => Cont.terminate([
+  return getUser(userId)
+    .when((user) => validateUser(user)) // returns Cont<bool>
+    .then((user) => Cont.of(user))
+    .other((user) => Cont.terminate([
       ContError("Invalid user: ${user.id}", StackTrace.current)
-    ]),
-  );
+    ]));
 }
+```
+
+For simpler cases, you can use variants that ignore the current value:
+- `when0` / `then0` / `other0` - Take zero-argument functions
+- `whenTo` / `thenTo` / `otherTo` - Take constant continuations
+
+```dart
+Cont.of(user)
+  .when0(() => checkServerStatus()) // Cont<bool> based on external state
+  .then((user) => processUser(user))
+  .other0(() => Cont.terminate())
+  .run((_) {}, print);
 ```
 
 The `filter` operator allows values to pass through only if they satisfy a predicate.
 If the predicate returns false, the continuation terminates silently (without errors).
+The predicate itself returns a `Cont<bool>`, allowing for effectful filtering.
 
 ```dart
 Cont.of(42)
-  .filter((n) => n > 50)
+  .filter((n) => Cont.of(n > 50))
   .run(
     (_) => print("Terminated"), // prints "Terminated"
     print,
   );
 
 Cont.of(42)
-  .filter((n) => n > 0)
+  .filter((n) => Cont.of(n > 0))
   .run(
     (_) => print("Terminated"),
     print, // prints 42
@@ -547,12 +559,13 @@ Cont.of(42)
 ```
 
 This is particularly useful for validation chains or when you want to
-short-circuit computation based on certain conditions:
+short-circuit computation based on certain conditions. Note that `filter`
+is now internally implemented using the branching operators (`when(f).then(Cont.of).other0(Cont.terminate)`):
 
 ```dart
 getUserById(userId)
-  .filter((user) => user.isActive)
-  .filter((user) => user.hasPermission('read'))
+  .filter((user) => Cont.of(user.isActive))
+  .filter((user) => Cont.of(user.hasPermission('read')))
   .flatMap((user) => loadUserData(user))
   .run(
     (_) => print("User doesn't meet requirements"),

@@ -171,21 +171,75 @@ Runs a list of continuations sequentially and collects results.
 
 ## Branching
 
-### ifThenElse
-Conditionally branches to different continuations based on a predicate.
+### when
+Creates a branching builder by evaluating a predicate.
+- **Return type:** `ContThenBuilder<A>`
+- **Arguments:**
+    - `f`: `Cont<bool> Function(A)` - Function that tests the current value and returns a continuation
+- **Description:** Starts a fluent branching expression. The predicate receives the current value and returns a continuation containing a boolean. Chain with `then` to specify the true branch.
+
+### when0
+Creates a branching builder with a zero-argument predicate.
+- **Return type:** `ContThenBuilder<A>`
+- **Arguments:**
+    - `f`: `Cont<bool> Function()` - Zero-argument function that returns a boolean continuation
+- **Description:** Similar to `when` but ignores the current value. Useful for branching based on external state.
+
+### whenTo
+Creates a branching builder with a constant boolean continuation.
+- **Return type:** `ContThenBuilder<A>`
+- **Arguments:**
+    - `cont`: `Cont<bool>` - A fixed boolean continuation
+- **Description:** Similar to `when0` but takes a constant continuation instead of a function.
+
+### then (on ContThenBuilder)
+Specifies the true branch of a conditional.
+- **Return type:** `ContElseBuilder<A, A2>`
+- **Arguments:**
+    - `f`: `Cont<A2> Function(A)` - Function to execute if predicate is true
+- **Description:** Defines what happens when the predicate evaluates to true. The function receives the original value and can return a continuation with a different type. Chain with `other` to complete the branch.
+
+### then0 (on ContThenBuilder)
+Specifies the true branch with a zero-argument function.
+- **Return type:** `ContElseBuilder<A, A2>`
+- **Arguments:**
+    - `f`: `Cont<A2> Function()` - Zero-argument function for the true branch
+- **Description:** Similar to `then` but ignores the current value.
+
+### thenTo (on ContThenBuilder)
+Specifies the true branch with a constant continuation.
+- **Return type:** `ContElseBuilder<A, A2>`
+- **Arguments:**
+    - `cont`: `Cont<A2>` - A fixed continuation for the true branch
+- **Description:** Similar to `then0` but takes a constant continuation.
+
+### other (on ContElseBuilder)
+Specifies the false branch to complete a conditional.
 - **Return type:** `Cont<A2>`
 - **Arguments:**
-    - `predicate`: `Cont<bool> Function(A)` - Function that tests the current value and returns a continuation
-    - `thenF`: `Cont<A2> Function(A)` - Function to execute if predicate returns true
-    - `elseF`: `Cont<A2> Function(A)` - Function to execute if predicate returns false
-- **Description:** Evaluates the predicate against the current value and executes either the `thenF` branch (if true) or the `elseF` branch (if false). Both branches receive the current value and can return a continuation with a different result type. The predicate itself returns a continuation, allowing for effectful condition checking.
+    - `f`: `Cont<A2> Function(A)` - Function to execute if predicate is false
+- **Description:** Completes the branching expression by defining what happens when the predicate evaluates to false. The function receives the original value and must return the same type as the `then` branch.
+
+### other0 (on ContElseBuilder)
+Specifies the false branch with a zero-argument function.
+- **Return type:** `Cont<A2>`
+- **Arguments:**
+    - `f`: `Cont<A2> Function()` - Zero-argument function for the false branch
+- **Description:** Similar to `other` but ignores the current value.
+
+### otherTo (on ContElseBuilder)
+Specifies the false branch with a constant continuation.
+- **Return type:** `Cont<A2>`
+- **Arguments:**
+    - `cont`: `Cont<A2>` - A fixed continuation for the false branch
+- **Description:** Similar to `other0` but takes a constant continuation.
 
 ### filter
 Conditionally allows a value to pass through.
 - **Return type:** `Cont<A>`
 - **Arguments:**
-    - `f`: `bool Function(A value)` - Predicate function
-- **Description:** If the predicate returns false, the continuation terminates. Otherwise, passes the value through.
+    - `f`: `Cont<bool> Function(A value)` - Predicate function that returns a continuation
+- **Description:** If the predicate returns false, the continuation terminates without errors. Otherwise, passes the value through unchanged. The predicate itself returns a `Cont<bool>`, allowing for effectful filtering. Internally implemented as `when(f).then(Cont.of).other0(Cont.terminate)`.
 
 
 ## Merging
