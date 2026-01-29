@@ -465,16 +465,6 @@ final class Cont<A> {
     });
   }
 
-  /// Conditionally allows a value to pass through.
-  ///
-  /// If the predicate returns false, the continuation terminates without errors.
-  /// Otherwise, passes the value through unchanged.
-  ///
-  /// - [f]: Predicate function to test the value.
-  Cont<A> filter(Cont<bool> Function(A value) f) {
-    return when(f).then(Cont.of).other0(Cont.terminate);
-  }
-
   /// Creates a [Cont] that immediately succeeds with a value.
   ///
   /// Identity operation that wraps a pure value in a continuation context.
