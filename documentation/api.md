@@ -192,6 +192,12 @@ Repeatedly executes the continuation until the predicate returns `true`.
   - `predicate`: `bool Function(A value)` - Function that tests the value. Returns `true` to stop the loop and succeed, or `false` to continue looping
 - **Description:** Runs the continuation in a loop, testing each result with the predicate. The loop continues while the predicate returns `false`, and stops successfully when the predicate returns `true`. This is the inverse of `asLongAs` - implemented as `asLongAs((a) => !predicate(a))`. Use this when you want to retry until a condition is met.
 
+### forever
+Repeatedly executes the continuation indefinitely.
+- **Return type:** `Cont<Never>`
+- **Arguments:** None
+- **Description:** Runs the continuation in an infinite loop that never stops on its own. The loop only terminates if the underlying continuation terminates with an error. The return type `Cont<Never>` indicates that this continuation never produces a value - it either runs forever or terminates with errors. This is useful for daemon-like processes, server loops, event loops, and background tasks that should run continuously.
+
 ## Merging
 
 ### Cont.both
