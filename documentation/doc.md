@@ -474,7 +474,7 @@ Branching operators allow you to conditionally execute or repeat computations
 based on predicates. These are essential for implementing conditional logic,
 loops, and retry mechanisms within your continuation workflows.
 
-## Conditional execution with `when`
+## Conditional execution
 
 The `when` operator filters a computation based on a predicate.
 If the predicate returns `true`, the computation succeeds with the value.
@@ -500,7 +500,7 @@ This is useful for early termination of computation chains when certain
 conditions are not met, treating predicate failure as termination rather
 than an error.
 
-## Looping while a condition holds with `asLongAs`
+## Looping
 
 The `asLongAs` operator repeatedly executes a computation as long as
 the predicate returns `true`. The loop stops when the predicate returns
