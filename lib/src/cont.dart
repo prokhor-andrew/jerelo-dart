@@ -28,6 +28,17 @@ final class Cont<A> {
     runWith(ContObserver(onTerminate, onValue));
   }
 
+  /// Executes the continuation in a fire-and-forget manner.
+  ///
+  /// Runs the continuation without waiting for the result. Both success and
+  /// failure outcomes are ignored. This is useful for side-effects that should
+  /// run asynchronously without blocking or requiring error handling.
+  ///
+  /// Equivalent to `runWith(ContObserver.ignore())`.
+  void ff() {
+    runWith(ContObserver.ignore());
+  }
+
   const Cont._(this._run);
 
   /// Creates a [Cont] from a run function that accepts an observer.
@@ -488,6 +499,36 @@ final class Cont<A> {
       final safeCopyErrors = List<ContError>.from(safeCopyErrors0);
       observer.onTerminate(safeCopyErrors);
     });
+  }
+
+  /// Creates a [Cont] that immediately terminates without errors.
+  ///
+  /// Convenience method that creates an empty terminated continuation.
+  /// This represents a computation that completes without producing a value
+  /// and without any errors.
+  ///
+  /// Equivalent to calling `Cont.terminate()` or `Cont.terminate([])`.
+  static Cont<A> empty<A>() {
+    return terminate();
+  }
+
+  /// Creates a [Cont] that immediately fails with one or more errors.
+  ///
+  /// Convenience method for creating a terminated continuation with errors.
+  /// Requires at least one error, with optional additional errors.
+  ///
+  /// - [head]: The primary error that caused the failure.
+  /// - [tail]: Optional list of additional errors. Defaults to an empty list.
+  ///
+  /// Equivalent to calling `Cont.terminate([head, ...tail])`.
+  ///
+  /// Example:
+  /// ```dart
+  /// final error = ContError(Exception('Network timeout'), StackTrace.current);
+  /// final cont = Cont.failure(error);
+  /// ```
+  static Cont<A> failure<A>(ContError head, [List<ContError> tail = const []]) {
+    return terminate([head, ...tail]);
   }
 
   /// Runs two continuations in parallel and combines their results.
@@ -954,6 +995,143 @@ final class Cont<A> {
           incrementFinishedAndCheckExit();
         }
       }
+    });
+  }
+
+  /// Conditionally succeeds only when the predicate is satisfied.
+  ///
+  /// Filters the continuation based on the predicate. If the predicate returns
+  /// `true`, the continuation succeeds with the value. If the predicate returns
+  /// `false`, the continuation terminates without errors.
+  ///
+  /// This is useful for conditional execution where you want to treat a
+  /// predicate failure as termination rather than an error.
+  ///
+  /// - [predicate]: Function that tests the value.
+  ///
+  /// Example:
+  /// ```dart
+  /// final cont = Cont.of(42).when((n) => n > 0);
+  /// // Succeeds with 42
+  ///
+  /// final cont2 = Cont.of(-5).when((n) => n > 0);
+  /// // Terminates
+  /// ```
+  Cont<A> when(bool Function(A value) predicate) {
+    return flatMap((a) {
+      if (predicate(a)) {
+        return Cont.of(a);
+      }
+
+      return Cont.terminate();
+    });
+  }
+
+  /// Repeatedly executes the continuation as long as the predicate returns `true`,
+  /// stopping when it returns `false`.
+  ///
+  /// Runs the continuation in a loop, testing each result with the predicate.
+  /// The loop continues as long as the predicate returns `true`, and stops
+  /// successfully when the predicate returns `false`.
+  ///
+  /// The loop is stack-safe and handles asynchronous continuations correctly.
+  /// If the continuation terminates or if the predicate throws an exception,
+  /// the loop stops and propagates the errors.
+  ///
+  /// This is useful for retry logic, polling, or repeating an operation while
+  /// a condition holds.
+  ///
+  /// - [predicate]: Function that tests the value. Returns `true` to continue
+  ///   looping, or `false` to stop and succeed with the value.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Poll an API while data is not ready
+  /// final result = fetchData().asLongAs((response) => !response.isReady);
+  ///
+  /// // Retry while value is below threshold
+  /// final value = computation().asLongAs((n) => n < 100);
+  /// ```
+  Cont<A> asLongAs(bool Function(A value) predicate) {
+    return Cont.fromRun((observer) {
+      _stackSafeLoop<_Either<(), _Either<A, List<ContError>>>, (), _Either<A, List<ContError>>>(
+        seed: _Value1(()),
+        keepRunningIf: (state) {
+          switch (state) {
+            case _Value1():
+              // Keep running - need to execute the continuation again
+              return _StackSafeLoopPolicyKeepRunning(());
+            case _Value2(value: final result):
+              // Stop - we have either a successful value or termination errors
+              return _StackSafeLoopPolicyStop(result);
+          }
+        },
+        computation: (_, callback) {
+          try {
+            runWith(
+              ContObserver(
+                (errors) {
+                  // Terminated - stop the loop with errors
+                  callback(_Value2(_Value2([...errors])));
+                },
+                (a) {
+                  try {
+                    // Check the predicate
+                    if (!predicate(a)) {
+                      // Predicate satisfied - stop with success
+                      callback(_Value2(_Value1(a)));
+                    } else {
+                      // Predicate not satisfied - retry
+                      callback(_Value1(()));
+                    }
+                  } catch (error, st) {
+                    // Predicate threw an exception
+                    callback(_Value2(_Value2([ContError(error, st)])));
+                  }
+                },
+              ),
+            );
+          } catch (error, st) {
+            callback(_Value2(_Value2([ContError(error, st)])));
+          }
+        },
+        escape: (result) {
+          switch (result) {
+            case _Value1(value: final a):
+              observer.onValue(a);
+              return;
+            case _Value2(value: final errors):
+              observer.onTerminate(errors);
+              return;
+          }
+        },
+      );
+    });
+  }
+
+  /// Repeatedly executes the continuation until the predicate returns `true`.
+  ///
+  /// Runs the continuation in a loop, testing each result with the predicate.
+  /// The loop continues while the predicate returns `false`, and stops
+  /// successfully when the predicate returns `true`.
+  ///
+  /// This is the inverse of [asLongAs] - implemented as `asLongAs((a) => !predicate(a))`.
+  /// Use this when you want to retry until a condition is met.
+  ///
+  /// - [predicate]: Function that tests the value. Returns `true` to stop the loop
+  ///   and succeed, or `false` to continue looping.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Retry until a condition is met
+  /// final result = fetchStatus().until((status) => status == 'complete');
+  ///
+  /// // Poll until a threshold is reached
+  /// final value = checkProgress().until((progress) => progress >= 100);
+  /// ```
+  Cont<A> until(bool Function(A value) predicate) {
+    return asLongAs((a) {
+      return !predicate(a);
     });
   }
 

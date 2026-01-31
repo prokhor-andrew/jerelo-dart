@@ -140,6 +140,7 @@ channels, and comes with a basic interface that allows you to do every fundament
 - Run
 - Transform
 - Chain
+- Branch
 - Merge
 - Race
 - Recover
@@ -466,6 +467,63 @@ Cont.sequence([
     Cont.of(1),
 ]).run((_) { }, print); // prints 1
 ```
+
+# Branching
+
+Branching operators allow you to conditionally execute or repeat computations
+based on predicates. These are essential for implementing conditional logic,
+loops, and retry mechanisms within your continuation workflows.
+
+## Conditional execution with `when`
+
+The `when` operator filters a computation based on a predicate.
+If the predicate returns `true`, the computation succeeds with the value.
+If it returns `false`, the computation terminates without errors.
+
+```dart
+Cont.of(5)
+  .when((value) => value > 3)
+  .run(
+    (_) => print("terminated"),
+    (value) => print("success: $value"),
+  ); // prints "success: 5"
+
+Cont.of(2)
+  .when((value) => value > 3)
+  .run(
+    (_) => print("terminated"),
+    (value) => print("success: $value"),
+  ); // prints "terminated"
+```
+
+This is useful for early termination of computation chains when certain
+conditions are not met, treating predicate failure as termination rather
+than an error.
+
+## Looping while a condition holds with `asLongAs`
+
+The `asLongAs` operator repeatedly executes a computation as long as
+the predicate returns `true`. The loop stops when the predicate returns
+`false`, and the computation succeeds with that final value.
+
+```dart
+// Retry getting a value until it's greater than 5
+Cont.of(0)
+  .map((n) => Random().nextInt(10)) // generate random 0..9
+  .asLongAs((value) => value <= 5)
+  .run((_) {}, (value) {
+    print("Got value > 5: $value");
+  });
+```
+
+The loop is stack-safe and handles asynchronous continuations correctly.
+If the continuation terminates or the predicate throws, the loop stops
+and propagates the errors. This is ideal for:
+- Retry logic with conditions
+- Polling until a state changes
+- Repeating operations while a condition holds
+
+If you want to loop until a condition is met, use `until` operator.
 
 # Merging
 

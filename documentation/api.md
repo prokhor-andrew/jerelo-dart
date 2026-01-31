@@ -30,6 +30,20 @@ Creates a Cont that immediately terminates with optional errors.
   - `errors`: `List<ContError>` (optional, default: `[]`) - List of errors to terminate with
 - **Description:** Creates a continuation that terminates without producing a value. Used to represent failure states.
 
+### Cont.empty
+Creates a Cont that immediately terminates without errors.
+- **Return type:** `Cont<A>`
+- **Arguments:** None
+- **Description:** Convenience method that creates an empty terminated continuation. This represents a computation that completes without producing a value and without any errors. Equivalent to calling `Cont.terminate()` or `Cont.terminate([])`.
+
+### Cont.failure
+Creates a Cont that immediately fails with one or more errors.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `head`: `ContError` - The primary error that caused the failure
+  - `tail`: `List<ContError>` (optional, default: `[]`) - Optional list of additional errors
+- **Description:** Convenience method for creating a terminated continuation with errors. Requires at least one error, with optional additional errors. Equivalent to calling `Cont.terminate([head, ...tail])`.
+
 ### Cont.bracket
 Manages resource lifecycle with guaranteed cleanup.
 - **Return type:** `Cont<A>`
@@ -168,6 +182,29 @@ Runs a list of continuations sequentially and collects results.
   - `list`: `List<Cont<A>>` - List of continuations to execute
 - **Description:** Executes continuations one by one, collecting all successful values. Terminates on first error with stack-safe recursion.
 
+
+## Branching
+
+### when
+Conditionally succeeds only when the predicate is satisfied.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `predicate`: `bool Function(A value)` - Function that tests the value
+- **Description:** Filters the continuation based on the predicate. If the predicate returns `true`, the continuation succeeds with the value. If the predicate returns `false`, the continuation terminates without errors. This is useful for conditional execution where you want to treat a predicate failure as termination rather than an error.
+
+### asLongAs
+Repeatedly executes the continuation as long as the predicate returns `true`, stopping when it returns `false`.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `predicate`: `bool Function(A value)` - Function that tests the value. Returns `true` to continue looping, or `false` to stop and succeed with the value
+- **Description:** Runs the continuation in a loop, testing each result with the predicate. The loop continues as long as the predicate returns `true`, and stops successfully when the predicate returns `false`. The loop is stack-safe and handles asynchronous continuations correctly. If the continuation terminates or if the predicate throws an exception, the loop stops and propagates the errors. This is useful for retry logic, polling, or repeating an operation while a condition holds.
+
+### until
+Repeatedly executes the continuation until the predicate returns `true`.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `predicate`: `bool Function(A value)` - Function that tests the value. Returns `true` to stop the loop and succeed, or `false` to continue looping
+- **Description:** Runs the continuation in a loop, testing each result with the predicate. The loop continues while the predicate returns `false`, and stops successfully when the predicate returns `true`. This is the inverse of `asLongAs` - implemented as `asLongAs((a) => !predicate(a))`. Use this when you want to retry until a condition is met.
 
 ## Merging
 
@@ -309,6 +346,12 @@ Executes the continuation with an observer.
 - **Arguments:**
   - `observer`: `ContObserver<A>` - Observer containing callbacks
 - **Description:** Alternative to `run` that accepts an observer object instead of separate callbacks.
+
+### ff
+Executes the continuation in a fire-and-forget manner.
+- **Return type:** `void`
+- **Arguments:** None
+- **Description:** Runs the continuation without waiting for the result. Both success and failure outcomes are ignored. This is useful for side-effects that should run asynchronously without blocking or requiring error handling. Equivalent to `runWith(ContObserver.ignore())`.
 
 ## ContObserver
 
