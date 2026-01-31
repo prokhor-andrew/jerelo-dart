@@ -501,36 +501,6 @@ final class Cont<A> {
     });
   }
 
-  /// Creates a [Cont] that immediately terminates without errors.
-  ///
-  /// Convenience method that creates an empty terminated continuation.
-  /// This represents a computation that completes without producing a value
-  /// and without any errors.
-  ///
-  /// Equivalent to calling `Cont.terminate()` or `Cont.terminate([])`.
-  static Cont<A> empty<A>() {
-    return terminate();
-  }
-
-  /// Creates a [Cont] that immediately fails with one or more errors.
-  ///
-  /// Convenience method for creating a terminated continuation with errors.
-  /// Requires at least one error, with optional additional errors.
-  ///
-  /// - [head]: The primary error that caused the failure.
-  /// - [tail]: Optional list of additional errors. Defaults to an empty list.
-  ///
-  /// Equivalent to calling `Cont.terminate([head, ...tail])`.
-  ///
-  /// Example:
-  /// ```dart
-  /// final error = ContError(Exception('Network timeout'), StackTrace.current);
-  /// final cont = Cont.failure(error);
-  /// ```
-  static Cont<A> failure<A>(ContError head, [List<ContError> tail = const []]) {
-    return terminate([head, ...tail]);
-  }
-
   /// Runs two continuations in parallel and combines their results.
   ///
   /// Executes both continuations concurrently. Succeeds when both succeed,

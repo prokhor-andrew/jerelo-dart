@@ -30,20 +30,6 @@ Creates a Cont that immediately terminates with optional errors.
   - `errors`: `List<ContError>` (optional, default: `[]`) - List of errors to terminate with
 - **Description:** Creates a continuation that terminates without producing a value. Used to represent failure states.
 
-### Cont.empty
-Creates a Cont that immediately terminates without errors.
-- **Return type:** `Cont<A>`
-- **Arguments:** None
-- **Description:** Convenience method that creates an empty terminated continuation. This represents a computation that completes without producing a value and without any errors. Equivalent to calling `Cont.terminate()` or `Cont.terminate([])`.
-
-### Cont.failure
-Creates a Cont that immediately fails with one or more errors.
-- **Return type:** `Cont<A>`
-- **Arguments:**
-  - `head`: `ContError` - The primary error that caused the failure
-  - `tail`: `List<ContError>` (optional, default: `[]`) - Optional list of additional errors
-- **Description:** Convenience method for creating a terminated continuation with errors. Requires at least one error, with optional additional errors. Equivalent to calling `Cont.terminate([head, ...tail])`.
-
 ### Cont.bracket
 Manages resource lifecycle with guaranteed cleanup.
 - **Return type:** `Cont<A>`
