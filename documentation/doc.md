@@ -525,6 +525,16 @@ and propagates the errors. This is ideal for:
 
 If you want to loop until a condition is met, use `until` operator.
 
+```dart
+// Retry getting a value until it's greater than 5
+Cont.of(0)
+  .map((n) => Random().nextInt(10)) // generate random 0..9
+  .until((value) => value > 5) // inverted condition
+  .run((_) {}, (value) {
+    print("Got value > 5: $value");
+  });
+```
+
 # Merging
 
 When you have two independent computations, and you need to get
