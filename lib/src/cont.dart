@@ -415,24 +415,49 @@ final class Cont<A> {
     });
   }
 
+  /// Executes a side-effect continuation on termination while preserving the original termination.
+  ///
+  /// If the continuation terminates, executes the side-effect continuation for its effects,
+  /// then terminates with the original errors. Unlike [orElse], this does not attempt to
+  /// recover - it always propagates the termination.
+  ///
+  /// - [f]: Function that returns a side-effect continuation.
   Cont<A> orElseTap<A2>(Cont<A2> Function(List<ContError> errors) f) {
     return orElse((errors) {
       return f(errors).thenTo(Cont.terminate<A>(errors));
     });
   }
 
+  /// Executes a zero-argument side-effect continuation on termination.
+  ///
+  /// Similar to [orElseTap] but ignores the error information.
+  ///
+  /// - [f]: Zero-argument function that returns a side-effect continuation.
   Cont<A> orElseTap0<A2>(Cont<A2> Function() f) {
     return orElseTap((_) {
       return f();
     });
   }
 
+  /// Executes a constant side-effect continuation on termination.
+  ///
+  /// Similar to [orElseTap0] but takes a fixed continuation instead of a function.
+  ///
+  /// - [cont]: The side-effect continuation to execute.
   Cont<A> orElseTapTo<A2>(Cont<A2> cont) {
     return orElseTap0(() {
       return cont;
     });
   }
 
+  /// Executes a side-effect continuation on termination in a fire-and-forget manner.
+  ///
+  /// If the continuation terminates, starts the side-effect continuation without waiting
+  /// for it to complete. Unlike [orElseTap], this does not wait for the side-effect to
+  /// finish before propagating the termination. Any errors from the side-effect are
+  /// silently ignored.
+  ///
+  /// - [f]: Function that returns a side-effect continuation.
   Cont<A> orElseFork<A2>(Cont<A2> Function(List<ContError> errors) f) {
     return orElse((errors) {
       final cont = f(errors); // this should not be inside try-catch block
@@ -446,12 +471,22 @@ final class Cont<A> {
     });
   }
 
+  /// Executes a zero-argument side-effect continuation on termination in a fire-and-forget manner.
+  ///
+  /// Similar to [orElseFork] but ignores the error information.
+  ///
+  /// - [f]: Zero-argument function that returns a side-effect continuation.
   Cont<A> orElseFork0<A2>(Cont<A2> Function() f) {
     return orElseFork((_) {
       return f();
     });
   }
 
+  /// Executes a constant side-effect continuation on termination in a fire-and-forget manner.
+  ///
+  /// Similar to [orElseFork0] but takes a fixed continuation instead of a function.
+  ///
+  /// - [cont]: The side-effect continuation to execute.
   Cont<A> orElseForkTo<A2>(Cont<A2> cont) {
     return orElseFork0(() {
       return cont;

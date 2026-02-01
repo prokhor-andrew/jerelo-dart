@@ -307,6 +307,48 @@ Tries multiple continuations until one succeeds.
   - `list`: `List<Cont<A>>` - List of continuations to try sequentially
 - **Description:** Executes continuations one by one until one succeeds. Terminates only if all fail.
 
+### orElseTap
+Executes a side-effect continuation on termination while preserving the original termination.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `f`: `Cont<A2> Function(List<ContError> errors)` - Function that returns a side-effect continuation
+- **Description:** If the continuation terminates, executes the side-effect continuation for its effects, then terminates with the original errors. Unlike `orElse`, this does not attempt to recover - it always propagates the termination. Useful for logging, cleanup, or notification on failure without altering the error flow.
+
+### orElseTap0
+Executes a zero-argument side-effect continuation on termination.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `f`: `Cont<A2> Function()` - Zero-argument function that returns a side-effect continuation
+- **Description:** Similar to `orElseTap` but ignores the error information. The side-effect is executed regardless of the specific errors that caused termination.
+
+### orElseTapTo
+Executes a constant side-effect continuation on termination.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `cont`: `Cont<A2>` - The side-effect continuation to execute
+- **Description:** Similar to `orElseTap0` but takes a fixed continuation instead of a function.
+
+### orElseFork
+Executes a side-effect continuation on termination in a fire-and-forget manner.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `f`: `Cont<A2> Function(List<ContError> errors)` - Function that returns a side-effect continuation
+- **Description:** If the continuation terminates, starts the side-effect continuation without waiting for it to complete. Unlike `orElseTap`, this does not wait for the side-effect to finish before propagating the termination. Any errors from the side-effect are silently ignored. Useful for async logging or fire-and-forget notifications on failure.
+
+### orElseFork0
+Executes a zero-argument side-effect continuation on termination in a fire-and-forget manner.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `f`: `Cont<A2> Function()` - Zero-argument function that returns a side-effect continuation
+- **Description:** Similar to `orElseFork` but ignores the error information.
+
+### orElseForkTo
+Executes a constant side-effect continuation on termination in a fire-and-forget manner.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `cont`: `Cont<A2>` - The side-effect continuation to execute
+- **Description:** Similar to `orElseFork0` but takes a fixed continuation instead of a function.
+
 ## Extensions
 
 ### flatten
