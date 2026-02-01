@@ -279,10 +279,10 @@ final class Cont<A> {
       final contA2 = f(a); // this should not be inside try-catch block
 
       try {
-        contA2.runWith(ContObserver.ignore());
+        contA2.ff();
       } catch (_) {
         // do nothing, if anything happens to side-effect, it's not
-        // a concern of the forkTap
+        // a concern of the thenFork
       }
 
       return Cont.of(a);
@@ -411,6 +411,49 @@ final class Cont<A> {
   /// - [cont]: The fallback continuation.
   Cont<A> orElseTo(Cont<A> cont) {
     return orElse0(() {
+      return cont;
+    });
+  }
+
+  Cont<A> orElseTap<A2>(Cont<A2> Function(List<ContError> errors) f) {
+    return orElse((errors) {
+      return f(errors).thenTo(Cont.terminate<A>(errors));
+    });
+  }
+
+  Cont<A> orElseTap0<A2>(Cont<A2> Function() f) {
+    return orElseTap((_) {
+      return f();
+    });
+  }
+
+  Cont<A> orElseTapTo<A2>(Cont<A2> cont) {
+    return orElseTap0(() {
+      return cont;
+    });
+  }
+
+  Cont<A> orElseFork<A2>(Cont<A2> Function(List<ContError> errors) f) {
+    return orElse((errors) {
+      final cont = f(errors); // this should not be inside try-catch block
+      try {
+       cont.ff();
+      } catch (_) {
+        // do nothing, if anything happens to side-effect, it's not
+        // a concern of the orElseFork
+      }
+      return Cont.terminate<A>(errors);
+    });
+  }
+
+  Cont<A> orElseFork0<A2>(Cont<A2> Function() f) {
+    return orElseFork((_) {
+      return f();
+    });
+  }
+
+  Cont<A> orElseForkTo<A2>(Cont<A2> cont) {
+    return orElseFork0(() {
       return cont;
     });
   }
@@ -993,7 +1036,7 @@ final class Cont<A> {
         return Cont.of(a);
       }
 
-      return Cont.terminate();
+      return Cont.terminate<A>();
     });
   }
 
@@ -1124,7 +1167,7 @@ final class Cont<A> {
   /// ```dart
   /// // A server that handles requests forever
   /// final server = acceptConnection()
-  ///     .flatMap((conn) => handleConnection(conn))
+  ///     .then((conn) => handleConnection(conn))
   ///     .forever();
   ///
   /// // Run with only a termination handler (using trap extension)
@@ -1175,7 +1218,7 @@ final class Cont<A> {
           try {
             return release(resource);
           } catch (error, st) {
-            return Cont.terminate([ContError(error, st)]);
+            return Cont.terminate<()>([ContError(error, st)]);
           }
         }
 
@@ -1185,10 +1228,10 @@ final class Cont<A> {
               .orElse((errors) {
                 return doProperRelease()
                     .orElse((errors2) {
-                      return Cont.terminate([...errors, ...errors2]);
+                      return Cont.terminate<()>([...errors, ...errors2]);
                     })
                     .then0(() {
-                      return Cont.terminate(errors);
+                      return Cont.terminate<A>(errors);
                     });
               })
               .then((a) {
@@ -1197,10 +1240,10 @@ final class Cont<A> {
         } catch (error, st) {
           return doProperRelease()
               .orElse((errors2) {
-                return Cont.terminate([ContError(error, st), ...errors2]);
+                return Cont.terminate<()>([ContError(error, st), ...errors2]);
               })
               .then0(() {
-                return Cont.terminate([ContError(error, st)]);
+                return Cont.terminate<A>([ContError(error, st)]);
               });
         }
       });
