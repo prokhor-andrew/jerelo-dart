@@ -38,11 +38,11 @@ void main() {
    * 6) Error reporting (catch-all)
    *    - Any error above -> generate error report instead
    */
-  final program = getMockDraftService().flatMap((service) {
+  final program = getMockDraftService().then((service) {
     return service
         .getTransactionDraft()
-        .flatTap(service.validateTransactionDraft)
-        .flatMap((draft) {
+        .thenTap(service.validateTransactionDraft)
+        .then((draft) {
           return Cont.both(
             //
             service.getAddressFromTransactionDraft(draft),
@@ -57,18 +57,18 @@ void main() {
             },
           );
         })
-        .flatMap(service.getTransactionService)
-        .flatMap((transactionService) {
+        .then(service.getTransactionService)
+        .then((transactionService) {
           return transactionService
               .getDecisionForTransaction()
-              .flatMap<TransactionResult>((decision) {
+              .then<TransactionResult>((decision) {
                 return switch (decision) {
                   Decision.rejected => Cont.terminate([ContError("Rejected", StackTrace.current)]),
                   Decision.approved => transactionService.getTransactionResult(),
-                  Decision.review => transactionService.reviewForTransaction().flatMap0(transactionService.getTransactionResult),
+                  Decision.review => transactionService.reviewForTransaction().then0(transactionService.getTransactionResult),
                 };
               })
-              .flatMap(transactionService.getReportForTransactionAndResult);
+              .then(transactionService.getReportForTransactionAndResult);
         })
         .orElse(service.getReportForErrors);
   });

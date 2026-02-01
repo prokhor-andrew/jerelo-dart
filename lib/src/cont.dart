@@ -96,7 +96,7 @@ final class Cont<A> {
   ///
   /// - [f]: Transformation function to apply to the value.
   Cont<A2> map<A2>(A2 Function(A value) f) {
-    return flatMap((a) {
+    return then((a) {
       final a2 = f(a);
       return Cont.of(a2);
     });
@@ -158,7 +158,7 @@ final class Cont<A> {
   /// on the result of the first.
   ///
   /// - [f]: Function that takes a value and returns a continuation.
-  Cont<A2> flatMap<A2>(Cont<A2> Function(A value) f) {
+  Cont<A2> then<A2>(Cont<A2> Function(A value) f) {
     return Cont.fromRun((observer) {
       runWith(
         observer.copyUpdateOnValue((a) {
@@ -175,11 +175,11 @@ final class Cont<A> {
 
   /// Chains a [Cont]-returning zero-argument function.
   ///
-  /// Similar to [flatMap] but ignores the current value.
+  /// Similar to [then] but ignores the current value.
   ///
   /// - [f]: Zero-argument function that returns a continuation.
-  Cont<A2> flatMap0<A2>(Cont<A2> Function() f) {
-    return flatMap((_) {
+  Cont<A2> then0<A2>(Cont<A2> Function() f) {
+    return then((_) {
       return f();
     });
   }
@@ -189,8 +189,8 @@ final class Cont<A> {
   /// Sequences to a fixed continuation, ignoring the current value.
   ///
   /// - [cont]: The continuation to chain to.
-  Cont<A2> flatMapTo<A2>(Cont<A2> cont) {
-    return flatMap0(() {
+  Cont<A2> thenTo<A2>(Cont<A2> cont) {
+    return then0(() {
       return cont;
     });
   }
@@ -200,19 +200,19 @@ final class Cont<A> {
   /// Executes a continuation for its side effects, then returns the original value.
   ///
   /// - [f]: Side-effect function that returns a continuation.
-  Cont<A> flatTap<A2>(Cont<A2> Function(A value) f) {
-    return flatMap((a) {
+  Cont<A> thenTap<A2>(Cont<A2> Function(A value) f) {
+    return then((a) {
       return f(a).mapTo(a);
     });
   }
 
   /// Chains a zero-argument side-effect continuation.
   ///
-  /// Similar to [flatTap] but with a zero-argument function.
+  /// Similar to [thenTap] but with a zero-argument function.
   ///
   /// - [f]: Zero-argument side-effect function.
-  Cont<A> flatTap0<A2>(Cont<A2> Function() f) {
-    return flatTap((_) {
+  Cont<A> thenTap0<A2>(Cont<A2> Function() f) {
+    return thenTap((_) {
       return f();
     });
   }
@@ -222,8 +222,8 @@ final class Cont<A> {
   /// Executes a fixed continuation for its side effects, preserving the original value.
   ///
   /// - [cont]: The side-effect continuation.
-  Cont<A> flatTapTo<A2>(Cont<A2> cont) {
-    return flatTap0(() {
+  Cont<A> thenTapTo<A2>(Cont<A2> cont) {
+    return thenTap0(() {
       return cont;
     });
   }
@@ -234,8 +234,8 @@ final class Cont<A> {
   ///
   /// - [f]: Function to produce the second continuation from the first value.
   /// - [combine]: Function to combine both values into a result.
-  Cont<A3> flatMapZipWith<A2, A3>(Cont<A2> Function(A value) f, A3 Function(A a1, A2 a2) combine) {
-    return flatMap((a1) {
+  Cont<A3> zip<A2, A3>(Cont<A2> Function(A value) f, A3 Function(A a1, A2 a2) combine) {
+    return then((a1) {
       return f(a1).map((a2) {
         return combine(a1, a2);
       });
@@ -244,13 +244,13 @@ final class Cont<A> {
 
   /// Chains and combines with a zero-argument function.
   ///
-  /// Similar to [flatMapZipWith] but the second continuation doesn't depend
+  /// Similar to [zip] but the second continuation doesn't depend
   /// on the first value.
   ///
   /// - [f]: Zero-argument function to produce the second continuation.
   /// - [combine]: Function to combine both values into a result.
-  Cont<A3> flatMapZipWith0<A2, A3>(Cont<A2> Function() f, A3 Function(A a1, A2 a2) combine) {
-    return flatMapZipWith((_) {
+  Cont<A3> zip0<A2, A3>(Cont<A2> Function() f, A3 Function(A a1, A2 a2) combine) {
+    return zip((_) {
       return f();
     }, combine);
   }
@@ -261,21 +261,21 @@ final class Cont<A> {
   ///
   /// - [cont]: The second continuation.
   /// - [combine]: Function to combine both values into a result.
-  Cont<A3> flatMapZipWithTo<A2, A3>(Cont<A2> cont, A3 Function(A a1, A2 a2) combine) {
-    return flatMapZipWith0(() {
+  Cont<A3> zipTo<A2, A3>(Cont<A2> cont, A3 Function(A a1, A2 a2) combine) {
+    return zip0(() {
       return cont;
     }, combine);
   }
 
   /// Executes a side-effect continuation in a fire-and-forget manner.
   ///
-  /// Unlike [flatTap], this method does not wait for the side-effect to complete.
+  /// Unlike [thenTap], this method does not wait for the side-effect to complete.
   /// The side-effect continuation is started immediately, and the original value
   /// is returned without delay. Any errors from the side-effect are silently ignored.
   ///
   /// - [f]: Function that takes the current value and returns a side-effect continuation.
-  Cont<A> forkTap<A2>(Cont<A2> Function(A a) f) {
-    return flatMap((a) {
+  Cont<A> thenFork<A2>(Cont<A2> Function(A a) f) {
+    return then((a) {
       final contA2 = f(a); // this should not be inside try-catch block
 
       try {
@@ -291,22 +291,22 @@ final class Cont<A> {
 
   /// Executes a zero-argument side-effect continuation in a fire-and-forget manner.
   ///
-  /// Similar to [forkTap] but ignores the current value.
+  /// Similar to [thenFork] but ignores the current value.
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
-  Cont<A> forkTap0<A2>(Cont<A2> Function() f) {
-    return forkTap((_) {
+  Cont<A> thenFork0<A2>(Cont<A2> Function() f) {
+    return thenFork((_) {
       return f();
     });
   }
 
   /// Executes a constant side-effect continuation in a fire-and-forget manner.
   ///
-  /// Similar to [forkTap0] but takes a fixed continuation instead of a function.
+  /// Similar to [thenFork0] but takes a fixed continuation instead of a function.
   ///
   /// - [cont]: The side-effect continuation to execute.
-  Cont<A> forkTapTo<A2>(Cont<A2> cont) {
-    return forkTap0(() {
+  Cont<A> thenForkTo<A2>(Cont<A2> cont) {
+    return thenFork0(() {
       return cont;
     });
   }
@@ -988,7 +988,7 @@ final class Cont<A> {
   /// // Terminates
   /// ```
   Cont<A> when(bool Function(A value) predicate) {
-    return flatMap((a) {
+    return then((a) {
       if (predicate(a)) {
         return Cont.of(a);
       }
@@ -1169,7 +1169,7 @@ final class Cont<A> {
     required Cont<A> Function(R resource) use,
     //
   }) {
-    return acquire.flatMap((resource) {
+    return acquire.then((resource) {
       return Cont.fromDeferred(() {
         Cont<()> doProperRelease() {
           try {
@@ -1187,11 +1187,11 @@ final class Cont<A> {
                     .orElse((errors2) {
                       return Cont.terminate([...errors, ...errors2]);
                     })
-                    .flatMap0(() {
+                    .then0(() {
                       return Cont.terminate(errors);
                     });
               })
-              .flatMap((a) {
+              .then((a) {
                 return doProperRelease().mapTo(a);
               });
         } catch (error, st) {
@@ -1199,7 +1199,7 @@ final class Cont<A> {
               .orElse((errors2) {
                 return Cont.terminate([ContError(error, st), ...errors2]);
               })
-              .flatMap0(() {
+              .then0(() {
                 return Cont.terminate([ContError(error, st)]);
               });
         }
@@ -1212,9 +1212,9 @@ final class Cont<A> {
 extension ContFlattenExtension<A> on Cont<Cont<A>> {
   /// Flattens a nested [Cont] structure.
   ///
-  /// Converts `Cont<Cont<A>>` to `Cont<A>`. Equivalent to `flatMap((contA) => contA)`.
+  /// Converts `Cont<Cont<A>>` to `Cont<A>`. Equivalent to `then((contA) => contA)`.
   Cont<A> flatten() {
-    return flatMap((contA) {
+    return then((contA) {
       return contA;
     });
   }

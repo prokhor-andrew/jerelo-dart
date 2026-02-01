@@ -74,70 +74,70 @@ Transforms the execution of the continuation using a natural transformation.
 
 ## Chaining
 
-### flatMap
+### then
 Chains a Cont-returning function to create dependent computations.
 - **Return type:** `Cont<A2>`
 - **Arguments:**
   - `f`: `Cont<A2> Function(A value)` - Function that returns a continuation
 - **Description:** Monadic bind operation. Sequences continuations where the second depends on the result of the first.
 
-### flatMap0
+### then0
 Chains a Cont-returning zero-argument function.
 - **Return type:** `Cont<A2>`
 - **Arguments:**
   - `f`: `Cont<A2> Function()` - Zero-argument function that returns a continuation
-- **Description:** Similar to `flatMap` but ignores the current value.
+- **Description:** Similar to `then` but ignores the current value.
 
-### flatMapTo
+### thenTo
 Chains to a constant Cont.
 - **Return type:** `Cont<A2>`
 - **Arguments:**
   - `cont`: `Cont<A2>` - The continuation to chain to
 - **Description:** Sequences to a fixed continuation, ignoring the current value.
 
-### flatTap
+### thenTap
 Chains a side-effect continuation while preserving the original value.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A2> Function(A value)` - Side-effect function
 - **Description:** Executes a continuation for its side effects, then returns the original value.
 
-### flatTap0
+### thenTap0
 Chains a zero-argument side-effect continuation.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A2> Function()` - Zero-argument side-effect function
-- **Description:** Similar to `flatTap` but with a zero-argument function.
+- **Description:** Similar to `thenTap` but with a zero-argument function.
 
-### flatTapTo
+### thenTapTo
 Chains to a constant side-effect continuation.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `cont`: `Cont<A2>` - The side-effect continuation
 - **Description:** Executes a fixed continuation for its side effects, preserving the original value.
 
-### forkTap
+### thenFork
 Executes a side-effect continuation in a fire-and-forget manner.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A2> Function(A a)` - Function that returns a side-effect continuation
-- **Description:** Unlike `flatTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started immediately, and the original value is returned without delay. Any errors from the side-effect are silently ignored.
+- **Description:** Unlike `thenTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started immediately, and the original value is returned without delay. Any errors from the side-effect are silently ignored.
 
-### forkTap0
+### thenFork0
 Executes a zero-argument side-effect continuation in a fire-and-forget manner.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A2> Function()` - Zero-argument function that returns a side-effect continuation
-- **Description:** Similar to `forkTap` but ignores the current value.
+- **Description:** Similar to `thenFork` but ignores the current value.
 
-### forkTapTo
+### thenForkTo
 Executes a constant side-effect continuation in a fire-and-forget manner.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `cont`: `Cont<A2>` - The side-effect continuation to execute
-- **Description:** Similar to `forkTap0` but takes a fixed continuation instead of a function.
+- **Description:** Similar to `thenFork0` but takes a fixed continuation instead of a function.
 
-### flatMapZipWith
+### zip
 Chains and combines two continuation values.
 - **Return type:** `Cont<A3>`
 - **Arguments:**
@@ -145,15 +145,15 @@ Chains and combines two continuation values.
   - `combine`: `A3 Function(A a1, A2 a2)` - Function to combine both values
 - **Description:** Sequences two continuations and combines their results using the provided function.
 
-### flatMapZipWith0
+### zip0
 Chains and combines with a zero-argument function.
 - **Return type:** `Cont<A3>`
 - **Arguments:**
   - `f`: `Cont<A2> Function()` - Zero-argument function to produce the second continuation
   - `combine`: `A3 Function(A a1, A2 a2)` - Function to combine both values
-- **Description:** Similar to `flatMapZipWith` but the second continuation doesn't depend on the first value.
+- **Description:** Similar to `zip` but the second continuation doesn't depend on the first value.
 
-### flatMapZipWithTo
+### zipTo
 Chains and combines with a constant continuation.
 - **Return type:** `Cont<A3>`
 - **Arguments:**
@@ -313,7 +313,7 @@ Tries multiple continuations until one succeeds.
 Flattens a nested Cont structure.
 - **Return type:** `Cont<A>` (on `Cont<Cont<A>>`)
 - **Arguments:** None
-- **Description:** Converts `Cont<Cont<A>>` to `Cont<A>`. Equivalent to `flatMap((contA) => contA)`.
+- **Description:** Converts `Cont<Cont<A>>` to `Cont<A>`. Equivalent to `then((contA) => contA)`.
 
 ### trap
 Executes a continuation that never produces a value.

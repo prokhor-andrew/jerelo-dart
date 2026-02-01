@@ -152,11 +152,11 @@ Example of `Cont`'s composition:
 // Cont composition
 
 final Cont<Result1Type> result1Cont = function1(value);
-final Cont<Result2Type> result2Cont = result1Cont.flatMap((result1) {
+final Cont<Result2Type> result2Cont = result1Cont.then((result1) {
   return function2(result1);
 });
 
-final Cont<ProgramType> program = result2Cont.flatMap((result2) {
+final Cont<ProgramType> program = result2Cont.then((result2) {
   // the rest of the program
 });
 ```
@@ -167,10 +167,10 @@ But that is tedious and not the right way to use it. Here is the right one:
 // Cont composition
 
 final Cont<ProgramType> program = function1(value)
-  .flatMap((result1) {
+  .then((result1) {
     return function2(result1);
   })
-  .flatMap((result2) {
+  .then((result2) {
     // the rest of the program
   });
 ```
@@ -181,8 +181,8 @@ Or even better:
 // Cont composition
 
 final program = function1(value)
-  .flatMap(function2)
-  .flatMap((result2) {
+  .then(function2)
+  .then((result2) {
     // the rest of the program
   });
 ```
@@ -208,7 +208,7 @@ final program = getUserAge(userId).map((age) {
 
 // or
 
-final program = getUserAge(userId).flatMap((age) {
+final program = getUserAge(userId).then((age) {
   return Cont.terminate([ContError("Armageddon!", StackTrace.curret)]);
 });
 
@@ -364,9 +364,9 @@ one has to call `run` on it, passing `onTerminate` callback, as well as `onValue
 ```dart
 // constructing the program
 final Cont<String> program = getValueFromDatabase()
-  .flatMap(incrementValue)
-  .flatMap(isEven)
-  .flatMap(toString);
+  .then(incrementValue)
+  .then(isEven)
+  .then(toString);
 
 // running the program
 program.run(
@@ -391,8 +391,8 @@ passed around in functions, and stored as values in constants.
 
 When `run` is called, the flow goes "up" the chain, executes the edge
 computation (the `Cont` object we get from `getValueFromDatabase`)
-and then navigates back down to `flatMap(incrementValue)`, then to `flatMap(isEven)`, 
-to `flatMap(toString)`, and finally to `run` itself.
+and then navigates back down to `then(incrementValue)`, then to `then(isEven)`,
+to `then(toString)`, and finally to `run` itself (Sorry for many "then"s) .
 
 If any computation emits a termination event, the whole chain after that 
 is skipped and first callback passed into `run` is invoked.
@@ -445,11 +445,11 @@ add behavior before, after, or around the actual execution.
 
 # Chaining
 
-Chaining is constructing a computation from the result 
-of the previous one. To achieve this one can use `flatMap`:
+Chaining is constructing a computation from the result
+of the previous one. To achieve this one can use `then`:
 
 ```dart
-Cont.of(0).flatMap((zero) {
+Cont.of(0).then((zero) {
   return Cont.of(zero + 1);
 }).run((_) {}, print); // prints 1
 ```
@@ -660,7 +660,7 @@ final cont = Cont.fromRun<int>((observer) { // constructing
   observer.onValue(n);
 })
 .map((int value) => value.isEven) // transforming
-.flatMap((isEven) { // chaining
+.then((isEven) { // chaining
   if (isEven) {
     return Cont.both( // merging
       Cont.of(10),
