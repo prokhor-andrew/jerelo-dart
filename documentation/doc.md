@@ -142,8 +142,6 @@ channels, and comes with a basic interface that allows you to do every fundament
 - Chain
 - Branch
 - Merge
-- Race
-- Recover
 
 
 Example of `Cont`'s composition:
@@ -454,19 +452,8 @@ Cont.of(0).then((zero) {
 }).run((_) {}, print); // prints 1
 ```
 
-There is also a variant for `List` of continuations. It is called
-`Cont.sequence`. It runs every computation one by one, until it reaches 
-the end, and emits the last value.
+// TODO: 
 
-```dart
-Cont.sequence([
-    Cont.of(5),
-    Cont.of(4),
-    Cont.of(3),
-    Cont.of(2),
-    Cont.of(1),
-]).run((_) { }, print); // prints 1
-```
 
 # Branching
 
@@ -537,113 +524,8 @@ Cont.of(0)
 
 # Merging
 
-When you have two independent computations, and you need to get
-the result from both, use `Cont.both`:
+// TODO: 
 
-```dart
-final zeroCont = Cont.of(0);
-final oneCont = Cont.of(1);
-
-Cont.both(
-  zeroCont, 
-  oneCont, 
-  (zero, one) => zero + one,
-).run((_) {}, print); // prints 1
-```
-
-When you have a list of computations, and you want to
-wait for all their values, `Cont.all` is your tool.
-
-```dart
-final List<Cont<int>> contList = [
-  Cont.of(1),
-  Cont.of(2),
-  Cont.of(3),
-]; 
-
-Cont.all(contList).run((_) {}, print); // prints [1, 2, 3]
-```
-
-# Racing
-
-## For winner
-You can also run independent computations, and pick the first successful value.
-This is called `raceForWinner`:
-
-```dart
-Cont.raceForWinner(
-  fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
-  fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
-).run((_) {}, print); // prints "second"
-```
-
-Note on `raceForWinner`, it will emit the value as soon as it is available,
-without waiting for other computations to complete.
-
-
-There is also a variant for `List<Cont<A>>` - `raceForWinnerAll`:
-
-```dart
-Cont.raceForWinnerAll([
-  fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
-  fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
-  fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
-]).run((_) {}, print); // prints "second"
-```
-
-## For loser
-
-In case you want to get the last non-terminating value, use `raceForLoser`:
-
-```dart
-Cont.raceForLoser(
-  fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
-  fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
-).run((_) {}, print); // prints "first"
-```
-
-In the loser case, all computations must be finished, in order to properly determine
-last non-terminating value.
-
-
-List variant is called `raceForLoserAll`:
-
-```dart
-Cont.raceForLoserAll([
-  fromFutureComp(() => Future.delayed(Duration(seconds: 4))).mapTo("first"),
-  fromFutureComp(() => Future.delayed(Duration(seconds: 1))).mapTo("second"),
-  fromFutureComp(() => Future.delayed(Duration(seconds: 5))).mapTo("third"),
-]).run((_) {}, print); // prints "third"
-```
-
-# Recovering
-
-Dart is fragile. Anything can throw. Luckily, Jerelo does most of the work for you.
-Any failed computation will be propagated downstream via terminate channel. 
-
-But sometimes we may want to recover from an error, and continue.
-
-To do this there is `orElse` operator. It catches any termination event.
-
-```dart
-Cont.terminate([
-  ContError("Error object", StackTrace.current)
-])
-.orElse((errors) => Cont.of(2))
-.run((_) {}, print); // prints 2
-```
-
-There is a variant for a `List` of continuations: `Cont.orElseAll`. It
-runs computations one by one, until it finds one that succeeds.
-
-```dart
-Cont.orElseAll([ 
-  Cont.terminate(),
-  Cont.of(0),
-  Cont.of(5),
-])
-.run((_) {}, print); // prints 0
-```
 
 # Final Example
 
@@ -653,32 +535,7 @@ described in this document, but rather minor sugar extensions of them.
 
 Lastly, I want to showcase an example of everything in one place:
 
-
-```dart
-final cont = Cont.fromRun<int>((observer) { // constructing
-  final n = Random().nextInt(10); // 0..9 randomized
-  observer.onValue(n);
-})
-.map((int value) => value.isEven) // transforming
-.then((isEven) { // chaining
-  if (isEven) {
-    return Cont.both( // merging
-      Cont.of(10),
-      Cont.of(20),
-      (ten, twenty) => ten + twenty,
-    );
-  } else {
-    final cache = Cont.of(111); // 5 milliseconds
-    final network = Cont.of(222); // 80 milliseconds
-
-    return Cont.raceForWinner(cache, network); // racing
-  }
-})
-.orElse((errors) => Cont.of(-1)); // recovering
-
-// whenever you are ready    
-cont.run(print, print); // running
-```
+// TODO: 
 
 # What "Jerelo" means
 
