@@ -41,7 +41,7 @@ void main() {
   final program = getMockDraftService().then((service) {
     return service
         .getTransactionDraft()
-        .thenTap(service.validateTransactionDraft)
+        .tap(service.validateTransactionDraft)
         .then((draft) {
           return Cont.both(
             //
@@ -55,6 +55,7 @@ void main() {
                 //
               );
             },
+            policy: ContPolicy.quitFast(),
           );
         })
         .then(service.getTransactionService)
@@ -70,7 +71,7 @@ void main() {
               })
               .then(transactionService.getReportForTransactionAndResult);
         })
-        .orElse(service.getReportForErrors);
+        .elseThen(service.getReportForErrors);
   });
 
   program.runWith(getObserver());

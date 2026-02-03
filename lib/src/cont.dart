@@ -89,6 +89,31 @@ final class Cont<A> {
     });
   }
 
+  /// Creates a [Cont] that immediately succeeds with a value.
+  ///
+  /// Identity operation that wraps a pure value in a continuation context.
+  ///
+  /// - [value]: The value to wrap.
+  static Cont<A> of<A>(A value) {
+    return Cont.fromRun((observer) {
+      observer.onValue(value);
+    });
+  }
+
+  /// Creates a [Cont] that immediately terminates with optional errors.
+  ///
+  /// Creates a continuation that terminates without producing a value.
+  /// Used to represent failure states.
+  ///
+  /// - [errors]: List of errors to terminate with. Defaults to an empty list.
+  static Cont<A> terminate<A>([List<ContError> errors = const []]) {
+    final safeCopyErrors0 = List<ContError>.from(errors);
+    return Cont.fromRun((observer) {
+      final safeCopyErrors = List<ContError>.from(safeCopyErrors0);
+      observer.onTerminate(safeCopyErrors);
+    });
+  }
+
   /// Transforms the value inside a [Cont] using a pure function.
   ///
   /// Applies a function to the successful value of the continuation without
@@ -184,23 +209,12 @@ final class Cont<A> {
     });
   }
 
-  /// Chains to a constant [Cont].
-  ///
-  /// Sequences to a fixed continuation, ignoring the current value.
-  ///
-  /// - [cont]: The continuation to chain to.
-  Cont<A2> thenTo<A2>(Cont<A2> cont) {
-    return then0(() {
-      return cont;
-    });
-  }
-
   /// Chains a side-effect continuation while preserving the original value.
   ///
   /// Executes a continuation for its side effects, then returns the original value.
   ///
   /// - [f]: Side-effect function that returns a continuation.
-  Cont<A> thenTap<A2>(Cont<A2> Function(A value) f) {
+  Cont<A> tap<A2>(Cont<A2> Function(A value) f) {
     return then((a) {
       return f(a).mapTo(a);
     });
@@ -208,23 +222,12 @@ final class Cont<A> {
 
   /// Chains a zero-argument side-effect continuation.
   ///
-  /// Similar to [thenTap] but with a zero-argument function.
+  /// Similar to [tap] but with a zero-argument function.
   ///
   /// - [f]: Zero-argument side-effect function.
-  Cont<A> thenTap0<A2>(Cont<A2> Function() f) {
-    return thenTap((_) {
+  Cont<A> tap0<A2>(Cont<A2> Function() f) {
+    return tap((_) {
       return f();
-    });
-  }
-
-  /// Chains to a constant side-effect continuation.
-  ///
-  /// Executes a fixed continuation for its side effects, preserving the original value.
-  ///
-  /// - [cont]: The side-effect continuation.
-  Cont<A> thenTapTo<A2>(Cont<A2> cont) {
-    return thenTap0(() {
-      return cont;
     });
   }
 
@@ -255,26 +258,14 @@ final class Cont<A> {
     }, combine);
   }
 
-  /// Chains and combines with a constant continuation.
-  ///
-  /// Sequences to a fixed continuation and combines their results.
-  ///
-  /// - [cont]: The second continuation.
-  /// - [combine]: Function to combine both values into a result.
-  Cont<A3> zipTo<A2, A3>(Cont<A2> cont, A3 Function(A a1, A2 a2) combine) {
-    return zip0(() {
-      return cont;
-    }, combine);
-  }
-
   /// Executes a side-effect continuation in a fire-and-forget manner.
   ///
-  /// Unlike [thenTap], this method does not wait for the side-effect to complete.
+  /// Unlike [tap], this method does not wait for the side-effect to complete.
   /// The side-effect continuation is started immediately, and the original value
   /// is returned without delay. Any errors from the side-effect are silently ignored.
   ///
   /// - [f]: Function that takes the current value and returns a side-effect continuation.
-  Cont<A> thenFork<A2>(Cont<A2> Function(A a) f) {
+  Cont<A> fork<A2>(Cont<A2> Function(A a) f) {
     return then((a) {
       final contA2 = f(a); // this should not be inside try-catch block
 
@@ -291,81 +282,12 @@ final class Cont<A> {
 
   /// Executes a zero-argument side-effect continuation in a fire-and-forget manner.
   ///
-  /// Similar to [thenFork] but ignores the current value.
+  /// Similar to [fork] but ignores the current value.
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
-  Cont<A> thenFork0<A2>(Cont<A2> Function() f) {
-    return thenFork((_) {
+  Cont<A> fork0<A2>(Cont<A2> Function() f) {
+    return fork((_) {
       return f();
-    });
-  }
-
-  /// Executes a constant side-effect continuation in a fire-and-forget manner.
-  ///
-  /// Similar to [thenFork0] but takes a fixed continuation instead of a function.
-  ///
-  /// - [cont]: The side-effect continuation to execute.
-  Cont<A> thenForkTo<A2>(Cont<A2> cont) {
-    return thenFork0(() {
-      return cont;
-    });
-  }
-
-  /// Runs a list of continuations sequentially and collects results.
-  ///
-  /// Executes continuations one by one, collecting all successful values.
-  /// Terminates on first error. Uses stack-safe recursion to handle large lists.
-  ///
-  /// - [list]: List of continuations to execute sequentially.
-  static Cont<List<A>> sequence<A>(List<Cont<A>> list) {
-    final safeCopy0 = List<Cont<A>>.from(list);
-    return Cont.fromRun((observer) {
-      final safeCopy = List<Cont<A>>.from(safeCopy0);
-      _stackSafeLoop<_Either<(int, List<A>), List<ContError>>, (int, List<A>), _Either<List<A>, List<ContError>>>(
-        seed: _Value1((0, [])),
-        keepRunningIf: (state) {
-          switch (state) {
-            case _Value1(value: final value):
-              final (index, results) = value;
-              if (index >= safeCopy.length) {
-                return _StackSafeLoopPolicyStop(_Value1(results));
-              }
-              return _StackSafeLoopPolicyKeepRunning((index, results));
-            case _Value2(value: final value):
-              return _StackSafeLoopPolicyStop(_Value2(value));
-          }
-        },
-        computation: (tuple, callback) {
-          final (i, values) = tuple;
-          final cont = safeCopy[i];
-          try {
-            cont.runWith(
-              ContObserver(
-                (errors) {
-                  callback(_Value2([...errors]));
-                },
-                (a) {
-                  callback(_Value1((i + 1, [...values, a])));
-                },
-                //
-              ),
-            );
-          } catch (error, st) {
-            callback(_Value2([ContError(error, st)]));
-          }
-        },
-        escape: (triple) {
-          switch (triple) {
-            case _Value1(value: final results):
-              observer.onValue(results);
-              return;
-            case _Value2(value: final errors):
-              observer.onTerminate(errors);
-              return;
-          }
-        },
-        //
-      );
     });
   }
 
@@ -375,14 +297,14 @@ final class Cont<A> {
   /// errors from both attempts if the fallback also fails.
   ///
   /// - [f]: Function that receives errors and produces a fallback continuation.
-  Cont<A> orElse(Cont<A> Function(List<ContError> errors) f) {
+  Cont<A> elseThen(Cont<A> Function(List<ContError> errors) f) {
     return Cont.fromRun((observer) {
       runWith(
         observer.copyUpdateOnTerminate((errors) {
           try {
             f(errors).runWith(
               observer.copyUpdateOnTerminate((errors2) {
-                observer.onTerminate([...errors, ...errors2]);
+                observer.onTerminate([...errors2]);
               }),
             );
           } catch (error, st) {
@@ -395,74 +317,108 @@ final class Cont<A> {
 
   /// Provides a zero-argument fallback continuation.
   ///
-  /// Similar to [orElse] but doesn't use the error information.
+  /// Similar to [elseThen] but doesn't use the error information.
   ///
   /// - [f]: Zero-argument function that produces a fallback continuation.
-  Cont<A> orElse0(Cont<A> Function() f) {
-    return orElse((_) {
+  Cont<A> elseThen0(Cont<A> Function() f) {
+    return elseThen((_) {
       return f();
-    });
-  }
-
-  /// Provides a constant fallback continuation.
-  ///
-  /// If the continuation terminates, tries the fixed alternative.
-  ///
-  /// - [cont]: The fallback continuation.
-  Cont<A> orElseTo(Cont<A> cont) {
-    return orElse0(() {
-      return cont;
     });
   }
 
   /// Executes a side-effect continuation on termination while preserving the original termination.
   ///
   /// If the continuation terminates, executes the side-effect continuation for its effects,
-  /// then terminates with the original errors. Unlike [orElse], this does not attempt to
+  /// then terminates with the original errors. Unlike [elseThen], this does not attempt to
   /// recover - it always propagates the termination.
   ///
   /// - [f]: Function that returns a side-effect continuation.
-  Cont<A> orElseTap<A2>(Cont<A2> Function(List<ContError> errors) f) {
-    return orElse((errors) {
-      return f(errors).thenTo(Cont.terminate<A>(errors));
+  Cont<A> elseTap(Cont<A> Function(List<ContError> errors) f) {
+    return Cont.fromRun((observer) {
+      runWith(
+        observer.copyUpdateOnTerminate((errors) {
+          try {
+            final cont = f(errors);
+            cont.runWith(
+              observer.copyUpdateOnTerminate((_) {
+                observer.onTerminate([...errors]);
+              }),
+            );
+          } catch (error, st) {
+            observer.onTerminate([...errors, ContError(error, st)]);
+          }
+        }),
+      );
     });
   }
 
   /// Executes a zero-argument side-effect continuation on termination.
   ///
-  /// Similar to [orElseTap] but ignores the error information.
+  /// Similar to [elseTap] but ignores the error information.
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
-  Cont<A> orElseTap0<A2>(Cont<A2> Function() f) {
-    return orElseTap((_) {
+  Cont<A> elseTap0(Cont<A> Function() f) {
+    return elseTap((_) {
       return f();
     });
   }
 
-  /// Executes a constant side-effect continuation on termination.
+  /// Attempts a fallback continuation and combines errors from both attempts.
   ///
-  /// Similar to [orElseTap0] but takes a fixed continuation instead of a function.
+  /// If the continuation terminates, executes the fallback. If the fallback also
+  /// terminates, combines errors from both attempts using the provided [combine]
+  /// function before terminating.
   ///
-  /// - [cont]: The side-effect continuation to execute.
-  Cont<A> orElseTapTo<A2>(Cont<A2> cont) {
-    return orElseTap0(() {
-      return cont;
+  /// Unlike [elseThen], which only keeps the second error list, this method
+  /// accumulates and combines errors from both attempts.
+  ///
+  /// - [f]: Function that receives original errors and produces a fallback continuation.
+  /// - [combine]: Function to combine error lists from both attempts.
+  Cont<A> elseZip(Cont<A> Function(List<ContError>) f, List<ContError> Function(List<ContError>, List<ContError>) combine) {
+    return Cont.fromRun((observer) {
+      runWith(
+        observer.copyUpdateOnTerminate((errors) {
+          try {
+            final cont = f(errors);
+            cont.runWith(
+              observer.copyUpdateOnTerminate((errors2) {
+                observer.onTerminate([...errors, ...errors2]);
+              }),
+            );
+          } catch (error, st) {
+            observer.onTerminate([...errors, ContError(error, st)]);
+          }
+        }),
+      );
     });
+  }
+
+  /// Zero-argument version of [elseZip].
+  ///
+  /// Similar to [elseZip] but doesn't use the original error information
+  /// when producing the fallback continuation.
+  ///
+  /// - [f]: Zero-argument function that produces a fallback continuation.
+  /// - [combine]: Function to combine error lists from both attempts.
+  Cont<A> elseZip0(Cont<A> Function() f, List<ContError> Function(List<ContError>, List<ContError>) combine) {
+    return elseZip((_) {
+      return f();
+    }, combine);
   }
 
   /// Executes a side-effect continuation on termination in a fire-and-forget manner.
   ///
   /// If the continuation terminates, starts the side-effect continuation without waiting
-  /// for it to complete. Unlike [orElseTap], this does not wait for the side-effect to
+  /// for it to complete. Unlike [elseTap], this does not wait for the side-effect to
   /// finish before propagating the termination. Any errors from the side-effect are
   /// silently ignored.
   ///
   /// - [f]: Function that returns a side-effect continuation.
-  Cont<A> orElseFork<A2>(Cont<A2> Function(List<ContError> errors) f) {
-    return orElse((errors) {
+  Cont<A> elseFork<A2>(Cont<A2> Function(List<ContError> errors) f) {
+    return elseThen((errors) {
       final cont = f(errors); // this should not be inside try-catch block
       try {
-       cont.ff();
+        cont.ff();
       } catch (_) {
         // do nothing, if anything happens to side-effect, it's not
         // a concern of the orElseFork
@@ -473,577 +429,675 @@ final class Cont<A> {
 
   /// Executes a zero-argument side-effect continuation on termination in a fire-and-forget manner.
   ///
-  /// Similar to [orElseFork] but ignores the error information.
+  /// Similar to [elseFork] but ignores the error information.
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
-  Cont<A> orElseFork0<A2>(Cont<A2> Function() f) {
-    return orElseFork((_) {
+  Cont<A> elseFork0<A2>(Cont<A2> Function() f) {
+    return elseFork((_) {
       return f();
     });
   }
 
-  /// Executes a constant side-effect continuation on termination in a fire-and-forget manner.
+  /// Runs two continuations and combines their results according to the specified policy.
   ///
-  /// Similar to [orElseFork0] but takes a fixed continuation instead of a function.
+  /// Executes both continuations and combines their values using [combine].
+  /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [cont]: The side-effect continuation to execute.
-  Cont<A> orElseForkTo<A2>(Cont<A2> cont) {
-    return orElseFork0(() {
-      return cont;
-    });
-  }
-
-  /// Tries multiple continuations until one succeeds.
+  /// - [SequencePolicy]: Runs [left] then [right] sequentially.
+  /// - [MergeWhenAllPolicy]: Runs both in parallel, waits for both to complete,
+  ///   and merges errors if both fail.
+  /// - [QuitFastPolicy]: Runs both in parallel, terminates immediately if either fails.
   ///
-  /// Executes continuations one by one until one succeeds. Terminates only
-  /// if all fail, accumulating all errors.
-  ///
-  /// - [list]: List of continuations to try sequentially.
-  static Cont<A> orElseAll<A>(List<Cont<A>> list) {
-    final List<Cont<A>> safeCopy0 = List<Cont<A>>.from(list);
-
-    return Cont.fromRun((observer) {
-      final safeCopy = List<Cont<A>>.from(safeCopy0);
-
-      _stackSafeLoop<_Either<(int, List<ContError>), A>, (int, List<ContError>), _Either<List<ContError>, A>>(
-        seed: _Value1((0, [])),
-        keepRunningIf: (triple) {
-          switch (triple) {
-            case _Value1(value: final tuple):
-              final (index, errors) = tuple;
-              if (index >= safeCopy.length) {
-                return _StackSafeLoopPolicyStop(_Value1(errors));
-              }
-              return _StackSafeLoopPolicyKeepRunning((index, errors));
-            case _Value2(value: final a):
-              return _StackSafeLoopPolicyStop(_Value2(a));
-          }
-        },
-        computation: (tuple, callback) {
-          final (index, errors) = tuple;
-          final cont = safeCopy[index];
-
-          try {
-            cont.runWith(
-              ContObserver(
-                (errors2) {
-                  callback(_Value1((index + 1, [...errors, ...errors2])));
-                },
-                (a) {
-                  callback(_Value2(a));
-                },
-                //
-              ),
-            );
-          } catch (error, st) {
-            callback(_Value1((index + 1, [...errors, ContError(error, st)])));
-          }
-        },
-        escape: (triple) {
-          switch (triple) {
-            case _Value1(value: final errors):
-              observer.onTerminate([...errors]);
-              return;
-            case _Value2(value: final a):
-              observer.onValue(a);
-              return;
-          }
-        },
-        //
-      );
-    });
-  }
-
-  /// Creates a [Cont] that immediately succeeds with a value.
-  ///
-  /// Identity operation that wraps a pure value in a continuation context.
-  ///
-  /// - [value]: The value to wrap.
-  static Cont<A> of<A>(A value) {
-    return Cont.fromRun((observer) {
-      observer.onValue(value);
-    });
-  }
-
-  /// Creates a [Cont] that immediately terminates with optional errors.
-  ///
-  /// Creates a continuation that terminates without producing a value.
-  /// Used to represent failure states.
-  ///
-  /// - [errors]: List of errors to terminate with. Defaults to an empty list.
-  static Cont<A> terminate<A>([List<ContError> errors = const []]) {
-    final safeCopyErrors0 = List<ContError>.from(errors);
-    return Cont.fromRun((observer) {
-      final safeCopyErrors = List<ContError>.from(safeCopyErrors0);
-      observer.onTerminate(safeCopyErrors);
-    });
-  }
-
-  /// Runs two continuations in parallel and combines their results.
-  ///
-  /// Executes both continuations concurrently. Succeeds when both succeed,
-  /// terminates if either fails.
-  ///
-  /// - [left]: First continuation.
-  /// - [right]: Second continuation.
-  /// - [combine]: Function to combine results from both continuations.
+  /// - [left]: First continuation to execute.
+  /// - [right]: Second continuation to execute.
+  /// - [combine]: Function to combine both successful values.
+  /// - [policy]: Execution policy determining how continuations are run and errors are handled.
   static Cont<A3> both<A1, A2, A3>(
     Cont<A1> left,
     Cont<A2> right,
-    A3 Function(A1 a1, A2 a2) combine,
+    A3 Function(A1 a, A2 a2) combine, {
+    required ContPolicy<List<ContError>> policy,
     //
-  ) {
-    return Cont.fromRun((observer) {
-      bool isOneFail = false;
-      bool isOneValue = false;
-
-      A1? outerA1;
-      A2? outerA2;
-      final List<ContError> resultErrors = [];
-
-      void handleValue() {
-        if (isOneFail) {
-          return;
-        }
-
-        if (!isOneValue) {
-          isOneValue = true;
-          return;
-        }
-
-        try {
-          final c = combine(outerA1 as A1, outerA2 as A2);
-          observer.onValue(c);
-        } catch (error, st) {
-          observer.onTerminate([ContError(error, st)]);
-        }
-      }
-
-      void handleTerminate(void Function() codeToUpdate) {
-        if (isOneFail) {
-          return;
-        }
-        isOneFail = true;
-        codeToUpdate();
-        observer.onTerminate(resultErrors);
-      }
-
-      try {
-        left.runWith(
-          ContObserver(
-            (errors) {
-              handleTerminate(() {
-                resultErrors.insertAll(0, errors);
-              });
-            },
-            (a) {
-              // strict order must be followed
-              outerA1 = a;
-              handleValue();
-            },
-          ),
-        );
-      } catch (error, st) {
-        handleTerminate(() {
-          resultErrors.insert(0, ContError(error, st));
+  }) {
+    switch (policy) {
+      case SequencePolicy<List<ContError>>():
+        return left.then((a) {
+          return right.map((a2) {
+            return combine(a, a2);
+          });
         });
-      }
+      case MergeWhenAllPolicy<List<ContError>>(combine: final combine2):
+        return _both(left, right, combine, combine2);
+      case QuitFastPolicy<List<ContError>>():
+        return Cont.fromRun((observer) {
+          bool isOneFail = false;
+          bool isOneValue = false;
 
-      try {
-        right.runWith(
-          ContObserver(
-            (errors) {
-              handleTerminate(() {
-                resultErrors.addAll(errors);
-              });
-            },
-            (b) {
-              // strict order must be followed
-              outerA2 = b;
-              handleValue();
-            },
-          ),
-        );
-      } catch (error, st) {
-        handleTerminate(() {
-          resultErrors.add(ContError(error, st));
+          A1? outerA1;
+          A2? outerA2;
+          final List<ContError> resultErrors = [];
+
+          void handleValue() {
+            if (isOneFail) {
+              return;
+            }
+
+            if (!isOneValue) {
+              isOneValue = true;
+              return;
+            }
+
+            try {
+              final c = combine(outerA1 as A1, outerA2 as A2);
+              observer.onValue(c);
+            } catch (error, st) {
+              observer.onTerminate([ContError(error, st)]);
+            }
+          }
+
+          void handleTerminate(void Function() codeToUpdate) {
+            if (isOneFail) {
+              return;
+            }
+            isOneFail = true;
+            codeToUpdate();
+            observer.onTerminate(resultErrors);
+          }
+
+          try {
+            left.runWith(
+              ContObserver(
+                (errors) {
+                  handleTerminate(() {
+                    resultErrors.insertAll(0, errors);
+                  });
+                },
+                (a) {
+                  // strict order must be followed
+                  outerA1 = a;
+                  handleValue();
+                },
+              ),
+            );
+          } catch (error, st) {
+            handleTerminate(() {
+              resultErrors.insert(0, ContError(error, st));
+            });
+          }
+
+          try {
+            right.runWith(
+              ContObserver(
+                (errors) {
+                  handleTerminate(() {
+                    resultErrors.addAll(errors);
+                  });
+                },
+                (b) {
+                  // strict order must be followed
+                  outerA2 = b;
+                  handleValue();
+                },
+              ),
+            );
+          } catch (error, st) {
+            handleTerminate(() {
+              resultErrors.add(ContError(error, st));
+            });
+          }
         });
-      }
-    });
+    }
   }
 
-  /// Instance method for combining with another continuation in parallel.
+  /// Instance method for combining this continuation with another.
   ///
-  /// Convenient instance method wrapper for [Cont.both].
+  /// Convenient instance method wrapper for [Cont.both]. Executes this continuation
+  /// and [right] according to the specified [policy], then combines their values.
   ///
-  /// - [cont]: The other continuation to run in parallel.
-  /// - [combine]: Function to combine results from both continuations.
+  /// - [right]: The other continuation to combine with.
+  /// - [combine]: Function to combine both successful values.
+  /// - [policy]: Execution policy determining how continuations are run and errors are handled.
   Cont<A3> and<A2, A3>(
-    Cont<A2> cont,
-    A3 Function(A a1, A2 a2) combine,
+    Cont<A2> right,
+    A3 Function(A a, A2 a2) combine, {
+    required ContPolicy<List<ContError>> policy,
     //
-  ) {
-    return Cont.both(this, cont, combine);
+  }) {
+    return Cont.both(this, right, combine, policy: policy);
   }
 
-  /// Runs multiple continuations in parallel and collects all results.
+  /// Runs multiple continuations and collects all results according to the specified policy.
   ///
-  /// Executes all continuations concurrently. Succeeds only when all succeed,
-  /// preserving result order.
+  /// Executes all continuations in [list] and collects their values into a list.
+  /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [list]: List of continuations to execute in parallel.
-  static Cont<List<A>> all<A>(List<Cont<A>> list) {
+  /// - [SequencePolicy]: Runs continuations one by one in order, stops at first failure.
+  /// - [MergeWhenAllPolicy]: Runs all in parallel, waits for all to complete,
+  ///   and merges errors if any fail.
+  /// - [QuitFastPolicy]: Runs all in parallel, terminates immediately on first failure.
+  ///
+  /// - [list]: List of continuations to execute.
+  /// - [policy]: Execution policy determining how continuations are run and errors are handled.
+  static Cont<List<A>> all<A>(
+    List<Cont<A>> list, {
+    required ContPolicy<List<ContError>> policy,
+    //
+  }) {
     final safeCopy0 = List<Cont<A>>.from(list);
+    switch (policy) {
+      case SequencePolicy<List<ContError>>():
+        return Cont.fromRun((observer) {
+          final safeCopy = List<Cont<A>>.from(safeCopy0);
+          _stackSafeLoop<_Either<(int, List<A>), List<ContError>>, (int, List<A>), _Either<List<A>, List<ContError>>>(
+            seed: _Value1((0, [])),
+            keepRunningIf: (state) {
+              switch (state) {
+                case _Value1(value: final value):
+                  final (index, results) = value;
+                  if (index >= safeCopy.length) {
+                    return _StackSafeLoopPolicyStop(_Value1(results));
+                  }
+                  return _StackSafeLoopPolicyKeepRunning((index, results));
+                case _Value2(value: final value):
+                  return _StackSafeLoopPolicyStop(_Value2(value));
+              }
+            },
+            computation: (tuple, callback) {
+              final (i, values) = tuple;
+              final cont = safeCopy[i];
+              try {
+                cont.runWith(
+                  ContObserver(
+                    (errors) {
+                      callback(_Value2([...errors]));
+                    },
+                    (a) {
+                      callback(_Value1((i + 1, [...values, a])));
+                    },
+                    //
+                  ),
+                );
+              } catch (error, st) {
+                callback(_Value2([ContError(error, st)]));
+              }
+            },
+            escape: (triple) {
+              switch (triple) {
+                case _Value1(value: final results):
+                  observer.onValue(results);
+                  return;
+                case _Value2(value: final errors):
+                  observer.onTerminate(errors);
+                  return;
+              }
+            },
+            //
+          );
+        });
+      case MergeWhenAllPolicy<List<ContError>>(combine: final merge):
+        return Cont.fromRun((observer) {
+          final safeCopy = List<Cont<A>>.from(safeCopy0);
 
-    return Cont.fromRun((observer) {
-      final safeCopy = List<Cont<A>>.from(safeCopy0);
+          if (safeCopy.isEmpty) {
+            observer.onValue(<A>[]);
+            return;
+          }
 
-      if (safeCopy.isEmpty) {
-        observer.onValue(<A>[]);
-        return;
-      }
+          if (safeCopy.length == 1) {
+            final cont = safeCopy[0];
+            try {
+              cont.run(
+                (errors) {
+                  observer.onTerminate([...errors]);
+                },
+                (a) {
+                  observer.onValue([a]);
+                },
+              );
+            } catch (error, st) {
+              observer.onTerminate([ContError(error, st)]);
+            }
+            return;
+          }
 
-      bool isDone = false;
-      final results = List<A?>.filled(safeCopy.length, null);
+          List<ContError>? seed;
 
-      int amountOfFinishedContinuations = 0;
+          final List<A> results = [];
 
-      void handleNoneOrFail(List<ContError> errors) {
-        if (isDone) {
-          return;
-        }
-        isDone = true;
+          var i = 0;
+          for (final cont in safeCopy) {
+            try {
+              cont.run(
+                (errors) {
+                  i += 1;
+                  final seedCopy = seed;
+                  if (seedCopy == null) {
+                    seed = [...errors];
+                  } else {
+                    final safeCopyOfResultErrors = [...merge(seedCopy, errors)];
+                    seed = safeCopyOfResultErrors;
+                  }
 
-        observer.onTerminate(errors);
-      }
+                  if (i >= safeCopy.length) {
+                    observer.onTerminate(seed!);
+                    return;
+                  }
+                },
+                (a) {
+                  i += 1;
+                  final seedCopy = seed;
+                  if (seedCopy != null) {
+                    if (i >= safeCopy.length) {
+                      observer.onTerminate(seedCopy);
+                    }
+                    return;
+                  }
 
-      for (final (i, cont) in safeCopy.indexed) {
-        try {
-          cont.runWith(
-            ContObserver(
+                  results.add(a);
+                  if (i >= safeCopy.length) {
+                    observer.onValue(results);
+                  }
+                },
+                //
+              );
+            } catch (error, st) {
+              i += 1;
+              final seedCopy = seed;
+              if (seedCopy == null) {
+                seed = [ContError(error, st)];
+              } else {
+                final safeCopyOfResultErrors = [...merge(seedCopy, [ContError(error, st)])];
+                seed = safeCopyOfResultErrors;
+              }
+
+              if (i >= safeCopy.length) {
+                observer.onTerminate(seed!);
+                return;
+              }
+            }
+          }
+        });
+      case QuitFastPolicy<List<ContError>>():
+        return Cont.fromRun((observer) {
+          final safeCopy = List<Cont<A>>.from(safeCopy0);
+
+          if (safeCopy.isEmpty) {
+            observer.onValue(<A>[]);
+            return;
+          }
+
+          bool isDone = false;
+          final results = List<A?>.filled(safeCopy.length, null);
+
+          int amountOfFinishedContinuations = 0;
+
+          void handleNoneOrFail(List<ContError> errors) {
+            if (isDone) {
+              return;
+            }
+            isDone = true;
+
+            observer.onTerminate(errors);
+          }
+
+          for (final (i, cont) in safeCopy.indexed) {
+            try {
+              cont.runWith(
+                ContObserver(
+                  (errors) {
+                    handleNoneOrFail([...errors]); // defensive copy
+                  },
+                  (a) {
+                    if (isDone) {
+                      return;
+                    }
+
+                    results[i] = a;
+                    amountOfFinishedContinuations += 1;
+
+                    if (amountOfFinishedContinuations < safeCopy.length) {
+                      return;
+                    }
+
+                    observer.onValue(results.cast<A>());
+                  },
+                ),
+              );
+            } catch (error, st) {
+              handleNoneOrFail([ContError(error, st)]);
+            }
+          }
+        });
+    }
+  }
+
+  /// Races two continuations, returning the first successful value.
+  ///
+  /// Executes both continuations and returns the result from whichever succeeds first.
+  /// If both fail, combines their errors using [combine]. The execution behavior
+  /// depends on the provided [policy]:
+  ///
+  /// - [SequencePolicy]: Tries [left] first, then [right] if [left] fails.
+  /// - [MergeWhenAllPolicy]: Runs both in parallel, returns first success or merges
+  ///   results/errors if both complete.
+  /// - [QuitFastPolicy]: Runs both in parallel, returns immediately on first success.
+  ///
+  /// - [left]: First continuation to try.
+  /// - [right]: Second continuation to try.
+  /// - [combine]: Function to combine error lists if both fail.
+  /// - [policy]: Execution policy determining how continuations are run.
+  static Cont<A> either<A>(
+    Cont<A> left,
+    Cont<A> right,
+    List<ContError> Function(List<ContError>, List<ContError>) combine, {
+    required ContPolicy<A> policy,
+    //
+  }) {
+    switch (policy) {
+      case SequencePolicy<A>():
+        return left.elseThen((errors1) {
+          return right.elseThen((errors2) {
+            return Cont.terminate(combine(errors1, errors2));
+          });
+        });
+      case MergeWhenAllPolicy<A>(combine: final combine2):
+        return _any(left, right, combine, combine2);
+      case QuitFastPolicy<A>():
+        return Cont.fromRun((observer) {
+          bool isOneFailed = false;
+          final List<ContError> resultErrors = [];
+          bool isDone = false;
+
+          void handleNoneOrFail(void Function() codeToUpdateState) {
+            if (isOneFailed) {
+              codeToUpdateState();
+
+              observer.onTerminate(resultErrors);
+              return;
+            }
+            isOneFailed = true;
+
+            codeToUpdateState();
+          }
+
+          ContObserver<A> makeObserver(void Function(List<ContError> errors) codeToUpdateState) {
+            return ContObserver(
               (errors) {
-                handleNoneOrFail([...errors]); // defensive copy
+                if (isDone) {
+                  return;
+                }
+                handleNoneOrFail(() {
+                  codeToUpdateState([...errors]);
+                });
               },
               (a) {
                 if (isDone) {
                   return;
                 }
-
-                results[i] = a;
-                amountOfFinishedContinuations += 1;
-
-                if (amountOfFinishedContinuations < safeCopy.length) {
-                  return;
-                }
-
-                observer.onValue(results.cast<A>());
-              },
-            ),
-          );
-        } catch (error, st) {
-          handleNoneOrFail([ContError(error, st)]);
-        }
-      }
-    });
-  }
-
-  /// Races two continuations, returning the first successful value.
-  ///
-  /// Returns the result of whichever continuation succeeds first.
-  /// Terminates only if both fail, accumulating all errors.
-  ///
-  /// - [left]: First continuation to race.
-  /// - [right]: Second continuation to race.
-  static Cont<A> raceForWinner<A>(Cont<A> left, Cont<A> right) {
-    return Cont.fromRun((observer) {
-      bool isOneFailed = false;
-      final List<ContError> resultErrors = [];
-      bool isDone = false;
-
-      void handleNoneOrFail(void Function() codeToUpdateState) {
-        if (isOneFailed) {
-          codeToUpdateState();
-
-          observer.onTerminate(resultErrors);
-          return;
-        }
-        isOneFailed = true;
-
-        codeToUpdateState();
-      }
-
-      ContObserver<A> makeObserver(void Function(List<ContError> errors) codeToUpdateState) {
-        return ContObserver(
-          (errors) {
-            if (isDone) {
-              return;
-            }
-            handleNoneOrFail(() {
-              codeToUpdateState([...errors]);
-            });
-          },
-          (a) {
-            if (isDone) {
-              return;
-            }
-            isDone = true;
-            observer.onValue(a);
-          },
-        );
-      }
-
-      try {
-        left.runWith(
-          makeObserver((errors) {
-            resultErrors.insertAll(0, errors);
-          }),
-        );
-      } catch (error, st) {
-        handleNoneOrFail(() {
-          resultErrors.insert(0, ContError(error, st));
-        });
-      }
-
-      try {
-        right.runWith(
-          makeObserver((errors) {
-            resultErrors.addAll(errors);
-          }),
-        );
-      } catch (error, st) {
-        handleNoneOrFail(() {
-          resultErrors.add(ContError(error, st));
-        });
-      }
-    });
-  }
-
-  /// Races two continuations, returning the value from the last to complete.
-  ///
-  /// Waits for both to complete, returns the slower one's value. Useful for
-  /// timeout scenarios. Terminates if both fail.
-  ///
-  /// - [left]: First continuation.
-  /// - [right]: Second continuation.
-  static Cont<A> raceForLoser<A>(Cont<A> left, Cont<A> right) {
-    return Cont.fromRun((observer) {
-      bool isFirstComputed = false;
-
-      final List<ContError> resultErrors = [];
-
-      bool isResultAvailable = false;
-      A? result;
-
-      void handleNoneOrFail(void Function() codeToUpdateState) {
-        if (!isFirstComputed) {
-          isFirstComputed = true;
-          codeToUpdateState();
-          return;
-        }
-
-        if (isResultAvailable) {
-          observer.onValue(result as A);
-          return;
-        }
-
-        codeToUpdateState();
-
-        observer.onTerminate(resultErrors);
-      }
-
-      ContObserver<A> makeObserver(void Function(List<ContError> errors) codeToUpdateState) {
-        return ContObserver(
-          (errors) {
-            handleNoneOrFail(() {
-              codeToUpdateState(errors);
-            });
-          },
-          (a) {
-            if (isFirstComputed) {
-              observer.onValue(a);
-              return;
-            }
-            result = a;
-            isFirstComputed = true;
-            isResultAvailable = true;
-          },
-        );
-      }
-
-      try {
-        left.runWith(
-          makeObserver((errors) {
-            resultErrors.insertAll(0, errors);
-          }),
-        );
-      } catch (error, st) {
-        handleNoneOrFail(() {
-          resultErrors.insert(0, ContError(error, st));
-        });
-      }
-
-      try {
-        right.runWith(
-          makeObserver((errors) {
-            resultErrors.addAll(errors);
-          }),
-        );
-      } catch (error, st) {
-        handleNoneOrFail(() {
-          resultErrors.add(ContError(error, st));
-        });
-      }
-    });
-  }
-
-  /// Instance method to race with another continuation for the first success.
-  ///
-  /// Convenient instance method wrapper for [Cont.raceForWinner].
-  ///
-  /// - [cont]: The other continuation to race with.
-  Cont<A> raceForWinnerWith(Cont<A> cont) {
-    return Cont.raceForWinner(this, cont);
-  }
-
-  /// Instance method to race for loser with another continuation.
-  ///
-  /// Convenient instance method wrapper for [Cont.raceForLoser].
-  ///
-  /// - [cont]: The other continuation to race with.
-  Cont<A> raceForLoserWith(Cont<A> cont) {
-    return Cont.raceForLoser(this, cont);
-  }
-
-  /// Races multiple continuations for the first success.
-  ///
-  /// Returns the first successful result. Terminates only when all fail,
-  /// accumulating all errors.
-  ///
-  /// - [list]: List of continuations to race.
-  static Cont<A> raceForWinnerAll<A>(List<Cont<A>> list) {
-    final list0 = List<Cont<A>>.from(list);
-    return Cont.fromRun((observer) {
-      final list = List<Cont<A>>.from(list0);
-      if (list.isEmpty) {
-        observer.onTerminate();
-        return;
-      }
-
-      final List<List<ContError>> resultOfErrors = List.generate(list.length, (_) {
-        return [];
-      });
-
-      bool isWinnerFound = false;
-      int numberOfFinished = 0;
-
-      void handleTerminate(int index, List<ContError> errors) {
-        if (isWinnerFound) {
-          return;
-        }
-        numberOfFinished += 1;
-
-        resultOfErrors[index] = errors;
-
-        if (numberOfFinished < list.length) {
-          return;
-        }
-
-        final flattened = resultOfErrors.expand((list) {
-          return list;
-        }).toList();
-
-        observer.onTerminate(flattened);
-      }
-
-      for (int i = 0; i < list.length; i++) {
-        final cont = list[i];
-        try {
-          cont.runWith(
-            ContObserver(
-              (errors) {
-                handleTerminate(i, [...errors]); // defensive copy
-              },
-              (a) {
-                if (isWinnerFound) {
-                  return;
-                }
-                isWinnerFound = true;
+                isDone = true;
                 observer.onValue(a);
               },
-            ),
-          );
-        } catch (error, st) {
-          handleTerminate(i, [ContError(error, st)]);
-        }
-      }
-    });
+            );
+          }
+
+          try {
+            left.runWith(
+              makeObserver((errors) {
+                resultErrors.insertAll(0, errors);
+              }),
+            );
+          } catch (error, st) {
+            handleNoneOrFail(() {
+              resultErrors.insert(0, ContError(error, st));
+            });
+          }
+
+          try {
+            right.runWith(
+              makeObserver((errors) {
+                resultErrors.addAll(errors);
+              }),
+            );
+          } catch (error, st) {
+            handleNoneOrFail(() {
+              resultErrors.add(ContError(error, st));
+            });
+          }
+        });
+    }
   }
 
-  /// Races multiple continuations for the last to complete.
+  /// Instance method for racing this continuation with another.
   ///
-  /// Returns the result of the last continuation to finish successfully.
-  /// Terminates only if all fail.
+  /// Convenient instance method wrapper for [Cont.either]. Races this continuation
+  /// against [right], returning the first successful value.
+  ///
+  /// - [right]: The other continuation to race with.
+  /// - [combine]: Function to combine error lists if both fail.
+  /// - [policy]: Execution policy determining how continuations are run.
+  Cont<A> or(
+    Cont<A> right,
+    List<ContError> Function(List<ContError>, List<ContError>) combine, {
+    required ContPolicy<A> policy,
+    //
+  }) {
+    return Cont.either(this, right, combine, policy: policy);
+  }
+
+  /// Races multiple continuations, returning the first successful value.
+  ///
+  /// Executes all continuations in [list] and returns the first one that succeeds.
+  /// If all fail, collects all errors. The execution behavior depends on the
+  /// provided [policy]:
+  ///
+  /// - [SequencePolicy]: Tries continuations one by one in order until one succeeds.
+  /// - [MergeWhenAllPolicy]: Runs all in parallel, returns first success or merges
+  ///   results if all complete.
+  /// - [QuitFastPolicy]: Runs all in parallel, returns immediately on first success.
   ///
   /// - [list]: List of continuations to race.
-  static Cont<A> raceForLoserAll<A>(List<Cont<A>> list) {
-    final list0 = List<Cont<A>>.from(list);
-    return Cont.fromRun((observer) {
-      final list = List<Cont<A>>.from(list0);
-      if (list.isEmpty) {
-        observer.onTerminate();
-        return;
-      }
+  /// - [policy]: Execution policy determining how continuations are run.
+  static Cont<A> any<A>(
+    List<Cont<A>> list, {
+    required ContPolicy<A> policy,
+    //
+  }) {
+    final List<Cont<A>> safeCopy0 = List<Cont<A>>.from(list);
 
-      final List<List<ContError>> resultErrors = List.generate(list.length, (_) {
-        return [];
-      });
+    switch (policy) {
+      case SequencePolicy<A>():
+        return Cont.fromRun((observer) {
+          final safeCopy = List<Cont<A>>.from(safeCopy0);
 
-      bool isItemFoundAvailable = false;
-      A? lastValue;
-      int numberOfFinished = 0;
+          _stackSafeLoop<_Either<(int, List<ContError>), A>, (int, List<ContError>), _Either<List<ContError>, A>>(
+            seed: _Value1((0, [])),
+            keepRunningIf: (triple) {
+              switch (triple) {
+                case _Value1(value: final tuple):
+                  final (index, errors) = tuple;
+                  if (index >= safeCopy.length) {
+                    return _StackSafeLoopPolicyStop(_Value1(errors));
+                  }
+                  return _StackSafeLoopPolicyKeepRunning((index, errors));
+                case _Value2(value: final a):
+                  return _StackSafeLoopPolicyStop(_Value2(a));
+              }
+            },
+            computation: (tuple, callback) {
+              final (index, errors) = tuple;
+              final cont = safeCopy[index];
 
-      void incrementFinishedAndCheckExit() {
-        numberOfFinished += 1;
-        if (numberOfFinished < list.length) {
-          return;
-        }
-
-        if (isItemFoundAvailable) {
-          observer.onValue(lastValue as A);
-          return;
-        }
-
-        final flattened = resultErrors.expand((list) {
-          return list;
-        }).toList();
-
-        observer.onTerminate(flattened);
-      }
-
-      for (int i = 0; i < list.length; i++) {
-        final cont = list[i];
-
-        try {
-          cont.runWith(
-            ContObserver(
-              (errors) {
-                resultErrors[i] = [...errors];
-                incrementFinishedAndCheckExit();
-              },
-              (a) {
-                lastValue = a;
-                isItemFoundAvailable = true;
-
-                incrementFinishedAndCheckExit();
-              },
-            ),
+              try {
+                cont.runWith(
+                  ContObserver(
+                    (errors2) {
+                      callback(_Value1((index + 1, [...errors, ...errors2])));
+                    },
+                    (a) {
+                      callback(_Value2(a));
+                    },
+                    //
+                  ),
+                );
+              } catch (error, st) {
+                callback(_Value1((index + 1, [...errors, ContError(error, st)])));
+              }
+            },
+            escape: (triple) {
+              switch (triple) {
+                case _Value1(value: final errors):
+                  observer.onTerminate([...errors]);
+                  return;
+                case _Value2(value: final a):
+                  observer.onValue(a);
+                  return;
+              }
+            },
+            //
           );
-        } catch (error, st) {
-          resultErrors[i] = [ContError(error, st)];
-          incrementFinishedAndCheckExit();
-        }
-      }
-    });
+        });
+      case MergeWhenAllPolicy<A>(combine: final merge):
+        return Cont.fromRun((observer) {
+          final safeCopy = List<Cont<A>>.from(safeCopy0);
+
+          if (safeCopy.isEmpty) {
+            observer.onTerminate();
+            return;
+          }
+
+          if (safeCopy.length == 1) {
+            final cont = safeCopy[0];
+            try {
+              cont.run(
+                (errors) {
+                  observer.onTerminate([...errors]);
+                },
+                (a) {
+                  observer.onValue(a);
+                },
+              );
+            } catch (error, st) {
+              observer.onTerminate([ContError(error, st)]);
+            }
+            return;
+          }
+
+          A? seed;
+
+          final List<ContError> errors = [];
+
+          var i = 0;
+          for (final cont in safeCopy) {
+            try {
+              cont.run(
+                (terminateErrors) {
+                  i += 1;
+                  final seedCopy = seed;
+                  if (seedCopy != null) {
+                    if (i >= safeCopy.length) {
+                      observer.onValue(seedCopy);
+                    }
+                    return;
+                  }
+
+                  errors.addAll(terminateErrors);
+                  if (i >= safeCopy.length) {
+                    observer.onTerminate(errors);
+                  }
+                },
+                (a) {
+                  i += 1;
+                  final seedCopy = seed;
+                  if (seedCopy == null) {
+                    seed = a;
+                  } else {
+                    final safeCopyOfResultValue = merge(seedCopy, a);
+                    seed = safeCopyOfResultValue;
+                  }
+
+                  if (i >= safeCopy.length) {
+                    observer.onValue(seed!);
+                    return;
+                  }
+                },
+                //
+              );
+            } catch (error, st) {
+              i += 1;
+              final seedCopy = seed;
+              if (seedCopy != null) {
+                if (i >= safeCopy.length) {
+                  observer.onValue(seedCopy);
+                }
+                return;
+              }
+
+              errors.add(ContError(error, st));
+
+              if (i >= safeCopy.length) {
+                observer.onTerminate(errors);
+                return;
+              }
+            }
+          }
+        });
+      case QuitFastPolicy<A>():
+        return Cont.fromRun((observer) {
+          final safeCopy = List<Cont<A>>.from(safeCopy0);
+          if (safeCopy.isEmpty) {
+            observer.onTerminate();
+            return;
+          }
+
+          final List<List<ContError>> resultOfErrors = List.generate(safeCopy.length, (_) {
+            return [];
+          });
+
+          bool isWinnerFound = false;
+          int numberOfFinished = 0;
+
+          void handleTerminate(int index, List<ContError> errors) {
+            if (isWinnerFound) {
+              return;
+            }
+            numberOfFinished += 1;
+
+            resultOfErrors[index] = errors;
+
+            if (numberOfFinished < safeCopy.length) {
+              return;
+            }
+
+            final flattened = resultOfErrors.expand((list) {
+              return list;
+            }).toList();
+
+            observer.onTerminate(flattened);
+          }
+
+          for (int i = 0; i < safeCopy.length; i++) {
+            final cont = safeCopy[i];
+            try {
+              cont.runWith(
+                ContObserver(
+                  (errors) {
+                    handleTerminate(i, [...errors]); // defensive copy
+                  },
+                  (a) {
+                    if (isWinnerFound) {
+                      return;
+                    }
+                    isWinnerFound = true;
+                    observer.onValue(a);
+                  },
+                ),
+              );
+            } catch (error, st) {
+              handleTerminate(i, [ContError(error, st)]);
+            }
+          }
+        });
+    }
   }
 
   /// Conditionally succeeds only when the predicate is satisfied.
@@ -1260,9 +1314,9 @@ final class Cont<A> {
         try {
           final mainCont = use(resource);
           return mainCont
-              .orElse((errors) {
+              .elseThen((errors) {
                 return doProperRelease()
-                    .orElse((errors2) {
+                    .elseThen((errors2) {
                       return Cont.terminate<()>([...errors, ...errors2]);
                     })
                     .then0(() {
@@ -1274,7 +1328,7 @@ final class Cont<A> {
               });
         } catch (error, st) {
           return doProperRelease()
-              .orElse((errors2) {
+              .elseThen((errors2) {
                 return Cont.terminate<()>([ContError(error, st), ...errors2]);
               })
               .then0(() {
@@ -1408,4 +1462,251 @@ final class _StackSafeLoopPolicyStop<A, B> extends _StackSafeLoopPolicy<A, B> {
   final B value;
 
   const _StackSafeLoopPolicyStop(this.value);
+}
+
+
+Cont<A3> _both<A1, A2, A3>(
+  Cont<A1> left,
+  Cont<A2> right,
+  A3 Function(A1 a, A2 a2) combine,
+  List<ContError> Function(List<ContError> acc, List<ContError> value) combine2,
+  //
+) {
+  return Cont.fromRun((observer) {
+    bool isOneFail = false;
+    bool isOneValue = false;
+
+    bool isLeftFailedFirst = false;
+
+    A1? outerA1;
+    A2? outerA2;
+
+    final List<ContError> leftErrors = [];
+    final List<ContError> rightErrors = [];
+
+    void handleValue() {
+      if (isOneFail) {
+        observer.onTerminate(leftErrors + rightErrors);
+        return;
+      }
+
+      if (!isOneValue) {
+        isOneValue = true;
+        return;
+      }
+
+      try {
+        final c = combine(outerA1 as A1, outerA2 as A2);
+        observer.onValue(c);
+      } catch (error, st) {
+        observer.onTerminate([ContError(error, st)]);
+      }
+    }
+
+    void handleTerminate(bool isLeft, List<ContError> errors) {
+      if (isOneValue) {
+        if (isLeft) {
+          leftErrors.addAll(errors);
+        } else {
+          rightErrors.addAll(errors);
+        }
+
+        observer.onTerminate(leftErrors + rightErrors);
+        return;
+      }
+
+      if (isOneFail) {
+        // check the policy and decide what to do with both error lists
+        if (isLeft) {
+          leftErrors.addAll(errors);
+        } else {
+          rightErrors.addAll(errors);
+        }
+
+        final List<ContError> firstErrors;
+        final List<ContError> secondErrors;
+
+        if (isLeftFailedFirst) {
+          firstErrors = leftErrors;
+          secondErrors = rightErrors;
+        } else {
+          firstErrors = rightErrors;
+          secondErrors = leftErrors;
+        }
+
+        observer.onTerminate(combine2(firstErrors, secondErrors));
+        return;
+      }
+
+      isOneFail = true;
+      if (isLeft) {
+        isLeftFailedFirst = true;
+        leftErrors.addAll(errors);
+      } else {
+        isLeftFailedFirst = false;
+        rightErrors.addAll(errors);
+      }
+    }
+
+    try {
+      left.runWith(
+        ContObserver(
+          (errors) {
+            handleTerminate(true, [...errors]);
+          },
+          (a) {
+            // strict order must be followed
+            outerA1 = a;
+            handleValue();
+          },
+        ),
+      );
+    } catch (error, st) {
+      handleTerminate(true, [ContError(error, st)]);
+    }
+
+    try {
+      right.runWith(
+        ContObserver(
+          (errors) {
+            handleTerminate(false, [...errors]);
+          },
+          (a2) {
+            // strict order must be followed
+            outerA2 = a2;
+            handleValue();
+          },
+        ),
+      );
+    } catch (error, st) {
+      handleTerminate(false, [ContError(error, st)]);
+    }
+  });
+}
+
+
+Cont<A> _any<A>(
+  Cont<A> left,
+  Cont<A> right,
+  List<ContError> Function(List<ContError> left, List<ContError> right) combine,
+  A Function(A acc, A value) combine2,
+  //
+) {
+  return Cont.fromRun((observer) {
+    bool isOneSuccess = false;
+    bool isOneTerminate = false;
+
+    bool isLeftSucceededFirst = false;
+
+    List<ContError>? outerLeft;
+    List<ContError>? outerRight;
+
+    A? leftVal;
+    A? rightVal;
+
+    void handleValue(bool isLeft, A value) {
+      if (isOneTerminate) {
+        if (isLeft) {
+          leftVal = value;
+          observer.onValue(value);
+        } else {
+          rightVal = value;
+          observer.onValue(value);
+        }
+
+        return;
+      }
+
+      if (isOneSuccess) {
+        // check the policy and decide what to do with both error lists
+        if (isLeft) {
+          leftVal = value;
+        } else {
+          rightVal = value;
+        }
+
+        final A firstValue;
+        final A secondValue;
+
+        if (isLeftSucceededFirst) {
+          firstValue = leftVal as A;
+          secondValue = rightVal as A;
+        } else {
+          firstValue = rightVal as A;
+          secondValue = leftVal as A;
+        }
+
+        observer.onValue(combine2(firstValue, secondValue));
+        return;
+      }
+
+      isOneSuccess = true;
+      if (isLeft) {
+        isLeftSucceededFirst = true;
+        leftVal = value;
+      } else {
+        isLeftSucceededFirst = false;
+        rightVal = value;
+      }
+    }
+
+    void handleTerminate(bool isLeft) {
+      if (isOneSuccess) {
+        if (isLeft) {
+          observer.onValue(leftVal as A);
+        } else {
+          observer.onValue(rightVal as A);
+        }
+        return;
+      }
+
+      if (!isOneTerminate) {
+        isOneTerminate = true;
+        return;
+      }
+
+      try {
+        final result = combine(outerLeft!, outerRight!);
+        observer.onTerminate([...result]);
+      } catch (error, st) {
+        observer.onTerminate([ContError(error, st)]);
+      }
+    }
+
+    try {
+      left.runWith(
+        ContObserver(
+          (errors) {
+            // strict order must be followed
+            outerLeft = [...errors];
+            handleTerminate(true);
+          },
+          (a1) {
+            handleValue(true, a1);
+          },
+        ),
+      );
+    } catch (error, st) {
+      outerLeft = [ContError(error, st)];
+      handleTerminate(true);
+    }
+
+    try {
+      right.runWith(
+        ContObserver(
+          (errors) {
+            // strict order must be followed
+            outerRight = [...errors];
+            handleTerminate(false);
+          },
+          (a2) {
+            handleValue(false, a2);
+          },
+        ),
+      );
+    } catch (error, st) {
+      outerRight = [ContError(error, st)];
+      handleTerminate(false);
+    }
+  });
 }
