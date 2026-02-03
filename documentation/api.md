@@ -88,54 +88,35 @@ Chains a Cont-returning zero-argument function.
   - `f`: `Cont<A2> Function()` - Zero-argument function that returns a continuation
 - **Description:** Similar to `then` but ignores the current value.
 
-### thenTo
-Chains to a constant Cont.
-- **Return type:** `Cont<A2>`
-- **Arguments:**
-  - `cont`: `Cont<A2>` - The continuation to chain to
-- **Description:** Sequences to a fixed continuation, ignoring the current value.
-
-### thenTap
+### tap
 Chains a side-effect continuation while preserving the original value.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A2> Function(A value)` - Side-effect function
 - **Description:** Executes a continuation for its side effects, then returns the original value.
 
-### thenTap0
+### tap0
 Chains a zero-argument side-effect continuation.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A2> Function()` - Zero-argument side-effect function
-- **Description:** Similar to `thenTap` but with a zero-argument function.
+- **Description:** Similar to `tap` but with a zero-argument function.
 
-### thenTapTo
-Chains to a constant side-effect continuation.
-- **Return type:** `Cont<A>`
-- **Arguments:**
-  - `cont`: `Cont<A2>` - The side-effect continuation
-- **Description:** Executes a fixed continuation for its side effects, preserving the original value.
-
-### thenFork
+### fork
 Executes a side-effect continuation in a fire-and-forget manner.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A2> Function(A a)` - Function that returns a side-effect continuation
-- **Description:** Unlike `thenTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started immediately, and the original value is returned without delay. Any errors from the side-effect are silently ignored.
+- **Description:** Unlike `tap`, this method does not wait for the side-effect to complete. 
+The side-effect continuation is started immediately, and the original value is returned without delay.
+Any errors from the side-effect are silently ignored.
 
-### thenFork0
+### fork0
 Executes a zero-argument side-effect continuation in a fire-and-forget manner.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A2> Function()` - Zero-argument function that returns a side-effect continuation
-- **Description:** Similar to `thenFork` but ignores the current value.
-
-### thenForkTo
-Executes a constant side-effect continuation in a fire-and-forget manner.
-- **Return type:** `Cont<A>`
-- **Arguments:**
-  - `cont`: `Cont<A2>` - The side-effect continuation to execute
-- **Description:** Similar to `thenFork0` but takes a fixed continuation instead of a function.
+- **Description:** Similar to `fork` but ignores the current value.
 
 ### zip
 Chains and combines two continuation values.
@@ -152,21 +133,6 @@ Chains and combines with a zero-argument function.
   - `f`: `Cont<A2> Function()` - Zero-argument function to produce the second continuation
   - `combine`: `A3 Function(A a1, A2 a2)` - Function to combine both values
 - **Description:** Similar to `zip` but the second continuation doesn't depend on the first value.
-
-### zipTo
-Chains and combines with a constant continuation.
-- **Return type:** `Cont<A3>`
-- **Arguments:**
-  - `cont`: `Cont<A2>` - The second continuation
-  - `combine`: `A3 Function(A a1, A2 a2)` - Function to combine both values
-- **Description:** Sequences to a fixed continuation and combines their results.
-
-### Cont.sequence
-Runs a list of continuations sequentially and collects results.
-- **Return type:** `Cont<List<A>>`
-- **Arguments:**
-  - `list`: `List<Cont<A>>` - List of continuations to execute
-- **Description:** Executes continuations one by one, collecting all successful values. Terminates on first error with stack-safe recursion.
 
 
 ## Branching
@@ -201,7 +167,7 @@ Repeatedly executes the continuation indefinitely.
 ## Merging
 
 ### Cont.both
-Runs two continuations in parallel and combines their results.
+Runs two continuations and combines their results according to the specified policy.
 - **Return type:** `Cont<A3>`
 - **Type parameters:**
   - `A1` - The type of the first continuation's result
@@ -211,7 +177,11 @@ Runs two continuations in parallel and combines their results.
   - `left`: `Cont<A1>` - First continuation
   - `right`: `Cont<A2>` - Second continuation
   - `combine`: `A3 Function(A1 a1, A2 a2)` - Function to combine results
-- **Description:** Executes both continuations concurrently. Succeeds when both succeed, terminates if either fails.
+  - `policy`: `ContPolicy<List<ContError>>` - Execution policy (required)
+- **Description:** Executes both continuations and combines their values using `combine`. The execution behavior depends on the provided policy:
+  - `SequencePolicy`: Runs `left` then `right` sequentially.
+  - `MergeWhenAllPolicy`: Runs both in parallel, waits for both to complete, and merges errors if both fail.
+  - `QuitFastPolicy`: Runs both in parallel, terminates immediately if either fails.
 
 ### and
 Instance method for combining with another continuation.
@@ -220,134 +190,118 @@ Instance method for combining with another continuation.
   - `A2` - The type of the other continuation's result
   - `A3` - The type of the combined result
 - **Arguments:**
-  - `cont`: `Cont<A2>` - The other continuation
+  - `right`: `Cont<A2>` - The other continuation
   - `combine`: `A3 Function(A a1, A2 a2)` - Function to combine results
-- **Description:** Convenient instance method wrapper for `Cont.both`.
+  - `policy`: `ContPolicy<List<ContError>>` - Execution policy (required)
+- **Description:** Convenient instance method wrapper for `Cont.both`. Executes this continuation and `right` according to the specified policy, then combines their values.
 
 ### Cont.all
-Runs multiple continuations in parallel and collects all results.
+Runs multiple continuations and collects all results according to the specified policy.
 - **Return type:** `Cont<List<A>>`
 - **Arguments:**
   - `list`: `List<Cont<A>>` - List of continuations to execute
-- **Description:** Executes all continuations concurrently. Succeeds only when all succeed, preserving result order.
+  - `policy`: `ContPolicy<List<ContError>>` - Execution policy (required)
+- **Description:** Executes all continuations in `list` and collects their values into a list. The execution behavior depends on the provided policy:
+  - `SequencePolicy`: Runs continuations one by one in order, stops at first failure.
+  - `MergeWhenAllPolicy`: Runs all in parallel, waits for all to complete, and merges errors if any fail.
+  - `QuitFastPolicy`: Runs all in parallel, terminates immediately on first failure.
 
 ## Racing
 
-### Cont.raceForWinner
+### Cont.either
 Races two continuations, returning the first successful value.
 - **Return type:** `Cont<A>`
 - **Arguments:**
-  - `left`: `Cont<A>` - First continuation
-  - `right`: `Cont<A>` - Second continuation
-- **Description:** Returns the result of whichever continuation succeeds first. Terminates only if both fail.
+  - `left`: `Cont<A>` - First continuation to try
+  - `right`: `Cont<A>` - Second continuation to try
+  - `combine`: `List<ContError> Function(List<ContError>, List<ContError>)` - Function to combine error lists if both fail
+  - `policy`: `ContPolicy<A>` - Execution policy (required)
+- **Description:** Executes both continuations and returns the result from whichever succeeds first. If both fail, combines their errors using `combine`. The execution behavior depends on the provided policy:
+  - `SequencePolicy`: Tries `left` first, then `right` if `left` fails.
+  - `MergeWhenAllPolicy`: Runs both in parallel, returns first success or merges results/errors if both complete.
+  - `QuitFastPolicy`: Runs both in parallel, returns immediately on first success.
 
-### raceForWinnerWith
-Instance method to race with another continuation.
+### or
+Instance method for racing this continuation with another.
 - **Return type:** `Cont<A>`
 - **Arguments:**
-  - `cont`: `Cont<A>` - The other continuation to race with
-- **Description:** Convenient instance method wrapper for `Cont.raceForWinner`.
+  - `right`: `Cont<A>` - The other continuation to race with
+  - `combine`: `List<ContError> Function(List<ContError>, List<ContError>)` - Function to combine error lists if both fail
+  - `policy`: `ContPolicy<A>` - Execution policy (required)
+- **Description:** Convenient instance method wrapper for `Cont.either`. Races this continuation against `right`, returning the first successful value.
 
-### Cont.raceForWinnerAll
-Races multiple continuations for the first success.
-- **Return type:** `Cont<A>`
-- **Arguments:**
-  - `list`: `List<Cont<A>>` - List of continuations to race
-- **Description:** Returns the first successful result. Terminates only when all fail.
-
-### Cont.raceForLoser
-Races two continuations, returning the value from the last to complete.
-- **Return type:** `Cont<A>`
-- **Arguments:**
-  - `left`: `Cont<A>` - First continuation
-  - `right`: `Cont<A>` - Second continuation
-- **Description:** Waits for both to complete, returns the slower one's value. Useful for timeout scenarios.
-
-### raceForLoserWith
-Instance method to race for loser with another continuation.
-- **Return type:** `Cont<A>`
-- **Arguments:**
-  - `cont`: `Cont<A>` - The other continuation to race with
-- **Description:** Convenient instance method wrapper for `Cont.raceForLoser`.
-
-### Cont.raceForLoserAll
-Races multiple continuations for the last to complete.
+### Cont.any
+Races multiple continuations, returning the first successful value.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `list`: `List<Cont<A>>` - List of continuations to race
-- **Description:** Returns the result of the last continuation to finish successfully.
+  - `policy`: `ContPolicy<A>` - Execution policy (required)
+- **Description:** Executes all continuations in `list` and returns the first one that succeeds. If all fail, collects all errors. The execution behavior depends on the provided policy:
+  - `SequencePolicy`: Tries continuations one by one in order until one succeeds.
+  - `MergeWhenAllPolicy`: Runs all in parallel, returns first success or merges results if all complete.
+  - `QuitFastPolicy`: Runs all in parallel, returns immediately on first success.
 
 ## Recovering
 
-### orElse
+### elseThen
 Provides a fallback continuation in case of termination.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A> Function(List<ContError> errors)` - Function to produce fallback continuation
-- **Description:** If the continuation terminates, executes the fallback. Accumulates errors from both attempts.
+- **Description:** If the continuation terminates, executes the fallback. If the fallback also fails, only the fallback's errors are propagated.
 
-### orElse0
+### elseThen0
 Provides a zero-argument fallback continuation.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A> Function()` - Zero-argument function to produce fallback
-- **Description:** Similar to `orElse` but doesn't use the error information.
+- **Description:** Similar to `elseThen` but doesn't use the error information.
 
-### orElseTo
-Provides a constant fallback continuation.
-- **Return type:** `Cont<A>`
-- **Arguments:**
-  - `cont`: `Cont<A>` - The fallback continuation
-- **Description:** If the continuation terminates, tries the fixed alternative.
-
-### Cont.orElseAll
-Tries multiple continuations until one succeeds.
-- **Return type:** `Cont<A>`
-- **Arguments:**
-  - `list`: `List<Cont<A>>` - List of continuations to try sequentially
-- **Description:** Executes continuations one by one until one succeeds. Terminates only if all fail.
-
-### orElseTap
+### elseTap
 Executes a side-effect continuation on termination while preserving the original termination.
 - **Return type:** `Cont<A>`
 - **Arguments:**
-  - `f`: `Cont<A2> Function(List<ContError> errors)` - Function that returns a side-effect continuation
-- **Description:** If the continuation terminates, executes the side-effect continuation for its effects, then terminates with the original errors. Unlike `orElse`, this does not attempt to recover - it always propagates the termination. Useful for logging, cleanup, or notification on failure without altering the error flow.
+  - `f`: `Cont<A> Function(List<ContError> errors)` - Function that returns a side-effect continuation
+- **Description:** If the continuation terminates, executes the side-effect continuation for its effects, then terminates with the original errors. Unlike `elseThen`, this does not attempt to recover - it always propagates the termination. Useful for logging, cleanup, or notification on failure without altering the error flow.
 
-### orElseTap0
+### elseTap0
 Executes a zero-argument side-effect continuation on termination.
 - **Return type:** `Cont<A>`
 - **Arguments:**
-  - `f`: `Cont<A2> Function()` - Zero-argument function that returns a side-effect continuation
-- **Description:** Similar to `orElseTap` but ignores the error information. The side-effect is executed regardless of the specific errors that caused termination.
+  - `f`: `Cont<A> Function()` - Zero-argument function that returns a side-effect continuation
+- **Description:** Similar to `elseTap` but ignores the error information. The side-effect is executed regardless of the specific errors that caused termination.
 
-### orElseTapTo
-Executes a constant side-effect continuation on termination.
+### elseZip
+Attempts a fallback continuation and combines errors from both attempts.
 - **Return type:** `Cont<A>`
 - **Arguments:**
-  - `cont`: `Cont<A2>` - The side-effect continuation to execute
-- **Description:** Similar to `orElseTap0` but takes a fixed continuation instead of a function.
+  - `f`: `Cont<A> Function(List<ContError>)` - Function that receives original errors and produces a fallback continuation
+  - `combine`: `List<ContError> Function(List<ContError>, List<ContError>)` - Function to combine error lists from both attempts
+- **Description:** If the continuation terminates, executes the fallback. If the fallback also terminates, combines errors from both attempts using the provided `combine` function before terminating. Unlike `elseThen`, which only keeps the second error list, this method accumulates and combines errors from both attempts.
 
-### orElseFork
+### elseZip0
+Zero-argument version of elseZip.
+- **Return type:** `Cont<A>`
+- **Arguments:**
+  - `f`: `Cont<A> Function()` - Zero-argument function that produces a fallback continuation
+  - `combine`: `List<ContError> Function(List<ContError>, List<ContError>)` - Function to combine error lists from both attempts
+- **Description:** Similar to `elseZip` but doesn't use the original error information when producing the fallback continuation.
+
+### elseFork
 Executes a side-effect continuation on termination in a fire-and-forget manner.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A2> Function(List<ContError> errors)` - Function that returns a side-effect continuation
-- **Description:** If the continuation terminates, starts the side-effect continuation without waiting for it to complete. Unlike `orElseTap`, this does not wait for the side-effect to finish before propagating the termination. Any errors from the side-effect are silently ignored. Useful for async logging or fire-and-forget notifications on failure.
+- **Description:** If the continuation terminates, starts the side-effect continuation without waiting for it to complete. 
+Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the termination.
+Any errors from the side-effect are silently ignored. Useful for async logging or fire-and-forget notifications on failure.
 
-### orElseFork0
+### elseFork0
 Executes a zero-argument side-effect continuation on termination in a fire-and-forget manner.
 - **Return type:** `Cont<A>`
 - **Arguments:**
   - `f`: `Cont<A2> Function()` - Zero-argument function that returns a side-effect continuation
-- **Description:** Similar to `orElseFork` but ignores the error information.
-
-### orElseForkTo
-Executes a constant side-effect continuation on termination in a fire-and-forget manner.
-- **Return type:** `Cont<A>`
-- **Arguments:**
-  - `cont`: `Cont<A2>` - The side-effect continuation to execute
-- **Description:** Similar to `orElseFork0` but takes a fixed continuation instead of a function.
+- **Description:** Similar to `elseFork` but ignores the error information.
 
 ## Extensions
 
@@ -454,3 +408,26 @@ Returns a string representation of the error.
 - **Return type:** `String`
 - **Arguments:** None
 - **Description:** Provides a readable string representation of the error in the format `{ error=<error>, stackTrace=<stackTrace> }`.
+
+## ContPolicy
+
+Execution policy for parallel continuation operations. Defines how multiple continuations should be executed and how their results or errors should be combined. Used by operations like `Cont.both`, `Cont.all`, `Cont.either`, `Cont.any`, and their instance method variants.
+
+### ContPolicy.sequence
+Creates a sequential execution policy.
+- **Return type:** `ContPolicy<T>`
+- **Arguments:** None
+- **Description:** Operations are executed one after another in order. For `all`/`both`, execution stops at the first failure. For `any`/`either`, execution continues until one succeeds or all fail. This provides predictable execution order but may be slower for independent operations.
+
+### ContPolicy.mergeWhenAll
+Creates a merge-when-all policy with a custom combiner.
+- **Return type:** `MergeWhenAllPolicy<T>`
+- **Arguments:**
+  - `combine`: `T Function(T acc, T value)` - Function to merge accumulated and new values
+- **Description:** All operations are executed in parallel. Results or errors are accumulated using the provided `combine` function. The function receives the accumulated value and the new value, returning the combined result. This is useful when you need to collect all errors or results from parallel operations.
+
+### ContPolicy.quitFast
+Creates a quit-fast policy.
+- **Return type:** `ContPolicy<T>`
+- **Arguments:** None
+- **Description:** Terminates immediately when a decisive result is reached. For `all`/`both` operations, quits on the first failure. For `any`/`either` operations, quits on the first success. Provides the fastest feedback but may leave other operations running. Use this when you want to fail-fast or succeed-fast without waiting for all operations to complete.
