@@ -1679,7 +1679,7 @@ final class ContRuntime<E> {
   final E _env;
   final bool Function() isCancelled;
 
-  ContRuntime._(this._env, this.isCancelled);
+  const ContRuntime._(this._env, this.isCancelled);
 
   E env() {
     return _env;
