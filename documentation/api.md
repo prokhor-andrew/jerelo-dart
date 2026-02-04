@@ -12,23 +12,17 @@ Complete reference for all public types and APIs in the Jerelo continuation libr
   - [ContPolicy](#contpolicy)
   - [ContRuntime](#contruntime)
   - [ContObserver](#contobserver)
-- [Policy Types](#policy-types)
-  - [SequencePolicy](#sequencepolicy)
-  - [MergeWhenAllPolicy](#mergewhenallpolicy)
-  - [QuitFastPolicy](#quitfastpolicy)
-- [Extensions](#extensions)
-  - [ContFlattenExtension](#contflattenextension)
-  - [ContRunExtension](#contrunextension)
 - [API Reference](#api-reference)
   - [Constructors & Static Methods](#constructors--static-methods)
   - [Execution Methods](#execution-methods)
+  - [Resource Management](#resource-management)
   - [Transformation Methods](#transformation-methods)
   - [Chaining Methods](#chaining-methods)
   - [Error Handling Methods](#error-handling-methods)
   - [Environment Methods](#environment-methods)
-  - [Parallel Execution Methods](#parallel-execution-methods)
   - [Loop & Conditional Methods](#loop--conditional-methods)
-  - [Resource Management](#resource-management)
+  - [Combination & Racing Methods](#combination--racing-methods)
+  - [Extensions](#extensions)
 
 ---
 
@@ -112,6 +106,45 @@ Creates a quit-fast policy. Terminates immediately when a decisive result is rea
 
 Provides the fastest feedback but may leave other operations running.
 
+**Policy Type Details:**
+
+#### SequencePolicy
+
+```dart
+final class SequencePolicy<T> extends ContPolicy<T>
+```
+
+Sequential execution policy.
+
+Executes continuations one after another in order. Stops at the first failure for `all`/`both` operations, or at the first success for `any`/`either` operations.
+
+#### MergeWhenAllPolicy
+
+```dart
+final class MergeWhenAllPolicy<T> extends ContPolicy<T>
+```
+
+Merge-when-all execution policy.
+
+Executes all continuations in parallel and waits for all to complete. Combines results or errors using the provided `combine` function.
+
+**Fields:**
+- `combine: T Function(T acc, T value)` - Function to combine accumulated and new values
+
+#### QuitFastPolicy
+
+```dart
+final class QuitFastPolicy<T> extends ContPolicy<T>
+```
+
+Quit-fast execution policy.
+
+Terminates as soon as a decisive result is reached:
+- For `all`/`both`: terminates on first failure
+- For `any`/`either`: terminates on first success
+
+Provides fastest feedback but other operations may continue running.
+
 ---
 
 ### ContRuntime
@@ -186,101 +219,6 @@ Creates a new observer with an updated value handler and potentially different t
 
 - **Parameters:**
   - `onValue`: The new value handler to use
-
----
-
-## Policy Types
-
-### SequencePolicy
-
-```dart
-final class SequencePolicy<T> extends ContPolicy<T>
-```
-
-Sequential execution policy.
-
-Executes continuations one after another in order. Stops at the first failure for `all`/`both` operations, or at the first success for `any`/`either` operations.
-
----
-
-### MergeWhenAllPolicy
-
-```dart
-final class MergeWhenAllPolicy<T> extends ContPolicy<T>
-```
-
-Merge-when-all execution policy.
-
-Executes all continuations in parallel and waits for all to complete. Combines results or errors using the provided `combine` function.
-
-**Fields:**
-- `combine: T Function(T acc, T value)` - Function to combine accumulated and new values
-
----
-
-### QuitFastPolicy
-
-```dart
-final class QuitFastPolicy<T> extends ContPolicy<T>
-```
-
-Quit-fast execution policy.
-
-Terminates as soon as a decisive result is reached:
-- For `all`/`both`: terminates on first failure
-- For `any`/`either`: terminates on first success
-
-Provides fastest feedback but other operations may continue running.
-
----
-
-## Extensions
-
-### ContFlattenExtension
-
-```dart
-extension ContFlattenExtension<E, A> on Cont<E, Cont<E, A>>
-```
-
-Extension providing flatten operation for nested continuations.
-
-**Methods:**
-
-```dart
-Cont<E, A> flatten()
-```
-Flattens a nested `Cont` structure. Converts `Cont<E, Cont<E, A>>` to `Cont<E, A>`. Equivalent to `thenDo((contA) => contA)`.
-
----
-
-### ContRunExtension
-
-```dart
-extension ContRunExtension<E> on Cont<E, Never>
-```
-
-Extension for running continuations that never produce a value.
-
-This extension provides specialized methods for `Cont<E, Never>` where only termination is expected, simplifying the API by removing the unused value callback.
-
-**Methods:**
-
-```dart
-void trap(E env, void Function(List<ContError>) onTerminate)
-```
-Executes the continuation expecting only termination. This is a convenience method for `Cont<E, Never>` that executes the continuation with only a termination handler, since a value callback would never be called for a `Cont<E, Never>`.
-
-- **Parameters:**
-  - `env`: The environment value to provide as context during execution
-  - `onTerminate`: Callback invoked when the continuation terminates with errors
-
-**Example:**
-```dart
-final cont = Cont.terminate<MyEnv, Never>([ContError(Exception('Failed'), StackTrace.current)]);
-cont.trap(myEnv, (errors) {
-  print('Terminated with ${errors.length} error(s)');
-});
-```
 
 ---
 
@@ -393,6 +331,63 @@ Runs the continuation without waiting for the result. Both success and failure o
 
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
+
+---
+
+### Resource Management
+
+#### Cont.bracket
+
+```dart
+static Cont<E, A> bracket<E, R, A>({
+  required Cont<E, R> acquire,
+  required Cont<E, ()> Function(R resource) release,
+  required Cont<E, A> Function(R resource) use,
+})
+```
+
+Manages resource lifecycle with guaranteed cleanup.
+
+The bracket pattern ensures that a resource is properly released after use, even if an error occurs during the `use` phase or if cancellation occurs. This is the functional equivalent of try-with-resources or using statements.
+
+**The execution order is:**
+1. `acquire` - Obtain the resource
+2. `use` - Use the resource to produce a value
+3. `release` - Release the resource (always runs if `acquire` succeeded, even if `use` fails or is cancelled)
+
+**Cancellation behavior:**
+- The `release` function is called even when the runtime is cancelled
+- Release runs with a non-cancellable runtime, ensuring complete cleanup
+- Cancellation is checked before the `use` phase; if cancelled, `use` is skipped but `release` still runs
+
+**Error handling behavior:**
+- If `acquire` fails: terminates immediately with `acquire` errors (neither `use` nor `release` execute)
+- If `use` succeeds and `release` succeeds: returns the value from `use`
+- If `use` succeeds and `release` fails: terminates with release errors
+- If `use` fails and `release` succeeds: terminates with use errors
+- If `use` fails and `release` fails: terminates with both error lists concatenated
+
+- **Parameters:**
+  - `acquire`: Continuation that acquires the resource
+  - `release`: Function that takes the resource and returns a continuation that releases it
+  - `use`: Function that takes the resource and returns a continuation that uses it
+
+**Example:**
+```dart
+// With explicit type parameters: <Environment, Resource, Result>
+final result = Cont.bracket<MyEnv, File, String>(
+  acquire: openFile('data.txt'),           // Cont<MyEnv, File>
+  release: (file) => closeFile(file),      // File => Cont<MyEnv, ()>
+  use: (file) => readContents(file),       // File => Cont<MyEnv, String>
+);
+
+// Or using type inference (recommended):
+final result = Cont.bracket(
+  acquire: openFile('data.txt'),
+  release: (file) => closeFile(file),
+  use: (file) => readContents(file),
+);
+```
 
 ---
 
@@ -1018,7 +1013,120 @@ Similar to `elseForkWithEnv`, but the side-effect function only receives the env
 
 ---
 
-### Parallel Execution Methods
+### Loop & Conditional Methods
+
+#### when
+
+```dart
+Cont<E, A> when(bool Function(A value) predicate)
+```
+
+Conditionally succeeds only when the predicate is satisfied.
+
+Filters the continuation based on the predicate. If the predicate returns `true`, the continuation succeeds with the value. If the predicate returns `false`, the continuation terminates without errors.
+
+This is useful for conditional execution where you want to treat a predicate failure as termination rather than an error.
+
+- **Parameters:**
+  - `predicate`: Function that tests the value
+
+**Example:**
+```dart
+final cont = Cont.of(42).when((n) => n > 0);
+// Succeeds with 42
+
+final cont2 = Cont.of(-5).when((n) => n > 0);
+// Terminates
+```
+
+---
+
+#### asLongAs
+
+```dart
+Cont<E, A> asLongAs(bool Function(A value) predicate)
+```
+
+Repeatedly executes the continuation as long as the predicate returns `true`, stopping when it returns `false`.
+
+Runs the continuation in a loop, testing each result with the predicate. The loop continues as long as the predicate returns `true`, and stops successfully when the predicate returns `false`.
+
+The loop is stack-safe and handles asynchronous continuations correctly. If the continuation terminates or if the predicate throws an exception, the loop stops and propagates the errors.
+
+This is useful for retry logic, polling, or repeating an operation while a condition holds.
+
+- **Parameters:**
+  - `predicate`: Function that tests the value. Returns `true` to continue looping, or `false` to stop and succeed with the value
+
+**Example:**
+```dart
+// Poll an API while data is not ready
+final result = fetchData().asLongAs((response) => !response.isReady);
+
+// Retry while value is below threshold
+final value = computation().asLongAs((n) => n < 100);
+```
+
+---
+
+#### until
+
+```dart
+Cont<E, A> until(bool Function(A value) predicate)
+```
+
+Repeatedly executes the continuation until the predicate returns `true`.
+
+Runs the continuation in a loop, testing each result with the predicate. The loop continues while the predicate returns `false`, and stops successfully when the predicate returns `true`.
+
+This is the inverse of `asLongAs` - implemented as `asLongAs((a) => !predicate(a))`. Use this when you want to retry until a condition is met.
+
+- **Parameters:**
+  - `predicate`: Function that tests the value. Returns `true` to stop the loop and succeed, or `false` to continue looping
+
+**Example:**
+```dart
+// Retry until a condition is met
+final result = fetchStatus().until((status) => status == 'complete');
+
+// Poll until a threshold is reached
+final value = checkProgress().until((progress) => progress >= 100);
+```
+
+---
+
+#### forever
+
+```dart
+Cont<E, Never> forever()
+```
+
+Repeatedly executes the continuation indefinitely.
+
+Runs the continuation in an infinite loop that never stops on its own. The loop only terminates if the underlying continuation terminates with an error.
+
+The return type `Cont<E, Never>` indicates that this continuation never produces a value - it either runs forever or terminates with errors.
+
+This is useful for:
+- Daemon-like processes that run continuously
+- Server loops that handle requests indefinitely
+- Event loops that continuously process events
+- Background tasks that should never stop
+
+**Example:**
+```dart
+// A server that handles requests forever
+final server = acceptConnection()
+    .thenDo((conn) => handleConnection(conn))
+    .forever();
+
+// Run with only a termination handler (using trap extension)
+server.trap(env, (errors) => print('Server stopped: $errors'));
+```
+
+---
+
+### Combination & Racing Methods
 
 #### Cont.both
 
@@ -1164,163 +1272,52 @@ Executes all continuations in `list` and returns the first one that succeeds. If
 
 ---
 
-### Loop & Conditional Methods
+### Extensions
 
-#### when
+#### ContFlattenExtension
 
 ```dart
-Cont<E, A> when(bool Function(A value) predicate)
+extension ContFlattenExtension<E, A> on Cont<E, Cont<E, A>>
 ```
 
-Conditionally succeeds only when the predicate is satisfied.
+Extension providing flatten operation for nested continuations.
 
-Filters the continuation based on the predicate. If the predicate returns `true`, the continuation succeeds with the value. If the predicate returns `false`, the continuation terminates without errors.
+**Methods:**
 
-This is useful for conditional execution where you want to treat a predicate failure as termination rather than an error.
-
-- **Parameters:**
-  - `predicate`: Function that tests the value
-
-**Example:**
 ```dart
-final cont = Cont.of(42).when((n) => n > 0);
-// Succeeds with 42
-
-final cont2 = Cont.of(-5).when((n) => n > 0);
-// Terminates
+Cont<E, A> flatten()
 ```
+Flattens a nested `Cont` structure. Converts `Cont<E, Cont<E, A>>` to `Cont<E, A>`. Equivalent to `thenDo((contA) => contA)`.
 
 ---
 
-#### asLongAs
+#### ContRunExtension
 
 ```dart
-Cont<E, A> asLongAs(bool Function(A value) predicate)
+extension ContRunExtension<E> on Cont<E, Never>
 ```
 
-Repeatedly executes the continuation as long as the predicate returns `true`, stopping when it returns `false`.
+Extension for running continuations that never produce a value.
 
-Runs the continuation in a loop, testing each result with the predicate. The loop continues as long as the predicate returns `true`, and stops successfully when the predicate returns `false`.
+This extension provides specialized methods for `Cont<E, Never>` where only termination is expected, simplifying the API by removing the unused value callback.
 
-The loop is stack-safe and handles asynchronous continuations correctly. If the continuation terminates or if the predicate throws an exception, the loop stops and propagates the errors.
+**Methods:**
 
-This is useful for retry logic, polling, or repeating an operation while a condition holds.
+```dart
+void trap(E env, void Function(List<ContError>) onTerminate)
+```
+Executes the continuation expecting only termination. This is a convenience method for `Cont<E, Never>` that executes the continuation with only a termination handler, since a value callback would never be called for a `Cont<E, Never>`.
 
 - **Parameters:**
-  - `predicate`: Function that tests the value. Returns `true` to continue looping, or `false` to stop and succeed with the value
+  - `env`: The environment value to provide as context during execution
+  - `onTerminate`: Callback invoked when the continuation terminates with errors
 
 **Example:**
 ```dart
-// Poll an API while data is not ready
-final result = fetchData().asLongAs((response) => !response.isReady);
-
-// Retry while value is below threshold
-final value = computation().asLongAs((n) => n < 100);
-```
-
----
-
-#### until
-
-```dart
-Cont<E, A> until(bool Function(A value) predicate)
-```
-
-Repeatedly executes the continuation until the predicate returns `true`.
-
-Runs the continuation in a loop, testing each result with the predicate. The loop continues while the predicate returns `false`, and stops successfully when the predicate returns `true`.
-
-This is the inverse of `asLongAs` - implemented as `asLongAs((a) => !predicate(a))`. Use this when you want to retry until a condition is met.
-
-- **Parameters:**
-  - `predicate`: Function that tests the value. Returns `true` to stop the loop and succeed, or `false` to continue looping
-
-**Example:**
-```dart
-// Retry until a condition is met
-final result = fetchStatus().until((status) => status == 'complete');
-
-// Poll until a threshold is reached
-final value = checkProgress().until((progress) => progress >= 100);
-```
-
----
-
-#### forever
-
-```dart
-Cont<E, Never> forever()
-```
-
-Repeatedly executes the continuation indefinitely.
-
-Runs the continuation in an infinite loop that never stops on its own. The loop only terminates if the underlying continuation terminates with an error.
-
-The return type `Cont<E, Never>` indicates that this continuation never produces a value - it either runs forever or terminates with errors.
-
-This is useful for:
-- Daemon-like processes that run continuously
-- Server loops that handle requests indefinitely
-- Event loops that continuously process events
-- Background tasks that should never stop
-
-**Example:**
-```dart
-// A server that handles requests forever
-final server = acceptConnection()
-    .thenDo((conn) => handleConnection(conn))
-    .forever();
-
-// Run with only a termination handler (using trap extension)
-server.trap(env, (errors) => print('Server stopped: $errors'));
-```
-
----
-
-### Resource Management
-
-#### Cont.bracket
-
-```dart
-static Cont<E, A> bracket<E, R, A>({
-  required Cont<E, R> acquire,
-  required Cont<E, ()> Function(R resource) release,
-  required Cont<E, A> Function(R resource) use,
-})
-```
-
-Manages resource lifecycle with guaranteed cleanup.
-
-The bracket pattern ensures that a resource is properly released after use, even if an error occurs during the `use` phase or if cancellation occurs. This is the functional equivalent of try-with-resources or using statements.
-
-**The execution order is:**
-1. `acquire` - Obtain the resource
-2. `use` - Use the resource to produce a value
-3. `release` - Release the resource (always runs, even if `use` fails or is cancelled)
-
-**Cancellation behavior:**
-- The `release` function is called even when the runtime is cancelled
-- This ensures resources are properly cleaned up regardless of cancellation
-- However, if cancellation occurs during release itself, cleanup may be partial
-
-**Error handling behavior:**
-- If `use` succeeds and `release` succeeds: returns the value from `use`
-- If `use` succeeds and `release` fails: terminates with release errors
-- If `use` fails and `release` succeeds: terminates with use errors
-- If `use` fails and `release` fails: terminates with both errors combined
-
-- **Parameters:**
-  - `acquire`: Continuation that acquires the resource
-  - `release`: Function that takes the resource and returns a continuation that releases it
-  - `use`: Function that takes the resource and returns a continuation that uses it
-
-**Example:**
-```dart
-final result = Cont.bracket<File, String>(
-  acquire: openFile('data.txt'),           // acquire
-  release: (file) => closeFile(file),      // release
-  use: (file) => readContents(file),       // use
-);
+final cont = Cont.terminate<MyEnv, Never>([ContError(Exception('Failed'), StackTrace.current)]);
+cont.trap(myEnv, (errors) {
+  print('Terminated with ${errors.length} error(s)');
+});
 ```
 
 ---
