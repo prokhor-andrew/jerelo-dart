@@ -791,6 +791,16 @@ final class Cont<E, A> {
     });
   }
 
+  Cont<E, A2> injectInto<A2>(Cont<A, A2> cont) {
+    return thenDo((a) {
+      return cont.scope(a);
+    });
+  }
+
+  Cont<E0, A> injectedBy<E0>(Cont<E0, E> cont) {
+    return cont.injectInto(this);
+  }
+
   /// Runs two continuations and combines their results according to the specified policy.
   ///
   /// Executes both continuations. Both must succeed for the result to be successful;
