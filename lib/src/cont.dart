@@ -24,8 +24,10 @@ final class Cont<E, A> {
   ///
   /// - [onTerminate]: Callback invoked when the continuation terminates with errors.
   /// - [onValue]: Callback invoked when the continuation produces a successful value.
-  void run(ContRuntime<E> runtime, void Function(List<ContError> errors) onTerminate, void Function(A value) onValue) {
-    runWith(runtime, ContObserver(onTerminate, onValue));
+  void run(E env, void Function(List<ContError> errors) onTerminate, void Function(A value) onValue) {
+    runWith(ContRuntime._(env, () {
+      return false;
+    }), ContObserver(onTerminate, onValue));
   }
 
   /// Executes the continuation in a fire-and-forget manner.
@@ -1670,8 +1672,8 @@ extension ContRunExtension<E> on Cont<E, Never> {
   ///   print('Terminated with ${errors.length} error(s)');
   /// });
   /// ```
-  void trap(ContRuntime<E> runtime, void Function(List<ContError>) onTerminate) {
-    run(runtime, onTerminate, (_) {});
+  void trap(E env, void Function(List<ContError>) onTerminate) {
+    run(env, onTerminate, (_) {});
   }
 }
 
