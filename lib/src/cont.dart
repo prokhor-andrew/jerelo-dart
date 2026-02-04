@@ -29,8 +29,6 @@ final class Cont<E, A> {
   /// Runs the continuation without waiting for the result. Both success and
   /// failure outcomes are ignored. This is useful for side-effects that should
   /// run asynchronously without blocking or requiring error handling.
-  ///
-  /// Equivalent to `runWith(ContObserver.ignore())`.
   void ff(E env) {
     _run(
       ContRuntime._(env, () {
