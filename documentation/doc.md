@@ -44,6 +44,7 @@
   - [Accessing Environment](#accessing-environment)
   - [Scoping Environment](#scoping-environment)
   - [WithEnv Variants](#withenv-variants)
+  - [Dependency Injection Patterns](#dependency-injection-patterns)
 - [Creating Custom Extensions](#creating-custom-extensions)
   - [Custom Computations](#custom-computations)
   - [Custom Operators](#custom-operators)
@@ -919,6 +920,167 @@ Available variants:
 - `elseTapWithEnv`, `elseTapWithEnv0`
 - `elseZipWithEnv`, `elseZipWithEnv0`
 - `elseForkWithEnv`, `elseForkWithEnv0`
+
+### Dependency Injection Patterns
+
+Jerelo provides two powerful operators for dependency injection: `injectInto` and `injectedBy`. These enable patterns where the result of one continuation becomes the environment (dependencies) for another.
+
+#### Using injectInto
+
+The `injectInto` method takes the value produced by one continuation and injects it as the environment for another continuation:
+
+```dart
+// Build a configuration and inject it into operations that need it
+final configCont = Cont.of<(), DbConfig>(
+  DbConfig(host: 'localhost', port: 5432)
+);
+
+// Define an operation that requires DbConfig as its environment
+final queryOp = Cont.ask<DbConfig>().thenDo((config) {
+  return executeQuery(config, 'SELECT * FROM users');
+});
+
+// Inject the config into the query operation
+final result = configCont.injectInto(queryOp);
+// Type: Cont<(), List<User>>
+
+result.run((), (_) {}, (users) {
+  print("Fetched ${users.length} users");
+});
+```
+
+**Type transformation:**
+- Input: `Cont<E, A>` (produces value of type `A`)
+- Target: `Cont<A, A2>` (needs environment of type `A`)
+- Output: `Cont<E, A2>` (produces value of type `A2` with original environment)
+
+#### Using injectedBy
+
+The `injectedBy` method is the inverse - it expresses that a continuation receives its environment from another source. This is equivalent to `cont.injectInto(this)` but reads more naturally:
+
+```dart
+// An operation that needs a database config
+final queryOp = Cont.ask<DbConfig>().thenDo((config) {
+  return executeQuery(config, 'SELECT * FROM users');
+});
+
+// A provider that produces the config
+final configProvider = Cont.of<(), DbConfig>(
+  DbConfig(host: 'localhost', port: 5432)
+);
+
+// Express that queryOp is injected by configProvider
+final result = queryOp.injectedBy(configProvider);
+// Type: Cont<(), List<User>>
+```
+
+#### Dependency Injection Use Cases
+
+These operators are particularly useful for:
+
+**1. Resource creation and injection:**
+
+```dart
+// Create a connection pool and inject it into operations
+final poolCont = createConnectionPool(maxConnections: 10);
+
+final transaction = Cont.ask<ConnectionPool>()
+  .thenDo((pool) => pool.beginTransaction())
+  .thenDo((txn) => performDatabaseWork(txn))
+  .thenTap((result) => commitTransaction());
+
+final program = poolCont.injectInto(transaction);
+```
+
+**2. Multi-stage dependency construction:**
+
+```dart
+// Build dependencies in stages
+final httpClientCont = Cont.of(HttpClient(timeout: Duration(seconds: 5)));
+
+final authServiceCont = httpClientCont.thenDo((client) {
+  return Cont.of(AuthService(client: client, apiKey: 'secret'));
+});
+
+final userServiceOp = Cont.ask<AuthService>().thenDo((auth) {
+  return fetchAuthenticatedUsers(auth);
+});
+
+// Inject the multi-stage dependency
+final result = authServiceCont.injectInto(userServiceOp);
+```
+
+**3. Configuration scoping:**
+
+```dart
+// Different operations with different configs
+class DatabaseConfig {
+  final String host;
+  final int port;
+  DatabaseConfig(this.host, this.port);
+}
+
+class ApiConfig {
+  final String baseUrl;
+  final String apiKey;
+  ApiConfig(this.baseUrl, this.apiKey);
+}
+
+// Operation needing DB config
+final dbOp = Cont.ask<DatabaseConfig>().thenDo((config) {
+  return queryDatabase(config.host, config.port);
+});
+
+// Operation needing API config
+final apiOp = Cont.ask<ApiConfig>().thenDo((config) {
+  return fetchFromApi(config.baseUrl, config.apiKey);
+});
+
+// Build and inject different configs
+final dbConfig = Cont.of<(), DatabaseConfig>(
+  DatabaseConfig('localhost', 5432)
+);
+final apiConfig = Cont.of<(), ApiConfig>(
+  ApiConfig('https://api.example.com', 'key123')
+);
+
+// Each operation gets its own config type
+final dbResult = dbConfig.injectInto(dbOp);   // Cont<(), DbData>
+final apiResult = apiConfig.injectInto(apiOp); // Cont<(), ApiData>
+
+// Combine them
+Cont.both(
+  dbResult,
+  apiResult,
+  (dbData, apiData) => merge(dbData, apiData),
+  policy: ContPolicy.quitFast(),
+).run((), (_) {}, print);
+```
+
+**4. Testing with mock dependencies:**
+
+```dart
+// Production code
+final queryOp = Cont.ask<Database>().thenDo((db) {
+  return db.query('SELECT * FROM users');
+});
+
+// Production: inject real database
+final prodDb = Cont.of(RealDatabase());
+final prodProgram = queryOp.injectedBy(prodDb);
+
+// Testing: inject mock database
+final mockDb = Cont.of(MockDatabase(testData: [...]));
+final testProgram = queryOp.injectedBy(mockDb);
+```
+
+#### Key Benefits
+
+- **Type-safe**: The compiler ensures environment types match correctly
+- **Composable**: Chain multiple injection stages together
+- **Flexible**: Use `injectInto` for forward declaration or `injectedBy` for reverse declaration
+- **Testable**: Easy to swap implementations by injecting different providers
+- **Clean**: No manual passing of dependencies through every function
 
 ---
 
