@@ -22,6 +22,7 @@
 - [2. Run: Executing Computations](#2-run-executing-computations)
   - [Key Properties of Cont](#key-properties-of-cont)
   - [Execution Flow](#execution-flow)
+  - [The Environment Parameter](#the-environment-parameter)
 - [3. Transform: Modifying Values](#3-transform-modifying-values)
   - [Mapping](#mapping)
   - [Hoisting](#hoisting)
