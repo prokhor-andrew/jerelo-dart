@@ -7,6 +7,10 @@ import 'package:jerelo/jerelo.dart';
 /// error handling, and composition of effectful computations. It follows the
 /// continuation-passing style where computations are represented as functions
 /// that take callbacks for success and failure.
+///
+/// Type parameters:
+/// - [E]: The environment type providing context for the continuation execution.
+/// - [A]: The value type that the continuation produces upon success.
 final class Cont<E, A> {
   final void Function(ContRuntime<E> runtime, ContObserver<A> observer) _run;
 
@@ -16,6 +20,7 @@ final class Cont<E, A> {
   /// Initiates execution of the continuation with separate handlers for success
   /// and failure cases.
   ///
+  /// - [env]: The environment value to provide as context during execution.
   /// - [onTerminate]: Callback invoked when the continuation terminates with errors.
   /// - [onValue]: Callback invoked when the continuation produces a successful value.
   void run(E env, void Function(List<ContError> errors) onTerminate, void Function(A value) onValue) {
@@ -29,6 +34,8 @@ final class Cont<E, A> {
   /// Runs the continuation without waiting for the result. Both success and
   /// failure outcomes are ignored. This is useful for side-effects that should
   /// run asynchronously without blocking or requiring error handling.
+  ///
+  /// - [env]: The environment value to provide as context during execution.
   void ff(E env) {
     _run(
       ContRuntime._(env, () {
@@ -125,6 +132,13 @@ final class Cont<E, A> {
     });
   }
 
+  /// Retrieves the current environment value.
+  ///
+  /// Accesses the environment of type [E] from the runtime context.
+  /// This is used to read configuration, dependencies, or any contextual
+  /// information that flows through the continuation execution.
+  ///
+  /// Returns a continuation that succeeds with the environment value.
   static Cont<E, E> ask<E>() {
     return Cont.fromRun((runtime, observer) {
       observer.onValue(runtime.env());
@@ -322,8 +336,11 @@ final class Cont<E, A> {
 
   /// Provides a fallback continuation in case of termination.
   ///
-  /// If the continuation terminates, executes the fallback. Accumulates
-  /// errors from both attempts if the fallback also fails.
+  /// If the continuation terminates, executes the fallback. If the fallback
+  /// also terminates, only the fallback's errors are propagated (the original
+  /// errors are discarded).
+  ///
+  /// To accumulate errors from both attempts, use [elseZip] instead.
   ///
   /// - [f]: Function that receives errors and produces a fallback continuation.
   Cont<E, A> elseThen(Cont<E, A> Function(List<ContError> errors) f) {
@@ -364,13 +381,20 @@ final class Cont<E, A> {
     });
   }
 
-  /// Executes a side-effect continuation on termination while preserving the original termination.
+  /// Executes a side-effect continuation on termination.
   ///
-  /// If the continuation terminates, executes the side-effect continuation for its effects,
-  /// then terminates with the original errors. Unlike [elseThen], this does not attempt to
-  /// recover - it always propagates the termination.
+  /// If the continuation terminates, executes the side-effect continuation for its effects.
+  /// The behavior depends on the side-effect's outcome:
   ///
-  /// - [f]: Function that returns a side-effect continuation.
+  /// - If the side-effect terminates: Returns the original errors (ignoring side-effect errors).
+  /// - If the side-effect succeeds: Returns the side-effect's success value, effectively
+  ///   recovering from the original termination.
+  ///
+  /// This means the operation can recover from termination if the side-effect succeeds.
+  /// If you want to always propagate the original termination regardless of the side-effect's
+  /// outcome, use [elseFork] instead.
+  ///
+  /// - [f]: Function that receives the original errors and returns a side-effect continuation.
   Cont<E, A> elseTap(Cont<E, A> Function(List<ContError> errors) f) {
     return Cont.fromRun((runtime, observer) {
       _run(
@@ -499,6 +523,14 @@ final class Cont<E, A> {
     });
   }
 
+  /// Runs this continuation with a transformed environment.
+  ///
+  /// Transforms the environment from [E2] to [E] using the provided function,
+  /// then executes this continuation with the transformed environment.
+  /// This allows adapting the continuation to work in a context with a
+  /// different environment type.
+  ///
+  /// - [f]: Function that transforms the outer environment to the inner environment.
   Cont<E2, A> local<E2>(E Function(E2) f) {
     return Cont.fromRun((runtime, observer) {
       final env = f(runtime.env());
@@ -507,18 +539,38 @@ final class Cont<E, A> {
     });
   }
 
+  /// Runs this continuation with a new environment from a zero-argument function.
+  ///
+  /// Similar to [local] but obtains the environment from a zero-argument function
+  /// instead of transforming the existing environment.
+  ///
+  /// - [f]: Zero-argument function that provides the new environment.
   Cont<E2, A> local0<E2>(E Function() f) {
     return local((_) {
       return f();
     });
   }
 
+  /// Runs this continuation with a fixed environment value.
+  ///
+  /// Replaces the environment context with the provided value for the
+  /// execution of this continuation. This is useful for providing
+  /// configuration, dependencies, or context to a continuation.
+  ///
+  /// - [value]: The environment value to use.
   Cont<E2, A> scope<E2>(E value) {
     return local0(() {
       return value;
     });
   }
 
+  /// Chains a continuation-returning function that has access to both the value and environment.
+  ///
+  /// Similar to [then], but the function receives both the current value and the
+  /// environment. This is useful when the next computation needs access to
+  /// configuration or context from the environment.
+  ///
+  /// - [f]: Function that takes the environment and value, and returns a continuation.
   Cont<E, A2> thenWithEnv<A2>(Cont<E, A2> Function(E env, A a) f) {
     return Cont.ask<E>().then((e) {
       return then((a) {
@@ -527,6 +579,13 @@ final class Cont<E, A> {
     });
   }
 
+  /// Provides a fallback continuation that has access to both errors and environment.
+  ///
+  /// Similar to [elseThen], but the fallback function receives both the errors
+  /// and the environment. This is useful when error recovery needs access to
+  /// configuration or context from the environment.
+  ///
+  /// - [f]: Function that takes the environment and errors, and returns a fallback continuation.
   Cont<E, A> elseWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f) {
     return Cont.ask<E>().then((e) {
       return elseThen((errors) {
@@ -537,7 +596,10 @@ final class Cont<E, A> {
 
   /// Runs two continuations and combines their results according to the specified policy.
   ///
-  /// Executes both continuations and combines their values using [combine].
+  /// Executes both continuations. Both must succeed for the result to be successful;
+  /// if either fails, the entire operation fails. When both succeed, their values
+  /// are combined using [combine].
+  ///
   /// The execution behavior depends on the provided [policy]:
   ///
   /// - [SequencePolicy]: Runs [left] then [right] sequentially.
@@ -1472,7 +1534,7 @@ final class Cont<E, A> {
   /// The loop only terminates if the underlying continuation terminates with
   /// an error.
   ///
-  /// The return type `Cont<Never>` indicates that this continuation never
+  /// The return type [Cont]<[E], [Never]> indicates that this continuation never
   /// produces a value - it either runs forever or terminates with errors.
   ///
   /// This is useful for:
@@ -1489,7 +1551,7 @@ final class Cont<E, A> {
   ///     .forever();
   ///
   /// // Run with only a termination handler (using trap extension)
-  /// server.trap((errors) => print('Server stopped: $errors'));
+  /// server.trap(env, (errors) => print('Server stopped: $errors'));
   /// ```
   Cont<E, Never> forever() {
     return until((_) {
@@ -1636,7 +1698,8 @@ final class Cont<E, A> {
 extension ContFlattenExtension<E, A> on Cont<E, Cont<E, A>> {
   /// Flattens a nested [Cont] structure.
   ///
-  /// Converts `Cont<Cont<A>>` to `Cont<A>`. Equivalent to `then((contA) => contA)`.
+  /// Converts [Cont]<[E], [Cont]<[E], [A]>> to [Cont]<[E], [A]>.
+  /// Equivalent to `then((contA) => contA)`.
   Cont<E, A> flatten() {
     return then((contA) {
       return contA;
@@ -1646,21 +1709,22 @@ extension ContFlattenExtension<E, A> on Cont<E, Cont<E, A>> {
 
 /// Extension for running continuations that never produce a value.
 ///
-/// This extension provides specialized methods for [Cont]<[Never]> where only
+/// This extension provides specialized methods for [Cont]<[E], [Never]> where only
 /// termination is expected, simplifying the API by removing the unused value callback.
 extension ContRunExtension<E> on Cont<E, Never> {
   /// Executes the continuation expecting only termination.
   ///
-  /// This is a convenience method for [Cont]<[Never]> that executes the
+  /// This is a convenience method for [Cont]<[E], [Never]> that executes the
   /// continuation with only a termination handler, since a value callback
-  /// would never be called for a [Cont]<[Never]>.
+  /// would never be called for a [Cont]<[E], [Never]>.
   ///
+  /// - [env]: The environment value to provide as context during execution.
   /// - [onTerminate]: Callback invoked when the continuation terminates with errors.
   ///
   /// Example:
   /// ```dart
-  /// final cont = Cont.terminate([ContError(Exception('Failed'), StackTrace.current)]);
-  /// cont.trap((errors) {
+  /// final cont = Cont.terminate<MyEnv, Never>([ContError(Exception('Failed'), StackTrace.current)]);
+  /// cont.trap(myEnv, (errors) {
   ///   print('Terminated with ${errors.length} error(s)');
   /// });
   /// ```
@@ -1669,16 +1733,37 @@ extension ContRunExtension<E> on Cont<E, Never> {
   }
 }
 
+/// Provides runtime context for continuation execution.
+///
+/// [ContRuntime] encapsulates the environment and cancellation state during
+/// the execution of a [Cont]. It allows continuations to access contextual
+/// information and check for cancellation.
 final class ContRuntime<E> {
   final E _env;
+
+  /// Function that checks whether the continuation execution has been cancelled.
+  ///
+  /// Returns `true` if the execution should be stopped, `false` otherwise.
+  /// Continuations should check this regularly to support cooperative cancellation.
   final bool Function() isCancelled;
 
   const ContRuntime._(this._env, this.isCancelled);
 
+  /// Returns the environment value of type [E].
+  ///
+  /// The environment provides contextual information such as configuration,
+  /// dependencies, or any data that should flow through the continuation execution.
   E env() {
     return _env;
   }
 
+  /// Creates a copy of this runtime with a different environment.
+  ///
+  /// Returns a new [ContRuntime] with the provided environment while preserving
+  /// the cancellation function. This is used by [local] and related methods
+  /// to modify the environment context.
+  ///
+  /// - [env]: The new environment value to use.
   ContRuntime<E2> copyUpdateEnv<E2>(E2 env) {
     return ContRuntime._(env, isCancelled);
   }
