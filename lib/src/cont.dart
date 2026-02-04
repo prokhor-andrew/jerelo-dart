@@ -14,7 +14,6 @@ import 'package:jerelo/jerelo.dart';
 final class Cont<E, A> {
   final void Function(ContRuntime<E> runtime, ContObserver<A> observer) _run;
 
-
   /// Executes the continuation with separate callbacks for termination and value.
   ///
   /// Initiates execution of the continuation with separate handlers for success
@@ -24,9 +23,12 @@ final class Cont<E, A> {
   /// - [onTerminate]: Callback invoked when the continuation terminates with errors.
   /// - [onValue]: Callback invoked when the continuation produces a successful value.
   void run(E env, void Function(List<ContError> errors) onTerminate, void Function(A value) onValue) {
-    _run(ContRuntime._(env, () {
-      return false;
-    }), ContObserver._(onTerminate, onValue));
+    _run(
+      ContRuntime._(env, () {
+        return false;
+      }),
+      ContObserver._(onTerminate, onValue),
+    );
   }
 
   /// Executes the continuation in a fire-and-forget manner.
@@ -152,7 +154,7 @@ final class Cont<E, A> {
   ///
   /// - [f]: Transformation function to apply to the value.
   Cont<E, A2> map<A2>(A2 Function(A value) f) {
-    return then((a) {
+    return thenDo((a) {
       final a2 = f(a);
       return Cont.of(a2);
     });
@@ -222,7 +224,7 @@ final class Cont<E, A> {
   /// on the result of the first.
   ///
   /// - [f]: Function that takes a value and returns a continuation.
-  Cont<E, A2> then<A2>(Cont<E, A2> Function(A value) f) {
+  Cont<E, A2> thenDo<A2>(Cont<E, A2> Function(A value) f) {
     return Cont.fromRun((runtime, observer) {
       _run(
         runtime,
@@ -243,11 +245,11 @@ final class Cont<E, A> {
 
   /// Chains a [Cont]-returning zero-argument function.
   ///
-  /// Similar to [then] but ignores the current value.
+  /// Similar to [thenDo] but ignores the current value.
   ///
   /// - [f]: Zero-argument function that returns a continuation.
-  Cont<E, A2> then0<A2>(Cont<E, A2> Function() f) {
-    return then((_) {
+  Cont<E, A2> thenDo0<A2>(Cont<E, A2> Function() f) {
+    return thenDo((_) {
       return f();
     });
   }
@@ -257,19 +259,19 @@ final class Cont<E, A> {
   /// Executes a continuation for its side effects, then returns the original value.
   ///
   /// - [f]: Side-effect function that returns a continuation.
-  Cont<E, A> tap<A2>(Cont<E, A2> Function(A value) f) {
-    return then((a) {
+  Cont<E, A> thenTap<A2>(Cont<E, A2> Function(A value) f) {
+    return thenDo((a) {
       return f(a).as(a);
     });
   }
 
   /// Chains a zero-argument side-effect continuation.
   ///
-  /// Similar to [tap] but with a zero-argument function.
+  /// Similar to [thenTap] but with a zero-argument function.
   ///
   /// - [f]: Zero-argument side-effect function.
-  Cont<E, A> tap0<A2>(Cont<E, A2> Function() f) {
-    return tap((_) {
+  Cont<E, A> thenTap0<A2>(Cont<E, A2> Function() f) {
+    return thenTap((_) {
       return f();
     });
   }
@@ -280,8 +282,8 @@ final class Cont<E, A> {
   ///
   /// - [f]: Function to produce the second continuation from the first value.
   /// - [combine]: Function to combine both values into a result.
-  Cont<E, A3> zip<A2, A3>(Cont<E, A2> Function(A value) f, A3 Function(A a1, A2 a2) combine) {
-    return then((a1) {
+  Cont<E, A3> thenZip<A2, A3>(Cont<E, A2> Function(A value) f, A3 Function(A a1, A2 a2) combine) {
+    return thenDo((a1) {
       return f(a1).map((a2) {
         return combine(a1, a2);
       });
@@ -290,26 +292,26 @@ final class Cont<E, A> {
 
   /// Chains and combines with a zero-argument function.
   ///
-  /// Similar to [zip] but the second continuation doesn't depend
+  /// Similar to [thenZip] but the second continuation doesn't depend
   /// on the first value.
   ///
   /// - [f]: Zero-argument function to produce the second continuation.
   /// - [combine]: Function to combine both values into a result.
-  Cont<E, A3> zip0<A2, A3>(Cont<E, A2> Function() f, A3 Function(A a1, A2 a2) combine) {
-    return zip((_) {
+  Cont<E, A3> thenZip0<A2, A3>(Cont<E, A2> Function() f, A3 Function(A a1, A2 a2) combine) {
+    return thenZip((_) {
       return f();
     }, combine);
   }
 
   /// Executes a side-effect continuation in a fire-and-forget manner.
   ///
-  /// Unlike [tap], this method does not wait for the side-effect to complete.
+  /// Unlike [thenTap], this method does not wait for the side-effect to complete.
   /// The side-effect continuation is started immediately, and the original value
   /// is returned without delay. Any errors from the side-effect are silently ignored.
   ///
   /// - [f]: Function that takes the current value and returns a side-effect continuation.
-  Cont<E, A> fork<A2>(Cont<E, A2> Function(A a) f) {
-    return thenWithEnv((e, a) {
+  Cont<E, A> thenFork<A2>(Cont<E, A2> Function(A a) f) {
+    return thenDoWithEnv((e, a) {
       final contA2 = f(a); // this should not be inside try-catch block
 
       try {
@@ -325,11 +327,11 @@ final class Cont<E, A> {
 
   /// Executes a zero-argument side-effect continuation in a fire-and-forget manner.
   ///
-  /// Similar to [fork] but ignores the current value.
+  /// Similar to [thenFork] but ignores the current value.
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
-  Cont<E, A> fork0<A2>(Cont<E, A2> Function() f) {
-    return fork((_) {
+  Cont<E, A> thenFork0<A2>(Cont<E, A2> Function() f) {
+    return thenFork((_) {
       return f();
     });
   }
@@ -343,7 +345,7 @@ final class Cont<E, A> {
   /// To accumulate errors from both attempts, use [elseZip] instead.
   ///
   /// - [f]: Function that receives errors and produces a fallback continuation.
-  Cont<E, A> elseThen(Cont<E, A> Function(List<ContError> errors) f) {
+  Cont<E, A> elseDo(Cont<E, A> Function(List<ContError> errors) f) {
     return Cont.fromRun((runtime, observer) {
       _run(
         runtime,
@@ -372,11 +374,11 @@ final class Cont<E, A> {
 
   /// Provides a zero-argument fallback continuation.
   ///
-  /// Similar to [elseThen] but doesn't use the error information.
+  /// Similar to [elseDo] but doesn't use the error information.
   ///
   /// - [f]: Zero-argument function that produces a fallback continuation.
-  Cont<E, A> elseThen0(Cont<E, A> Function() f) {
-    return elseThen((_) {
+  Cont<E, A> elseDo0(Cont<E, A> Function() f) {
+    return elseDo((_) {
       return f();
     });
   }
@@ -441,7 +443,7 @@ final class Cont<E, A> {
   /// terminates, combines errors from both attempts using the provided [combine]
   /// function before terminating.
   ///
-  /// Unlike [elseThen], which only keeps the second error list, this method
+  /// Unlike [elseDo], which only keeps the second error list, this method
   /// accumulates and combines errors from both attempts.
   ///
   /// - [f]: Function that receives original errors and produces a fallback continuation.
@@ -500,7 +502,7 @@ final class Cont<E, A> {
   ///
   /// - [f]: Function that returns a side-effect continuation.
   Cont<E, A> elseFork<A2>(Cont<E, A2> Function(List<ContError> errors) f) {
-    return elseWithEnv((e, errors) {
+    return elseDoWithEnv((e, errors) {
       final cont = f([...errors]); // this should not be inside try-catch block
       try {
         cont.ff(e);
@@ -566,31 +568,226 @@ final class Cont<E, A> {
 
   /// Chains a continuation-returning function that has access to both the value and environment.
   ///
-  /// Similar to [then], but the function receives both the current value and the
+  /// Similar to [thenDo], but the function receives both the current value and the
   /// environment. This is useful when the next computation needs access to
   /// configuration or context from the environment.
   ///
   /// - [f]: Function that takes the environment and value, and returns a continuation.
-  Cont<E, A2> thenWithEnv<A2>(Cont<E, A2> Function(E env, A a) f) {
-    return Cont.ask<E>().then((e) {
-      return then((a) {
+  Cont<E, A2> thenDoWithEnv<A2>(Cont<E, A2> Function(E env, A a) f) {
+    return Cont.ask<E>().thenDo((e) {
+      return thenDo((a) {
         return f(e, a);
       });
     });
   }
 
+  /// Chains a continuation-returning function with access to the environment only.
+  ///
+  /// Similar to [thenDoWithEnv], but the function only receives the environment
+  /// and ignores the current value. This is useful when the next computation needs
+  /// access to configuration or context but doesn't depend on the previous value.
+  ///
+  /// - [f]: Function that takes the environment and returns a continuation.
+  Cont<E, A2> thenDoWithEnv0<A2>(Cont<E, A2> Function(E env) f) {
+    return thenDoWithEnv((e, _) {
+      return f(e);
+    });
+  }
+
+  /// Chains a side-effect continuation with access to both the environment and value.
+  ///
+  /// Similar to [thenTap], but the side-effect function receives both the current
+  /// value and the environment. After executing the side-effect, returns the original
+  /// value. This is useful for logging, monitoring, or other side-effects that need
+  /// access to both the value and configuration context.
+  ///
+  /// - [f]: Function that takes the environment and value, and returns a side-effect continuation.
+  Cont<E, A> thenTapWithEnv<A2>(Cont<E, A2> Function(E env, A a) f) {
+    return Cont.ask<E>().thenDo((e) {
+      return thenTap((a) {
+        return f(e, a);
+      });
+    });
+  }
+
+  /// Chains a side-effect continuation with access to the environment only.
+  ///
+  /// Similar to [thenTapWithEnv], but the side-effect function only receives
+  /// the environment and ignores the current value. After executing the side-effect,
+  /// returns the original value.
+  ///
+  /// - [f]: Function that takes the environment and returns a side-effect continuation.
+  Cont<E, A> thenTapWithEnv0<A2>(Cont<E, A2> Function(E env) f) {
+    return thenTapWithEnv((e, _) {
+      return f(e);
+    });
+  }
+
+  /// Chains and combines two continuations with access to the environment.
+  ///
+  /// Similar to [thenZip], but the function producing the second continuation
+  /// receives both the current value and the environment. This is useful when
+  /// the second computation needs access to configuration or context.
+  ///
+  /// - [f]: Function that takes the environment and value, and produces the second continuation.
+  /// - [combine]: Function to combine both values into a result.
+  Cont<E, A3> thenZipWithEnv<A2, A3>(Cont<E, A2> Function(E env, A value) f, A3 Function(A a1, A2 a2) combine) {
+    return Cont.ask<E>().thenDo((e) {
+      return thenZip((a1) {
+        return f(e, a1);
+      }, combine);
+    });
+  }
+
+  /// Chains and combines with a continuation that has access to the environment only.
+  ///
+  /// Similar to [thenZipWithEnv], but the function producing the second continuation
+  /// only receives the environment and ignores the current value.
+  ///
+  /// - [f]: Function that takes the environment and produces the second continuation.
+  /// - [combine]: Function to combine both values into a result.
+  Cont<E, A3> thenZipWithEnv0<A2, A3>(Cont<E, A2> Function(E env) f, A3 Function(A a1, A2 a2) combine) {
+    return thenZipWithEnv((e, _) {
+      return f(e);
+    }, combine);
+  }
+
+  /// Executes a side-effect continuation in a fire-and-forget manner with access to the environment.
+  ///
+  /// Similar to [thenFork], but the side-effect function receives both the current
+  /// value and the environment. The side-effect is started immediately without waiting,
+  /// and any errors are silently ignored.
+  ///
+  /// - [f]: Function that takes the environment and value, and returns a side-effect continuation.
+  Cont<E, A> thenForkWithEnv<A2>(Cont<E, A2> Function(E env, A a) f) {
+    return Cont.ask<E>().thenDo((e) {
+      return thenFork((a) {
+        return f(e, a);
+      });
+    });
+  }
+
+  /// Executes a side-effect continuation in a fire-and-forget manner with access to the environment only.
+  ///
+  /// Similar to [thenForkWithEnv], but the side-effect function only receives
+  /// the environment and ignores the current value.
+  ///
+  /// - [f]: Function that takes the environment and returns a side-effect continuation.
+  Cont<E, A> thenForkWithEnv0<A2>(Cont<E, A2> Function(E env) f) {
+    return thenForkWithEnv((e, _) {
+      return f(e);
+    });
+  }
+
   /// Provides a fallback continuation that has access to both errors and environment.
   ///
-  /// Similar to [elseThen], but the fallback function receives both the errors
+  /// Similar to [elseDo], but the fallback function receives both the errors
   /// and the environment. This is useful when error recovery needs access to
   /// configuration or context from the environment.
   ///
   /// - [f]: Function that takes the environment and errors, and returns a fallback continuation.
-  Cont<E, A> elseWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f) {
-    return Cont.ask<E>().then((e) {
-      return elseThen((errors) {
+  Cont<E, A> elseDoWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f) {
+    return Cont.ask<E>().thenDo((e) {
+      return elseDo((errors) {
         return f(e, [...errors]);
       });
+    });
+  }
+
+  /// Provides a fallback continuation with access to the environment only.
+  ///
+  /// Similar to [elseDoWithEnv], but the fallback function only receives the
+  /// environment and ignores the error information. This is useful when error
+  /// recovery needs access to configuration but doesn't need to inspect the errors.
+  ///
+  /// - [f]: Function that takes the environment and produces a fallback continuation.
+  Cont<E, A> elseDoWithEnv0(Cont<E, A> Function(E env) f) {
+    return elseDoWithEnv((e, _) {
+      return f(e);
+    });
+  }
+
+  /// Executes a side-effect continuation on termination with access to the environment.
+  ///
+  /// Similar to [elseTap], but the side-effect function receives both the errors
+  /// and the environment. This allows error-handling side-effects (like logging or
+  /// reporting) to access configuration or context information.
+  ///
+  /// - [f]: Function that takes the environment and errors, and returns a side-effect continuation.
+  Cont<E, A> elseTapWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f) {
+    return Cont.ask<E>().thenDo((e) {
+      return elseTap((errors) {
+        return f(e, [...errors]);
+      });
+    });
+  }
+
+  /// Executes a side-effect continuation on termination with access to the environment only.
+  ///
+  /// Similar to [elseTapWithEnv], but the side-effect function only receives
+  /// the environment and ignores the error information.
+  ///
+  /// - [f]: Function that takes the environment and returns a side-effect continuation.
+  Cont<E, A> elseTapWithEnv0(Cont<E, A> Function(E env) f) {
+    return elseTapWithEnv((e, _) {
+      return f(e);
+    });
+  }
+
+  /// Attempts a fallback continuation with access to the environment and combines errors.
+  ///
+  /// Similar to [elseZip], but the fallback function receives both the original
+  /// errors and the environment. If both the original attempt and fallback fail,
+  /// their errors are combined using the [combine] function. This is useful when
+  /// error recovery strategies need access to configuration or context.
+  ///
+  /// - [f]: Function that takes the environment and errors, and produces a fallback continuation.
+  /// - [combine]: Function to combine error lists from both attempts.
+  Cont<E, A> elseZipWithEnv(Cont<E, A> Function(E env, List<ContError>) f, List<ContError> Function(List<ContError>, List<ContError>) combine) {
+    return Cont.ask<E>().thenDo((e) {
+      return elseZip((errors) {
+        return f(e, [...errors]);
+      }, combine);
+    });
+  }
+
+  /// Attempts a fallback continuation with access to the environment only and combines errors.
+  ///
+  /// Similar to [elseZipWithEnv], but the fallback function only receives the
+  /// environment and ignores the original error information.
+  ///
+  /// - [f]: Function that takes the environment and produces a fallback continuation.
+  /// - [combine]: Function to combine error lists from both attempts.
+  Cont<E, A> elseZipWithEnv0(Cont<E, A> Function(E env) f, List<ContError> Function(List<ContError>, List<ContError>) combine) {
+    return elseZipWithEnv((e, _) {
+      return f(e);
+    }, combine);
+  }
+
+  /// Executes a side-effect continuation on termination in a fire-and-forget manner with access to the environment.
+  ///
+  /// Similar to [elseFork], but the side-effect function receives both the errors
+  /// and the environment. The side-effect is started without waiting for it to complete,
+  /// and any errors from the side-effect are silently ignored.
+  ///
+  /// - [f]: Function that takes the environment and errors, and returns a side-effect continuation.
+  Cont<E, A> elseForkWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f) {
+    return Cont.ask<E>().thenDo((e) {
+      return elseFork((errors) {
+        return f(e, [...errors]);
+      });
+    });
+  }
+
+  /// Executes a side-effect continuation on termination in a fire-and-forget manner with access to the environment only.
+  ///
+  /// Similar to [elseForkWithEnv], but the side-effect function only receives
+  /// the environment and ignores the error information.
+  ///
+  /// - [f]: Function that takes the environment and returns a side-effect continuation.
+  Cont<E, A> elseForkWithEnv0(Cont<E, A> Function(E env) f) {
+    return elseForkWithEnv((e, _) {
+      return f(e);
     });
   }
 
@@ -620,7 +817,7 @@ final class Cont<E, A> {
   }) {
     switch (policy) {
       case SequencePolicy<List<ContError>>():
-        return left.then((a) {
+        return left.thenDo((a) {
           return right.map((a2) {
             return combine(a, a2);
           });
@@ -1016,8 +1213,8 @@ final class Cont<E, A> {
   }) {
     switch (policy) {
       case SequencePolicy<A>():
-        return left.elseThen((errors1) {
-          return right.elseThen((errors2) {
+        return left.elseDo((errors1) {
+          return right.elseDo((errors2) {
             return Cont.terminate(combine(errors1, errors2));
           });
         });
@@ -1395,7 +1592,7 @@ final class Cont<E, A> {
   /// // Terminates
   /// ```
   Cont<E, A> when(bool Function(A value) predicate) {
-    return then((a) {
+    return thenDo((a) {
       if (predicate(a)) {
         return Cont.of(a);
       }
@@ -1597,7 +1794,7 @@ final class Cont<E, A> {
     required Cont<E, A> Function(R resource) use,
     //
   }) {
-    return acquire.then((resource) {
+    return acquire.thenDo((resource) {
       return Cont.fromRun((runtime, observer) {
         // Create a non-cancellable runtime for the release phase
         // This ensures release always runs, even if the parent is cancelled
@@ -1701,7 +1898,7 @@ extension ContFlattenExtension<E, A> on Cont<E, Cont<E, A>> {
   /// Converts [Cont]<[E], [Cont]<[E], [A]>> to [Cont]<[E], [A]>.
   /// Equivalent to `then((contA) => contA)`.
   Cont<E, A> flatten() {
-    return then((contA) {
+    return thenDo((contA) {
       return contA;
     });
   }
@@ -1786,7 +1983,6 @@ final class ContObserver<A> {
   /// - [onValue]: Handler called when the continuation produces a successful value.
   const ContObserver._(this._onTerminate, this.onValue);
 
-
   /// Invokes the termination callback with the provided errors.
   ///
   /// - [errors]: List of errors that caused termination. Defaults to an empty list.
@@ -1814,7 +2010,6 @@ final class ContObserver<A> {
     return ContObserver._(onTerminate, onValue);
   }
 }
-
 
 // private tools and helpers
 
