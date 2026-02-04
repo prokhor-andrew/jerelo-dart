@@ -10,12 +10,6 @@ import 'package:jerelo/jerelo.dart';
 final class Cont<E, A> {
   final void Function(ContRuntime<E> runtime, ContObserver<A> observer) _run;
 
-  /// Executes the continuation with the provided observer.
-  ///
-  /// - [observer]: The observer containing callbacks for value and termination.
-  void runWith(ContRuntime<E> runtime, ContObserver<A> observer) {
-    _run(runtime, observer);
-  }
 
   /// Executes the continuation with separate callbacks for termination and value.
   ///
@@ -25,9 +19,9 @@ final class Cont<E, A> {
   /// - [onTerminate]: Callback invoked when the continuation terminates with errors.
   /// - [onValue]: Callback invoked when the continuation produces a successful value.
   void run(E env, void Function(List<ContError> errors) onTerminate, void Function(A value) onValue) {
-    runWith(ContRuntime._(env, () {
+    _run(ContRuntime._(env, () {
       return false;
-    }), ContObserver(onTerminate, onValue));
+    }), ContObserver._(onTerminate, onValue));
   }
 
   /// Executes the continuation in a fire-and-forget manner.
@@ -38,11 +32,11 @@ final class Cont<E, A> {
   ///
   /// Equivalent to `runWith(ContObserver.ignore())`.
   void ff(E env) {
-    runWith(
+    _run(
       ContRuntime._(env, () {
         return false;
       }),
-      ContObserver.ignore(),
+      ContObserver._((_) {}, (_) {}),
     );
   }
 
@@ -89,7 +83,7 @@ final class Cont<E, A> {
       }
 
       try {
-        run(runtime, ContObserver(guardedTerminate, guardedValue));
+        run(runtime, ContObserver._(guardedTerminate, guardedValue));
       } catch (error, st) {
         guardedTerminate([ContError(error, st)]);
       }
@@ -104,7 +98,7 @@ final class Cont<E, A> {
   /// - [thunk]: Function that returns a [Cont] when called.
   static Cont<E, A> fromDeferred<E, A>(Cont<E, A> Function() thunk) {
     return Cont.fromRun((runtime, observer) {
-      thunk().runWith(runtime, observer);
+      thunk()._run(runtime, observer);
     });
   }
 
@@ -206,7 +200,7 @@ final class Cont<E, A> {
     f,
   ) {
     return Cont.fromRun((runtime, observer) {
-      f(runWith, runtime, observer);
+      f(_run, runtime, observer);
     });
   }
 
@@ -218,7 +212,7 @@ final class Cont<E, A> {
   /// - [f]: Function that takes a value and returns a continuation.
   Cont<E, A2> then<A2>(Cont<E, A2> Function(A value) f) {
     return Cont.fromRun((runtime, observer) {
-      runWith(
+      _run(
         runtime,
         observer.copyUpdateOnValue((a) {
           if (runtime.isCancelled()) {
@@ -226,7 +220,7 @@ final class Cont<E, A> {
           }
           try {
             final contA2 = f(a);
-            contA2.runWith(runtime, observer);
+            contA2._run(runtime, observer);
           } catch (error, st) {
             observer.onTerminate([ContError(error, st)]);
           }
@@ -336,7 +330,7 @@ final class Cont<E, A> {
   /// - [f]: Function that receives errors and produces a fallback continuation.
   Cont<E, A> elseThen(Cont<E, A> Function(List<ContError> errors) f) {
     return Cont.fromRun((runtime, observer) {
-      runWith(
+      _run(
         runtime,
         observer.copyUpdateOnTerminate((errors) {
           if (runtime.isCancelled()) {
@@ -344,7 +338,7 @@ final class Cont<E, A> {
           }
           final safeErrors = List<ContError>.from(errors);
           try {
-            f([...safeErrors]).runWith(
+            f([...safeErrors])._run(
               runtime,
               observer.copyUpdateOnTerminate((errors2) {
                 if (runtime.isCancelled()) {
@@ -381,7 +375,7 @@ final class Cont<E, A> {
   /// - [f]: Function that returns a side-effect continuation.
   Cont<E, A> elseTap(Cont<E, A> Function(List<ContError> errors) f) {
     return Cont.fromRun((runtime, observer) {
-      runWith(
+      _run(
         runtime,
         observer.copyUpdateOnTerminate((errors) {
           if (runtime.isCancelled()) {
@@ -390,7 +384,7 @@ final class Cont<E, A> {
           final safeErrors = List<ContError>.from(errors);
           try {
             final cont = f([...safeErrors]);
-            cont.runWith(
+            cont._run(
               runtime,
               observer.copyUpdateOnTerminate((_) {
                 if (runtime.isCancelled()) {
@@ -432,7 +426,7 @@ final class Cont<E, A> {
   /// - [combine]: Function to combine error lists from both attempts.
   Cont<E, A> elseZip(Cont<E, A> Function(List<ContError>) f, List<ContError> Function(List<ContError>, List<ContError>) combine) {
     return Cont.fromRun((runtime, observer) {
-      runWith(
+      _run(
         runtime,
         observer.copyUpdateOnTerminate((errors) {
           if (runtime.isCancelled()) {
@@ -441,7 +435,7 @@ final class Cont<E, A> {
           final safeErrors = List<ContError>.from(errors);
           try {
             final cont = f([...safeErrors]);
-            cont.runWith(
+            cont._run(
               runtime,
               observer.copyUpdateOnTerminate((errors2) {
                 if (runtime.isCancelled()) {
@@ -511,7 +505,7 @@ final class Cont<E, A> {
     return Cont.fromRun((runtime, observer) {
       final env = f(runtime.env());
 
-      runWith(runtime.copyUpdateEnv(env), observer);
+      _run(runtime.copyUpdateEnv(env), observer);
     });
   }
 
@@ -608,9 +602,9 @@ final class Cont<E, A> {
           }
 
           try {
-            left.runWith(
+            left._run(
               sharedContRuntime,
-              ContObserver(
+              ContObserver._(
                 (errors) {
                   if (sharedContRuntime.isCancelled()) {
                     return;
@@ -636,9 +630,9 @@ final class Cont<E, A> {
           }
 
           try {
-            right.runWith(
+            right._run(
               sharedContRuntime,
-              ContObserver(
+              ContObserver._(
                 (errors) {
                   if (sharedContRuntime.isCancelled()) {
                     return;
@@ -727,9 +721,9 @@ final class Cont<E, A> {
               final (i, values) = tuple;
               final cont = safeCopy[i];
               try {
-                cont.runWith(
+                cont._run(
                   runtime,
-                  ContObserver(
+                  ContObserver._(
                     (errors) {
                       if (runtime.isCancelled()) {
                         callback(_Value2(null));
@@ -783,9 +777,9 @@ final class Cont<E, A> {
           if (safeCopy.length == 1) {
             final cont = safeCopy[0];
             try {
-              cont.runWith(
+              cont._run(
                 runtime,
-                ContObserver(
+                ContObserver._(
                   (errors) {
                     if (runtime.isCancelled()) {
                       return;
@@ -813,9 +807,9 @@ final class Cont<E, A> {
           var i = 0;
           for (final cont in safeCopy) {
             try {
-              cont.runWith(
+              cont._run(
                 runtime,
-                ContObserver(
+                ContObserver._(
                   (errors) {
                     if (runtime.isCancelled()) {
                       return;
@@ -905,9 +899,9 @@ final class Cont<E, A> {
 
           for (final (i, cont) in safeCopy.indexed) {
             try {
-              cont.runWith(
+              cont._run(
                 sharedContRuntime,
-                ContObserver(
+                ContObserver._(
                   (errors) {
                     if (sharedContRuntime.isCancelled()) {
                       return;
@@ -992,7 +986,7 @@ final class Cont<E, A> {
           }
 
           ContObserver<A> makeObserver(void Function(List<ContError> errors) codeToUpdateState) {
-            return ContObserver(
+            return ContObserver._(
               (errors) {
                 if (sharedContRuntime.isCancelled()) {
                   return;
@@ -1014,7 +1008,7 @@ final class Cont<E, A> {
           }
 
           try {
-            left.runWith(
+            left._run(
               sharedContRuntime,
               makeObserver((errors) {
                 resultErrors.insertAll(0, errors);
@@ -1027,7 +1021,7 @@ final class Cont<E, A> {
           }
 
           try {
-            right.runWith(
+            right._run(
               sharedContRuntime,
               makeObserver((errors) {
                 resultErrors.addAll(errors);
@@ -1108,9 +1102,9 @@ final class Cont<E, A> {
               final cont = safeCopy[index];
 
               try {
-                cont.runWith(
+                cont._run(
                   runtime,
-                  ContObserver(
+                  ContObserver._(
                     (errors2) {
                       if (runtime.isCancelled()) {
                         callback(_Value2(_Value1(())));
@@ -1163,9 +1157,9 @@ final class Cont<E, A> {
           if (safeCopy.length == 1) {
             final cont = safeCopy[0];
             try {
-              cont.runWith(
+              cont._run(
                 runtime,
-                ContObserver(
+                ContObserver._(
                   (errors) {
                     if (runtime.isCancelled()) {
                       return;
@@ -1193,9 +1187,9 @@ final class Cont<E, A> {
           var i = 0;
           for (final cont in safeCopy) {
             try {
-              cont.runWith(
+              cont._run(
                 runtime,
-                ContObserver(
+                ContObserver._(
                   (terminateErrors) {
                     if (runtime.isCancelled()) {
                       return;
@@ -1295,9 +1289,9 @@ final class Cont<E, A> {
           for (int i = 0; i < safeCopy.length; i++) {
             final cont = safeCopy[i];
             try {
-              cont.runWith(
+              cont._run(
                 sharedContRuntime,
-                ContObserver(
+                ContObserver._(
                   (errors) {
                     if (sharedContRuntime.isCancelled()) {
                       return;
@@ -1391,9 +1385,9 @@ final class Cont<E, A> {
         },
         computation: (_, callback) {
           try {
-            runWith(
+            _run(
               runtime,
-              ContObserver(
+              ContObserver._(
                 (errors) {
                   if (runtime.isCancelled()) {
                     callback(_Value2(_Value1(())));
@@ -1564,9 +1558,9 @@ final class Cont<E, A> {
           // Run release with non-cancellable runtime
           try {
             final releaseCont = getReleaseCont();
-            releaseCont.runWith(
+            releaseCont._run(
               releaseRuntime, // Use non-cancellable runtime
-              ContObserver(
+              ContObserver._(
                 // Release terminated - combine with use errors if any
                 (releaseErrors) {
                   switch (useResult) {
@@ -1616,9 +1610,9 @@ final class Cont<E, A> {
         // Execute the use phase
         try {
           final useCont = use(resource);
-          useCont.runWith(
+          useCont._run(
             runtime,
-            ContObserver(
+            ContObserver._(
               // Use phase terminated
               (useErrors) {
                 // Always release, even on termination
@@ -1691,6 +1685,53 @@ final class ContRuntime<E> {
     return ContRuntime._(env, isCancelled);
   }
 }
+
+/// An observer that handles both success and termination cases of a continuation.
+///
+/// [ContObserver] provides the callback mechanism for receiving results from
+/// a [Cont] execution. It encapsulates handlers for both successful values
+/// and termination (failure) scenarios.
+final class ContObserver<A> {
+  final void Function(List<ContError> errors) _onTerminate;
+
+  /// The callback function invoked when the continuation produces a successful value.
+  final void Function(A value) onValue;
+
+  /// Creates an observer with termination and value handlers.
+  ///
+  /// - [_onTerminate]: Handler called when the continuation terminates (fails).
+  /// - [onValue]: Handler called when the continuation produces a successful value.
+  const ContObserver._(this._onTerminate, this.onValue);
+
+
+  /// Invokes the termination callback with the provided errors.
+  ///
+  /// - [errors]: List of errors that caused termination. Defaults to an empty list.
+  void onTerminate([List<ContError> errors = const []]) {
+    _onTerminate(errors);
+  }
+
+  /// Creates a new observer with an updated termination handler.
+  ///
+  /// Returns a copy of this observer with a different termination callback,
+  /// while preserving the value callback.
+  ///
+  /// - [onTerminate]: The new termination handler to use.
+  ContObserver<A> copyUpdateOnTerminate(void Function(List<ContError> errors) onTerminate) {
+    return ContObserver._(onTerminate, onValue);
+  }
+
+  /// Creates a new observer with an updated value handler and potentially different type.
+  ///
+  /// Returns a copy of this observer with a different value callback type,
+  /// while preserving the termination callback.
+  ///
+  /// - [onValue]: The new value handler to use.
+  ContObserver<A2> copyUpdateOnValue<A2>(void Function(A2 value) onValue) {
+    return ContObserver._(onTerminate, onValue);
+  }
+}
+
 
 // private tools and helpers
 
@@ -1881,9 +1922,9 @@ Cont<E, A3> _both<E, A1, A2, A3>(
     }
 
     try {
-      left.runWith(
+      left._run(
         runtime,
-        ContObserver(
+        ContObserver._(
           (errors) {
             handleTerminate(true, [...errors]);
           },
@@ -1897,9 +1938,9 @@ Cont<E, A3> _both<E, A1, A2, A3>(
     }
 
     try {
-      right.runWith(
+      right._run(
         runtime,
-        ContObserver(
+        ContObserver._(
           (errors) {
             handleTerminate(false, [...errors]);
           },
@@ -2004,9 +2045,9 @@ Cont<E, A> _either<E, A>(
     }
 
     try {
-      left.runWith(
+      left._run(
         runtime,
-        ContObserver(
+        ContObserver._(
           (errors) {
             if (runtime.isCancelled()) {
               return;
@@ -2029,9 +2070,9 @@ Cont<E, A> _either<E, A>(
     }
 
     try {
-      right.runWith(
+      right._run(
         runtime,
-        ContObserver(
+        ContObserver._(
           (errors) {
             if (runtime.isCancelled()) {
               return;
