@@ -382,9 +382,90 @@ You can pass `Cont` objects around in functions and store them as values in cons
 
 ### Execution Flow
 
-When `run` is called, the flow goes "up" the chain, executes the edge computation (the first `Cont` in the chain), and then navigates back down through each `thenDo`, finally reaching `run` itself.
+Understanding how `Cont` executes is crucial for building complex computation chains. The execution model follows a two-phase traversal pattern with channel-aware routing.
 
-If any computation emits a termination event, the whole chain after that is skipped and the first callback passed into `run` is invoked.
+**Phase 1: Ascending the Chain**
+
+When `run` is called, execution first traverses "up" the operator chain to find the source computation. This traversal passes through all intermediate operators (`map`, `thenDo`, `elseDo`, etc.) without executing their logic yet—it's simply locating the origin of the computation chain.
+
+```dart
+// This chain: source → map → thenDo → run
+Cont.of(0)              // source (reached first)
+  .map((x) => x + 1)    // operator 2 (traversed)
+  .thenDo((x) => ...)   // operator 3 (traversed)
+  .run(...)             // starting point
+```
+
+**Phase 2: Descending Through Operators**
+
+Once the source computation completes and emits a value or termination, execution flows back "down" through each operator in reverse order:
+
+1. **Source emits** → Value or termination propagates down
+2. **Each operator processes** → Transforms, chains, or routes the signal
+3. **Final callback invoked** → Either `onValue` or `onTerminate` from `run`
+
+```dart
+Cont.of(0)                    // Emits: value(0)
+  .map((x) => x + 1)          // Processes: value(0) → value(1)
+  .thenDo((x) => Cont.of(x * 2))  // Processes: value(1) → runs new Cont → value(2)
+  .run((), onTerminate, onValue)  // Receives: value(2)
+```
+
+**Channel Routing and Switching**
+
+Each operator in the chain routes signals through two channels:
+
+- **Value channel**: Carries successful results (type `T`)
+- **Termination channel**: Carries errors (`List<ContError>`)
+
+Operators like `thenDo` and `map` only process values from the value channel. If a termination signal arrives, they pass it through unchanged to the next operator:
+
+```dart
+Cont.of(0)
+  .map((x) => x + 1)        // Only processes values
+  .thenDo((x) => throw "Error!")  // Throws → switches to termination channel
+  .map((x) => x * 2)        // Skipped! (termination channel active)
+  .run((), onTerminate, onValue)  // onTerminate called
+```
+
+Conversely, `elseDo` and `elseTap` only process termination signals and can switch back to the value channel:
+
+```dart
+Cont.terminate<int>([ContError("fail", st)])  // Termination channel
+  .map((x) => x + 1)        // Skipped (no value to process)
+  .elseDo((errors) {
+    return Cont.of(42);     // Recovers → switches back to value channel
+  })
+  .map((x) => x * 2)        // Processes value(42) → value(84)
+  .run((), onTerminate, onValue)  // onValue(84) called
+```
+
+**Pausing for Racing Continuations**
+
+When using racing operators (`either`, `any`) or parallel execution policies (`ContPolicy.quitFast`), multiple continuations execute simultaneously. The execution flow pauses at the racing operator until a decisive result is reached:
+
+```dart
+final slow = delay(Duration(seconds: 2), 42);
+final fast = delay(Duration(milliseconds: 100), 10);
+
+Cont.either(slow, fast, ...)  // Both start executing in parallel
+  .map((x) => x * 2)          // Waits for first completion → then processes winner
+  .run(...)                   // Receives result from fast: 10 * 2 = 20
+```
+
+During this pause:
+- Multiple computation chains run concurrently
+- The racing operator monitors all channels (both value and termination)
+- As soon as one chain produces a decisive result (first success for `either`, first failure for `all`), others may be cancelled
+- The winning result continues down the remaining operator chain
+
+**Key Behaviors**
+
+1. **Sequential by default**: Without racing/parallel operators, execution is strictly sequential
+2. **Early termination**: A termination signal skips all value-processing operators downstream
+3. **Recovery points**: `elseDo` can catch terminations and resume normal (value) flow
+4. **Idempotent observers**: Each computation segment can only emit once—subsequent emissions are ignored
+5. **Channel isolation**: Value and termination channels are separate paths through the operator chain
 
 ### The Environment Parameter
 
