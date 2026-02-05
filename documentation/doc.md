@@ -1119,7 +1119,7 @@ Cont<E, T> myComputation<E, T>() {
 
 1. **Call exactly once**: You must call either `observer.onValue` or `observer.onTerminate` exactly once
 2. **Idempotent**: Calling more than once has no effect (the first call wins)
-3. **Mandatory**: Failing to call the observer results in undefined behavior and lost errors
+3. **Mandatory**: Failing to call the observer results in undefined behavior and lost errors (with exception to cancallation cases)
 
 **Example: Delayed computation**
 
