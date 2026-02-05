@@ -1405,6 +1405,47 @@ cont.trap(myEnv, (errors) {
 
 ---
 
+#### ContAbsurdExtension
+
+```dart
+extension ContAbsurdExtension<E> on Cont<E, Never>
+```
+
+Extension providing type conversion for continuations that never produce a value.
+
+**Methods:**
+
+```dart
+Cont<E, A> absurd<A>()
+```
+
+Converts a continuation that never produces a value to any desired type.
+
+The `absurd` method implements the principle of "ex falso quodlibet" (from falsehood, anything follows) from type theory. It allows converting a `Cont<E, Never>` to `Cont<E, A>` for any type `A`.
+
+Since `Never` is an uninhabited type with no possible values, the mapping function `(Never never) => never` can never actually execute. However, the type system accepts this transformation as valid, enabling type-safe conversion from a continuation that cannot produce a value to one with any desired value type.
+
+This is particularly useful when:
+- Working with continuations that run forever (e.g., from `forever`)
+- Matching types with other continuations in composition
+- Converting terminating-only continuations to typed continuations
+
+- **Type Parameters:**
+  - `A`: The desired value type for the resulting continuation
+
+**Returns:** A continuation with the same environment type but a different value type parameter.
+
+**Example:**
+```dart
+// A server that runs forever has type Cont<Env, Never>
+final server = handleRequests().forever();
+
+// Convert to Cont<Env, String> to match other continuation types
+final serverAsString = server.absurd<String>();
+```
+
+---
+
 ## Summary
 
 The Jerelo library provides a comprehensive continuation monad system with:
