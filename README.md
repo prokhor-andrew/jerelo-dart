@@ -217,15 +217,6 @@ The example above showcases:
 - **Reusability**: Same computation executed with different configurations
 - **Resource Safety**: Cancellation checks with `runtime.isCancelled()`
 
-## Installation
-
-Add to your `pubspec.yaml`:
-
-```yaml
-dependencies:
-  jerelo: ^1.0.0
-```
-
 ## Learn More
 
 - Explore the [User Guide](documentation/doc.md) for in-depth explanations and patterns
