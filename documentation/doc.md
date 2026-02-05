@@ -56,6 +56,8 @@
 
 ## What is Jerelo?
 
+**Jerelo** is a Dart library for building cold, lazy, reusable computations. It provides operations for chaining, transforming, branching, merging, and error handling.
+
 ### Understanding Computation
 
 A **computation** is a constructible description of how a value can be produced. Its key feature is the separation of construction from execution.
