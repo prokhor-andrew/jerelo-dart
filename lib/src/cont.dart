@@ -63,6 +63,10 @@ final class Cont<E, A> {
         return;
       }
 
+      if (observer is ContObserver<Never>) {
+        observer = ContObserver<A>._(observer.onTerminate, (_) {});
+      }
+
       bool isDone = false;
 
       void guardedTerminate(List<ContError> errors) {
@@ -105,7 +109,11 @@ final class Cont<E, A> {
   /// - [thunk]: Function that returns a [Cont] when called.
   static Cont<E, A> fromDeferred<E, A>(Cont<E, A> Function() thunk) {
     return Cont.fromRun((runtime, observer) {
-      thunk()._run(runtime, observer);
+      Cont<E, A> contA = thunk();
+      if (contA is Cont<E, Never>) {
+        contA = contA.absurd<A>();
+      }
+      contA._run(runtime, observer);
     });
   }
 
@@ -233,7 +241,10 @@ final class Cont<E, A> {
             return;
           }
           try {
-            final contA2 = f(a);
+            Cont<E, A2> contA2 = f(a);
+            if (contA2 is Cont<E, Never>) {
+              contA2 = contA2.absurd<A2>();
+            }
             contA2._run(runtime, observer);
           } catch (error, st) {
             observer.onTerminate([ContError(error, st)]);
@@ -261,7 +272,11 @@ final class Cont<E, A> {
   /// - [f]: Side-effect function that returns a continuation.
   Cont<E, A> thenTap<A2>(Cont<E, A2> Function(A value) f) {
     return thenDo((a) {
-      return f(a).as(a);
+      Cont<E, A2> contA2 = f(a);
+      if (contA2 is Cont<E, Never>) {
+        contA2 = contA2.absurd<A2>();
+      }
+      return contA2.as(a);
     });
   }
 
@@ -284,7 +299,11 @@ final class Cont<E, A> {
   /// - [combine]: Function to combine both values into a result.
   Cont<E, A3> thenZip<A2, A3>(Cont<E, A2> Function(A value) f, A3 Function(A a1, A2 a2) combine) {
     return thenDo((a1) {
-      return f(a1).map((a2) {
+      Cont<E, A2> contA2 = f(a1);
+      if (contA2 is Cont<E, Never>) {
+        contA2 = contA2.absurd<A2>();
+      }
+      return contA2.map((a2) {
         return combine(a1, a2);
       });
     });
@@ -312,8 +331,11 @@ final class Cont<E, A> {
   /// - [f]: Function that takes the current value and returns a side-effect continuation.
   Cont<E, A> thenFork<A2>(Cont<E, A2> Function(A a) f) {
     return thenDoWithEnv((e, a) {
-      final contA2 = f(a); // this should not be inside try-catch block
+      Cont<E, A2> contA2 = f(a); // this should not be inside try-catch block
 
+      if (contA2 is Cont<E, Never>) {
+        contA2 = contA2.absurd<A2>();
+      }
       try {
         contA2.ff(e);
       } catch (_) {
@@ -355,7 +377,13 @@ final class Cont<E, A> {
           }
           final safeErrors = List<ContError>.from(errors);
           try {
-            f([...safeErrors])._run(
+            Cont<E, A> contA = f([...safeErrors]);
+
+            if (contA is Cont<E, Never>) {
+              contA = contA.absurd<A>();
+            }
+
+            contA._run(
               runtime,
               observer.copyUpdateOnTerminate((errors2) {
                 if (runtime.isCancelled()) {
@@ -407,8 +435,13 @@ final class Cont<E, A> {
           }
           final safeErrors = List<ContError>.from(errors);
           try {
-            final cont = f([...safeErrors]);
-            cont._run(
+            Cont<E, A> contA = f([...safeErrors]);
+
+            if (contA is Cont<E, Never>) {
+              contA = contA.absurd<A>();
+            }
+
+            contA._run(
               runtime,
               observer.copyUpdateOnTerminate((_) {
                 if (runtime.isCancelled()) {
@@ -458,8 +491,11 @@ final class Cont<E, A> {
           }
           final safeErrors = List<ContError>.from(errors);
           try {
-            final cont = f([...safeErrors]);
-            cont._run(
+            Cont<E, A> contA = f([...safeErrors]);
+            if (contA is Cont<E, Never>) {
+              contA = contA.absurd<A>();
+            }
+            contA._run(
               runtime,
               observer.copyUpdateOnTerminate((errors2) {
                 if (runtime.isCancelled()) {
@@ -503,9 +539,12 @@ final class Cont<E, A> {
   /// - [f]: Function that returns a side-effect continuation.
   Cont<E, A> elseFork<A2>(Cont<E, A2> Function(List<ContError> errors) f) {
     return elseDoWithEnv((e, errors) {
-      final cont = f([...errors]); // this should not be inside try-catch block
+      Cont<E, A2> contA2 = f([...errors]); // this should not be inside try-catch block
+      if (contA2 is Cont<E, Never>) {
+        contA2 = contA2.absurd<A2>();
+      }
       try {
-        cont.ff(e);
+        contA2.ff(e);
       } catch (_) {
         // do nothing, if anything happens to side-effect, it's not
         // a concern of the orElseFork
@@ -830,7 +869,11 @@ final class Cont<E, A> {
   /// ```
   Cont<E, A2> injectInto<A2>(Cont<A, A2> cont) {
     return thenDo((a) {
-      return cont.scope(a);
+      Cont<A, A2> contA2 = cont;
+      if (contA2 is Cont<A, Never>) {
+        contA2 = contA2.absurd<A2>();
+      }
+      return contA2.scope(a);
     });
   }
 
@@ -898,15 +941,25 @@ final class Cont<E, A> {
     required ContPolicy<List<ContError>> policy,
     //
   }) {
+    Cont<E, A1> copyLeft = left;
+    if (copyLeft is Cont<E, Never>) {
+      copyLeft = copyLeft.absurd<A1>();
+    }
+
+    Cont<E, A2> copyRight = right;
+    if (copyRight is Cont<E, Never>) {
+      copyRight = copyRight.absurd<A2>();
+    }
+
     switch (policy) {
       case SequencePolicy<List<ContError>>():
-        return left.thenDo((a) {
-          return right.map((a2) {
+        return copyLeft.thenDo((a) {
+          return copyRight.map((a2) {
             return combine(a, a2);
           });
         });
       case MergeWhenAllPolicy<List<ContError>>(combine: final combine2):
-        return _both(left, right, combine, combine2);
+        return _both(copyLeft, copyRight, combine, combine2);
       case QuitFastPolicy<List<ContError>>():
         return Cont.fromRun((runtime, observer) {
           bool isDone = false;
@@ -942,7 +995,7 @@ final class Cont<E, A> {
           }
 
           try {
-            left._run(
+            copyLeft._run(
               sharedContRuntime,
               ContObserver._(
                 (errors) {
@@ -970,7 +1023,7 @@ final class Cont<E, A> {
           }
 
           try {
-            right._run(
+            copyRight._run(
               sharedContRuntime,
               ContObserver._(
                 (errors) {
@@ -1059,7 +1112,10 @@ final class Cont<E, A> {
             },
             computation: (tuple, callback) {
               final (i, values) = tuple;
-              final cont = safeCopy[i];
+              Cont<E, A> cont = safeCopy[i];
+              if (cont is Cont<E, Never>) {
+                cont = cont.absurd<A>();
+              }
               try {
                 cont._run(
                   runtime,
@@ -1294,15 +1350,25 @@ final class Cont<E, A> {
     required ContPolicy<A> policy,
     //
   }) {
+    Cont<E, A> copyLeft = left;
+    if (copyLeft is Cont<E, Never>) {
+      copyLeft = copyLeft.absurd<A>();
+    }
+
+    Cont<E, A> copyRight = right;
+    if (copyRight is Cont<E, Never>) {
+      copyRight = copyRight.absurd<A>();
+    }
+
     switch (policy) {
       case SequencePolicy<A>():
-        return left.elseDo((errors1) {
-          return right.elseDo((errors2) {
+        return copyLeft.elseDo((errors1) {
+          return copyRight.elseDo((errors2) {
             return Cont.terminate(combine(errors1, errors2));
           });
         });
       case MergeWhenAllPolicy<A>(combine: final combine2):
-        return _either(left, right, combine, combine2);
+        return _either(copyLeft, copyRight, combine, combine2);
       case QuitFastPolicy<A>():
         return Cont.fromRun((runtime, observer) {
           bool isOneFailed = false;
@@ -1348,7 +1414,7 @@ final class Cont<E, A> {
           }
 
           try {
-            left._run(
+            copyLeft._run(
               sharedContRuntime,
               makeObserver((errors) {
                 resultErrors.insertAll(0, errors);
@@ -1361,7 +1427,7 @@ final class Cont<E, A> {
           }
 
           try {
-            right._run(
+            copyRight._run(
               sharedContRuntime,
               makeObserver((errors) {
                 resultErrors.addAll(errors);
@@ -1439,7 +1505,10 @@ final class Cont<E, A> {
             },
             computation: (tuple, callback) {
               final (index, errors) = tuple;
-              final cont = safeCopy[index];
+              Cont<E, A> cont = safeCopy[index];
+              if (cont is Cont<E, Never>) {
+                cont = cont.absurd<A>();
+              }
 
               try {
                 cont._run(
@@ -1877,11 +1946,17 @@ final class Cont<E, A> {
     required Cont<E, A> Function(R resource) use,
     //
   }) {
+    if (acquire is Cont<E, Never>) {
+      acquire = acquire.absurd<R>();
+    }
+
     return acquire.thenDo((resource) {
       return Cont.fromRun((runtime, observer) {
         // Create a non-cancellable runtime for the release phase
         // This ensures release always runs, even if the parent is cancelled
-        final releaseRuntime = ContRuntime<E>._(runtime.env(), () => false);
+        final releaseRuntime = ContRuntime<E>._(runtime.env(), () {
+          return false;
+        });
 
         // Helper to safely call release and handle its result
         // Uses _Either to distinguish between success (value) and failure (errors)
@@ -1889,7 +1964,11 @@ final class Cont<E, A> {
           // Create helper to get release continuation safely
           Cont<E, ()> getReleaseCont() {
             try {
-              return release(resource);
+              final cont = release(resource);
+              if (cont is Cont<E, Never>) {
+                return cont.absurd<()>();
+              }
+              return cont;
             } catch (error, st) {
               return Cont.terminate<E, ()>([ContError(error, st)]);
             }
@@ -1949,7 +2028,11 @@ final class Cont<E, A> {
 
         // Execute the use phase
         try {
-          final useCont = use(resource);
+          Cont<E, A> useCont = use(resource);
+          if (useCont is Cont<E, Never>) {
+            useCont = useCont.absurd<A>();
+          }
+
           useCont._run(
             runtime,
             ContObserver._(
@@ -2044,7 +2127,9 @@ extension ContRunExtension<E> on Cont<E, Never> {
   /// final serverAsString = server.absurd<String>();
   /// ```
   Cont<E, A> absurd<A>() {
-    return map<A>((Never never) => never);
+    return map<A>((Never never) {
+      return never;
+    });
   }
 }
 
