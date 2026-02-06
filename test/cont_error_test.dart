@@ -18,14 +18,23 @@ void main() {
 
       final contError = ContError(error, StackTrace.empty);
 
-      expect(contError.stackTrace, equals(StackTrace.empty));
+      expect(
+        contError.stackTrace,
+        equals(StackTrace.empty),
+      );
     });
 
     test('can be used in const context', () {
-      const contError = ContError('const error', StackTrace.empty);
+      const contError = ContError(
+        'const error',
+        StackTrace.empty,
+      );
 
       expect(contError.error, equals('const error'));
-      expect(contError.stackTrace, equals(StackTrace.empty));
+      expect(
+        contError.stackTrace,
+        equals(StackTrace.empty),
+      );
     });
   });
 }

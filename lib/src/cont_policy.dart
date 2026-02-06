@@ -28,7 +28,9 @@ sealed class ContPolicy<T> {
   /// value and the new value, returning the combined result.
   ///
   /// - [combine]: Function to merge accumulated and new values.
-  static MergeWhenAllPolicy<T> mergeWhenAll<T>(T Function(T acc, T value) combine) {
+  static MergeWhenAllPolicy<T> mergeWhenAll<T>(
+    T Function(T acc, T value) combine,
+  ) {
     return MergeWhenAllPolicy(combine);
   }
 
