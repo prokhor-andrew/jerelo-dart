@@ -557,6 +557,7 @@ final class Cont<E, A> {
                 }
                 errors2 = errors2
                     .toList(); // defensive copy
+                // TODO: try-catch
                 final combinedErrors = combine(
                   errors,
                   errors2,
@@ -1255,13 +1256,17 @@ final class Cont<E, A> {
                     }
 
                     i += 1;
-                    final seedCopy = seed;
-                    if (seedCopy == null) {
+                    final seedRefCopy = seed;
+                    if (seedRefCopy == null) {
                       seed = [...errors];
                     } else {
-                      final safeCopyOfResultErrors = [
-                        ...merge(seedCopy, errors),
-                      ];
+
+                      // TODO: try-catch
+                      final safeCopyOfResultErrors = merge(
+                        seedRefCopy.toList(),
+                        errors.toList(),
+                      ).toList();
+
                       seed = safeCopyOfResultErrors;
                     }
 
@@ -1660,6 +1665,7 @@ final class Cont<E, A> {
                       seed = a;
                       seedCopy2 = a;
                     } else {
+                      // TODO: try-catch
                       final safeCopyOfResultValue = merge(
                         seedCopy,
                         a,
@@ -2561,7 +2567,7 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
         }
 
         observer.onTerminate(
-          combine2(firstErrors, secondErrors),
+          combine2(firstErrors, secondErrors), // TODO: we must put try-catch block here
         );
         return;
       }
@@ -2765,6 +2771,7 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
           secondValue = leftVal as A;
         }
 
+        // TODO: try-catch
         observer.onValue(combine2(firstValue, secondValue));
         return;
       }
