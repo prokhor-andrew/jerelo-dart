@@ -2222,8 +2222,11 @@ extension ContRunExtension<E> on Cont<E, Never> {
   /// final serverAsString = server.absurd<String>();
   /// ```
   Cont<E, A> absurd<A>() {
-    return map<A>((Never never) {
-      return never;
+    return map<A>((
+      Never // gonna give you up
+      never, // gonna let you down
+    ) {
+      return never; // gonna run around and desert you
     });
   }
 }
