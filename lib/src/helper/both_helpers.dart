@@ -8,11 +8,6 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
   Cont<E, A1> left,
   Cont<E, A2> right,
   A3 Function(A1 a, A2 a2) combine,
-  List<ContError> Function(
-    List<ContError> acc,
-    List<ContError> value,
-  )
-  combine2,
   //
 ) {
   return Cont.fromRun((runtime, observer) {
@@ -95,12 +90,7 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
           secondErrors = leftErrors;
         }
 
-        observer.onTerminate(
-          combine2(
-            firstErrors,
-            secondErrors,
-          ), // TODO: we must put try-catch block here
-        );
+        observer.onTerminate(firstErrors + secondErrors);
         return;
       }
 

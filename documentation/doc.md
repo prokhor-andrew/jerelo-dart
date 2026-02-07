@@ -446,7 +446,7 @@ Cont.terminate<int>([ContError("fail", st)])  // Termination channel
 
 **Pausing for Racing Continuations**
 
-When using racing operators (`either`, `any`) or parallel execution policies (`ContPolicy.quitFast`), multiple continuations execute simultaneously. The execution flow pauses at the racing operator until a decisive result is reached:
+When using racing operators (`either`, `any`) or parallel execution policies (e.g., `ContBothPolicy.quitFast()` or `ContEitherPolicy.quitFast()`), multiple continuations execute simultaneously. The execution flow pauses at the racing operator until a decisive result is reached:
 
 ```dart
 final slow = delay(Duration(seconds: 2), 42);
@@ -755,60 +755,99 @@ Cont.of(0)
 
 When running multiple computations in parallel (using `both`, `all`, `either`, or `any`), you need to specify an **execution policy** that determines how the computations are run and how their results or errors are combined.
 
+Jerelo provides two distinct policy types to match the different semantics of these operations:
+- **`ContBothPolicy`** - for `both` and `all` operations (where all must succeed)
+- **`ContEitherPolicy<A>`** - for `either` and `any` operations (racing for first success)
+
+The split ensures type safety: `both`/`all` policies handle error combining, while `either`/`any` policies handle result combining for multiple successes.
+
 ### Policy Types
 
-Jerelo provides three execution policies:
+#### For `both` and `all` operations: ContBothPolicy
 
-#### 1. Sequential Policy (`ContPolicy.sequence()`)
+##### 1. Sequential Policy (`ContBothPolicy.sequence()`)
 
-Executes computations one after another in order.
-
-- For `both`/`all`: Stops at the first failure
-- For `either`/`any`: Continues until one succeeds or all fail
+Executes computations one after another in order. Stops at the first failure.
 
 ```dart
 final result = Cont.all(
   [computation1, computation2, computation3],
-  policy: ContPolicy.sequence(),
+  policy: ContBothPolicy.sequence(),
 );
 ```
 
 **Use when:** You need predictable ordering or when computations depend on resources that shouldn't be accessed simultaneously.
 
-#### 2. Merge When All Policy (`ContPolicy.mergeWhenAll(combine)`)
+##### 2. Merge When All Policy (`ContBothPolicy.mergeWhenAll()`)
 
-Runs all computations in parallel and waits for all to complete before combining results or errors.
-
-- Requires a `combine` function to merge accumulated values
-- For `both`/`all`: Merges errors if any fail
-- For `either`/`any`: Merges results if multiple succeed
+Runs all computations in parallel and waits for all to complete. Concatenates errors if any fail.
 
 ```dart
 final result = Cont.all(
   computations,
-  policy: ContPolicy.mergeWhenAll((acc, value) => [...acc, ...value]),
+  policy: ContBothPolicy.mergeWhenAll(),
 );
 ```
 
-**Use when:** You want to collect all errors/results and make decisions based on the complete picture.
+**Use when:** You want to collect all errors and make decisions based on the complete picture.
 
-#### 3. Quit Fast Policy (`ContPolicy.quitFast()`)
+##### 3. Quit Fast Policy (`ContBothPolicy.quitFast()`)
 
-Terminates as soon as a decisive result is reached.
+Terminates as soon as the first failure occurs.
 
-- For `both`/`all`: Quits on first failure
-- For `either`/`any`: Quits on first success
+```dart
+final result = Cont.both(
+  computation1,
+  computation2,
+  (a, b) => (a, b),
+  policy: ContBothPolicy.quitFast(),
+);
+```
+
+**Use when:** You want the fastest possible feedback and don't need to wait for all operations to complete.
+
+#### For `either` and `any` operations: ContEitherPolicy
+
+##### 1. Sequential Policy (`ContEitherPolicy.sequence()`)
+
+Executes computations one after another in order. Continues until one succeeds or all fail.
 
 ```dart
 final result = Cont.either(
   primarySource,
   fallbackSource,
-  (e1, e2) => [...e1, ...e2],
-  policy: ContPolicy.quitFast(),
+  policy: ContEitherPolicy.sequence(),
 );
 ```
 
-**Use when:** You want the fastest possible feedback and don't need to wait for all operations to complete.
+**Use when:** You have a preferred order and want to try alternatives sequentially.
+
+##### 2. Merge When All Policy (`ContEitherPolicy.mergeWhenAll(combine)`)
+
+Runs all computations in parallel and waits for all to complete. If multiple succeed, combines their results using the provided `combine` function.
+
+```dart
+final result = Cont.any(
+  computations,
+  policy: ContEitherPolicy.mergeWhenAll((first, second) => first), // Take the first result
+);
+```
+
+**Use when:** You want to wait for all operations and potentially combine multiple successful results.
+
+##### 3. Quit Fast Policy (`ContEitherPolicy.quitFast()`)
+
+Terminates as soon as the first success occurs.
+
+```dart
+final result = Cont.either(
+  primarySource,
+  fallbackSource,
+  policy: ContEitherPolicy.quitFast(),
+);
+```
+
+**Use when:** You want the fastest possible feedback and don't need to wait for other operations to complete.
 
 ---
 
@@ -828,7 +867,7 @@ Cont.both(
   left,
   right,
   (a, b) => a + b,
-  policy: ContPolicy.quitFast(), // Runs in parallel, quits on first failure
+  policy: ContBothPolicy.quitFast(), // Runs in parallel, quits on first failure
 ).run((), (_) {}, print); // prints: 30
 ```
 
@@ -845,7 +884,7 @@ final computations = [
 
 Cont.all(
   computations,
-  policy: ContPolicy.quitFast(), // Runs in parallel, quits on first failure
+  policy: ContBothPolicy.quitFast(), // Runs in parallel, quits on first failure
 ).run((), (_) {}, print); // prints: [1, 2, 3]
 ```
 
@@ -860,8 +899,7 @@ final fast = delayedCont(Duration(milliseconds: 100), 10);
 Cont.either(
   slow,
   fast,
-  (errors1, errors2) => [...errors1, ...errors2],
-  policy: ContPolicy.quitFast(), // Returns first success
+  policy: ContEitherPolicy.quitFast(), // Returns first success
 ).run((), (_) {}, print); // prints: 10 (fast wins)
 ```
 
@@ -1055,7 +1093,7 @@ Cont.both(
   dbResult,
   apiResult,
   (dbData, apiData) => merge(dbData, apiData),
-  policy: ContPolicy.quitFast(),
+  policy: ContBothPolicy.quitFast(),
 ).run((), (_) {}, print);
 ```
 
@@ -1184,8 +1222,7 @@ extension MyContExtensions<E, T> on Cont<E, T> {
     return Cont.either(
       this,
       timeoutCont,
-      (e1, e2) => e1, // Prefer errors from original computation
-      policy: ContPolicy.quitFast(),
+      policy: ContEitherPolicy.quitFast(),
     );
   }
 
@@ -1490,7 +1527,7 @@ Cont<AppConfig, List<User>> getUsers(List<String> userIds) {
   final continuations = userIds.map((id) => getUser(id)).toList();
   return Cont.all(
     continuations,
-    policy: ContPolicy.quitFast(), // Fails fast if any user fetch fails
+    policy: ContBothPolicy.quitFast(), // Fails fast if any user fetch fails
   );
 }
 
@@ -1537,7 +1574,7 @@ This example demonstrates:
 - Error handling with fallbacks (elseDo)
 - Side effects (thenTap, elseFork)
 - Conditional execution (when)
-- Parallel execution with policies (Cont.all with quitFast policy)
+- Parallel execution with policies (Cont.all with ContBothPolicy.quitFast)
 - Resource management (bracket)
 - Looping (asLongAs)
 - WithEnv variants for accessing config

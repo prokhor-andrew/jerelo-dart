@@ -9,7 +9,8 @@ Complete reference for all public types and APIs in the Jerelo continuation libr
 - [Core Types](#core-types)
   - [Cont](#cont)
   - [ContError](#conterror)
-  - [ContPolicy](#contpolicy)
+  - [ContBothPolicy](#contbothpolicy)
+  - [ContEitherPolicy](#conteitherpolicy)
   - [ContRuntime](#contruntime)
   - [ContObserver](#contobserver)
 - [API Reference](#api-reference)
@@ -67,83 +68,144 @@ Creates an error wrapper containing an error and stack trace.
 
 ---
 
-### ContPolicy
+### ContBothPolicy
 
 ```dart
-sealed class ContPolicy<T>
+sealed class ContBothPolicy
 ```
 
-Execution policy for parallel continuation operations.
+Execution policy for `both` and `all` operations.
 
-Defines how multiple continuations should be executed and how their results or errors should be combined. Different policies provide different trade-offs between execution order, error handling, and result combination.
+Defines how multiple continuations should be executed and how their errors should be combined when all operations must succeed. Different policies provide different trade-offs between execution order, error handling, and result combination.
 
 **Available Policies:**
-- [SequencePolicy](#sequencepolicy): Executes operations sequentially, one after another
-- [MergeWhenAllPolicy](#mergewhenallpolicy): Waits for all operations to complete and merges errors (for `all`/`both`) or results (for `any`/`either`)
-- [QuitFastPolicy](#quitfastpolicy): Terminates as soon as one operation fails (for `all`/`both`) or succeeds (for `any`/`either`)
+- [BothSequencePolicy](#bothsequencepolicy): Executes operations sequentially, one after another
+- [BothMergeWhenAllPolicy](#bothmergewhenallpolicy): Waits for all operations to complete and merges errors if any fail
+- [BothQuitFastPolicy](#bothquitfastpolicy): Terminates immediately on the first failure
 
 **Static Factory Methods:**
 
 ```dart
-static ContPolicy<T> sequence<T>()
+static ContBothPolicy sequence()
 ```
-Creates a sequential execution policy. Operations are executed one after another in order. For `all`/`both`, execution stops at the first failure. For `any`/`either`, execution continues until one succeeds or all fail.
+Creates a sequential execution policy. Operations are executed one after another in order. Execution stops at the first failure.
 
 ```dart
-static MergeWhenAllPolicy<T> mergeWhenAll<T>(T Function(T acc, T value) combine)
+static ContBothPolicy mergeWhenAll()
 ```
-Creates a merge-when-all policy with a custom combiner. All operations are executed in parallel. Results or errors are accumulated using the provided `combine` function. The function receives the accumulated value and the new value, returning the combined result.
-
-- **Parameters:**
-  - `combine`: Function to merge accumulated and new values
+Creates a merge-when-all policy. All operations are executed in parallel and all must complete. Errors from all failed operations are concatenated into a single error list.
 
 ```dart
-static ContPolicy<T> quitFast<T>()
+static ContBothPolicy quitFast()
 ```
-Creates a quit-fast policy. Terminates immediately when a decisive result is reached:
-- For `all`/`both`: quits on the first failure
-- For `any`/`either`: quits on the first success
-
-Provides the fastest feedback but may leave other operations running.
+Creates a quit-fast policy. Terminates immediately on the first failure. Provides the fastest feedback but may leave other operations running.
 
 **Policy Type Details:**
 
-#### SequencePolicy
+#### BothSequencePolicy
 
 ```dart
-final class SequencePolicy<T> extends ContPolicy<T>
+final class BothSequencePolicy extends ContBothPolicy
 ```
 
-Sequential execution policy.
+Sequential execution policy for `both`/`all` operations.
 
-Executes continuations one after another in order. Stops at the first failure for `all`/`both` operations, or at the first success for `any`/`either` operations.
+Executes continuations one after another in order. Stops at the first failure.
 
-#### MergeWhenAllPolicy
+#### BothMergeWhenAllPolicy
 
 ```dart
-final class MergeWhenAllPolicy<T> extends ContPolicy<T>
+final class BothMergeWhenAllPolicy extends ContBothPolicy
 ```
 
-Merge-when-all execution policy.
+Merge-when-all execution policy for `both`/`all` operations.
 
-Executes all continuations in parallel and waits for all to complete. Combines results or errors using the provided `combine` function.
+Executes all continuations in parallel and waits for all to complete. Concatenates errors if multiple operations fail.
+
+#### BothQuitFastPolicy
+
+```dart
+final class BothQuitFastPolicy extends ContBothPolicy
+```
+
+Quit-fast execution policy for `both`/`all` operations.
+
+Terminates as soon as the first failure occurs. Provides fastest feedback but other operations may continue running.
+
+---
+
+### ContEitherPolicy
+
+```dart
+sealed class ContEitherPolicy<A>
+```
+
+Execution policy for `either` and `any` operations.
+
+Defines how multiple continuations should be executed and how their results should be combined when racing for the first success. Different policies provide different trade-offs between execution order, success handling, and result combination.
+
+**Type Parameters:**
+- `A`: The value type that the continuations produce
+
+**Available Policies:**
+- [EitherSequencePolicy](#eithersequencepolicy): Executes operations sequentially until one succeeds
+- [EitherMergeWhenAllPolicy](#eithermergewhenallpolicy): Waits for all operations and merges multiple successes
+- [EitherQuitFastPolicy](#eitherquitfastpolicy): Terminates immediately on the first success
+
+**Static Factory Methods:**
+
+```dart
+static ContEitherPolicy<A> sequence<A>()
+```
+Creates a sequential execution policy. Operations are executed one after another in order. Execution continues until one succeeds or all fail.
+
+```dart
+static ContEitherPolicy<A> mergeWhenAll<A>(A Function(A a1, A a2) combine)
+```
+Creates a merge-when-all policy with a custom combiner. All operations are executed in parallel. If multiple operations succeed, their results are combined using the provided `combine` function. The function receives the accumulated value and the new value, returning the combined result.
+
+- **Parameters:**
+  - `combine`: Function to merge two successful values
+
+```dart
+static ContEitherPolicy<A> quitFast<A>()
+```
+Creates a quit-fast policy. Terminates immediately on the first success. Provides the fastest feedback but may leave other operations running.
+
+**Policy Type Details:**
+
+#### EitherSequencePolicy
+
+```dart
+final class EitherSequencePolicy<A> extends ContEitherPolicy<A>
+```
+
+Sequential execution policy for `either`/`any` operations.
+
+Executes continuations one after another in order. Continues until the first success or all operations fail.
+
+#### EitherMergeWhenAllPolicy
+
+```dart
+final class EitherMergeWhenAllPolicy<A> extends ContEitherPolicy<A>
+```
+
+Merge-when-all execution policy for `either`/`any` operations.
+
+Executes all continuations in parallel and waits for all to complete. Combines multiple successful results using the provided combine function.
 
 **Fields:**
-- `combine: T Function(T acc, T value)` - Function to combine accumulated and new values
+- `combine: A Function(A a1, A a2)` - Function to combine two successful values
 
-#### QuitFastPolicy
+#### EitherQuitFastPolicy
 
 ```dart
-final class QuitFastPolicy<T> extends ContPolicy<T>
+final class EitherQuitFastPolicy<A> extends ContEitherPolicy<A>
 ```
 
-Quit-fast execution policy.
+Quit-fast execution policy for `either`/`any` operations.
 
-Terminates as soon as a decisive result is reached:
-- For `all`/`both`: terminates on first failure
-- For `any`/`either`: terminates on first success
-
-Provides fastest feedback but other operations may continue running.
+Terminates as soon as the first success occurs. Provides fastest feedback but other operations may continue running.
 
 ---
 
@@ -1218,7 +1280,7 @@ static Cont<E, A3> both<E, A1, A2, A3>(
   Cont<E, A1> left,
   Cont<E, A2> right,
   A3 Function(A1 a, A2 a2) combine, {
-  required ContPolicy<List<ContError>> policy,
+  required ContBothPolicy policy,
 })
 ```
 
@@ -1228,9 +1290,9 @@ Executes both continuations. Both must succeed for the result to be successful; 
 
 The execution behavior depends on the provided `policy`:
 
-- **SequencePolicy**: Runs `left` then `right` sequentially
-- **MergeWhenAllPolicy**: Runs both in parallel, waits for both to complete, and merges errors if both fail
-- **QuitFastPolicy**: Runs both in parallel, terminates immediately if either fails
+- **BothSequencePolicy**: Runs `left` then `right` sequentially
+- **BothMergeWhenAllPolicy**: Runs both in parallel, waits for both to complete, and merges errors if both fail
+- **BothQuitFastPolicy**: Runs both in parallel, terminates immediately if either fails
 
 - **Parameters:**
   - `left`: First continuation to execute
@@ -1246,7 +1308,7 @@ The execution behavior depends on the provided `policy`:
 Cont<E, A3> and<A2, A3>(
   Cont<E, A2> right,
   A3 Function(A a, A2 a2) combine, {
-  required ContPolicy<List<ContError>> policy,
+  required ContBothPolicy policy,
 })
 ```
 
@@ -1266,7 +1328,7 @@ Convenient instance method wrapper for `Cont.both`. Executes this continuation a
 ```dart
 static Cont<E, List<A>> all<E, A>(
   List<Cont<E, A>> list, {
-  required ContPolicy<List<ContError>> policy,
+  required ContBothPolicy policy,
 })
 ```
 
@@ -1274,9 +1336,9 @@ Runs multiple continuations and collects all results according to the specified 
 
 Executes all continuations in `list` and collects their values into a list. The execution behavior depends on the provided `policy`:
 
-- **SequencePolicy**: Runs continuations one by one in order, stops at first failure
-- **MergeWhenAllPolicy**: Runs all in parallel, waits for all to complete, and merges errors if any fail
-- **QuitFastPolicy**: Runs all in parallel, terminates immediately on first failure
+- **BothSequencePolicy**: Runs continuations one by one in order, stops at first failure
+- **BothMergeWhenAllPolicy**: Runs all in parallel, waits for all to complete, and merges errors if any fail
+- **BothQuitFastPolicy**: Runs all in parallel, terminates immediately on first failure
 
 - **Parameters:**
   - `list`: List of continuations to execute
@@ -1289,25 +1351,23 @@ Executes all continuations in `list` and collects their values into a list. The 
 ```dart
 static Cont<E, A> either<E, A>(
   Cont<E, A> left,
-  Cont<E, A> right,
-  List<ContError> Function(List<ContError>, List<ContError>) combine, {
-  required ContPolicy<A> policy,
+  Cont<E, A> right, {
+  required ContEitherPolicy<A> policy,
 })
 ```
 
 Races two continuations, returning the first successful value.
 
-Executes both continuations and returns the result from whichever succeeds first. If both fail, combines their errors using `combine`. The execution behavior depends on the provided `policy`:
+Executes both continuations and returns the result from whichever succeeds first. If both fail, concatenates their errors. The execution behavior depends on the provided `policy`:
 
-- **SequencePolicy**: Tries `left` first, then `right` if `left` fails
-- **MergeWhenAllPolicy**: Runs both in parallel, returns first success or merges results/errors if both complete
-- **QuitFastPolicy**: Runs both in parallel, returns immediately on first success
+- **EitherSequencePolicy**: Tries `left` first, then `right` if `left` fails
+- **EitherMergeWhenAllPolicy**: Runs both in parallel, returns first success or merges multiple successes using the policy's combine function if both succeed
+- **EitherQuitFastPolicy**: Runs both in parallel, returns immediately on first success
 
 - **Parameters:**
   - `left`: First continuation to try
   - `right`: Second continuation to try
-  - `combine`: Function to combine error lists if both fail
-  - `policy`: Execution policy determining how continuations are run
+  - `policy`: Execution policy determining how continuations are run and how multiple successes are combined
 
 ---
 
@@ -1315,9 +1375,8 @@ Executes both continuations and returns the result from whichever succeeds first
 
 ```dart
 Cont<E, A> or(
-  Cont<E, A> right,
-  List<ContError> Function(List<ContError>, List<ContError>) combine, {
-  required ContPolicy<A> policy,
+  Cont<E, A> right, {
+  required ContEitherPolicy<A> policy,
 })
 ```
 
@@ -1327,8 +1386,7 @@ Convenient instance method wrapper for `Cont.either`. Races this continuation ag
 
 - **Parameters:**
   - `right`: The other continuation to race with
-  - `combine`: Function to combine error lists if both fail
-  - `policy`: Execution policy determining how continuations are run
+  - `policy`: Execution policy determining how continuations are run and how multiple successes are combined
 
 ---
 
@@ -1337,7 +1395,7 @@ Convenient instance method wrapper for `Cont.either`. Races this continuation ag
 ```dart
 static Cont<E, A> any<E, A>(
   List<Cont<E, A>> list, {
-  required ContPolicy<A> policy,
+  required ContEitherPolicy<A> policy,
 })
 ```
 
@@ -1345,13 +1403,13 @@ Races multiple continuations, returning the first successful value.
 
 Executes all continuations in `list` and returns the first one that succeeds. If all fail, collects all errors. The execution behavior depends on the provided `policy`:
 
-- **SequencePolicy**: Tries continuations one by one in order until one succeeds
-- **MergeWhenAllPolicy**: Runs all in parallel, returns first success or merges results if all complete
-- **QuitFastPolicy**: Runs all in parallel, returns immediately on first success
+- **EitherSequencePolicy**: Tries continuations one by one in order until one succeeds
+- **EitherMergeWhenAllPolicy**: Runs all in parallel, returns first success or merges multiple successes using the policy's combine function
+- **EitherQuitFastPolicy**: Runs all in parallel, returns immediately on first success
 
 - **Parameters:**
   - `list`: List of continuations to race
-  - `policy`: Execution policy determining how continuations are run
+  - `policy`: Execution policy determining how continuations are run and how multiple successes are combined
 
 ---
 
@@ -1451,7 +1509,7 @@ final serverAsString = server.absurd<String>();
 The Jerelo library provides a comprehensive continuation monad system with:
 
 - **Core abstractions**: `Cont`, `ContError`, `ContRuntime`, `ContObserver`
-- **Execution policies**: Sequential, merge-when-all, and quit-fast strategies
+- **Execution policies**: `ContBothPolicy` and `ContEitherPolicy` with sequential, merge-when-all, and quit-fast strategies
 - **Rich API**: 70+ methods for transformation, chaining, error handling, and parallel execution
 - **Environment management**: Thread contextual information through computations
 - **Resource safety**: Bracket pattern for guaranteed cleanup

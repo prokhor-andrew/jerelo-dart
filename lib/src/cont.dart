@@ -523,21 +523,14 @@ final class Cont<E, A> {
   /// Attempts a fallback continuation and combines errors from both attempts.
   ///
   /// If the continuation terminates, executes the fallback. If the fallback also
-  /// terminates, combines errors from both attempts using the provided [combine]
-  /// function before terminating.
+  /// terminates, concatenates errors from both attempts before terminating.
   ///
   /// Unlike [elseDo], which only keeps the second error list, this method
   /// accumulates and combines errors from both attempts.
   ///
   /// - [f]: Function that receives original errors and produces a fallback continuation.
-  /// - [combine]: Function to combine error lists from both attempts.
   Cont<E, A> elseZip(
     Cont<E, A> Function(List<ContError>) f,
-    List<ContError> Function(
-      List<ContError>,
-      List<ContError>,
-    )
-    combine,
   ) {
     return Cont.fromRun((runtime, observer) {
       _run(
@@ -564,18 +557,13 @@ final class Cont<E, A> {
                 }
                 errors2 = errors2
                     .toList(); // defensive copy
-                // TODO: try-catch
-                final combinedErrors = combine(
-                  errors,
-                  errors2,
-                ).toList(); // defensive copy
+                final combinedErrors = errors + errors2;
                 observer.onTerminate(combinedErrors);
               }),
             );
           } catch (error, st) {
-            final combinedErrors = combine(errors, [
-              ContError(error, st),
-            ]).toList(); // defensive copy
+            final combinedErrors =
+                errors + [ContError(error, st)];
             observer.onTerminate(combinedErrors);
           }
         }),
@@ -589,18 +577,10 @@ final class Cont<E, A> {
   /// when producing the fallback continuation.
   ///
   /// - [f]: Zero-argument function that produces a fallback continuation.
-  /// - [combine]: Function to combine error lists from both attempts.
-  Cont<E, A> elseZip0(
-    Cont<E, A> Function() f,
-    List<ContError> Function(
-      List<ContError>,
-      List<ContError>,
-    )
-    combine,
-  ) {
+  Cont<E, A> elseZip0(Cont<E, A> Function() f) {
     return elseZip((_) {
       return f();
-    }, combine);
+    });
   }
 
   /// Executes a side-effect continuation on termination in a fire-and-forget manner.
@@ -876,23 +856,17 @@ final class Cont<E, A> {
   ///
   /// Similar to [elseZip], but the fallback function receives both the original
   /// errors and the environment. If both the original attempt and fallback fail,
-  /// their errors are combined using the [combine] function. This is useful when
-  /// error recovery strategies need access to configuration or context.
+  /// their errors are concatenated. This is useful when error recovery strategies
+  /// need access to configuration or context.
   ///
   /// - [f]: Function that takes the environment and errors, and produces a fallback continuation.
-  /// - [combine]: Function to combine error lists from both attempts.
   Cont<E, A> elseZipWithEnv(
     Cont<E, A> Function(E env, List<ContError>) f,
-    List<ContError> Function(
-      List<ContError>,
-      List<ContError>,
-    )
-    combine,
   ) {
     return Cont.ask<E>().thenDo((e) {
       return elseZip((errors) {
         return f(e, [...errors]);
-      }, combine);
+      });
     });
   }
 
@@ -902,18 +876,10 @@ final class Cont<E, A> {
   /// environment and ignores the original error information.
   ///
   /// - [f]: Function that takes the environment and produces a fallback continuation.
-  /// - [combine]: Function to combine error lists from both attempts.
-  Cont<E, A> elseZipWithEnv0(
-    Cont<E, A> Function(E env) f,
-    List<ContError> Function(
-      List<ContError>,
-      List<ContError>,
-    )
-    combine,
-  ) {
+  Cont<E, A> elseZipWithEnv0(Cont<E, A> Function(E env) f) {
     return elseZipWithEnv((e, _) {
       return f(e);
-    }, combine);
+    });
   }
 
   /// Executes a side-effect continuation on termination in a fire-and-forget manner with access to the environment.
@@ -1042,10 +1008,10 @@ final class Cont<E, A> {
   ///
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequencePolicy]: Runs [left] then [right] sequentially.
-  /// - [MergeWhenAllPolicy]: Runs both in parallel, waits for both to complete,
+  /// - [BothSequencePolicy]: Runs [left] then [right] sequentially.
+  /// - [BothMergeWhenAllPolicy]: Runs both in parallel, waits for both to complete,
   ///   and merges errors if both fail.
-  /// - [QuitFastPolicy]: Runs both in parallel, terminates immediately if either fails.
+  /// - [BothQuitFastPolicy]: Runs both in parallel, terminates immediately if either fails.
   ///
   /// - [left]: First continuation to execute.
   /// - [right]: Second continuation to execute.
@@ -1055,7 +1021,7 @@ final class Cont<E, A> {
     Cont<E, A1> left,
     Cont<E, A2> right,
     A3 Function(A1 a, A2 a2) combine, {
-    required ContPolicy<List<ContError>> policy,
+    required ContBothPolicy policy,
     //
   }) {
     if (left is Cont<E, Never>) {
@@ -1067,22 +1033,15 @@ final class Cont<E, A> {
     }
 
     switch (policy) {
-      case SequencePolicy<List<ContError>>():
+      case BothSequencePolicy():
         return left.thenDo((a) {
           return right.map((a2) {
             return combine(a, a2);
           });
         });
-      case MergeWhenAllPolicy<List<ContError>>(
-        combine: final combine2,
-      ):
-        return _bothMergeWhenAll(
-          left,
-          right,
-          combine,
-          combine2,
-        );
-      case QuitFastPolicy<List<ContError>>():
+      case BothMergeWhenAllPolicy():
+        return _bothMergeWhenAll(left, right, combine);
+      case BothQuitFastPolicy():
         return _bothQuitFast(left, right, combine);
     }
   }
@@ -1098,7 +1057,7 @@ final class Cont<E, A> {
   Cont<E, A3> and<A2, A3>(
     Cont<E, A2> right,
     A3 Function(A a, A2 a2) combine, {
-    required ContPolicy<List<ContError>> policy,
+    required ContBothPolicy policy,
     //
   }) {
     return Cont.both(this, right, combine, policy: policy);
@@ -1109,21 +1068,21 @@ final class Cont<E, A> {
   /// Executes all continuations in [list] and collects their values into a list.
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequencePolicy]: Runs continuations one by one in order, stops at first failure.
-  /// - [MergeWhenAllPolicy]: Runs all in parallel, waits for all to complete,
+  /// - [BothSequencePolicy]: Runs continuations one by one in order, stops at first failure.
+  /// - [BothMergeWhenAllPolicy]: Runs all in parallel, waits for all to complete,
   ///   and merges errors if any fail.
-  /// - [QuitFastPolicy]: Runs all in parallel, terminates immediately on first failure.
+  /// - [BothQuitFastPolicy]: Runs all in parallel, terminates immediately on first failure.
   ///
   /// - [list]: List of continuations to execute.
   /// - [policy]: Execution policy determining how continuations are run and errors are handled.
   static Cont<E, List<A>> all<E, A>(
     List<Cont<E, A>> list, {
-    required ContPolicy<List<ContError>> policy,
+    required ContBothPolicy policy,
     //
   }) {
     list = list.toList(); // defensive copy
     switch (policy) {
-      case SequencePolicy<List<ContError>>():
+      case BothSequencePolicy():
         return Cont.fromRun((runtime, observer) {
           list = list.toList(); // defensive copy
           _stackSafeLoop<
@@ -1210,9 +1169,7 @@ final class Cont<E, A> {
             //
           );
         });
-      case MergeWhenAllPolicy<List<ContError>>(
-        combine: final merge,
-      ):
+      case BothMergeWhenAllPolicy():
         return Cont.fromRun((runtime, observer) {
           list = list.toList();
 
@@ -1267,11 +1224,8 @@ final class Cont<E, A> {
                     if (seedRefCopy == null) {
                       seed = [...errors];
                     } else {
-                      // TODO: try-catch
-                      final safeCopyOfResultErrors = merge(
-                        seedRefCopy.toList(),
-                        errors.toList(),
-                      ).toList();
+                      final safeCopyOfResultErrors =
+                          seedRefCopy + errors;
 
                       seed = safeCopyOfResultErrors;
                     }
@@ -1309,11 +1263,8 @@ final class Cont<E, A> {
               if (seedCopy == null) {
                 seed = [ContError(error, st)];
               } else {
-                final safeCopyOfResultErrors = [
-                  ...merge(seedCopy, [
-                    ContError(error, st),
-                  ]),
-                ];
+                final safeCopyOfResultErrors =
+                    seedCopy + [ContError(error, st)];
                 seed = safeCopyOfResultErrors;
               }
 
@@ -1324,7 +1275,7 @@ final class Cont<E, A> {
             }
           }
         });
-      case QuitFastPolicy<List<ContError>>():
+      case BothQuitFastPolicy():
         return Cont.fromRun((runtime, observer) {
           list = list.toList();
 
@@ -1396,27 +1347,21 @@ final class Cont<E, A> {
   /// Races two continuations, returning the first successful value.
   ///
   /// Executes both continuations and returns the result from whichever succeeds first.
-  /// If both fail, combines their errors using [combine]. The execution behavior
-  /// depends on the provided [policy]:
+  /// If both fail, concatenates their errors. The execution behavior depends on the
+  /// provided [policy]:
   ///
-  /// - [SequencePolicy]: Tries [left] first, then [right] if [left] fails.
-  /// - [MergeWhenAllPolicy]: Runs both in parallel, returns first success or merges
-  ///   results/errors if both complete.
-  /// - [QuitFastPolicy]: Runs both in parallel, returns immediately on first success.
+  /// - [EitherSequencePolicy]: Tries [left] first, then [right] if [left] fails.
+  /// - [EitherMergeWhenAllPolicy]: Runs both in parallel, returns first success or merges
+  ///   results using the policy's combine function if both succeed.
+  /// - [EitherQuitFastPolicy]: Runs both in parallel, returns immediately on first success.
   ///
   /// - [left]: First continuation to try.
   /// - [right]: Second continuation to try.
-  /// - [combine]: Function to combine error lists if both fail.
   /// - [policy]: Execution policy determining how continuations are run.
   static Cont<E, A> either<E, A>(
     Cont<E, A> left,
-    Cont<E, A> right,
-    List<ContError> Function(
-      List<ContError>,
-      List<ContError>,
-    )
-    combine, {
-    required ContPolicy<A> policy,
+    Cont<E, A> right, {
+    required ContEitherPolicy<A> policy,
     //
   }) {
     if (left is Cont<E, Never>) {
@@ -1428,23 +1373,18 @@ final class Cont<E, A> {
     }
 
     switch (policy) {
-      case SequencePolicy<A>():
+      case EitherSequencePolicy<A>():
         return left.elseDo((errors1) {
           return right.elseDo((errors2) {
-            return Cont.terminate(
-              combine(errors1, errors2),
-            );
+            return Cont.terminate(errors1 + errors2);
           });
         });
-      case MergeWhenAllPolicy<A>(combine: final combine2):
-        return _eitherMergeWhenAll(
-          left,
-          right,
-          combine,
-          combine2,
-        );
-      case QuitFastPolicy<A>():
-        return _eitherQuitFast(left, right, combine);
+      case EitherMergeWhenAllPolicy<A>(
+        combine: final combine,
+      ):
+        return _eitherMergeWhenAll(left, right, combine);
+      case EitherQuitFastPolicy<A>():
+        return _eitherQuitFast(left, right);
     }
   }
 
@@ -1454,24 +1394,13 @@ final class Cont<E, A> {
   /// against [right], returning the first successful value.
   ///
   /// - [right]: The other continuation to race with.
-  /// - [combine]: Function to combine error lists if both fail.
   /// - [policy]: Execution policy determining how continuations are run.
   Cont<E, A> or(
-    Cont<E, A> right,
-    List<ContError> Function(
-      List<ContError>,
-      List<ContError>,
-    )
-    combine, {
-    required ContPolicy<A> policy,
+    Cont<E, A> right, {
+    required ContEitherPolicy<A> policy,
     //
   }) {
-    return Cont.either(
-      this,
-      right,
-      combine,
-      policy: policy,
-    );
+    return Cont.either(this, right, policy: policy);
   }
 
   /// Races multiple continuations, returning the first successful value.
@@ -1480,23 +1409,23 @@ final class Cont<E, A> {
   /// If all fail, collects all errors. The execution behavior depends on the
   /// provided [policy]:
   ///
-  /// - [SequencePolicy]: Tries continuations one by one in order until one succeeds.
-  /// - [MergeWhenAllPolicy]: Runs all in parallel, returns first success or merges
-  ///   results if all complete.
-  /// - [QuitFastPolicy]: Runs all in parallel, returns immediately on first success.
+  /// - [EitherSequencePolicy]: Tries continuations one by one in order until one succeeds.
+  /// - [EitherMergeWhenAllPolicy]: Runs all in parallel, returns first success or merges
+  ///   results using the policy's combine function if multiple succeed.
+  /// - [EitherQuitFastPolicy]: Runs all in parallel, returns immediately on first success.
   ///
   /// - [list]: List of continuations to race.
   /// - [policy]: Execution policy determining how continuations are run.
   static Cont<E, A> any<E, A>(
     List<Cont<E, A>> list, {
-    required ContPolicy<A> policy,
+    required ContEitherPolicy<A> policy,
     //
   }) {
     final List<Cont<E, A>> safeCopy0 =
         List<Cont<E, A>>.from(list);
 
     switch (policy) {
-      case SequencePolicy<A>():
+      case EitherSequencePolicy<A>():
         return Cont.fromRun((runtime, observer) {
           final safeCopy = List<Cont<E, A>>.from(safeCopy0);
 
@@ -1597,7 +1526,9 @@ final class Cont<E, A> {
             //
           );
         });
-      case MergeWhenAllPolicy<A>(combine: final merge):
+      case EitherMergeWhenAllPolicy<A>(
+        combine: final combine,
+      ):
         return Cont.fromRun((runtime, observer) {
           final safeCopy = List<Cont<E, A>>.from(safeCopy0);
 
@@ -1637,6 +1568,28 @@ final class Cont<E, A> {
           final List<ContError> errors = [];
 
           var i = 0;
+
+          void handleTermination(
+            List<ContError> terminateErrors,
+          ) {
+            if (runtime.isCancelled()) {
+              return;
+            }
+            i += 1;
+            final seedCopy = seed;
+            if (seedCopy != null) {
+              if (i >= safeCopy.length) {
+                observer.onValue(seedCopy);
+              }
+              return;
+            }
+
+            errors.addAll(terminateErrors);
+            if (i >= safeCopy.length) {
+              observer.onTerminate(errors);
+            }
+          }
+
           for (final cont in safeCopy) {
             try {
               cont._run(
@@ -1671,13 +1624,19 @@ final class Cont<E, A> {
                       seed = a;
                       seedCopy2 = a;
                     } else {
-                      // TODO: try-catch
-                      final safeCopyOfResultValue = merge(
-                        seedCopy,
-                        a,
-                      );
-                      seed = safeCopyOfResultValue;
-                      seedCopy2 = safeCopyOfResultValue;
+                      try {
+                        final safeCopyOfResultValue =
+                            combine(seedCopy, a);
+                        seed = safeCopyOfResultValue;
+                        seedCopy2 = safeCopyOfResultValue;
+                      } catch (error, st) {
+                        i -=
+                            1; // we have to remove 1 step, as we gonna increment it again below
+                        handleTermination([
+                          ContError(error, st),
+                        ]);
+                        return;
+                      }
                     }
 
                     if (i >= safeCopy.length) {
@@ -1707,7 +1666,7 @@ final class Cont<E, A> {
             }
           }
         });
-      case QuitFastPolicy<A>():
+      case EitherQuitFastPolicy<A>():
         return Cont.fromRun((runtime, observer) {
           final safeCopy = List<Cont<E, A>>.from(safeCopy0);
           if (safeCopy.isEmpty) {
@@ -1879,9 +1838,7 @@ final class Cont<E, A> {
                     // Check the predicate
                     if (!predicate(a)) {
                       // Predicate satisfied - stop with success
-                      callback(
-                        _Right(_Right(_Left(a))),
-                      );
+                      callback(_Right(_Right(_Left(a))));
                     } else {
                       // Predicate not satisfied - retry
                       callback(_Left(()));
@@ -2300,4 +2257,3 @@ extension ContRunExtension<E> on Cont<E, Never> {
 
    */
 }
-

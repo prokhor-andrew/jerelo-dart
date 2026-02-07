@@ -7,12 +7,7 @@ part of '../cont.dart';
 Cont<E, A> _eitherMergeWhenAll<E, A>(
   Cont<E, A> left,
   Cont<E, A> right,
-  List<ContError> Function(
-    List<ContError> left,
-    List<ContError> right,
-  )
-  combine,
-  A Function(A acc, A value) combine2,
+  A Function(A acc, A value) combine,
   //
 ) {
   return Cont.fromRun((runtime, observer) {
@@ -59,8 +54,13 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
           secondValue = leftVal as A;
         }
 
-        // TODO: try-catch
-        observer.onValue(combine2(firstValue, secondValue));
+        try {
+          observer.onValue(
+            combine(firstValue, secondValue),
+          );
+        } catch (error, st) {
+          observer.onTerminate([ContError(error, st)]);
+        }
         return;
       }
 
@@ -90,8 +90,8 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
       }
 
       try {
-        final result = combine(outerLeft!, outerRight!);
-        observer.onTerminate([...result]);
+        final result = outerLeft! + outerRight!;
+        observer.onTerminate(result);
       } catch (error, st) {
         observer.onTerminate([ContError(error, st)]);
       }
@@ -156,11 +156,6 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
 Cont<E, A> _eitherQuitFast<E, A>(
   Cont<E, A> left,
   Cont<E, A> right,
-  List<ContError> Function(
-    List<ContError> left,
-    List<ContError> right,
-  )
-  combine,
 ) {
   return Cont.fromRun((runtime, observer) {
     bool isOneFailed = false;
