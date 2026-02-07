@@ -33,9 +33,9 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
       }
 
       switch (either) {
-        case _Value1<A1, A2>(value: final a1):
+        case _Left<A1, A2>(value: final a1):
           outerA1 = a1;
-        case _Value2<A1, A2>(value: final a2):
+        case _Right<A1, A2>(value: final a2):
           outerA2 = a2;
       }
 
@@ -122,7 +122,7 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
             handleTerminate(true, [...errors]);
           },
           (a) {
-            handleValue(_Value1(a));
+            handleValue(_Left(a));
           },
         ),
       );
@@ -138,7 +138,7 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
             handleTerminate(false, [...errors]);
           },
           (a2) {
-            handleValue(_Value2(a2));
+            handleValue(_Right(a2));
           },
         ),
       );

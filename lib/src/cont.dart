@@ -1131,28 +1131,28 @@ final class Cont<E, A> {
             (int, List<A>),
             _Either<(), _Either<List<A>, List<ContError>>>
           >(
-            seed: _Value1((0, [])),
+            seed: _Left((0, [])),
             keepRunningIf: (state) {
               switch (state) {
-                case _Value1(value: final value):
+                case _Left(value: final value):
                   final (index, results) = value;
                   if (index >= list.length) {
                     return _StackSafeLoopPolicyStop(
-                      _Value2(_Value1(results)),
+                      _Right(_Left(results)),
                     );
                   }
                   return _StackSafeLoopPolicyKeepRunning((
                     index,
                     results,
                   ));
-                case _Value2(value: final value):
+                case _Right(value: final value):
                   if (value != null) {
                     return _StackSafeLoopPolicyStop(
-                      _Value2(_Value2(value)),
+                      _Right(_Right(value)),
                     );
                   } else {
                     return _StackSafeLoopPolicyStop(
-                      _Value1(()),
+                      _Left(()),
                     );
                   }
               }
@@ -1169,39 +1169,39 @@ final class Cont<E, A> {
                   ContObserver._(
                     (errors) {
                       if (runtime.isCancelled()) {
-                        callback(_Value2(null));
+                        callback(_Right(null));
                         return;
                       }
-                      callback(_Value2([...errors]));
+                      callback(_Right([...errors]));
                     },
                     (a) {
                       if (runtime.isCancelled()) {
-                        callback(_Value2(null));
+                        callback(_Right(null));
                         return;
                       }
 
                       callback(
-                        _Value1((i + 1, [...values, a])),
+                        _Left((i + 1, [...values, a])),
                       );
                     },
                     //
                   ),
                 );
               } catch (error, st) {
-                callback(_Value2([ContError(error, st)]));
+                callback(_Right([ContError(error, st)]));
               }
             },
             escape: (either) {
               switch (either) {
-                case _Value1():
+                case _Left():
                   // cancellation
                   return;
-                case _Value2(value: final either):
+                case _Right(value: final either):
                   switch (either) {
-                    case _Value1(value: final results):
+                    case _Left(value: final results):
                       observer.onValue(results);
                       return;
-                    case _Value2(value: final errors):
+                    case _Right(value: final errors):
                       observer.onTerminate(errors);
                       return;
                   }
@@ -1505,29 +1505,29 @@ final class Cont<E, A> {
             (int, List<ContError>),
             _Either<(), _Either<List<ContError>, A>>
           >(
-            seed: _Value1((0, [])),
+            seed: _Left((0, [])),
             keepRunningIf: (either) {
               switch (either) {
-                case _Value1(value: final tuple):
+                case _Left(value: final tuple):
                   final (index, errors) = tuple;
                   if (index >= safeCopy.length) {
                     return _StackSafeLoopPolicyStop(
-                      _Value2(_Value1(errors)),
+                      _Right(_Left(errors)),
                     );
                   }
                   return _StackSafeLoopPolicyKeepRunning((
                     index,
                     errors,
                   ));
-                case _Value2(value: final either):
+                case _Right(value: final either):
                   switch (either) {
-                    case _Value1<(), A>():
+                    case _Left<(), A>():
                       return _StackSafeLoopPolicyStop(
-                        _Value1(()),
+                        _Left(()),
                       );
-                    case _Value2<(), A>(value: final a):
+                    case _Right<(), A>(value: final a):
                       return _StackSafeLoopPolicyStop(
-                        _Value2(_Value2(a)),
+                        _Right(_Right(a)),
                       );
                   }
               }
@@ -1545,11 +1545,11 @@ final class Cont<E, A> {
                   ContObserver._(
                     (errors2) {
                       if (runtime.isCancelled()) {
-                        callback(_Value2(_Value1(())));
+                        callback(_Right(_Left(())));
                         return;
                       }
                       callback(
-                        _Value1((
+                        _Left((
                           index + 1,
                           [...errors, ...errors2],
                         )),
@@ -1557,17 +1557,17 @@ final class Cont<E, A> {
                     },
                     (a) {
                       if (runtime.isCancelled()) {
-                        callback(_Value2(_Value1(())));
+                        callback(_Right(_Left(())));
                         return;
                       }
-                      callback(_Value2(_Value2(a)));
+                      callback(_Right(_Right(a)));
                     },
                     //
                   ),
                 );
               } catch (error, st) {
                 callback(
-                  _Value1((
+                  _Left((
                     index + 1,
                     [...errors, ContError(error, st)],
                   )),
@@ -1576,17 +1576,17 @@ final class Cont<E, A> {
             },
             escape: (either) {
               switch (either) {
-                case _Value1():
+                case _Left():
                   // cancellation
                   return;
-                case _Value2(value: final either):
+                case _Right(value: final either):
                   switch (either) {
-                    case _Value1<List<ContError>, A>(
+                    case _Left<List<ContError>, A>(
                       value: final errors,
                     ):
                       observer.onTerminate([...errors]);
                       return;
-                    case _Value2<List<ContError>, A>(
+                    case _Right<List<ContError>, A>(
                       value: final a,
                     ):
                       observer.onValue(a);
@@ -1843,13 +1843,13 @@ final class Cont<E, A> {
         (),
         _Either<(), _Either<A, List<ContError>>>
       >(
-        seed: _Value1(()),
+        seed: _Left(()),
         keepRunningIf: (state) {
           switch (state) {
-            case _Value1():
+            case _Left():
               // Keep running - need to execute the continuation again
               return _StackSafeLoopPolicyKeepRunning(());
-            case _Value2(value: final result):
+            case _Right(value: final result):
               // Stop - we have either a successful value or termination errors
               return _StackSafeLoopPolicyStop(result);
           }
@@ -1861,17 +1861,17 @@ final class Cont<E, A> {
               ContObserver._(
                 (errors) {
                   if (runtime.isCancelled()) {
-                    callback(_Value2(_Value1(())));
+                    callback(_Right(_Left(())));
                     return;
                   }
                   // Terminated - stop the loop with errors
                   callback(
-                    _Value2(_Value2(_Value2([...errors]))),
+                    _Right(_Right(_Right([...errors]))),
                   );
                 },
                 (a) {
                   if (runtime.isCancelled()) {
-                    callback(_Value2(_Value1(())));
+                    callback(_Right(_Left(())));
                     return;
                   }
 
@@ -1880,18 +1880,18 @@ final class Cont<E, A> {
                     if (!predicate(a)) {
                       // Predicate satisfied - stop with success
                       callback(
-                        _Value2(_Value2(_Value1(a))),
+                        _Right(_Right(_Left(a))),
                       );
                     } else {
                       // Predicate not satisfied - retry
-                      callback(_Value1(()));
+                      callback(_Left(()));
                     }
                   } catch (error, st) {
                     // Predicate threw an exception
                     callback(
-                      _Value2(
-                        _Value2(
-                          _Value2([ContError(error, st)]),
+                      _Right(
+                        _Right(
+                          _Right([ContError(error, st)]),
                         ),
                       ),
                     );
@@ -1901,25 +1901,25 @@ final class Cont<E, A> {
             );
           } catch (error, st) {
             callback(
-              _Value2(
-                _Value2(_Value2([ContError(error, st)])),
+              _Right(
+                _Right(_Right([ContError(error, st)])),
               ),
             );
           }
         },
         escape: (result) {
           switch (result) {
-            case _Value1<(), _Either<A, List<ContError>>>():
+            case _Left<(), _Either<A, List<ContError>>>():
               // cancellation
               return;
-            case _Value2<(), _Either<A, List<ContError>>>(
+            case _Right<(), _Either<A, List<ContError>>>(
               value: final result,
             ):
               switch (result) {
-                case _Value1(value: final a):
+                case _Left(value: final a):
                   observer.onValue(a);
                   return;
-                case _Value2(value: final errors):
+                case _Right(value: final errors):
                   observer.onTerminate(errors);
                   return;
               }
@@ -2068,12 +2068,12 @@ final class Cont<E, A> {
                 // Release terminated - combine with use errors if any
                 (releaseErrors) {
                   switch (useResult) {
-                    case _Value1<A, List<ContError>>():
+                    case _Left<A, List<ContError>>():
                       // Use succeeded but release failed
                       observer.onTerminate([
                         ...releaseErrors,
                       ]);
-                    case _Value2<A, List<ContError>>(
+                    case _Right<A, List<ContError>>(
                       value: final useErrors,
                     ):
                       // Both use and release failed - combine errors
@@ -2087,12 +2087,12 @@ final class Cont<E, A> {
                 // Release succeeded
                 (_) {
                   switch (useResult) {
-                    case _Value1<A, List<ContError>>(
+                    case _Left<A, List<ContError>>(
                       value: final value,
                     ):
                       // Both use and release succeeded - return the value
                       observer.onValue(value);
-                    case _Value2<A, List<ContError>>(
+                    case _Right<A, List<ContError>>(
                       value: final useErrors,
                     ):
                       // Use failed but release succeeded - propagate use errors
@@ -2104,12 +2104,12 @@ final class Cont<E, A> {
           } catch (error, st) {
             // Exception while setting up release
             switch (useResult) {
-              case _Value1<A, List<ContError>>():
+              case _Left<A, List<ContError>>():
                 // Use succeeded but release setup failed
                 observer.onTerminate([
                   ContError(error, st),
                 ]);
-              case _Value2<A, List<ContError>>(
+              case _Right<A, List<ContError>>(
                 value: final useErrors,
               ):
                 // Both use and release setup failed
@@ -2125,7 +2125,7 @@ final class Cont<E, A> {
         // Check cancellation before starting use phase
         if (runtime.isCancelled()) {
           // Still attempt to release the resource even if cancelled
-          doRelease(_Value2(const []));
+          doRelease(_Right(const []));
           return;
         }
 
@@ -2142,18 +2142,18 @@ final class Cont<E, A> {
               // Use phase terminated
               (useErrors) {
                 // Always release, even on termination
-                doRelease(_Value2([...useErrors]));
+                doRelease(_Right([...useErrors]));
               },
               // Use phase succeeded
               (value) {
                 // Always release after successful use
-                doRelease(_Value1(value));
+                doRelease(_Left(value));
               },
             ),
           );
         } catch (error, st) {
           // Exception while setting up use phase - still release
-          doRelease(_Value2([ContError(error, st)]));
+          doRelease(_Right([ContError(error, st)]));
         }
       });
     });

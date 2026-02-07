@@ -8,14 +8,14 @@ sealed class _Either<A, B> {
   const _Either();
 }
 
-final class _Value1<A, B> extends _Either<A, B> {
+final class _Left<A, B> extends _Either<A, B> {
   final A value;
 
-  const _Value1(this.value);
+  const _Left(this.value);
 }
 
-final class _Value2<A, B> extends _Either<A, B> {
+final class _Right<A, B> extends _Either<A, B> {
   final B value;
 
-  const _Value2(this.value);
+  const _Right(this.value);
 }
