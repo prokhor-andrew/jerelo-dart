@@ -4,6 +4,8 @@ part 'helper/either.dart';
 part 'helper/stack_safe_loop_policy.dart';
 part 'helper/both_helpers.dart';
 part 'helper/either_helpers.dart';
+part 'cont_observer.dart';
+part 'cont_runtime.dart';
 
 /// A continuation monad representing a computation that will eventually
 /// produce a value of type [A] or terminate with errors.
@@ -2299,87 +2301,3 @@ extension ContRunExtension<E> on Cont<E, Never> {
    */
 }
 
-/// Provides runtime context for continuation execution.
-///
-/// [ContRuntime] encapsulates the environment and cancellation state during
-/// the execution of a [Cont]. It allows continuations to access contextual
-/// information and check for cancellation.
-final class ContRuntime<E> {
-  final E _env;
-
-  /// Function that checks whether the continuation execution has been cancelled.
-  ///
-  /// Returns `true` if the execution should be stopped, `false` otherwise.
-  /// Continuations should check this regularly to support cooperative cancellation.
-  final bool Function() isCancelled;
-
-  const ContRuntime._(this._env, this.isCancelled);
-
-  /// Returns the environment value of type [E].
-  ///
-  /// The environment provides contextual information such as configuration,
-  /// dependencies, or any data that should flow through the continuation execution.
-  E env() {
-    return _env;
-  }
-
-  /// Creates a copy of this runtime with a different environment.
-  ///
-  /// Returns a new [ContRuntime] with the provided environment while preserving
-  /// the cancellation function. This is used by [local] and related methods
-  /// to modify the environment context.
-  ///
-  /// - [env]: The new environment value to use.
-  ContRuntime<E2> copyUpdateEnv<E2>(E2 env) {
-    return ContRuntime._(env, isCancelled);
-  }
-}
-
-/// An observer that handles both success and termination cases of a continuation.
-///
-/// [ContObserver] provides the callback mechanism for receiving results from
-/// a [Cont] execution. It encapsulates handlers for both successful values
-/// and termination (failure) scenarios.
-final class ContObserver<A> {
-  final void Function(List<ContError> errors) _onTerminate;
-
-  /// The callback function invoked when the continuation produces a successful value.
-  final void Function(A value) onValue;
-
-  /// Creates an observer with termination and value handlers.
-  ///
-  /// - [_onTerminate]: Handler called when the continuation terminates (fails).
-  /// - [onValue]: Handler called when the continuation produces a successful value.
-  const ContObserver._(this._onTerminate, this.onValue);
-
-  /// Invokes the termination callback with the provided errors.
-  ///
-  /// - [errors]: List of errors that caused termination. Defaults to an empty list.
-  void onTerminate([List<ContError> errors = const []]) {
-    _onTerminate(errors);
-  }
-
-  /// Creates a new observer with an updated termination handler.
-  ///
-  /// Returns a copy of this observer with a different termination callback,
-  /// while preserving the value callback.
-  ///
-  /// - [onTerminate]: The new termination handler to use.
-  ContObserver<A> copyUpdateOnTerminate(
-    void Function(List<ContError> errors) onTerminate,
-  ) {
-    return ContObserver._(onTerminate, onValue);
-  }
-
-  /// Creates a new observer with an updated value handler and potentially different type.
-  ///
-  /// Returns a copy of this observer with a different value callback type,
-  /// while preserving the termination callback.
-  ///
-  /// - [onValue]: The new value handler to use.
-  ContObserver<A2> copyUpdateOnValue<A2>(
-    void Function(A2 value) onValue,
-  ) {
-    return ContObserver._(onTerminate, onValue);
-  }
-}
