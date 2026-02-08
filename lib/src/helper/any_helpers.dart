@@ -1,6 +1,5 @@
 part of '../cont.dart';
 
-/// Sequential execution - tries continuations one by one until one succeeds.
 Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
   return Cont.fromRun((runtime, observer) {
     final safeCopy = List<Cont<E, A>>.from(list);
@@ -27,9 +26,7 @@ Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
           case _Right(value: final either):
             switch (either) {
               case _Left<(), A>():
-                return _StackSafeLoopPolicyStop(
-                  _Left(()),
-                );
+                return _StackSafeLoopPolicyStop(_Left(()));
               case _Right<(), A>(value: final a):
                 return _StackSafeLoopPolicyStop(
                   _Right(_Right(a)),
@@ -104,10 +101,6 @@ Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
   });
 }
 
-/// Parallel execution with result merging.
-///
-/// Runs all in parallel, returns first success or merges
-/// results using the policy's combine function if multiple succeed.
 Cont<E, A> _anyMergeWhenAll<E, A>(
   List<Cont<E, A>> list,
   A Function(A acc, A value) combine,
@@ -208,16 +201,16 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
                 seedCopy2 = a;
               } else {
                 try {
-                  final safeCopyOfResultValue =
-                      combine(seedCopy, a);
+                  final safeCopyOfResultValue = combine(
+                    seedCopy,
+                    a,
+                  );
                   seed = safeCopyOfResultValue;
                   seedCopy2 = safeCopyOfResultValue;
                 } catch (error, st) {
                   i -=
                       1; // we have to remove 1 step, as we gonna increment it again below
-                  handleTermination([
-                    ContError(error, st),
-                  ]);
+                  handleTermination([ContError(error, st)]);
                   return;
                 }
               }
@@ -251,9 +244,6 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
   });
 }
 
-/// Parallel execution with quit-fast behavior.
-///
-/// Runs all in parallel, returns immediately on first success.
 Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
   return Cont.fromRun((runtime, observer) {
     final safeCopy = List<Cont<E, A>>.from(list);
@@ -270,11 +260,13 @@ Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
     bool isWinnerFound = false;
     int numberOfFinished = 0;
 
-    final ContRuntime<E> sharedContRuntime =
-        ContRuntime._(runtime.env(), () {
-          return runtime.isCancelled() ||
-              isWinnerFound;
-        });
+    final ContRuntime<E> sharedContRuntime = ContRuntime._(
+      runtime.env(),
+      () {
+        return runtime.isCancelled() || isWinnerFound;
+      },
+      runtime.onPanic,
+    );
 
     void handleTerminate(
       int index,

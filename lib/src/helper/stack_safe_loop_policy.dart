@@ -1,9 +1,5 @@
 part of '../cont.dart';
 
-/// Internal helper classes for controlling stack-safe loop execution.
-///
-/// These classes provide a policy-based approach to managing recursive
-/// computations in a stack-safe manner.
 sealed class _StackSafeLoopPolicy<A, B> {
   const _StackSafeLoopPolicy();
 }
@@ -22,10 +18,6 @@ final class _StackSafeLoopPolicyStop<A, B>
   const _StackSafeLoopPolicyStop(this.value);
 }
 
-/// Stack-safe loop implementation for recursive computations.
-///
-/// This function provides a trampoline-style execution that prevents stack
-/// overflow by converting recursive calls into an iterative loop.
 void _stackSafeLoop<A, B, C>({
   required A seed,
   required _StackSafeLoopPolicy<B, C> Function(A)

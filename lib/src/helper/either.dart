@@ -1,9 +1,5 @@
 part of '../cont.dart';
 
-/// Internal helper classes for representing either-or values.
-///
-/// These classes provide a simple sum type for internal use in the continuation
-/// monad implementation.
 sealed class _Either<A, B> {
   const _Either();
 }
