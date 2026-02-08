@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:jerelo/jerelo.dart';
 
 part 'helper/either.dart';
@@ -11,6 +13,7 @@ part 'helper/then_helpers.dart';
 part 'helper/else_helpers.dart';
 part 'helper/loop_helpers.dart';
 part 'helper/resource_helpers.dart';
+part 'helper/functions.dart';
 part 'cont_observer.dart';
 part 'cont_runtime.dart';
 
@@ -35,20 +38,30 @@ final class Cont<E, A> {
   /// Executes the continuation with separate callbacks for termination and value.
   ///
   /// Initiates execution of the continuation with separate handlers for success
-  /// and failure cases.
+  /// and failure cases. All callbacks are optional and default to no-op,
+  /// allowing callers to subscribe only to the channels they care about.
   ///
   /// - [env]: The environment value to provide as context during execution.
-  /// - [onTerminate]: Callback invoked when the continuation terminates with errors.
-  /// - [onValue]: Callback invoked when the continuation produces a successful value.
+  /// - [isCancelled]: Function polled by the runtime to check whether
+  ///   execution should be cooperatively cancelled. Defaults to always
+  ///   returning `false` (never cancelled).
+  /// - [onPanic]: Callback invoked when a fatal, unrecoverable error occurs
+  ///   (e.g. an observer callback throws). Defaults to re-throwing inside a
+  ///   microtask.
+  /// - [onTerminate]: Callback invoked when the continuation terminates with
+  ///   errors. Defaults to ignoring the errors.
+  /// - [onValue]: Callback invoked when the continuation produces a successful
+  ///   value. Defaults to ignoring the value.
   void run(
-    E env,
-    void Function(List<ContError> errors) onTerminate,
-    void Function(A value) onValue,
-  ) {
+    E env, {
+    bool Function() isCancelled = _false,
+    void Function(ContError fatal) onPanic = _panic,
+    void Function(List<ContError> errors) onTerminate =
+        _ignore,
+    void Function(A value) onValue = _ignore,
+  }) {
     _run(
-      ContRuntime._(env, () {
-        return false;
-      }),
+      ContRuntime._(env, isCancelled, onPanic),
       ContObserver._(onTerminate, onValue),
     );
   }
@@ -60,11 +73,16 @@ final class Cont<E, A> {
   /// run asynchronously without blocking or requiring error handling.
   ///
   /// - [env]: The environment value to provide as context during execution.
-  void ff(E env) {
+  /// - [onPanic]: Callback invoked when a fatal, unrecoverable error occurs.
+  ///   Defaults to re-throwing inside a microtask.
+  void ff(
+    E env, {
+    void Function(ContError error) onPanic = _panic,
+  }) {
     _run(
       ContRuntime._(env, () {
         return false;
-      }),
+      }, onPanic),
       ContObserver._((_) {}, (_) {}),
     );
   }
@@ -311,22 +329,7 @@ final class Cont<E, A> {
   ///
   /// - [f]: Function that takes the current value and returns a side-effect continuation.
   Cont<E, A> thenFork<A2>(Cont<E, A2> Function(A a) f) {
-    return thenDoWithEnv((e, a) {
-      // this should not be inside try-catch block
-      Cont<E, A2> contA2 = f(a);
-
-      if (contA2 is Cont<E, Never>) {
-        contA2 = contA2.absurd<A2>();
-      }
-      try {
-        contA2.ff(e);
-      } catch (_) {
-        // do nothing, if anything happens to side-effect, it's not
-        // a concern of the thenFork
-      }
-
-      return Cont.of(a);
-    });
+    return _thenFork(this, f);
   }
 
   /// Executes a zero-argument side-effect continuation in a fire-and-forget manner.
@@ -1197,21 +1200,36 @@ extension ContRunExtension<E> on Cont<E, Never> {
   /// continuation with only a termination handler, since a value callback
   /// would never be called for a [Cont]<[E], [Never]>.
   ///
+  /// All callbacks are optional and default to no-op, allowing callers to
+  /// subscribe only to the channels they care about.
+  ///
   /// - [env]: The environment value to provide as context during execution.
-  /// - [onTerminate]: Callback invoked when the continuation terminates with errors.
+  /// - [isCancelled]: Function polled by the runtime to check whether
+  ///   execution should be cooperatively cancelled. Defaults to always
+  ///   returning `false` (never cancelled).
+  /// - [onPanic]: Callback invoked when a fatal, unrecoverable error occurs.
+  ///   Defaults to re-throwing inside a microtask.
+  /// - [onTerminate]: Callback invoked when the continuation terminates with
+  ///   errors. Defaults to ignoring the errors.
   ///
   /// Example:
   /// ```dart
   /// final cont = Cont.terminate<MyEnv, Never>([ContError(Exception('Failed'), StackTrace.current)]);
-  /// cont.trap(myEnv, (errors) {
+  /// cont.trap(myEnv, onTerminate: (errors) {
   ///   print('Terminated with ${errors.length} error(s)');
   /// });
   /// ```
   void trap(
-    E env,
-    void Function(List<ContError>) onTerminate,
-  ) {
-    run(env, onTerminate, (_) {});
+    E env, {
+    bool Function() isCancelled = _false,
+    void Function(ContError error) onPanic = _panic,
+    void Function(List<ContError> errors) onTerminate =
+        _ignore,
+  }) {
+    _run(
+      ContRuntime._(env, isCancelled, onPanic),
+      ContObserver._(onTerminate, (_) {}),
+    );
   }
 
   /// Converts a continuation that never produces a value to any desired type.

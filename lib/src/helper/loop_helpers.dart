@@ -1,18 +1,12 @@
 part of '../cont.dart';
 
-/// Repeatedly executes the continuation as long as the predicate returns true.
-///
-/// Internal implementation for [Cont.asLongAs].
 Cont<E, A> _asLongAs<E, A>(
   Cont<E, A> cont,
   bool Function(A value) predicate,
 ) {
   return Cont.fromRun((runtime, observer) {
     _stackSafeLoop<
-      _Either<
-        (),
-        _Either<(), _Either<A, List<ContError>>>
-      >,
+      _Either<(), _Either<(), _Either<A, List<ContError>>>>,
       (),
       _Either<(), _Either<A, List<ContError>>>
     >(
@@ -72,9 +66,7 @@ Cont<E, A> _asLongAs<E, A>(
           );
         } catch (error, st) {
           callback(
-            _Right(
-              _Right(_Right([ContError(error, st)])),
-            ),
+            _Right(_Right(_Right([ContError(error, st)]))),
           );
         }
       },

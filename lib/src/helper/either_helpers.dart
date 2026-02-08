@@ -1,9 +1,5 @@
 part of '../cont.dart';
 
-/// Runs ALL computations till the end.
-///
-/// Executes both left and right continuations, combining their results
-/// according to the either-merge-when-all strategy.
 Cont<E, A> _eitherMergeWhenAll<E, A>(
   Cont<E, A> left,
   Cont<E, A> right,
@@ -149,10 +145,6 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
   });
 }
 
-/// Executes both continuations with an either-quit-fast strategy.
-///
-/// Runs both left and right continuations concurrently, returning the first
-/// successful result or combining errors if both fail.
 Cont<E, A> _eitherQuitFast<E, A>(
   Cont<E, A> left,
   Cont<E, A> right,
@@ -167,6 +159,7 @@ Cont<E, A> _eitherQuitFast<E, A>(
       () {
         return runtime.isCancelled() || isDone;
       },
+      runtime.onPanic,
     );
 
     void handleTerminate(

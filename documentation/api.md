@@ -219,12 +219,7 @@ Provides runtime context for continuation execution.
 
 `ContRuntime` encapsulates the environment and cancellation state during the execution of a `Cont`. It allows continuations to access contextual information and check for cancellation.
 
-**Methods:**
-
-```dart
-E env()
-```
-Returns the environment value of type `E`. The environment provides contextual information such as configuration, dependencies, or any data that should flow through the continuation execution.
+**Fields & Methods:**
 
 ```dart
 bool isCancelled()
@@ -232,9 +227,19 @@ bool isCancelled()
 Function that checks whether the continuation execution has been cancelled. Returns `true` if the execution should be stopped, `false` otherwise. Continuations should check this regularly to support cooperative cancellation.
 
 ```dart
+void onPanic(ContError fatal)
+```
+Callback invoked when a fatal, unrecoverable error occurs during continuation execution. Unlike `ContObserver.onTerminate`, which handles expected termination errors within the normal control flow, `onPanic` is reserved for situations that violate internal invariants (e.g. an observer callback throwing an exception). The default implementation re-throws the error inside a microtask so it surfaces as an unhandled exception.
+
+```dart
+E env()
+```
+Returns the environment value of type `E`. The environment provides contextual information such as configuration, dependencies, or any data that should flow through the continuation execution.
+
+```dart
 ContRuntime<E2> copyUpdateEnv<E2>(E2 env)
 ```
-Creates a copy of this runtime with a different environment. Returns a new `ContRuntime` with the provided environment while preserving the cancellation function. This is used by `local` and related methods to modify the environment context.
+Creates a copy of this runtime with a different environment. Returns a new `ContRuntime` with the provided environment while preserving the cancellation function and panic handler. This is used by `local` and related methods to modify the environment context.
 
 - **Parameters:**
   - `env`: The new environment value to use
@@ -367,24 +372,50 @@ Returns a continuation that succeeds with the environment value.
 #### run
 
 ```dart
-void run(E env, void Function(List<ContError> errors) onTerminate, void Function(A value) onValue)
+void run(
+  E env, {
+  bool Function() isCancelled = _false,
+  void Function(ContError fatal) onPanic = _panic,
+  void Function(List<ContError> errors) onTerminate = _ignore,
+  void Function(A value) onValue = _ignore,
+})
 ```
 
 Executes the continuation with separate callbacks for termination and value.
 
-Initiates execution of the continuation with separate handlers for success and failure cases.
+Initiates execution of the continuation with separate handlers for success and failure cases. All callbacks are optional and default to no-op, allowing callers to subscribe only to the channels they care about.
 
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
-  - `onTerminate`: Callback invoked when the continuation terminates with errors
-  - `onValue`: Callback invoked when the continuation produces a successful value
+  - `isCancelled`: Function polled by the runtime to check whether execution should be cooperatively cancelled. Defaults to always returning `false` (never cancelled)
+  - `onPanic`: Callback invoked when a fatal, unrecoverable error occurs (e.g. an observer callback throws). Defaults to re-throwing inside a microtask
+  - `onTerminate`: Callback invoked when the continuation terminates with errors. Defaults to ignoring the errors
+  - `onValue`: Callback invoked when the continuation produces a successful value. Defaults to ignoring the value
+
+**Example:**
+```dart
+// Subscribe to all channels
+computation.run(
+  env,
+  isCancelled: () => shouldStop,
+  onPanic: (fatal) => log('PANIC: ${fatal.error}'),
+  onTerminate: (errors) => print('Failed: $errors'),
+  onValue: (value) => print('Success: $value'),
+);
+
+// Subscribe only to the value channel
+computation.run(env, onValue: print);
+```
 
 ---
 
 #### ff
 
 ```dart
-void ff(E env)
+void ff(
+  E env, {
+  void Function(ContError error) onPanic = _panic,
+})
 ```
 
 Executes the continuation in a fire-and-forget manner.
@@ -393,6 +424,7 @@ Runs the continuation without waiting for the result. Both success and failure o
 
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
+  - `onPanic`: Callback invoked when a fatal, unrecoverable error occurs. Defaults to re-throwing inside a microtask
 
 ---
 
@@ -1266,7 +1298,7 @@ final server = acceptConnection()
     .forever();
 
 // Run with only a termination handler (using trap extension)
-server.trap(env, (errors) => print('Server stopped: $errors'));
+server.trap(env, onTerminate: (errors) => print('Server stopped: $errors'));
 ```
 
 ---
@@ -1445,18 +1477,25 @@ This extension provides specialized methods for `Cont<E, Never>` where only term
 **Methods:**
 
 ```dart
-void trap(E env, void Function(List<ContError>) onTerminate)
+void trap(
+  E env, {
+  bool Function() isCancelled = _false,
+  void Function(ContError error) onPanic = _panic,
+  void Function(List<ContError> errors) onTerminate = _ignore,
+})
 ```
-Executes the continuation expecting only termination. This is a convenience method for `Cont<E, Never>` that executes the continuation with only a termination handler, since a value callback would never be called for a `Cont<E, Never>`.
+Executes the continuation expecting only termination. This is a convenience method for `Cont<E, Never>` that executes the continuation with only a termination handler, since a value callback would never be called for a `Cont<E, Never>`. All callbacks are optional and default to no-op.
 
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
-  - `onTerminate`: Callback invoked when the continuation terminates with errors
+  - `isCancelled`: Function polled by the runtime to check whether execution should be cooperatively cancelled. Defaults to always returning `false` (never cancelled)
+  - `onPanic`: Callback invoked when a fatal, unrecoverable error occurs. Defaults to re-throwing inside a microtask
+  - `onTerminate`: Callback invoked when the continuation terminates with errors. Defaults to ignoring the errors
 
 **Example:**
 ```dart
 final cont = Cont.terminate<MyEnv, Never>([ContError(Exception('Failed'), StackTrace.current)]);
-cont.trap(myEnv, (errors) {
+cont.trap(myEnv, onTerminate: (errors) {
   print('Terminated with ${errors.length} error(s)');
 });
 ```

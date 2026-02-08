@@ -217,12 +217,16 @@ final program = getUserAge(userId).thenDo((age) {
 });
 
 // ignore `()` for now
-program.run((), (errors) { 
-  // will automatically catch thrown error here
-}, (value) {
-  // success channel. not called in this case
-  print("value=$value");
-});
+program.run(
+  (),
+  onTerminate: (errors) {
+    // will automatically catch thrown error here
+  },
+  onValue: (value) {
+    // success channel. not called in this case
+    print("value=$value");
+  },
+);
 ```
 
 ### ContError Type
@@ -351,7 +355,7 @@ This pattern is essential for writing leak-free code when dealing with external 
 
 ## 2. Run: Executing Computations
 
-Constructing a computation is only the first step. To actually trigger its execution, call `run` on it, passing `onTerminate` and `onValue` callbacks.
+Constructing a computation is only the first step. To actually trigger its execution, call `run` on it. All callbacks (`onTerminate`, `onValue`, `isCancelled`, `onPanic`) are optional named parameters with sensible defaults, so you only subscribe to the channels you care about.
 
 ```dart
 // constructing the program
@@ -360,18 +364,21 @@ final Cont<(), String> program = getValueFromDatabase()
   .thenDo(isEven)
   .thenDo(toString);
 
-// running the program
+// running the program with both handlers
 program.run(
   (), // env
-  (errors) {
+  onTerminate: (errors) {
     // handle errors
     print("TERMINATED with errors=$errors");
   },
-  (value) {
+  onValue: (value) {
     // handle computed result
     print("SUCCEEDED with value=$value");
   },
 );
+
+// or subscribe only to the value channel
+program.run((), onValue: print);
 ```
 
 ### Key Properties of Cont
@@ -383,6 +390,41 @@ Any object of type `Cont` is:
 - **Reusable**: Can be safely executed multiple times
 
 You can pass `Cont` objects around in functions and store them as values in constants.
+
+### Run Parameters
+
+The `run` method accepts the environment as a positional argument and four optional named parameters:
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| `onValue` | no-op | Receives the successful result |
+| `onTerminate` | no-op | Receives errors on termination |
+| `isCancelled` | `() => false` | Polled for cooperative cancellation |
+| `onPanic` | re-throw in microtask | Handles fatal, unrecoverable errors |
+
+Because every callback has a sensible default, you only need to subscribe to the channels you care about:
+
+```dart
+// Only handle values
+computation.run(env, onValue: print);
+
+// Handle both outcomes
+computation.run(
+  env,
+  onTerminate: (errors) => log(errors),
+  onValue: (value) => process(value),
+);
+
+// Support cancellation
+bool shouldStop = false;
+computation.run(
+  env,
+  isCancelled: () => shouldStop,
+  onValue: print,
+);
+```
+
+**Panic handler:** The `onPanic` callback is invoked when a fatal error occurs that lies outside the normal termination channel — for example, when an observer callback itself throws an exception. By default it re-throws the error inside a `scheduleMicrotask`, surfacing it as an unhandled exception. Override it to integrate with your logging or crash-reporting infrastructure.
 
 ### Execution Flow
 
@@ -412,7 +454,7 @@ Once the source computation completes and emits a value or termination, executio
 Cont.of(0)                    // Emits: value(0)
   .map((x) => x + 1)          // Processes: value(0) → value(1)
   .thenDo((x) => Cont.of(x * 2))  // Processes: value(1) → runs new Cont → value(2)
-  .run((), onTerminate, onValue)  // Receives: value(2)
+  .run((), onTerminate: onTerminate, onValue: onValue)  // Receives: value(2)
 ```
 
 **Channel Routing and Switching**
@@ -429,7 +471,7 @@ Cont.of(0)
   .map((x) => x + 1)        // Only processes values
   .thenDo((x) => throw "Error!")  // Throws → switches to termination channel
   .map((x) => x * 2)        // Skipped! (termination channel active)
-  .run((), onTerminate, onValue)  // onTerminate called
+  .run((), onTerminate: onTerminate, onValue: onValue)  // onTerminate called
 ```
 
 Conversely, `elseDo` and `elseTap` only process termination signals and can switch back to the value channel:
@@ -441,7 +483,7 @@ Cont.terminate<int>([ContError("fail", st)])  // Termination channel
     return Cont.of(42);     // Recovers → switches back to value channel
   })
   .map((x) => x * 2)        // Processes value(42) → value(84)
-  .run((), onTerminate, onValue)  // onValue(84) called
+  .run((), onTerminate: onTerminate, onValue: onValue)  // onValue(84) called
 ```
 
 **Pausing for Racing Continuations**
@@ -490,11 +532,7 @@ Environment is automatically threaded through the entire computation chain. Any 
 
 ```dart
 // Simple example: using () when you don't need environment
-Cont.of(42).run(
-  (), // no environment needed
-  (_) {},
-  print,
-);
+Cont.of(42).run((), onValue: print);
 
 // Using environment to share configuration
 class Config {
@@ -508,8 +546,8 @@ final program = Cont.ask<Config>().thenDo((config) {
 
 program.run(
   Config(apiUrl: "https://api.example.com"), // provide environment
-  (errors) => print("Failed: $errors"),
-  (result) => print("Success: $result"),
+  onTerminate: (errors) => print("Failed: $errors"),
+  onValue: (result) => print("Success: $result"),
 );
 ```
 
@@ -533,7 +571,7 @@ To transform a value inside `Cont`, use `map`:
 ```dart
 Cont.of(0).map((zero) {
   return zero + 1;
-}).run((), (_) {}, print); // prints 1
+}).run((), onValue: print); // prints 1
 ```
 
 ### Hoisting
@@ -558,7 +596,7 @@ final logged = cont.hoist((run, runtime, observer) {
   print('Execution initiated');
 });
 
-logged.run((), (_) {}, print);
+logged.run((), onValue: print);
 // Prints:
 // Execution starting...
 // Execution initiated
@@ -582,7 +620,7 @@ Use `thenDo` to chain computations based on success values:
 ```dart
 Cont.of(0).thenDo((zero) {
   return Cont.of(zero + 1);
-}).run((), (_) {}, print); // prints 1
+}).run((), onValue: print); // prints 1
 ```
 
 Other success operators include:
@@ -612,7 +650,7 @@ Cont.terminate<int>([ContError("fail", StackTrace.current)])
     print("Caught: ${errors[0].error}");
     return Cont.of(42); // recover with default value
   })
-  .run((), (_) {}, print); // prints: Caught: fail, then: 42
+  .run((), onValue: print); // prints: Caught: fail, then: 42
 ```
 
 Other error operators include:
@@ -649,16 +687,16 @@ Cont.of(5)
   .when((value) => value > 3)
   .run(
     (),
-    (_) => print("terminated"),
-    (value) => print("success: $value"),
+    onTerminate: (_) => print("terminated"),
+    onValue: (value) => print("success: $value"),
   ); // prints "success: 5"
 
 Cont.of(2)
   .when((value) => value > 3)
   .run(
     (),
-    (_) => print("terminated"),
-    (value) => print("success: $value"),
+    onTerminate: (_) => print("terminated"),
+    onValue: (value) => print("success: $value"),
   ); // prints "terminated"
 ```
 
@@ -679,7 +717,7 @@ Cont.of(5)
     // Handle the "if false" branch
     return Cont.of("Value was not greater than 3");
   })
-  .run((), (_) {}, print); // prints "Value 5 is greater than 3"
+  .run((), onValue: print); // prints "Value 5 is greater than 3"
 
 Cont.of(2)
   .when((value) => value > 3)
@@ -691,7 +729,7 @@ Cont.of(2)
     // This executes as a fallback
     return Cont.of("Value was not greater than 3");
   })
-  .run((), (_) {}, print); // prints "Value was not greater than 3"
+  .run((), onValue: print); // prints "Value was not greater than 3"
 ```
 
 This pattern is particularly handy because:
@@ -709,8 +747,8 @@ getUserAge(userId)
   .thenDo((accessLevel) => logAccessGrant(userId, accessLevel))
   .run(
     (),
-    (errors) => print("Failed to process user: $errors"),
-    (result) => print("Access granted: $result"),
+    onTerminate: (errors) => print("Failed to process user: $errors"),
+    onValue: (result) => print("Access granted: $result"),
   );
 ```
 
@@ -723,7 +761,7 @@ The `asLongAs` operator repeatedly executes a computation as long as the predica
 Cont.of(0)
   .map((n) => Random().nextInt(10)) // generate random 0..9
   .asLongAs((value) => value <= 5)
-  .run((), (_) {}, (value) {
+  .run((), onValue: (value) {
     print("Got value > 5: $value");
   });
 ```
@@ -744,7 +782,7 @@ If you want to loop until a condition is met (inverted logic), use `until`:
 Cont.of(0)
   .map((n) => Random().nextInt(10)) // generate random 0..9
   .until((value) => value > 5) // inverted condition
-  .run((), (_) {}, (value) {
+  .run((), onValue: (value) {
     print("Got value > 5: $value");
   });
 ```
@@ -868,7 +906,7 @@ Cont.both(
   right,
   (a, b) => a + b,
   policy: ContBothPolicy.quitFast(), // Runs in parallel, quits on first failure
-).run((), (_) {}, print); // prints: 30
+).run((), onValue: print); // prints: 30
 ```
 
 ### Running Many Computations
@@ -885,7 +923,7 @@ final computations = [
 Cont.all(
   computations,
   policy: ContBothPolicy.quitFast(), // Runs in parallel, quits on first failure
-).run((), (_) {}, print); // prints: [1, 2, 3]
+).run((), onValue: print); // prints: [1, 2, 3]
 ```
 
 ### Racing Computations
@@ -900,7 +938,7 @@ Cont.either(
   slow,
   fast,
   policy: ContEitherPolicy.quitFast(), // Returns first success
-).run((), (_) {}, print); // prints: 10 (fast wins)
+).run((), onValue: print); // prints: 10 (fast wins)
 ```
 
 ---
@@ -920,8 +958,7 @@ final program = Cont.ask<Config>().thenDo((config) {
 
 program.run(
   Config(apiUrl: "https://api.example.com"),
-  (_) {},
-  print,
+  onValue: print,
 );
 ```
 
@@ -936,8 +973,7 @@ final program = cont.scope("hello");
 
 program.run(
   "ignored", // outer env doesn't matter
-  (_) {},
-  print,
+  onValue: print,
 ); // prints: HELLO
 ```
 
@@ -984,7 +1020,7 @@ final queryOp = Cont.ask<DbConfig>().thenDo((config) {
 final result = configCont.injectInto(queryOp);
 // Type: Cont<(), List<User>>
 
-result.run((), (_) {}, (users) {
+result.run((), onValue: (users) {
   print("Fetched ${users.length} users");
 });
 ```
@@ -1094,7 +1130,7 @@ Cont.both(
   apiResult,
   (dbData, apiData) => merge(dbData, apiData),
   policy: ContBothPolicy.quitFast(),
-).run((), (_) {}, print);
+).run((), onValue: print);
 ```
 
 **4. Testing with mock dependencies:**
@@ -1173,8 +1209,7 @@ Cont<E, T> delay<E, T>(Duration duration, T value) {
 // Usage
 delay(Duration(seconds: 2), 42).run(
   (),
-  (_) {},
-  (value) => print("Got $value after 2 seconds"),
+  onValue: (value) => print("Got $value after 2 seconds"),
 );
 ```
 
@@ -1240,7 +1275,7 @@ getUserData(userId)
   .retry(3)
   .timeout(Duration(seconds: 5), User.empty())
   .debug("User fetched")
-  .run((), (_) {}, print);
+  .run((), onValue: print);
 ```
 
 **Approach 2: Use `hoist` for low-level control**
@@ -1274,7 +1309,7 @@ extension TimingExtension<E, T> on Cont<E, T> {
 // Usage
 fetchData()
   .timed()
-  .run((), (_) {}, (result) {
+  .run((), onValue: (result) {
     final (data, duration) = result;
     print("Fetched in ${duration.inMilliseconds}ms: $data");
   });
@@ -1445,14 +1480,14 @@ Cont<E, T> pollUntil<E, T>({
       attempts++;
 
       computation.run(
-        runtime.env, // Forward environment
-        (errors) {
+        runtime.env(), // Forward environment
+        onTerminate: (errors) {
           // Check cancellation before emitting errors
           if (!runtime.isCancelled()) {
             observer.onTerminate(errors);
           }
         },
-        (value) {
+        onValue: (value) {
           // Check cancellation before processing value
           if (runtime.isCancelled()) {
             return;
@@ -1477,12 +1512,12 @@ pollUntil(
   predicate: (status) => status.isComplete,
   interval: Duration(seconds: 2),
   maxAttempts: 30,
-).run((), (_) {}, (status) {
+).run((), onValue: (status) {
   print("Job completed: $status");
 });
 ```
 
-The runtime also provides access to the environment via `runtime.env`, which can be useful when forwarding environment to nested computations within custom implementations.
+The runtime also provides access to the environment via `runtime.env()` and the panic handler via `runtime.onPanic`, which can be useful when forwarding context to nested computations within custom implementations.
 
 ---
 
@@ -1557,13 +1592,13 @@ final config = AppConfig(
 
 processUsers(['user1', 'user2', 'user3']).run(
   config,
-  (errors) {
+  onTerminate: (errors) {
     print("Failed: ${errors.length} error(s)");
     for (final e in errors) {
       print("  ${e.error}");
     }
   },
-  (report) {
+  onValue: (report) {
     print("Success: $report");
   },
 );
