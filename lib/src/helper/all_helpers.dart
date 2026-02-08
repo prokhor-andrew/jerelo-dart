@@ -1,8 +1,5 @@
 part of '../cont.dart';
 
-/// Sequential execution of all continuations in the list.
-///
-/// Runs continuations one by one in order, stops at first failure.
 Cont<E, List<A>> _allSequence<E, A>(List<Cont<E, A>> list) {
   return Cont.fromRun((runtime, observer) {
     list = list.toList(); // defensive copy
@@ -31,9 +28,7 @@ Cont<E, List<A>> _allSequence<E, A>(List<Cont<E, A>> list) {
                 _Right(_Right(value)),
               );
             } else {
-              return _StackSafeLoopPolicyStop(
-                _Left(()),
-              );
+              return _StackSafeLoopPolicyStop(_Left(()));
             }
         }
       },
@@ -60,9 +55,7 @@ Cont<E, List<A>> _allSequence<E, A>(List<Cont<E, A>> list) {
                   return;
                 }
 
-                callback(
-                  _Left((i + 1, [...values, a])),
-                );
+                callback(_Left((i + 1, [...values, a])));
               },
               //
             ),
@@ -92,11 +85,9 @@ Cont<E, List<A>> _allSequence<E, A>(List<Cont<E, A>> list) {
   });
 }
 
-/// Parallel execution with error merging.
-///
-/// Runs all in parallel, waits for all to complete,
-/// and merges errors if any fail.
-Cont<E, List<A>> _allMergeWhenAll<E, A>(List<Cont<E, A>> list) {
+Cont<E, List<A>> _allMergeWhenAll<E, A>(
+  List<Cont<E, A>> list,
+) {
   return Cont.fromRun((runtime, observer) {
     list = list.toList();
 
@@ -204,9 +195,6 @@ Cont<E, List<A>> _allMergeWhenAll<E, A>(List<Cont<E, A>> list) {
   });
 }
 
-/// Parallel execution with quit-fast behavior.
-///
-/// Runs all in parallel, terminates immediately on first failure.
 Cont<E, List<A>> _allQuitFast<E, A>(List<Cont<E, A>> list) {
   return Cont.fromRun((runtime, observer) {
     list = list.toList();
@@ -217,17 +205,17 @@ Cont<E, List<A>> _allQuitFast<E, A>(List<Cont<E, A>> list) {
     }
 
     bool isDone = false;
-    final results = List<A?>.filled(
-      list.length,
-      null,
-    );
+    final results = List<A?>.filled(list.length, null);
 
     int amountOfFinishedContinuations = 0;
 
-    final ContRuntime<E> sharedContRuntime =
-        ContRuntime._(runtime.env(), () {
-          return runtime.isCancelled() || isDone;
-        });
+    final ContRuntime<E> sharedContRuntime = ContRuntime._(
+      runtime.env(),
+      () {
+        return runtime.isCancelled() || isDone;
+      },
+      runtime.onPanic,
+    );
 
     void handleTerminate(List<ContError> errors) {
       if (isDone) {

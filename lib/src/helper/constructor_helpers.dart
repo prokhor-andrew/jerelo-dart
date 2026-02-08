@@ -1,8 +1,5 @@
 part of '../cont.dart';
 
-/// Creates a [Cont] from a run function with idempotence and exception catching.
-///
-/// Internal implementation for [Cont.fromRun].
 Cont<E, A> _fromRun<E, A>(
   void Function(
     ContRuntime<E> runtime,
@@ -34,7 +31,15 @@ Cont<E, A> _fromRun<E, A>(
         return;
       }
       isDone = true;
-      observer.onTerminate(errors);
+      try {
+        observer.onTerminate(errors);
+      } catch (error, st) {
+        try {
+          runtime.onPanic(ContError(error, st));
+        } catch (error, st) {
+          _panic(ContError(error, st));
+        }
+      }
     }
 
     void guardedValue(A a) {
@@ -46,7 +51,15 @@ Cont<E, A> _fromRun<E, A>(
         return;
       }
       isDone = true;
-      observer.onValue(a);
+      try {
+        observer.onValue(a);
+      } catch (error, st) {
+        try {
+          runtime.onPanic(ContError(error, st));
+        } catch (error, st) {
+          _panic(ContError(error, st));
+        }
+      }
     }
 
     try {

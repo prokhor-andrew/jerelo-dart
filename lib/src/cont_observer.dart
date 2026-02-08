@@ -11,10 +11,6 @@ final class ContObserver<A> {
   /// The callback function invoked when the continuation produces a successful value.
   final void Function(A value) onValue;
 
-  /// Creates an observer with termination and value handlers.
-  ///
-  /// - [_onTerminate]: Handler called when the continuation terminates (fails).
-  /// - [onValue]: Handler called when the continuation produces a successful value.
   const ContObserver._(this._onTerminate, this.onValue);
 
   /// Invokes the termination callback with the provided errors.

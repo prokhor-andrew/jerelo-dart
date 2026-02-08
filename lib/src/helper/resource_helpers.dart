@@ -1,8 +1,5 @@
 part of '../cont.dart';
 
-/// Manages resource lifecycle with guaranteed cleanup.
-///
-/// Internal implementation for [Cont.bracket].
 Cont<E, A> _bracket<E, R, A>({
   required Cont<E, R> acquire,
   required Cont<E, ()> Function(R resource) release,
@@ -22,6 +19,7 @@ Cont<E, A> _bracket<E, R, A>({
         () {
           return false;
         },
+        runtime.onPanic,
       );
 
       // Helper to safely call release and handle its result
@@ -91,9 +89,7 @@ Cont<E, A> _bracket<E, R, A>({
           switch (useResult) {
             case _Left<A, List<ContError>>():
               // Use succeeded but release setup failed
-              observer.onTerminate([
-                ContError(error, st),
-              ]);
+              observer.onTerminate([ContError(error, st)]);
             case _Right<A, List<ContError>>(
               value: final useErrors,
             ):

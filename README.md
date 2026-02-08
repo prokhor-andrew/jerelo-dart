@@ -29,8 +29,8 @@ final getUserData = Cont.of(userId)
   .thenTap((user) => logAccess(user));
 
 // Execute it multiple times with different configs
-getUserData.run(prodConfig, handleError, handleSuccess);
-getUserData.run(testConfig, handleError, handleSuccess);
+getUserData.run(prodConfig, onTerminate: handleError, onValue: handleSuccess);
+getUserData.run(testConfig, onTerminate: handleError, onValue: handleSuccess);
 ```
 
 ## Design Goals
@@ -136,7 +136,7 @@ Cont<AppConfig, List<User>> getMultipleUsers(List<String> userIds) {
 
   return Cont.all(
     computations,
-    policy: ContPolicy.quitFast(), // Fail fast on first error
+    policy: ContBothPolicy.quitFast(), // Fail fast on first error
   );
 }
 
@@ -160,18 +160,18 @@ void main() {
   // Define the computation once
   final singleUserFlow = getUserData('user123');
 
-  // Execute with production config
-  singleUserFlow.run(
+  // Execute with production config — run returns a ContCancelToken
+  final token1 = singleUserFlow.run(
     prodConfig,
-    (errors) => print('Production failed: ${errors.length} error(s)'),
-    (user) => print('Production success: ${user.name}'),
+    onTerminate: (errors) => print('Production failed: ${errors.length} error(s)'),
+    onValue: (user) => print('Production success: ${user.name}'),
   );
 
   // Execute the same computation with test config
-  singleUserFlow.run(
+  final token2 = singleUserFlow.run(
     testConfig,
-    (errors) => print('Test failed: ${errors.length} error(s)'),
-    (user) => print('Test success: ${user.name}'),
+    onTerminate: (errors) => print('Test failed: ${errors.length} error(s)'),
+    onValue: (user) => print('Test success: ${user.name}'),
   );
 
   print('\n=== Multiple Users Example ===');
@@ -181,8 +181,8 @@ void main() {
 
   multiUserFlow.run(
     prodConfig,
-    (errors) => print('Failed to fetch users'),
-    (users) => print('Fetched ${users.length} users: ${users.map((u) => u.name).join(', ')}'),
+    onTerminate: (errors) => print('Failed to fetch users'),
+    onValue: (users) => print('Fetched ${users.length} users: ${users.map((u) => u.name).join(', ')}'),
   );
 
   print('\n=== Advanced: Racing API vs Cache ===');
@@ -191,15 +191,18 @@ void main() {
   final racingFlow = Cont.either(
     fetchUserFromApi('user456'),
     loadUserFromCache('user456'),
-    (apiErrors, cacheErrors) => [...apiErrors, ...cacheErrors],
-    policy: ContPolicy.quitFast(), // Return first success
+    policy: ContEitherPolicy.quitFast(), // Return first success
   );
 
   racingFlow.run(
     prodConfig,
-    (errors) => print('Both sources failed'),
-    (user) => print('Got user from fastest source: ${user.name}'),
+    onTerminate: (errors) => print('Both sources failed'),
+    onValue: (user) => print('Got user from fastest source: ${user.name}'),
   );
+
+  // Cancel any running computation when needed
+  // token1.cancel();
+  // token2.cancel();
 }
 ```
 
@@ -212,16 +215,15 @@ The example above showcases:
 - **Error Handling**: Fallbacks with `elseDo`, error logging with `elseTap`
 - **Conditional Logic**: Filtering with `when`
 - **Side Effects**: Non-blocking logging with `thenTap`
-- **Parallel Execution**: Multiple computations with `Cont.all`
-- **Racing**: Competing computations with `Cont.either`
+- **Parallel Execution**: Multiple computations with `Cont.all` and `ContBothPolicy`
+- **Racing**: Competing computations with `Cont.either` and `ContEitherPolicy`
 - **Reusability**: Same computation executed with different configurations
-- **Resource Safety**: Cancellation checks with `runtime.isCancelled()`
+- **Cancellation**: Cooperative cancellation via `ContCancelToken` returned by `run`
 
 ## Learn More
 
 - Explore the [User Guide](documentation/doc.md) for in-depth explanations and patterns
 - Check the [API Reference](documentation/api.md) for complete method documentation
-- See real-world examples in the `/example` directory
 
 ## License
 

@@ -1,8 +1,5 @@
 part of '../cont.dart';
 
-/// Provides a fallback continuation in case of termination.
-///
-/// Internal implementation for [Cont.elseDo].
 Cont<E, A> _elseDo<E, A>(
   Cont<E, A> cont,
   Cont<E, A> Function(List<ContError> errors) f,
@@ -41,9 +38,6 @@ Cont<E, A> _elseDo<E, A>(
   });
 }
 
-/// Executes a side-effect continuation on termination.
-///
-/// Internal implementation for [Cont.elseTap].
 Cont<E, A> _elseTap<E, A>(
   Cont<E, A> cont,
   Cont<E, A> Function(List<ContError> errors) f,
@@ -85,9 +79,6 @@ Cont<E, A> _elseTap<E, A>(
   });
 }
 
-/// Attempts a fallback continuation and combines errors from both attempts.
-///
-/// Internal implementation for [Cont.elseZip].
 Cont<E, A> _elseZip<E, A>(
   Cont<E, A> cont,
   Cont<E, A> Function(List<ContError>) f,
@@ -115,8 +106,7 @@ Cont<E, A> _elseZip<E, A>(
               if (runtime.isCancelled()) {
                 return;
               }
-              errors2 = errors2
-                  .toList(); // defensive copy
+              errors2 = errors2.toList(); // defensive copy
               final combinedErrors = errors + errors2;
               observer.onTerminate(combinedErrors);
             }),
@@ -131,25 +121,33 @@ Cont<E, A> _elseZip<E, A>(
   });
 }
 
-/// Executes a side-effect continuation on termination in a fire-and-forget manner.
-///
-/// Internal implementation for [Cont.elseFork].
 Cont<E, A> _elseFork<E, A, A2>(
   Cont<E, A> cont,
   Cont<E, A2> Function(List<ContError> errors) f,
 ) {
-  return cont.elseDoWithEnv((e, errors) {
-    // this should not be inside try-catch block
-    Cont<E, A2> contA2 = f([...errors]);
-    if (contA2 is Cont<E, Never>) {
-      contA2 = contA2.absurd<A2>();
-    }
-    try {
-      contA2.ff(e);
-    } catch (_) {
-      // do nothing, if anything happens to side-effect, it's not
-      // a concern of the orElseFork
-    }
-    return Cont.terminate<E, A>([...errors]);
+  return Cont.fromRun((runtime, observer) {
+    cont._run(
+      runtime,
+      observer.copyUpdateOnTerminate((errors) {
+        if (runtime.isCancelled()) {
+          return;
+        }
+        // if this crashes, it should crash the computation
+        Cont<E, A2> contA2 = f([...errors]);
+        if (contA2 is Cont<E, Never>) {
+          contA2 = contA2.absurd<A2>();
+        }
+        try {
+          contA2.ff(
+            runtime.env(),
+            onPanic: runtime.onPanic,
+          );
+        } catch (_) {
+          // do nothing, if anything happens to side-effect, it's not
+          // a concern of the orElseFork
+        }
+        observer.onTerminate([...errors]);
+      }),
+    );
   });
 }
