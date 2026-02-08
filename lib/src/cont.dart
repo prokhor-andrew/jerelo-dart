@@ -16,6 +16,7 @@ part 'helper/resource_helpers.dart';
 part 'helper/functions.dart';
 part 'cont_observer.dart';
 part 'cont_runtime.dart';
+part 'cont_cancel_token.dart';
 
 /// A continuation monad representing a computation that will eventually
 /// produce a value of type [A] or terminate with errors.
@@ -41,10 +42,14 @@ final class Cont<E, A> {
   /// and failure cases. All callbacks are optional and default to no-op,
   /// allowing callers to subscribe only to the channels they care about.
   ///
+  /// Returns a [ContCancelToken] that can be used to cooperatively cancel the
+  /// execution. Calling [ContCancelToken.cancel] sets an internal flag that
+  /// the runtime polls via `isCancelled()`. The token also exposes
+  /// [ContCancelToken.isCancelled] to query the current cancellation state.
+  /// Calling [ContCancelToken.cancel] multiple times is safe but has no
+  /// additional effect.
+  ///
   /// - [env]: The environment value to provide as context during execution.
-  /// - [isCancelled]: Function polled by the runtime to check whether
-  ///   execution should be cooperatively cancelled. Defaults to always
-  ///   returning `false` (never cancelled).
   /// - [onPanic]: Callback invoked when a fatal, unrecoverable error occurs
   ///   (e.g. an observer callback throws). Defaults to re-throwing inside a
   ///   microtask.
@@ -52,18 +57,22 @@ final class Cont<E, A> {
   ///   errors. Defaults to ignoring the errors.
   /// - [onValue]: Callback invoked when the continuation produces a successful
   ///   value. Defaults to ignoring the value.
-  void run(
+  ContCancelToken run(
     E env, {
-    bool Function() isCancelled = _false,
     void Function(ContError fatal) onPanic = _panic,
     void Function(List<ContError> errors) onTerminate =
         _ignore,
     void Function(A value) onValue = _ignore,
   }) {
+    final cancelToken = ContCancelToken._();
+
     _run(
-      ContRuntime._(env, isCancelled, onPanic),
+      ContRuntime._(env, cancelToken.isCancelled, onPanic),
       ContObserver._(onTerminate, onValue),
     );
+
+    // returns cancel token
+    return cancelToken;
   }
 
   /// Executes the continuation in a fire-and-forget manner.

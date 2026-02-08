@@ -217,7 +217,7 @@ final program = getUserAge(userId).thenDo((age) {
 });
 
 // ignore `()` for now
-program.run(
+final token = program.run(
   (),
   onTerminate: (errors) {
     // will automatically catch thrown error here
@@ -355,7 +355,9 @@ This pattern is essential for writing leak-free code when dealing with external 
 
 ## 2. Run: Executing Computations
 
-Constructing a computation is only the first step. To actually trigger its execution, call `run` on it. All callbacks (`onTerminate`, `onValue`, `isCancelled`, `onPanic`) are optional named parameters with sensible defaults, so you only subscribe to the channels you care about.
+Constructing a computation is only the first step. To actually trigger its execution, call `run` on it. All callbacks (`onTerminate`, `onValue`, `onPanic`) are optional named parameters with sensible defaults, so you only subscribe to the channels you care about.
+
+The `run` method returns a **`ContCancelToken`** that you can use to cooperatively cancel the execution. Calling `token.cancel()` sets an internal flag that the runtime polls via `isCancelled()`, signalling that the computation should stop. You can also query the cancellation state at any time via `token.isCancelled()`.
 
 ```dart
 // constructing the program
@@ -365,7 +367,7 @@ final Cont<(), String> program = getValueFromDatabase()
   .thenDo(toString);
 
 // running the program with both handlers
-program.run(
+final token = program.run(
   (), // env
   onTerminate: (errors) {
     // handle errors
@@ -378,7 +380,10 @@ program.run(
 );
 
 // or subscribe only to the value channel
-program.run((), onValue: print);
+final token = program.run((), onValue: print);
+
+// cancel the computation when needed
+token.cancel();
 ```
 
 ### Key Properties of Cont
@@ -393,35 +398,29 @@ You can pass `Cont` objects around in functions and store them as values in cons
 
 ### Run Parameters
 
-The `run` method accepts the environment as a positional argument and four optional named parameters:
+The `run` method accepts the environment as a positional argument and three optional named parameters. It returns a `ContCancelToken`.
 
-| Parameter | Default | Purpose |
-|---|---|---|
-| `onValue` | no-op | Receives the successful result |
-| `onTerminate` | no-op | Receives errors on termination |
-| `isCancelled` | `() => false` | Polled for cooperative cancellation |
-| `onPanic` | re-throw in microtask | Handles fatal, unrecoverable errors |
+- **`onValue`** (default: no-op) — Receives the successful result.
+- **`onTerminate`** (default: no-op) — Receives errors on termination.
+- **`onPanic`** (default: re-throw in microtask) — Handles fatal, unrecoverable errors.
+
+The method returns a **`ContCancelToken`** that cooperatively cancels the execution via `cancel()` and exposes cancellation state via `isCancelled()`.
 
 Because every callback has a sensible default, you only need to subscribe to the channels you care about:
 
 ```dart
 // Only handle values
-computation.run(env, onValue: print);
+final token = computation.run(env, onValue: print);
 
 // Handle both outcomes
-computation.run(
+final token = computation.run(
   env,
   onTerminate: (errors) => log(errors),
   onValue: (value) => process(value),
 );
 
-// Support cancellation
-bool shouldStop = false;
-computation.run(
-  env,
-  isCancelled: () => shouldStop,
-  onValue: print,
-);
+// Cancel when needed (e.g., on user action or timeout)
+token.cancel();
 ```
 
 **Panic handler:** The `onPanic` callback is invoked when a fatal error occurs that lies outside the normal termination channel — for example, when an observer callback itself throws an exception. By default it re-throws the error inside a `scheduleMicrotask`, surfacing it as an unhandled exception. Override it to integrate with your logging or crash-reporting infrastructure.
@@ -1590,7 +1589,7 @@ final config = AppConfig(
   Duration(seconds: 5),
 );
 
-processUsers(['user1', 'user2', 'user3']).run(
+final token = processUsers(['user1', 'user2', 'user3']).run(
   config,
   onTerminate: (errors) {
     print("Failed: ${errors.length} error(s)");
@@ -1602,6 +1601,9 @@ processUsers(['user1', 'user2', 'user3']).run(
     print("Success: $report");
   },
 );
+
+// Cancel the computation if needed (e.g., on shutdown)
+// token.cancel();
 ```
 
 This example demonstrates:
@@ -1613,6 +1615,7 @@ This example demonstrates:
 - Resource management (bracket)
 - Looping (asLongAs)
 - WithEnv variants for accessing config
+- Cancellation via `ContCancelToken` returned by `run`
 
 ---
 

@@ -8,6 +8,7 @@ Complete reference for all public types and APIs in the Jerelo continuation libr
 
 - [Core Types](#core-types)
   - [Cont](#cont)
+  - [ContCancelToken](#contcanceltoken)
   - [ContError](#conterror)
   - [ContBothPolicy](#contbothpolicy)
   - [ContEitherPolicy](#conteitherpolicy)
@@ -42,6 +43,46 @@ A continuation monad representing a computation that will eventually produce a v
 - `A`: The value type that the continuation produces upon success
 
 `Cont` provides a powerful abstraction for managing asynchronous operations, error handling, and composition of effectful computations. It follows the continuation-passing style where computations are represented as functions that take callbacks for success and failure.
+
+---
+
+### ContCancelToken
+
+```dart
+final class ContCancelToken
+```
+
+A token used to cooperatively cancel a running continuation.
+
+Returned by `Cont.run`, this token provides a way to signal cancellation to a running computation and to query its current cancellation state.
+
+Cancellation is cooperative: calling `cancel` sets an internal flag that the runtime polls via `isCancelled`. The computation checks this flag at safe points and stops work when it detects cancellation.
+
+**Methods:**
+
+```dart
+bool isCancelled()
+```
+Returns `true` if `cancel` has been called on this token, `false` otherwise.
+
+```dart
+void cancel()
+```
+Signals cancellation to the running computation. After this call, `isCancelled()` will return `true` and the runtime will detect the cancellation at the next polling point. Calling this method multiple times is safe but has no additional effect.
+
+**Example:**
+```dart
+final token = computation.run(
+  env,
+  onValue: (value) => print('Success: $value'),
+);
+
+// Later, cancel the computation
+token.cancel();
+
+// Check cancellation state
+print(token.isCancelled()); // true
+```
 
 ---
 
@@ -372,9 +413,8 @@ Returns a continuation that succeeds with the environment value.
 #### run
 
 ```dart
-void run(
+ContCancelToken run(
   E env, {
-  bool Function() isCancelled = _false,
   void Function(ContError fatal) onPanic = _panic,
   void Function(List<ContError> errors) onTerminate = _ignore,
   void Function(A value) onValue = _ignore,
@@ -385,26 +425,32 @@ Executes the continuation with separate callbacks for termination and value.
 
 Initiates execution of the continuation with separate handlers for success and failure cases. All callbacks are optional and default to no-op, allowing callers to subscribe only to the channels they care about.
 
+**Returns** a `ContCancelToken` that can be used to cooperatively cancel the execution. Calling `ContCancelToken.cancel()` sets an internal flag that the runtime polls via `isCancelled()`. The token also exposes `ContCancelToken.isCancelled()` to query the current cancellation state. Calling `cancel()` multiple times is safe but has no additional effect.
+
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
-  - `isCancelled`: Function polled by the runtime to check whether execution should be cooperatively cancelled. Defaults to always returning `false` (never cancelled)
   - `onPanic`: Callback invoked when a fatal, unrecoverable error occurs (e.g. an observer callback throws). Defaults to re-throwing inside a microtask
   - `onTerminate`: Callback invoked when the continuation terminates with errors. Defaults to ignoring the errors
   - `onValue`: Callback invoked when the continuation produces a successful value. Defaults to ignoring the value
 
 **Example:**
 ```dart
-// Subscribe to all channels
-computation.run(
+// Subscribe to all channels and get a cancel token
+final token = computation.run(
   env,
-  isCancelled: () => shouldStop,
   onPanic: (fatal) => log('PANIC: ${fatal.error}'),
   onTerminate: (errors) => print('Failed: $errors'),
   onValue: (value) => print('Success: $value'),
 );
 
 // Subscribe only to the value channel
-computation.run(env, onValue: print);
+final token = computation.run(env, onValue: print);
+
+// Cancel the computation when needed
+token.cancel();
+
+// Check cancellation state
+print(token.isCancelled()); // true
 ```
 
 ---
