@@ -233,5 +233,33 @@ void main() {
 
       expect(value2, value3);
     });
+
+    test('Cont.map0 is map with ignored argument', () {
+      final cont1 = Cont.of<(), int>(10).map0(() => 20);
+
+      final cont2 = Cont.of<(), int>(10).map((_) => 20);
+
+      int? value1;
+      int? value2;
+      cont1.run((), onValue: (val) => value1 = val);
+      cont2.run((), onValue: (val) => value2 = val);
+
+      expect(value1, 20);
+      expect(value2, 20);
+    });
+
+    test('Cont.as is map0 with eager evaluation', () {
+      final cont1 = Cont.of<(), int>(10).map0(() => 20);
+
+      final cont2 = Cont.of<(), int>(10).as(20);
+
+      int? value1;
+      int? value2;
+      cont1.run((), onValue: (val) => value1 = val);
+      cont2.run((), onValue: (val) => value2 = val);
+
+      expect(value1, 20);
+      expect(value2, 20);
+    });
   });
 }
