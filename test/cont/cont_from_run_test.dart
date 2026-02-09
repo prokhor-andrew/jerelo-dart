@@ -13,10 +13,10 @@ void main() {
 
       cont.run(
         (),
-        (errors) {
+        onTerminate: (errors) {
           expect(errors, []);
         },
-        (_) {
+        onValue: (_) {
           fail('Should not be called');
         },
       );
@@ -32,7 +32,7 @@ void main() {
       });
 
       expect(isRun, false);
-      cont.run((), (_) {}, (_) {});
+      cont.run(());
       expect(isRun, true);
     });
 
@@ -46,7 +46,7 @@ void main() {
       });
 
       expect(value, 15);
-      cont.run((), (_) {}, (v) => value = v);
+      cont.run((), onValue: (v) => value = v);
       expect(value, 0);
     });
 
@@ -62,7 +62,7 @@ void main() {
         });
 
         expect(errors, null);
-        cont.run((), (e) => errors = e, (_) {});
+        cont.run((), onTerminate: (e) => errors = e);
         expect(errors, []);
       },
     );
@@ -81,7 +81,7 @@ void main() {
         });
 
         expect(errors, null);
-        cont.run((), (e) => errors = e, (_) {});
+        cont.run((), onTerminate: (e) => errors = e);
 
         expect(errors![0].error, "random error");
       },
@@ -99,7 +99,7 @@ void main() {
         });
 
         expect(errors, null);
-        cont.run((), (e) => errors = e, (_) {});
+        cont.run((), onTerminate: (e) => errors = e);
 
         expect(errors![0].error, "random error");
       },
@@ -116,7 +116,7 @@ void main() {
       });
 
       expect(value, 0);
-      cont.run((), (_) {}, (v) => value = v);
+      cont.run((), onValue: (v) => value = v);
       expect(value, 15);
     });
 
@@ -135,7 +135,7 @@ void main() {
       });
 
       expect(errors, null);
-      cont.run((), (e) => errors = e, (_) {});
+      cont.run((), onTerminate: (e) => errors = e);
 
       expect(errors![0].error, 'random error');
     });
@@ -158,7 +158,11 @@ void main() {
         expect(errors, null);
         expect(value, 0);
 
-        cont.run((), (e) => errors = e, (v) => value = v);
+        cont.run(
+          (),
+          onTerminate: (e) => errors = e,
+          onValue: (v) => value = v,
+        );
 
         expect(errors, null);
         expect(value, 15);
@@ -183,7 +187,11 @@ void main() {
         expect(errors, null);
         expect(value, 0);
 
-        cont.run((), (e) => errors = e, (v) => value = v);
+        cont.run(
+          (),
+          onTerminate: (e) => errors = e,
+          onValue: (v) => value = v,
+        );
 
         expect(value, 0);
         expect(errors![0].error, 'random error');
@@ -198,9 +206,8 @@ void main() {
         expect(runtime.env(), 15);
       });
 
-      cont.run(15, (_) {}, (_) {});
+      cont.run(15);
     });
-
 
     test('Cont.fromRun errors defensive copy', () {
       final errors0 = [0, 1, 2, 3]
@@ -225,10 +232,13 @@ void main() {
       ]);
       expect(errors1, null);
 
-      cont.run((), (errors) {
-        errors.add(ContError(4, StackTrace.current));
-        errors1 = errors;
-      }, (value) {});
+      cont.run(
+        (),
+        onTerminate: (errors) {
+          errors.add(ContError(4, StackTrace.current));
+          errors1 = errors;
+        },
+      );
 
       expect(errors0.map((error) => error.error).toList(), [
         0,
