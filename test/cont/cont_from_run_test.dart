@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:jerelo/jerelo.dart';
 import 'package:test/test.dart';
 
@@ -285,5 +287,229 @@ void main() {
       flush();
       expect(value, 0);
     });
+
+    test(
+      'Cont.fromRun onPanic when onValue callback throws',
+      () {
+        ContError? panic;
+
+        final cont = Cont.fromRun<(), int>((
+          runtime,
+          observer,
+        ) {
+          observer.onValue(10);
+        });
+
+        cont.run(
+          (),
+          onPanic: (error) => panic = error,
+          onValue: (v) {
+            throw 'value callback error';
+          },
+        );
+
+        expect(panic!.error, 'value callback error');
+      },
+    );
+
+    test(
+      'Cont.fromRun onPanic when onTerminate callback throws',
+      () {
+        ContError? panic;
+
+        final cont = Cont.fromRun<(), int>((
+          runtime,
+          observer,
+        ) {
+          observer.onTerminate([]);
+        });
+
+        cont.run(
+          (),
+          onPanic: (error) => panic = error,
+          onTerminate: (errors) {
+            throw 'terminate callback error';
+          },
+        );
+
+        expect(panic!.error, 'terminate callback error');
+      },
+    );
+
+    test(
+      'Cont.fromRun fallback panic when onPanic throws via onValue',
+      () async {
+        Object? caughtError;
+
+        runZonedGuarded(() {
+          final cont = Cont.fromRun<(), int>((
+            runtime,
+            observer,
+          ) {
+            observer.onValue(10);
+          });
+
+          cont.run(
+            (),
+            onPanic: (error) {
+              throw 'onPanic also fails';
+            },
+            onValue: (v) {
+              throw 'value callback error';
+            },
+          );
+        }, (error, stack) {
+          caughtError = error;
+        });
+
+        await Future(() {});
+        expect(caughtError, 'onPanic also fails');
+      },
+    );
+
+    test(
+      'Cont.fromRun fallback panic when onPanic throws via onTerminate',
+      () async {
+        Object? caughtError;
+
+        runZonedGuarded(() {
+          final cont = Cont.fromRun<(), int>((
+            runtime,
+            observer,
+          ) {
+            observer.onTerminate([]);
+          });
+
+          cont.run(
+            (),
+            onPanic: (error) {
+              throw 'onPanic also fails';
+            },
+            onTerminate: (errors) {
+              throw 'terminate callback error';
+            },
+          );
+        }, (error, stack) {
+          caughtError = error;
+        });
+
+        await Future(() {});
+        expect(caughtError, 'onPanic also fails');
+      },
+    );
+
+    test('Cont.fromRun throw after onValue is idempotent', () {
+      var value = 0;
+      List<ContError>? errors;
+
+      final cont = Cont.fromRun<(), int>((
+        runtime,
+        observer,
+      ) {
+        observer.onValue(15);
+        throw 'error after value';
+      });
+
+      cont.run(
+        (),
+        onValue: (v) => value = v,
+        onTerminate: (e) => errors = e,
+      );
+
+      expect(value, 15);
+      expect(errors, null);
+    });
+
+    test(
+      'Cont.fromRun throw after onTerminate is idempotent',
+      () {
+        List<ContError>? errors;
+
+        final cont = Cont.fromRun<(), int>((
+          runtime,
+          observer,
+        ) {
+          observer.onTerminate([
+            ContError("first error", StackTrace.current),
+          ]);
+          throw 'error after terminate';
+        });
+
+        cont.run((), onTerminate: (e) => errors = e);
+
+        expect(errors!.length, 1);
+        expect(errors![0].error, 'first error');
+      },
+    );
+
+    test(
+      'Cont.fromRun guardedValue blocked after cancellation',
+      () {
+        var value = 0;
+
+        final List<void Function()> buffer = [];
+        void flush() {
+          for (final value in buffer) {
+            value();
+          }
+          buffer.clear();
+        }
+
+        final cont = Cont.fromRun<(), int>((
+          runtime,
+          observer,
+        ) {
+          buffer.add(() {
+            observer.onValue(10);
+          });
+        });
+
+        expect(value, 0);
+        final token = cont.run(
+          (),
+          onValue: (val) => value = val,
+        );
+        expect(value, 0);
+        token.cancel();
+        flush();
+        expect(value, 0);
+      },
+    );
+
+    test(
+      'Cont.fromRun guardedTerminate blocked after cancellation',
+      () {
+        List<ContError>? errors;
+
+        final List<void Function()> buffer = [];
+        void flush() {
+          for (final value in buffer) {
+            value();
+          }
+          buffer.clear();
+        }
+
+        final cont = Cont.fromRun<(), int>((
+          runtime,
+          observer,
+        ) {
+          buffer.add(() {
+            observer.onTerminate([
+              ContError("error", StackTrace.current),
+            ]);
+          });
+        });
+
+        expect(errors, null);
+        final token = cont.run(
+          (),
+          onTerminate: (e) => errors = e,
+        );
+        expect(errors, null);
+        token.cancel();
+        flush();
+        expect(errors, null);
+      },
+    );
   });
 }
