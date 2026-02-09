@@ -341,26 +341,29 @@ void main() {
       () async {
         Object? caughtError;
 
-        runZonedGuarded(() {
-          final cont = Cont.fromRun<(), int>((
-            runtime,
-            observer,
-          ) {
-            observer.onValue(10);
-          });
+        runZonedGuarded(
+          () {
+            final cont = Cont.fromRun<(), int>((
+              runtime,
+              observer,
+            ) {
+              observer.onValue(10);
+            });
 
-          cont.run(
-            (),
-            onPanic: (error) {
-              throw 'onPanic also fails';
-            },
-            onValue: (v) {
-              throw 'value callback error';
-            },
-          );
-        }, (error, stack) {
-          caughtError = error;
-        });
+            cont.run(
+              (),
+              onPanic: (error) {
+                throw 'onPanic also fails';
+              },
+              onValue: (v) {
+                throw 'value callback error';
+              },
+            );
+          },
+          (error, stack) {
+            caughtError = error;
+          },
+        );
 
         await Future(() {});
         expect(caughtError, 'onPanic also fails');
@@ -372,53 +375,59 @@ void main() {
       () async {
         Object? caughtError;
 
-        runZonedGuarded(() {
-          final cont = Cont.fromRun<(), int>((
-            runtime,
-            observer,
-          ) {
-            observer.onTerminate([]);
-          });
+        runZonedGuarded(
+          () {
+            final cont = Cont.fromRun<(), int>((
+              runtime,
+              observer,
+            ) {
+              observer.onTerminate([]);
+            });
 
-          cont.run(
-            (),
-            onPanic: (error) {
-              throw 'onPanic also fails';
-            },
-            onTerminate: (errors) {
-              throw 'terminate callback error';
-            },
-          );
-        }, (error, stack) {
-          caughtError = error;
-        });
+            cont.run(
+              (),
+              onPanic: (error) {
+                throw 'onPanic also fails';
+              },
+              onTerminate: (errors) {
+                throw 'terminate callback error';
+              },
+            );
+          },
+          (error, stack) {
+            caughtError = error;
+          },
+        );
 
         await Future(() {});
         expect(caughtError, 'onPanic also fails');
       },
     );
 
-    test('Cont.fromRun throw after onValue is idempotent', () {
-      var value = 0;
-      List<ContError>? errors;
+    test(
+      'Cont.fromRun throw after onValue is idempotent',
+      () {
+        var value = 0;
+        List<ContError>? errors;
 
-      final cont = Cont.fromRun<(), int>((
-        runtime,
-        observer,
-      ) {
-        observer.onValue(15);
-        throw 'error after value';
-      });
+        final cont = Cont.fromRun<(), int>((
+          runtime,
+          observer,
+        ) {
+          observer.onValue(15);
+          throw 'error after value';
+        });
 
-      cont.run(
-        (),
-        onValue: (v) => value = v,
-        onTerminate: (e) => errors = e,
-      );
+        cont.run(
+          (),
+          onValue: (v) => value = v,
+          onTerminate: (e) => errors = e,
+        );
 
-      expect(value, 15);
-      expect(errors, null);
-    });
+        expect(value, 15);
+        expect(errors, null);
+      },
+    );
 
     test(
       'Cont.fromRun throw after onTerminate is idempotent',

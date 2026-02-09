@@ -31,7 +31,9 @@ void main() {
       () {
         List<ContError>? errors;
         final cont = Cont.fromDeferred<(), int>(() {
-          return Cont.terminate([ContError("deferred error", StackTrace.current)]);
+          return Cont.terminate([
+            ContError("deferred error", StackTrace.current),
+          ]);
         });
 
         expect(errors, null);
@@ -174,7 +176,10 @@ void main() {
       () {
         List<ContError>? errors;
         final cont = Cont.fromDeferred<(), int>(() {
-          return Cont.fromRun<(), Never>((runtime, observer) {
+          return Cont.fromRun<(), Never>((
+            runtime,
+            observer,
+          ) {
             observer.onTerminate([
               ContError("never error", StackTrace.current),
             ]);

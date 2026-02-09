@@ -1,32 +1,49 @@
-
 import 'package:jerelo/jerelo.dart';
 import 'package:test/test.dart';
 
 void main() {
   group('Cont.terminate', () {
-    test('Cont.terminate calls onTerminate with empty errors by default', () {
-      List<ContError>? errors;
-      final cont = Cont.terminate<(), int>();
+    test(
+      'Cont.terminate calls onTerminate with empty errors by default',
+      () {
+        List<ContError>? errors;
+        final cont = Cont.terminate<(), int>();
 
-      cont.run((), onTerminate: (e) => errors = e);
-      expect(errors, []);
-    });
+        cont.run((), onTerminate: (e) => errors = e);
+        expect(errors, []);
+      },
+    );
 
-    test('Cont.terminate calls onTerminate with provided errors', () {
-      final error = ContError('test error', StackTrace.current);
-      List<ContError>? errors;
-      final cont = Cont.terminate<(), int>([error]);
+    test(
+      'Cont.terminate calls onTerminate with provided errors',
+      () {
+        final error = ContError(
+          'test error',
+          StackTrace.current,
+        );
+        List<ContError>? errors;
+        final cont = Cont.terminate<(), int>([error]);
 
-      cont.run((), onTerminate: (e) => errors = e);
-      expect(errors, hasLength(1));
-      expect(errors![0].error, 'test error');
-    });
+        cont.run((), onTerminate: (e) => errors = e);
+        expect(errors, hasLength(1));
+        expect(errors![0].error, 'test error');
+      },
+    );
 
     test('Cont.terminate with multiple errors', () {
-      final error1 = ContError('error 1', StackTrace.current);
-      final error2 = ContError('error 2', StackTrace.current);
+      final error1 = ContError(
+        'error 1',
+        StackTrace.current,
+      );
+      final error2 = ContError(
+        'error 2',
+        StackTrace.current,
+      );
       List<ContError>? errors;
-      final cont = Cont.terminate<(), int>([error1, error2]);
+      final cont = Cont.terminate<(), int>([
+        error1,
+        error2,
+      ]);
 
       cont.run((), onTerminate: (e) => errors = e);
       expect(errors, hasLength(2));
@@ -74,7 +91,12 @@ void main() {
         ];
         final cont = Cont.terminate<(), int>(errors);
 
-        errors.add(ContError('added after creation', StackTrace.current));
+        errors.add(
+          ContError(
+            'added after creation',
+            StackTrace.current,
+          ),
+        );
 
         List<ContError>? received;
         cont.run((), onTerminate: (e) => received = e);
@@ -94,10 +116,13 @@ void main() {
         List<ContError>? firstRun;
         List<ContError>? secondRun;
 
-        cont.run((), onTerminate: (e) {
-          firstRun = e;
-          e.add(ContError('mutated', StackTrace.current));
-        });
+        cont.run(
+          (),
+          onTerminate: (e) {
+            firstRun = e;
+            e.add(ContError('mutated', StackTrace.current));
+          },
+        );
 
         cont.run((), onTerminate: (e) => secondRun = e);
 
@@ -121,21 +146,23 @@ void main() {
       expect(errors, []);
     });
 
-    test('Cont.terminate with empty list is same as no argument', () {
-      List<ContError>? errorsNoArg;
-      List<ContError>? errorsEmptyList;
+    test(
+      'Cont.terminate with empty list is same as no argument',
+      () {
+        List<ContError>? errorsNoArg;
+        List<ContError>? errorsEmptyList;
 
-      Cont.terminate<(), int>().run(
-        (),
-        onTerminate: (e) => errorsNoArg = e,
-      );
-      Cont.terminate<(), int>([]).run(
-        (),
-        onTerminate: (e) => errorsEmptyList = e,
-      );
+        Cont.terminate<(), int>().run(
+          (),
+          onTerminate: (e) => errorsNoArg = e,
+        );
+        Cont.terminate<(), int>(
+          [],
+        ).run((), onTerminate: (e) => errorsEmptyList = e);
 
-      expect(errorsNoArg, []);
-      expect(errorsEmptyList, []);
-    });
+        expect(errorsNoArg, []);
+        expect(errorsEmptyList, []);
+      },
+    );
   });
 }
