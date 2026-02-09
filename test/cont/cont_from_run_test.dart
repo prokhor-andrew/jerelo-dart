@@ -251,5 +251,39 @@ void main() {
         [0, 1, 2, 3, 4],
       );
     });
+
+    test('Cont.fromRun cancellation stops execution', () {
+      int value = 0;
+
+      final List<void Function()> buffer = [];
+      void flush() {
+        for (final value in buffer) {
+          value();
+        }
+        buffer.clear();
+      }
+
+      final cont = Cont.fromRun<(), int>((
+        runtime,
+        observer,
+      ) {
+        buffer.add(() {
+          if (runtime.isCancelled()) {
+            return;
+          }
+          observer.onValue(10);
+        });
+      });
+
+      expect(value, 0);
+      final token = cont.run(
+        (),
+        onValue: (val) => value = val,
+      );
+      expect(value, 0);
+      token.cancel();
+      flush();
+      expect(value, 0);
+    });
   });
 }
