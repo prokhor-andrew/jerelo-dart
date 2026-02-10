@@ -50,9 +50,7 @@ void main() {
     });
 
     test('passes through first termination', () {
-      final errors = [
-        ContError('err1', StackTrace.current),
-      ];
+      final errors = [ContError.capture('err1')];
       List<ContError>? received;
 
       Cont.terminate<(), int>(errors)
@@ -71,7 +69,7 @@ void main() {
       () {
         final cont = Cont.of<(), int>(42).thenZip(
           (a) => Cont.terminate<(), String>([
-            ContError('second error', StackTrace.current),
+            ContError.capture('second error'),
           ]),
           (a, b) => '$b: $a',
         );
@@ -239,7 +237,7 @@ void main() {
       final cont = Cont.of<(), int>(42).thenZip(
         (a) => Cont.fromRun<(), Never>((runtime, observer) {
           observer.onTerminate([
-            ContError("never error", StackTrace.current),
+            ContError.capture("never error"),
           ]);
         }),
         (a, b) => b,

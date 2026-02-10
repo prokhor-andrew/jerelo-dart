@@ -43,7 +43,7 @@ void main() {
 
       final nested = Cont.of<(), Cont<(), int>>(
         Cont.terminate<(), int>([
-          ContError('inner error', StackTrace.current),
+          ContError.capture('inner error'),
         ]),
       );
 
@@ -60,7 +60,7 @@ void main() {
       List<ContError>? errors;
 
       final nested = Cont.terminate<(), Cont<(), int>>([
-        ContError('outer error', StackTrace.current),
+        ContError.capture('outer error'),
       ]);
 
       nested.flatten().run(
@@ -324,7 +324,7 @@ void main() {
         // Termination at level 1 (outermost)
         List<ContError>? errors1;
         Cont.terminate<(), Cont<(), Cont<(), int>>>([
-          ContError('level1', StackTrace.current),
+          ContError.capture('level1'),
         ]).flatten().flatten().run(
           (),
           onTerminate: (e) => errors1 = e,
@@ -337,7 +337,7 @@ void main() {
         List<ContError>? errors2;
         Cont.of<(), Cont<(), Cont<(), int>>>(
           Cont.terminate<(), Cont<(), int>>([
-            ContError('level2', StackTrace.current),
+            ContError.capture('level2'),
           ]),
         ).flatten().flatten().run(
           (),
@@ -352,7 +352,7 @@ void main() {
         Cont.of<(), Cont<(), Cont<(), int>>>(
           Cont.of(
             Cont.terminate<(), int>([
-              ContError('level3', StackTrace.current),
+              ContError.capture('level3'),
             ]),
           ),
         ).flatten().flatten().run(

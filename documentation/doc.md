@@ -213,7 +213,7 @@ final program = getUserAge(userId).map((age) {
 // or
 
 final program = getUserAge(userId).thenDo((age) {
-  return Cont.terminate([ContError("Armageddon!", StackTrace.current)]);
+  return Cont.terminate([ContError.capture("Armageddon!")]);
 });
 
 // ignore `()` for now
@@ -231,14 +231,21 @@ final token = program.run(
 
 ### ContError Type
 
-The type of a thrown error is `ContError`. It is a holder for the original error and stack trace.
+The type of a thrown error is `ContError`. It is a holder for the original error and stack trace. Instances are created via static factory methods:
 
 ```dart
 final class ContError {
   final Object error;
   final StackTrace stackTrace;
 
-  const ContError(this.error, this.stackTrace);
+  // From a catch block — preserves the caught stack trace
+  ContError.withStackTrace(error, stackTrace);
+
+  // When no stack trace is needed
+  ContError.withNoStackTrace(error);
+
+  // Captures the stack trace at the call site automatically
+  ContError.capture(error);
 }
 ```
 
@@ -260,7 +267,7 @@ Cont<E, User> getUser<E>(String userId) {
         observer.onValue(user);
       });
     } catch (error, st) {
-      observer.onTerminate([ContError(error, st)]);
+      observer.onTerminate([ContError.withStackTrace(error, st)]);
     }
   });
 }
@@ -299,7 +306,7 @@ To represent terminated computation:
 
 ```dart
 Cont.terminate([
-  ContError("payload", StackTrace.current),
+  ContError.capture("payload"),
 ]);
 ```
 
@@ -315,7 +322,7 @@ Cont<E, String> readFileContents<E>(String path) {
         final file = File(path).openSync();
         observer.onValue(file);
       } catch (error, st) {
-        observer.onTerminate([ContError(error, st)]);
+        observer.onTerminate([ContError.withStackTrace(error, st)]);
       }
     }),
     release: (file) => Cont.fromRun((runtime, observer) {
@@ -323,7 +330,7 @@ Cont<E, String> readFileContents<E>(String path) {
         file.closeSync();
         observer.onValue(());
       } catch (error, st) {
-        observer.onTerminate([ContError(error, st)]);
+        observer.onTerminate([ContError.withStackTrace(error, st)]);
       }
     }),
     use: (file) => Cont.fromRun((runtime, observer) {
@@ -331,7 +338,7 @@ Cont<E, String> readFileContents<E>(String path) {
         final contents = file.readStringSync();
         observer.onValue(contents);
       } catch (error, st) {
-        observer.onTerminate([ContError(error, st)]);
+        observer.onTerminate([ContError.withStackTrace(error, st)]);
       }
     }),
   );
@@ -476,7 +483,7 @@ Cont.of(0)
 Conversely, `elseDo` and `elseTap` only process termination signals and can switch back to the value channel:
 
 ```dart
-Cont.terminate<int>([ContError("fail", st)])  // Termination channel
+Cont.terminate<int>([ContError.withStackTrace("fail", st)])  // Termination channel
   .map((x) => x + 1)        // Skipped (no value to process)
   .elseDo((errors) {
     return Cont.of(42);     // Recovers → switches back to value channel
@@ -644,7 +651,7 @@ This is a dramatic improvement over the nested callback style!
 Use `elseDo` to recover from termination by providing a fallback:
 
 ```dart
-Cont.terminate<int>([ContError("fail", StackTrace.current)])
+Cont.terminate<int>([ContError.capture("fail")])
   .elseDo((errors) {
     print("Caught: ${errors[0].error}");
     return Cont.of(42); // recover with default value
@@ -1182,7 +1189,7 @@ Cont<E, T> myComputation<E, T>() {
       observer.onValue(result);
     } catch (error, stackTrace) {
       // Signal termination
-      observer.onTerminate([ContError(error, stackTrace)]);
+      observer.onTerminate([ContError.withStackTrace(error, stackTrace)]);
     }
   });
 }
@@ -1220,7 +1227,7 @@ Cont<E, String> readFile<E>(String path) {
     File(path).readAsString().then(
       (contents) => observer.onValue(contents),
       onError: (error, stackTrace) {
-        observer.onTerminate([ContError(error, stackTrace)]);
+        observer.onTerminate([ContError.withStackTrace(error, stackTrace)]);
       },
     );
   });
@@ -1401,7 +1408,7 @@ Cont<E, String> longRunningFetch<E>(String url) {
       onError: (error, st) {
         // Only emit errors if not cancelled
         if (!runtime.isCancelled()) {
-          observer.onTerminate([ContError(error, st)]);
+          observer.onTerminate([ContError.withStackTrace(error, st)]);
         }
       },
     );
@@ -1441,7 +1448,7 @@ Cont<E, Data> processWithCleanup<E>() {
     } catch (error, st) {
       // Only emit error if not cancelled
       if (!runtime.isCancelled()) {
-        observer.onTerminate([ContError(error, st)]);
+        observer.onTerminate([ContError.withStackTrace(error, st)]);
       }
     } finally {
       // Always clean up
@@ -1471,7 +1478,7 @@ Cont<E, T> pollUntil<E, T>({
 
       if (attempts >= maxAttempts) {
         observer.onTerminate([
-          ContError("Max attempts reached", StackTrace.current)
+          ContError.capture("Max attempts reached")
         ]);
         return;
       }

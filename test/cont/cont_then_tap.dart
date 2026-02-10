@@ -27,9 +27,7 @@ void main() {
     });
 
     test('passes through termination', () {
-      final errors = [
-        ContError('err1', StackTrace.current),
-      ];
+      final errors = [ContError.capture('err1')];
       List<ContError>? received;
 
       Cont.terminate<(), int>(errors)
@@ -43,10 +41,7 @@ void main() {
     test('terminates when side effect terminates', () {
       final cont = Cont.of<(), int>(42).thenTap(
         (a) => Cont.terminate<(), String>([
-          ContError(
-            'side effect error',
-            StackTrace.current,
-          ),
+          ContError.capture('side effect error'),
         ]),
       );
 
@@ -206,7 +201,7 @@ void main() {
       final cont = Cont.of<(), int>(42).thenTap(
         (a) => Cont.fromRun<(), Never>((runtime, observer) {
           observer.onTerminate([
-            ContError("never error", StackTrace.current),
+            ContError.capture("never error"),
           ]);
         }),
       );

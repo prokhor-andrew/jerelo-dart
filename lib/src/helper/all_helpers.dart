@@ -61,7 +61,9 @@ Cont<E, List<A>> _allSequence<E, A>(List<Cont<E, A>> list) {
             ),
           );
         } catch (error, st) {
-          callback(_Right([ContError(error, st)]));
+          callback(
+            _Right([ContError.withStackTrace(error, st)]),
+          );
         }
       },
       escape: (either) {
@@ -117,7 +119,9 @@ Cont<E, List<A>> _allMergeWhenAll<E, A>(
           ),
         );
       } catch (error, st) {
-        observer.onTerminate([ContError(error, st)]);
+        observer.onTerminate([
+          ContError.withStackTrace(error, st),
+        ]);
       }
       return;
     }
@@ -179,10 +183,11 @@ Cont<E, List<A>> _allMergeWhenAll<E, A>(
         i += 1;
         final seedCopy = seed;
         if (seedCopy == null) {
-          seed = [ContError(error, st)];
+          seed = [ContError.withStackTrace(error, st)];
         } else {
           final safeCopyOfResultErrors =
-              seedCopy + [ContError(error, st)];
+              seedCopy +
+              [ContError.withStackTrace(error, st)];
           seed = safeCopyOfResultErrors;
         }
 
@@ -257,7 +262,9 @@ Cont<E, List<A>> _allQuitFast<E, A>(List<Cont<E, A>> list) {
           ),
         );
       } catch (error, st) {
-        handleTerminate([ContError(error, st)]);
+        handleTerminate([
+          ContError.withStackTrace(error, st),
+        ]);
       }
     }
   });

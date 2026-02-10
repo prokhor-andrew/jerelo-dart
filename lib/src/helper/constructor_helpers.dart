@@ -35,9 +35,11 @@ Cont<E, A> _fromRun<E, A>(
         observer.onTerminate(errors);
       } catch (error, st) {
         try {
-          runtime.onPanic(ContError(error, st));
+          runtime.onPanic(
+            ContError.withStackTrace(error, st),
+          );
         } catch (error, st) {
-          _panic(ContError(error, st));
+          _panic(ContError.withStackTrace(error, st));
         }
       }
     }
@@ -55,9 +57,11 @@ Cont<E, A> _fromRun<E, A>(
         observer.onValue(a);
       } catch (error, st) {
         try {
-          runtime.onPanic(ContError(error, st));
+          runtime.onPanic(
+            ContError.withStackTrace(error, st),
+          );
         } catch (error, st) {
-          _panic(ContError(error, st));
+          _panic(ContError.withStackTrace(error, st));
         }
       }
     }
@@ -68,7 +72,9 @@ Cont<E, A> _fromRun<E, A>(
         ContObserver._(guardedTerminate, guardedValue),
       );
     } catch (error, st) {
-      guardedTerminate([ContError(error, st)]);
+      guardedTerminate([
+        ContError.withStackTrace(error, st),
+      ]);
     }
   });
 }

@@ -56,7 +56,12 @@ Cont<E, A> _asLongAs<E, A>(
                   callback(
                     _Right(
                       _Right(
-                        _Right([ContError(error, st)]),
+                        _Right([
+                          ContError.withStackTrace(
+                            error,
+                            st,
+                          ),
+                        ]),
                       ),
                     ),
                   );
@@ -66,7 +71,13 @@ Cont<E, A> _asLongAs<E, A>(
           );
         } catch (error, st) {
           callback(
-            _Right(_Right(_Right([ContError(error, st)]))),
+            _Right(
+              _Right(
+                _Right([
+                  ContError.withStackTrace(error, st),
+                ]),
+              ),
+            ),
           );
         }
       },

@@ -7,9 +7,7 @@ void main() {
       var sideEffectErrors = <ContError>[];
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([
-            ContError('err1', StackTrace.current),
-          ])
+      Cont.terminate<(), int>([ContError.capture('err1')])
           .elseTap((e) {
             sideEffectErrors = e;
             return Cont.terminate<(), int>([]);
@@ -28,7 +26,7 @@ void main() {
         List<ContError>? errors;
 
         Cont.terminate<(), int>([
-              ContError('original', StackTrace.current),
+              ContError.capture('original'),
             ])
             .elseTap((e) => Cont.terminate<(), int>([]))
             .run((), onTerminate: (e) => errors = e);
@@ -42,7 +40,7 @@ void main() {
       int? value;
 
       Cont.terminate<(), int>([
-            ContError('original', StackTrace.current),
+            ContError.capture('original'),
           ])
           .elseTap((e) => Cont.of(42))
           .run((), onValue: (val) => value = val);
@@ -54,11 +52,11 @@ void main() {
       List<ContError>? errors;
 
       Cont.terminate<(), int>([
-            ContError('original', StackTrace.current),
+            ContError.capture('original'),
           ])
           .elseTap((e) {
             return Cont.terminate<(), int>([
-              ContError('side effect', StackTrace.current),
+              ContError.capture('side effect'),
             ]);
           })
           .run((), onTerminate: (e) => errors = e);
@@ -85,7 +83,7 @@ void main() {
     test('terminates when side effect builder throws', () {
       final cont =
           Cont.terminate<(), int>([
-            ContError('original', StackTrace.current),
+            ContError.capture('original'),
           ]).elseTap((errors) {
             throw 'Side Effect Builder Error';
           });
@@ -103,9 +101,7 @@ void main() {
       final effects = <String>[];
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([
-            ContError('err1', StackTrace.current),
-          ])
+      Cont.terminate<(), int>([ContError.capture('err1')])
           .elseTap((e) {
             effects.add('first');
             return Cont.terminate<(), int>([]);
@@ -175,7 +171,7 @@ void main() {
             buffer.add(() {
               if (runtime.isCancelled()) return;
               observer.onTerminate([
-                ContError('error', StackTrace.current),
+                ContError.capture('error'),
               ]);
             });
           }).elseTap((errors) {
@@ -192,17 +188,13 @@ void main() {
     });
 
     test('provides defensive copy of errors', () {
-      final originalErrors = [
-        ContError('err1', StackTrace.current),
-      ];
+      final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
       Cont.terminate<(), int>(originalErrors)
           .elseTap((errors) {
             receivedErrors = errors;
-            errors.add(
-              ContError('err2', StackTrace.current),
-            );
+            errors.add(ContError.capture('err2'));
             return Cont.terminate<(), int>([]);
           })
           .run((), onTerminate: (_) {});
@@ -234,9 +226,7 @@ void main() {
     test('recovers with value-returning side effect', () {
       int? value;
 
-      Cont.terminate<(), int>([
-            ContError('error', StackTrace.current),
-          ])
+      Cont.terminate<(), int>([ContError.capture('error')])
           .elseTap((errors) => Cont.of(100))
           .run((), onValue: (val) => value = val);
 
@@ -250,7 +240,7 @@ void main() {
       Cont.of<(), int>(10)
           .thenDo(
             (a) => Cont.terminate<(), int>([
-              ContError('error', StackTrace.current),
+              ContError.capture('error'),
             ]),
           )
           .elseTap((e) {

@@ -30,7 +30,7 @@ Cont<E, A> _elseDo<E, A>(
           );
         } catch (error, st) {
           observer.onTerminate([
-            ContError(error, st),
+            ContError.withStackTrace(error, st),
           ]); // we return latest error
         }
       }),
@@ -113,7 +113,8 @@ Cont<E, A> _elseZip<E, A>(
           );
         } catch (error, st) {
           final combinedErrors =
-              errors + [ContError(error, st)];
+              errors +
+              [ContError.withStackTrace(error, st)];
           observer.onTerminate(combinedErrors);
         }
       }),

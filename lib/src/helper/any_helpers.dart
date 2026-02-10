@@ -71,7 +71,10 @@ Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
           callback(
             _Left((
               index + 1,
-              [...errors, ContError(error, st)],
+              [
+                ...errors,
+                ContError.withStackTrace(error, st),
+              ],
             )),
           );
         }
@@ -134,7 +137,9 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
           ),
         );
       } catch (error, st) {
-        observer.onTerminate([ContError(error, st)]);
+        observer.onTerminate([
+          ContError.withStackTrace(error, st),
+        ]);
       }
       return;
     }
@@ -210,7 +215,9 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
                 } catch (error, st) {
                   i -=
                       1; // we have to remove 1 step, as we gonna increment it again below
-                  handleTermination([ContError(error, st)]);
+                  handleTermination([
+                    ContError.withStackTrace(error, st),
+                  ]);
                   return;
                 }
               }
@@ -233,7 +240,7 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
           return;
         }
 
-        errors.add(ContError(error, st));
+        errors.add(ContError.withStackTrace(error, st));
 
         if (i >= safeCopy.length) {
           observer.onTerminate(errors);
@@ -311,7 +318,9 @@ Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
           ),
         );
       } catch (error, st) {
-        handleTerminate(i, [ContError(error, st)]);
+        handleTerminate(i, [
+          ContError.withStackTrace(error, st),
+        ]);
       }
     }
   });

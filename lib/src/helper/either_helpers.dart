@@ -55,7 +55,9 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
             combine(firstValue, secondValue),
           );
         } catch (error, st) {
-          observer.onTerminate([ContError(error, st)]);
+          observer.onTerminate([
+            ContError.withStackTrace(error, st),
+          ]);
         }
         return;
       }
@@ -89,7 +91,9 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
         final result = outerLeft! + outerRight!;
         observer.onTerminate(result);
       } catch (error, st) {
-        observer.onTerminate([ContError(error, st)]);
+        observer.onTerminate([
+          ContError.withStackTrace(error, st),
+        ]);
       }
     }
 
@@ -114,7 +118,7 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
         ),
       );
     } catch (error, st) {
-      outerLeft = [ContError(error, st)];
+      outerLeft = [ContError.withStackTrace(error, st)];
       handleTerminate(true);
     }
 
@@ -139,7 +143,7 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
         ),
       );
     } catch (error, st) {
-      outerRight = [ContError(error, st)];
+      outerRight = [ContError.withStackTrace(error, st)];
       handleTerminate(false);
     }
   });
@@ -210,7 +214,10 @@ Cont<E, A> _eitherQuitFast<E, A>(
       );
     } catch (error, st) {
       handleTerminate(() {
-        resultErrors.insert(0, ContError(error, st));
+        resultErrors.insert(
+          0,
+          ContError.withStackTrace(error, st),
+        );
       });
     }
 
@@ -223,7 +230,9 @@ Cont<E, A> _eitherQuitFast<E, A>(
       );
     } catch (error, st) {
       handleTerminate(() {
-        resultErrors.add(ContError(error, st));
+        resultErrors.add(
+          ContError.withStackTrace(error, st),
+        );
       });
     }
   });

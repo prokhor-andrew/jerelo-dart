@@ -27,9 +27,7 @@ void main() {
     test('preserves termination', () {
       List<ContError>? errors;
 
-      Cont.terminate<int, int>([
-            ContError('err', StackTrace.current),
-          ])
+      Cont.terminate<int, int>([ContError.capture('err')])
           .local<String>((str) => str.length)
           .run('hello', onTerminate: (e) => errors = e);
 

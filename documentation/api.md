@@ -100,12 +100,48 @@ Wraps an error object together with its stack trace, providing a consistent way 
 - `error: Object` - The error object that was caught or created
 - `stackTrace: StackTrace` - The stack trace captured at the point where the error occurred
 
-**Constructor:**
-```dart
-const ContError(Object error, StackTrace stackTrace)
-```
+**Static Factory Methods:**
 
-Creates an error wrapper containing an error and stack trace.
+```dart
+static ContError withStackTrace(Object error, StackTrace st)
+```
+Creates an error wrapper from an error and an existing stack trace. Use this when you have already caught an error and its associated stack trace, for example inside a `catch` block.
+
+- **Parameters:**
+  - `error`: The error object to wrap
+  - `st`: The stack trace associated with the error
+
+```dart
+static ContError withNoStackTrace(Object error)
+```
+Creates an error wrapper with an empty stack trace. Use this when the stack trace is not available or not relevant, for example when creating a logical termination reason that does not originate from a thrown exception.
+
+- **Parameters:**
+  - `error`: The error object to wrap
+
+```dart
+static ContError capture(Object error)
+```
+Creates an error wrapper and captures the current stack trace automatically. Use this when you want to create an error at the call site and record where it was created.
+
+- **Parameters:**
+  - `error`: The error object to wrap
+
+**Example:**
+```dart
+// From a catch block — use withStackTrace
+try {
+  riskyOperation();
+} catch (error, st) {
+  observer.onTerminate([ContError.withStackTrace(error, st)]);
+}
+
+// Logical termination without a stack trace
+ContError.withNoStackTrace('User not found');
+
+// Capture the stack trace at the call site
+ContError.capture('Something went wrong');
+```
 
 ---
 
@@ -1540,7 +1576,7 @@ Executes the continuation expecting only termination. This is a convenience meth
 
 **Example:**
 ```dart
-final cont = Cont.terminate<MyEnv, Never>([ContError(Exception('Failed'), StackTrace.current)]);
+final cont = Cont.terminate<MyEnv, Never>([ContError.capture(Exception('Failed'))]);
 cont.trap(myEnv, onTerminate: (errors) {
   print('Terminated with ${errors.length} error(s)');
 });

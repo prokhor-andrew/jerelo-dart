@@ -68,8 +68,8 @@ void main() {
 
     test('Cont.map passes through termination', () {
       final errors = [
-        ContError('err1', StackTrace.current),
-        ContError('err2', StackTrace.current),
+        ContError.capture('err1'),
+        ContError.capture('err2'),
       ];
       final cont = Cont.terminate<(), int>(
         errors,

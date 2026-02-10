@@ -32,9 +32,7 @@ void main() {
     test('passes through original termination', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([
-            ContError('err', StackTrace.current),
-          ])
+      Cont.terminate<(), int>([ContError.capture('err')])
           .when((n) => n > 0)
           .run((), onTerminate: (e) => errors = e);
 
@@ -379,7 +377,7 @@ void main() {
             iterations++;
             if (iterations == 3) {
               return Cont.terminate<(), int>([
-                ContError('loop error', StackTrace.current),
+                ContError.capture('loop error'),
               ]);
             }
             return Cont.of(iterations);
@@ -491,7 +489,7 @@ void main() {
         iterations++;
         if (iterations == 5) {
           return Cont.terminate<(), int>([
-            ContError('stop', StackTrace.current),
+            ContError.capture('stop'),
           ]);
         }
         return Cont.of(iterations);

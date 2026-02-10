@@ -44,7 +44,9 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
         final c = combine(outerA1 as A1, outerA2 as A2);
         observer.onValue(c);
       } catch (error, st) {
-        observer.onTerminate([ContError(error, st)]);
+        observer.onTerminate([
+          ContError.withStackTrace(error, st),
+        ]);
       }
     }
 
@@ -113,7 +115,9 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
         ),
       );
     } catch (error, st) {
-      handleTerminate(true, [ContError(error, st)]);
+      handleTerminate(true, [
+        ContError.withStackTrace(error, st),
+      ]);
     }
 
     try {
@@ -129,7 +133,9 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
         ),
       );
     } catch (error, st) {
-      handleTerminate(false, [ContError(error, st)]);
+      handleTerminate(false, [
+        ContError.withStackTrace(error, st),
+      ]);
     }
   });
 }
@@ -166,7 +172,9 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
         final c = combine(outerA1 as A1, outerA2 as A2);
         observer.onValue(c);
       } catch (error, st) {
-        observer.onTerminate([ContError(error, st)]);
+        observer.onTerminate([
+          ContError.withStackTrace(error, st),
+        ]);
       }
     }
 
@@ -200,7 +208,10 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
       );
     } catch (error, st) {
       handleTerminate(() {
-        resultErrors.insert(0, ContError(error, st));
+        resultErrors.insert(
+          0,
+          ContError.withStackTrace(error, st),
+        );
       });
     }
 
@@ -228,7 +239,9 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
       );
     } catch (error, st) {
       handleTerminate(() {
-        resultErrors.add(ContError(error, st));
+        resultErrors.add(
+          ContError.withStackTrace(error, st),
+        );
       });
     }
   });

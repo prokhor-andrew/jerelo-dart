@@ -32,7 +32,7 @@ void main() {
         List<ContError>? errors;
         final cont = Cont.fromDeferred<(), int>(() {
           return Cont.terminate([
-            ContError("deferred error", StackTrace.current),
+            ContError.capture("deferred error"),
           ]);
         });
 
@@ -153,7 +153,7 @@ void main() {
           return Cont.fromRun((runtime, observer) {
             buffer.add(() {
               observer.onTerminate([
-                ContError("error", StackTrace.current),
+                ContError.capture("error"),
               ]);
             });
           });
@@ -181,7 +181,7 @@ void main() {
             observer,
           ) {
             observer.onTerminate([
-              ContError("never error", StackTrace.current),
+              ContError.capture("never error"),
             ]);
           });
         });

@@ -15,12 +15,10 @@ void main() {
     test('combines errors when both fail', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([
-            ContError('err1', StackTrace.current),
-          ])
+      Cont.terminate<(), int>([ContError.capture('err1')])
           .elseZip((e) {
             return Cont.terminate<(), int>([
-              ContError('err2', StackTrace.current),
+              ContError.capture('err2'),
             ]);
           })
           .run((), onTerminate: (e) => errors = e);
@@ -33,7 +31,7 @@ void main() {
     test('receives original error information', () {
       List<ContError>? receivedErrors;
       Cont.terminate<(), int>([
-            ContError('original', StackTrace.current),
+            ContError.capture('original'),
           ])
           .elseZip((errors) {
             receivedErrors = errors;
@@ -65,7 +63,7 @@ void main() {
       List<ContError>? errors;
 
       Cont.terminate<(), int>([
-            ContError('original', StackTrace.current),
+            ContError.capture('original'),
           ])
           .elseZip((e) => Cont.of(100))
           .run(
@@ -82,13 +80,13 @@ void main() {
       List<ContError>? errors;
 
       Cont.terminate<(), int>([
-            ContError('err1', StackTrace.current),
-            ContError('err2', StackTrace.current),
+            ContError.capture('err1'),
+            ContError.capture('err2'),
           ])
           .elseZip((e) {
             return Cont.terminate<(), int>([
-              ContError('err3', StackTrace.current),
-              ContError('err4', StackTrace.current),
+              ContError.capture('err3'),
+              ContError.capture('err4'),
             ]);
           })
           .run((), onTerminate: (e) => errors = e);
@@ -119,12 +117,10 @@ void main() {
     test('supports chaining', () {
       int? value;
 
-      Cont.terminate<(), int>([
-            ContError('err1', StackTrace.current),
-          ])
+      Cont.terminate<(), int>([ContError.capture('err1')])
           .elseZip(
             (e) => Cont.terminate<(), int>([
-              ContError('err2', StackTrace.current),
+              ContError.capture('err2'),
             ]),
           )
           .elseZip((e) => Cont.of(42))
@@ -136,17 +132,15 @@ void main() {
     test('accumulates errors in chained failures', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([
-            ContError('err1', StackTrace.current),
-          ])
+      Cont.terminate<(), int>([ContError.capture('err1')])
           .elseZip(
             (e) => Cont.terminate<(), int>([
-              ContError('err2', StackTrace.current),
+              ContError.capture('err2'),
             ]),
           )
           .elseZip(
             (e) => Cont.terminate<(), int>([
-              ContError('err3', StackTrace.current),
+              ContError.capture('err3'),
             ]),
           )
           .run((), onTerminate: (e) => errors = e);
@@ -213,7 +207,7 @@ void main() {
             buffer.add(() {
               if (runtime.isCancelled()) return;
               observer.onTerminate([
-                ContError('error', StackTrace.current),
+                ContError.capture('error'),
               ]);
             });
           }).elseZip((errors) {
@@ -235,17 +229,13 @@ void main() {
     });
 
     test('provides defensive copy of errors', () {
-      final originalErrors = [
-        ContError('err1', StackTrace.current),
-      ];
+      final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
       Cont.terminate<(), int>(originalErrors)
           .elseZip((errors) {
             receivedErrors = errors;
-            errors.add(
-              ContError('err2', StackTrace.current),
-            );
+            errors.add(ContError.capture('err2'));
             return Cont.of(0);
           })
           .run(());
@@ -260,19 +250,19 @@ void main() {
 
       final cont1 =
           Cont.terminate<(), int>([
-            ContError('err1', StackTrace.current),
+            ContError.capture('err1'),
           ]).elseZip0(
             () => Cont.terminate<(), int>([
-              ContError('err2', StackTrace.current),
+              ContError.capture('err2'),
             ]),
           );
 
       final cont2 =
           Cont.terminate<(), int>([
-            ContError('err1', StackTrace.current),
+            ContError.capture('err1'),
           ]).elseZip(
             (_) => Cont.terminate<(), int>([
-              ContError('err2', StackTrace.current),
+              ContError.capture('err2'),
             ]),
           );
 
@@ -287,12 +277,8 @@ void main() {
       List<ContError>? elseDoErrors;
       List<ContError>? elseZipErrors;
 
-      final original = [
-        ContError('original', StackTrace.current),
-      ];
-      final fallback = [
-        ContError('fallback', StackTrace.current),
-      ];
+      final original = [ContError.capture('original')];
+      final fallback = [ContError.capture('fallback')];
 
       Cont.terminate<(), int>(original)
           .elseDo((e) => Cont.terminate<(), int>(fallback))

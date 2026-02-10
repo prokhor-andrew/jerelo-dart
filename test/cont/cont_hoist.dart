@@ -24,9 +24,7 @@ void main() {
     test(
       'Cont.hoist forwards termination when f delegates to run',
       () {
-        final errors = [
-          ContError('err1', StackTrace.current),
-        ];
+        final errors = [ContError.capture('err1')];
         final cont = Cont.terminate<(), int>(errors).hoist((
           run,
           runtime,
@@ -112,7 +110,7 @@ void main() {
 
     test('Cont.hoist identity preserves termination', () {
       final cont1 = Cont.terminate<(), int>([
-        ContError('err', StackTrace.current),
+        ContError.capture('err'),
       ]);
       final cont2 = cont1.hoist((run, runtime, observer) {
         run(runtime, observer);
@@ -279,7 +277,7 @@ void main() {
     test('Cont.hoist can replace observer onTerminate', () {
       final cont =
           Cont.terminate<(), int>([
-            ContError('original', StackTrace.current),
+            ContError.capture('original'),
           ]).hoist((run, runtime, observer) {
             final newObserver = observer
                 .copyUpdateOnTerminate(

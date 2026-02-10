@@ -17,10 +17,7 @@ void main() {
     test(
       'Cont.terminate calls onTerminate with provided errors',
       () {
-        final error = ContError(
-          'test error',
-          StackTrace.current,
-        );
+        final error = ContError.capture('test error');
         List<ContError>? errors;
         final cont = Cont.terminate<(), int>([error]);
 
@@ -31,14 +28,8 @@ void main() {
     );
 
     test('Cont.terminate with multiple errors', () {
-      final error1 = ContError(
-        'error 1',
-        StackTrace.current,
-      );
-      final error2 = ContError(
-        'error 2',
-        StackTrace.current,
-      );
+      final error1 = ContError.capture('error 1');
+      final error2 = ContError.capture('error 2');
       List<ContError>? errors;
       final cont = Cont.terminate<(), int>([
         error1,
@@ -87,15 +78,12 @@ void main() {
       'Cont.terminate defensively copies the input error list',
       () {
         final errors = <ContError>[
-          ContError('original', StackTrace.current),
+          ContError.capture('original'),
         ];
         final cont = Cont.terminate<(), int>(errors);
 
         errors.add(
-          ContError(
-            'added after creation',
-            StackTrace.current,
-          ),
+          ContError.capture('added after creation'),
         );
 
         List<ContError>? received;
@@ -110,7 +98,7 @@ void main() {
       'Cont.terminate defensively copies errors on each run',
       () {
         final cont = Cont.terminate<(), int>([
-          ContError('error', StackTrace.current),
+          ContError.capture('error'),
         ]);
 
         List<ContError>? firstRun;
@@ -120,7 +108,7 @@ void main() {
           (),
           onTerminate: (e) {
             firstRun = e;
-            e.add(ContError('mutated', StackTrace.current));
+            e.add(ContError.capture('mutated'));
           },
         );
 

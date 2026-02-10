@@ -37,7 +37,7 @@ Cont<E, A> _bracket<E, R, A>({
             return cont;
           } catch (error, st) {
             return Cont.terminate<E, ()>([
-              ContError(error, st),
+              ContError.withStackTrace(error, st),
             ]);
           }
         }
@@ -89,14 +89,16 @@ Cont<E, A> _bracket<E, R, A>({
           switch (useResult) {
             case _Left<A, List<ContError>>():
               // Use succeeded but release setup failed
-              observer.onTerminate([ContError(error, st)]);
+              observer.onTerminate([
+                ContError.withStackTrace(error, st),
+              ]);
             case _Right<A, List<ContError>>(
               value: final useErrors,
             ):
               // Both use and release setup failed
               final combinedErrors = [
                 ...useErrors,
-                ContError(error, st),
+                ContError.withStackTrace(error, st),
               ];
               observer.onTerminate(combinedErrors);
           }
@@ -134,7 +136,9 @@ Cont<E, A> _bracket<E, R, A>({
         );
       } catch (error, st) {
         // Exception while setting up use phase - still release
-        doRelease(_Right([ContError(error, st)]));
+        doRelease(
+          _Right([ContError.withStackTrace(error, st)]),
+        );
       }
     });
   });

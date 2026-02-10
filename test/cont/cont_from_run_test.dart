@@ -78,7 +78,7 @@ void main() {
           observer,
         ) {
           observer.onTerminate([
-            ContError("random error", StackTrace.current),
+            ContError.capture("random error"),
           ]);
         });
 
@@ -129,10 +129,10 @@ void main() {
         observer,
       ) {
         observer.onTerminate([
-          ContError("random error", StackTrace.current),
+          ContError.capture("random error"),
         ]);
         observer.onTerminate([
-          ContError("random error2", StackTrace.current),
+          ContError.capture("random error2"),
         ]);
       });
 
@@ -153,7 +153,7 @@ void main() {
         ) {
           observer.onValue(15);
           observer.onTerminate([
-            ContError("random error", StackTrace.current),
+            ContError.capture("random error"),
           ]);
         });
 
@@ -181,7 +181,7 @@ void main() {
           observer,
         ) {
           observer.onTerminate([
-            ContError("random error", StackTrace.current),
+            ContError.capture("random error"),
           ]);
           observer.onValue(15);
         });
@@ -212,11 +212,12 @@ void main() {
     });
 
     test('Cont.fromRun errors defensive copy', () {
-      final errors0 = [0, 1, 2, 3]
-          .map(
-            (value) => ContError(value, StackTrace.current),
-          )
-          .toList();
+      final errors0 = [
+        0,
+        1,
+        2,
+        3,
+      ].map((value) => ContError.capture(value)).toList();
       List<ContError>? errors1 = null;
 
       final cont = Cont.fromRun<(), int>((
@@ -237,7 +238,7 @@ void main() {
       cont.run(
         (),
         onTerminate: (errors) {
-          errors.add(ContError(4, StackTrace.current));
+          errors.add(ContError.capture(4));
           errors1 = errors;
         },
       );
@@ -439,7 +440,7 @@ void main() {
           observer,
         ) {
           observer.onTerminate([
-            ContError("first error", StackTrace.current),
+            ContError.capture("first error"),
           ]);
           throw 'error after terminate';
         });
@@ -504,7 +505,7 @@ void main() {
         ) {
           buffer.add(() {
             observer.onTerminate([
-              ContError("error", StackTrace.current),
+              ContError.capture("error"),
             ]);
           });
         });

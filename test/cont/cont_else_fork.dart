@@ -7,7 +7,7 @@ void main() {
       List<ContError>? errors;
 
       Cont.terminate<(), int>([
-            ContError('original', StackTrace.current),
+            ContError.capture('original'),
           ])
           .elseFork((e) => Cont.of(()))
           .run((), onTerminate: (e) => errors = e);
@@ -28,9 +28,7 @@ void main() {
         buffer.clear();
       }
 
-      Cont.terminate<(), int>([
-            ContError('err', StackTrace.current),
-          ])
+      Cont.terminate<(), int>([ContError.capture('err')])
           .elseFork((e) {
             return Cont.fromRun<(), ()>((
               runtime,
@@ -71,7 +69,7 @@ void main() {
       }
 
       Cont.terminate<(), int>([
-            ContError('original', StackTrace.current),
+            ContError.capture('original'),
           ])
           .elseFork((e) {
             return Cont.fromRun<(), ()>((
@@ -80,10 +78,7 @@ void main() {
             ) {
               buffer.add(() {
                 observer.onTerminate([
-                  ContError(
-                    'fork error',
-                    StackTrace.current,
-                  ),
+                  ContError.capture('fork error'),
                 ]);
               });
             });
@@ -141,9 +136,7 @@ void main() {
         buffer.clear();
       }
 
-      Cont.terminate<(), int>([
-            ContError('err', StackTrace.current),
-          ])
+      Cont.terminate<(), int>([ContError.capture('err')])
           .elseFork((e) {
             return Cont.fromRun<(), ()>((
               runtime,
@@ -262,7 +255,7 @@ void main() {
             buffer.add(() {
               if (runtime.isCancelled()) return;
               observer.onTerminate([
-                ContError('error', StackTrace.current),
+                ContError.capture('error'),
               ]);
             });
           }).elseFork((errors) {
@@ -279,17 +272,13 @@ void main() {
     });
 
     test('provides defensive copy of errors', () {
-      final originalErrors = [
-        ContError('err1', StackTrace.current),
-      ];
+      final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
       Cont.terminate<(), int>(originalErrors)
           .elseFork((errors) {
             receivedErrors = errors;
-            errors.add(
-              ContError('err2', StackTrace.current),
-            );
+            errors.add(ContError.capture('err2'));
             return Cont.of(());
           })
           .run((), onTerminate: (_) {});
@@ -352,9 +341,7 @@ void main() {
         buffer.clear();
       }
 
-      Cont.terminate<(), int>([
-            ContError('err', StackTrace.current),
-          ])
+      Cont.terminate<(), int>([ContError.capture('err')])
           .elseFork((e) {
             return Cont.fromRun<(), ()>((
               runtime,
@@ -374,9 +361,7 @@ void main() {
             },
           );
 
-      Cont.terminate<(), int>([
-            ContError('err', StackTrace.current),
-          ])
+      Cont.terminate<(), int>([ContError.capture('err')])
           .elseTap((e) {
             order.add('tap-side-effect');
             return Cont.of(8);

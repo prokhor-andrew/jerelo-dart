@@ -72,10 +72,7 @@ void main() {
             ) {
               buffer.add(() {
                 observer.onTerminate([
-                  ContError(
-                    'fork error',
-                    StackTrace.current,
-                  ),
+                  ContError.capture('fork error'),
                 ]);
               });
             });
@@ -88,9 +85,7 @@ void main() {
     });
 
     test('passes through termination', () {
-      final errors = [
-        ContError('err1', StackTrace.current),
-      ];
+      final errors = [ContError.capture('err1')];
       List<ContError>? received;
 
       Cont.terminate<(), int>(errors)

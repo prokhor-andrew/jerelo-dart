@@ -53,7 +53,9 @@ Cont<E, A2> _thenDo<E, A, A2>(
           }
           contA2._run(runtime, observer);
         } catch (error, st) {
-          observer.onTerminate([ContError(error, st)]);
+          observer.onTerminate([
+            ContError.withStackTrace(error, st),
+          ]);
         }
       }),
     );

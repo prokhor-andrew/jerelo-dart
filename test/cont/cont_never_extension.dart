@@ -7,7 +7,7 @@ void main() {
       List<ContError>? errors;
 
       Cont.terminate<(), Never>([
-        ContError('err', StackTrace.current),
+        ContError.capture('err'),
       ]).trap((), onTerminate: (e) => errors = e);
 
       expect(errors!.length, 1);
@@ -27,7 +27,7 @@ void main() {
 
     test('never calls onPanic on termination', () {
       Cont.terminate<(), Never>([
-        ContError('err', StackTrace.current),
+        ContError.capture('err'),
       ]).trap(
         (),
         onPanic: (_) => fail('Should not be called'),
@@ -43,7 +43,7 @@ void main() {
         iterations++;
         if (iterations == 3) {
           return Cont.terminate<(), int>([
-            ContError('stop', StackTrace.current),
+            ContError.capture('stop'),
           ]);
         }
         return Cont.of(iterations);
@@ -69,7 +69,7 @@ void main() {
       var callCount = 0;
 
       final cont = Cont.terminate<(), Never>([
-        ContError('err', StackTrace.current),
+        ContError.capture('err'),
       ]);
 
       cont.trap((), onTerminate: (_) => callCount++);
@@ -112,7 +112,7 @@ void main() {
       ContError? panic;
 
       Cont.terminate<(), Never>([
-        ContError('err', StackTrace.current),
+        ContError.capture('err'),
       ]).trap(
         (),
         onPanic: (error) => panic = error,
@@ -136,12 +136,9 @@ void main() {
     test('preserves termination', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), Never>([
-        ContError('err', StackTrace.current),
-      ]).absurd<String>().run(
-        (),
-        onTerminate: (e) => errors = e,
-      );
+      Cont.terminate<(), Never>([ContError.capture('err')])
+          .absurd<String>()
+          .run((), onTerminate: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'err');
@@ -149,7 +146,7 @@ void main() {
 
     test('never produces value', () {
       Cont.terminate<(), Never>([
-        ContError('err', StackTrace.current),
+        ContError.capture('err'),
       ]).absurd<int>().run(
         (),
         onValue: (_) => fail('Should never be called'),
@@ -177,7 +174,7 @@ void main() {
         iterations++;
         if (iterations == 5) {
           return Cont.terminate<(), int>([
-            ContError('stop', StackTrace.current),
+            ContError.capture('stop'),
           ]);
         }
         return Cont.of(iterations);
@@ -206,7 +203,7 @@ void main() {
       var callCount = 0;
 
       final cont = Cont.terminate<(), Never>([
-        ContError('err', StackTrace.current),
+        ContError.capture('err'),
       ]).absurd<int>();
 
       cont.run((), onTerminate: (_) => callCount++);
@@ -218,7 +215,7 @@ void main() {
 
     test('never calls onPanic', () {
       Cont.terminate<(), Never>([
-        ContError('err', StackTrace.current),
+        ContError.capture('err'),
       ]).absurd<int>().run(
         (),
         onPanic: (_) => fail('Should not be called'),
@@ -259,7 +256,7 @@ void main() {
       List<ContError>? errors;
 
       final neverCont = Cont.terminate<(), Never>([
-        ContError('never error', StackTrace.current),
+        ContError.capture('never error'),
       ]);
 
       final intCont = Cont.of<(), int>(42);
@@ -276,9 +273,7 @@ void main() {
     test('supports chaining with map', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), Never>([
-            ContError('err', StackTrace.current),
-          ])
+      Cont.terminate<(), Never>([ContError.capture('err')])
           .absurd<int>()
           .map((n) => n * 2)
           .run(
