@@ -230,5 +230,21 @@ void main() {
 
       expect(value, 'Result: 30');
     });
+
+    test(
+      'Cont.thenDo0 is thenDo with ignored input',
+      () {
+        final cont1 = Cont.of<(), int>(0).thenDo0(() => Cont.of(5));
+        final cont2 = Cont.of<(), int>(0).thenDo((_) => Cont.of(5));
+
+        int? value1;
+        int? value2;
+
+        cont1.run((), onValue: (val1) => value1 = val1);
+        cont2.run((), onValue: (val2) => value2 = val2);
+
+        expect(value1, value2);
+      },
+    );
   });
 }
