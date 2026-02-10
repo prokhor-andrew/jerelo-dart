@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('Cont.thenDo', () {
-    test('Cont.thenDo runs on value channel', () {
+    test('executes on value channel', () {
       int? value;
       Cont.of<(), int>(0)
           .thenDo((a) => Cont.of(a + 2))
@@ -12,7 +12,7 @@ void main() {
       expect(value, 2);
     });
 
-    test('Cont.thenDo monad right identity law', () {
+    test('preserves monad right identity law', () {
       int? value1;
       int? value2;
 
@@ -26,7 +26,7 @@ void main() {
       expect(value1, value2);
     });
 
-    test('Cont.thenDo monad left identity law', () {
+    test('preserves monad left identity law', () {
       int? value1;
       int? value2;
 
@@ -39,7 +39,7 @@ void main() {
       expect(value1, value2);
     });
 
-    test('Cont.thenDo monad associativity law', () {
+    test('preserves monad associativity law', () {
       int? value2;
       int? value3;
 
@@ -59,7 +59,7 @@ void main() {
       expect(value2, value3);
     });
 
-    test('Cont.thenDo ignore terminate channel', () {
+    test('never executes on termination', () {
       final cont = Cont.terminate<(), int>().thenDo(
         (a) => Cont.of(a * 2),
       );
@@ -70,7 +70,7 @@ void main() {
       );
     });
 
-    test('Cont.thenDo throw terminates', () {
+    test('terminates when function throws', () {
       final cont = Cont.of<(), int>(0).thenDo((val) {
         throw 'Thrown Error';
       });
@@ -84,7 +84,7 @@ void main() {
       expect(error!.error, 'Thrown Error');
     });
 
-    test('Cont.thenDo transforms types', () {
+    test('transforms value types', () {
       String? value;
 
       Cont.of<(), int>(42)
@@ -94,45 +94,36 @@ void main() {
       expect(value, 'value: 42');
     });
 
-    test(
-      'Cont.thenDo calls onTerminate when terminated',
-      () {
-        List<ContError>? errors;
+    test('delivers termination when source terminates', () {
+      List<ContError>? errors;
 
-        Cont.terminate<(), int>()
-            .thenDo((a) => Cont.of(a * 2))
-            .run((), onTerminate: (e) => errors = e);
+      Cont.terminate<(), int>()
+          .thenDo((a) => Cont.of(a * 2))
+          .run((), onTerminate: (e) => errors = e);
 
-        expect(errors, isNotNull);
-        expect(errors, isEmpty);
-      },
-    );
+      expect(errors, isNotNull);
+      expect(errors, isEmpty);
+    });
 
-    test(
-      'Cont.thenDo passes through termination errors',
-      () {
-        final inputErrors = [
-          ContError('err1', StackTrace.current),
-          ContError('err2', StackTrace.current),
-        ];
+    test('passes through termination errors', () {
+      final inputErrors = [
+        ContError('err1', StackTrace.current),
+        ContError('err2', StackTrace.current),
+      ];
 
-        List<ContError>? receivedErrors;
+      List<ContError>? receivedErrors;
 
-        Cont.terminate<(), int>(inputErrors)
-            .thenDo((val) => Cont.of(val + 5))
-            .run(
-              (),
-              onTerminate: (e) => receivedErrors = e,
-            );
+      Cont.terminate<(), int>(inputErrors)
+          .thenDo((val) => Cont.of(val + 5))
+          .run((), onTerminate: (e) => receivedErrors = e);
 
-        expect(receivedErrors!.length, 2);
-        expect(receivedErrors![0].error, 'err1');
-        expect(receivedErrors![1].error, 'err2');
-      },
-    );
+      expect(receivedErrors!.length, 2);
+      expect(receivedErrors![0].error, 'err1');
+      expect(receivedErrors![1].error, 'err2');
+    });
 
     test(
-      'Cont.thenDo terminates when returned continuation terminates',
+      'terminates when returned continuation terminates',
       () {
         final cont = Cont.of<(), int>(
           5,
@@ -147,7 +138,7 @@ void main() {
       },
     );
 
-    test('Cont.thenDo can be run multiple times', () {
+    test('supports multiple runs', () {
       final cont = Cont.of<(), int>(
         10,
       ).thenDo((val) => Cont.of(val * 3));
@@ -161,7 +152,7 @@ void main() {
       expect(value2, 30);
     });
 
-    test('Cont.thenDo with null value', () {
+    test('supports null values', () {
       String? value = 'initial';
 
       Cont.of<(), String?>(null)
@@ -171,7 +162,7 @@ void main() {
       expect(value, null);
     });
 
-    test('Cont.thenDo does not call onPanic', () {
+    test('never calls onPanic', () {
       Cont.of<(), int>(0)
           .thenDo((val) => Cont.of(val + 5))
           .run(
@@ -182,7 +173,7 @@ void main() {
     });
 
     test(
-      'Cont.thenDo cancellation prevents thenDo execution',
+      'prevents thenDo execution after cancellation',
       () {
         bool thenDoCalled = false;
 
@@ -219,7 +210,7 @@ void main() {
       },
     );
 
-    test('Cont.thenDo chains multiple operations', () {
+    test('supports chaining multiple operations', () {
       String? value;
 
       Cont.of<(), int>(10)
@@ -231,20 +222,21 @@ void main() {
       expect(value, 'Result: 30');
     });
 
-    test(
-      'Cont.thenDo0 is thenDo with ignored input',
-      () {
-        final cont1 = Cont.of<(), int>(0).thenDo0(() => Cont.of(5));
-        final cont2 = Cont.of<(), int>(0).thenDo((_) => Cont.of(5));
+    test('thenDo0 ignores input value', () {
+      final cont1 = Cont.of<(), int>(
+        0,
+      ).thenDo0(() => Cont.of(5));
+      final cont2 = Cont.of<(), int>(
+        0,
+      ).thenDo((_) => Cont.of(5));
 
-        int? value1;
-        int? value2;
+      int? value1;
+      int? value2;
 
-        cont1.run((), onValue: (val1) => value1 = val1);
-        cont2.run((), onValue: (val2) => value2 = val2);
+      cont1.run((), onValue: (val1) => value1 = val1);
+      cont2.run((), onValue: (val2) => value2 = val2);
 
-        expect(value1, value2);
-      },
-    );
+      expect(value1, value2);
+    });
   });
 }

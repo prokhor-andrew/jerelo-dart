@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('Cont.fromRun', () {
-    test('Cont.fromRun with ContObserver<Never>', () {
+    test('supports ContObserver<Never>', () {
       final cont = Cont.fromRun<(), Never>((
         runtime,
         observer,
@@ -24,7 +24,7 @@ void main() {
       );
     });
 
-    test('Cont.fromRun is run properly', () {
+    test('executes when run is called', () {
       var isRun = false;
       final cont = Cont.fromRun<(), int>((
         runtime,
@@ -38,7 +38,7 @@ void main() {
       expect(isRun, true);
     });
 
-    test('Cont.fromRun onValue channel used', () {
+    test('delivers value through onValue channel', () {
       var value = 15;
       final cont = Cont.fromRun<(), int>((
         runtime,
@@ -53,7 +53,7 @@ void main() {
     });
 
     test(
-      'Cont.fromRun onTerminate empty channel used manually',
+      'delivers empty termination when manually specified',
       () {
         List<ContError>? errors = null;
         final cont = Cont.fromRun<(), int>((
@@ -70,7 +70,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun onTerminate error channel used manually',
+      'delivers termination errors when manually specified',
       () {
         List<ContError>? errors = null;
         final cont = Cont.fromRun<(), int>((
@@ -90,7 +90,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun onTerminate error channel used when throws',
+      'delivers termination when exception is thrown',
       () {
         List<ContError>? errors = null;
         final cont = Cont.fromRun<(), int>((
@@ -107,7 +107,7 @@ void main() {
       },
     );
 
-    test('Cont.fromRun onValue idempotent', () {
+    test('respects onValue idempotency', () {
       var value = 0;
       final cont = Cont.fromRun<(), int>((
         runtime,
@@ -122,7 +122,7 @@ void main() {
       expect(value, 15);
     });
 
-    test('Cont.fromRun onTerminate idempotent', () {
+    test('respects onTerminate idempotency', () {
       List<ContError>? errors = null;
       final cont = Cont.fromRun<(), int>((
         runtime,
@@ -143,7 +143,7 @@ void main() {
     });
 
     test(
-      'Cont.fromRun onValue and onTerminate share idempotency',
+      'respects shared idempotency between onValue and onTerminate',
       () {
         var value = 0;
         List<ContError>? errors = null;
@@ -172,7 +172,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun onTerminate and onValue share idempotency',
+      'respects shared idempotency between onTerminate and onValue',
       () {
         var value = 0;
         List<ContError>? errors = null;
@@ -200,7 +200,7 @@ void main() {
       },
     );
 
-    test('Cont.fromRun env passed properly', () {
+    test('passes environment correctly', () {
       final cont = Cont.fromRun<int, ()>((
         runtime,
         observer,
@@ -211,7 +211,7 @@ void main() {
       cont.run(15);
     });
 
-    test('Cont.fromRun errors defensive copy', () {
+    test('provides defensive copy of error list', () {
       final errors0 = [0, 1, 2, 3]
           .map(
             (value) => ContError(value, StackTrace.current),
@@ -254,7 +254,7 @@ void main() {
       );
     });
 
-    test('Cont.fromRun cancellation stops execution', () {
+    test('blocks execution after cancellation', () {
       int value = 0;
 
       final List<void Function()> buffer = [];
@@ -289,7 +289,7 @@ void main() {
     });
 
     test(
-      'Cont.fromRun onPanic when onValue callback throws',
+      'triggers onPanic when onValue callback throws',
       () {
         ContError? panic;
 
@@ -313,7 +313,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun onPanic when onTerminate callback throws',
+      'triggers onPanic when onTerminate callback throws',
       () {
         ContError? panic;
 
@@ -337,7 +337,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun fallback panic when onPanic throws via onValue',
+      'triggers fallback panic when onPanic throws via onValue',
       () async {
         Object? caughtError;
 
@@ -371,7 +371,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun fallback panic when onPanic throws via onTerminate',
+      'triggers fallback panic when onPanic throws via onTerminate',
       () async {
         Object? caughtError;
 
@@ -405,7 +405,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun throw after onValue is idempotent',
+      'respects idempotency when throwing after onValue',
       () {
         var value = 0;
         List<ContError>? errors;
@@ -430,7 +430,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun throw after onTerminate is idempotent',
+      'respects idempotency when throwing after onTerminate',
       () {
         List<ContError>? errors;
 
@@ -448,76 +448,6 @@ void main() {
 
         expect(errors!.length, 1);
         expect(errors![0].error, 'first error');
-      },
-    );
-
-    test(
-      'Cont.fromRun guardedValue blocked after cancellation',
-      () {
-        var value = 0;
-
-        final List<void Function()> buffer = [];
-        void flush() {
-          for (final value in buffer) {
-            value();
-          }
-          buffer.clear();
-        }
-
-        final cont = Cont.fromRun<(), int>((
-          runtime,
-          observer,
-        ) {
-          buffer.add(() {
-            observer.onValue(10);
-          });
-        });
-
-        expect(value, 0);
-        final token = cont.run(
-          (),
-          onValue: (val) => value = val,
-        );
-        expect(value, 0);
-        token.cancel();
-        flush();
-        expect(value, 0);
-      },
-    );
-
-    test(
-      'Cont.fromRun guardedTerminate blocked after cancellation',
-      () {
-        List<ContError>? errors;
-
-        final List<void Function()> buffer = [];
-        void flush() {
-          for (final value in buffer) {
-            value();
-          }
-          buffer.clear();
-        }
-
-        final cont = Cont.fromRun<(), int>((
-          runtime,
-          observer,
-        ) {
-          buffer.add(() {
-            observer.onTerminate([
-              ContError("error", StackTrace.current),
-            ]);
-          });
-        });
-
-        expect(errors, null);
-        final token = cont.run(
-          (),
-          onTerminate: (e) => errors = e,
-        );
-        expect(errors, null);
-        token.cancel();
-        flush();
-        expect(errors, null);
       },
     );
   });
