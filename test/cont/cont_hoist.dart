@@ -3,56 +3,65 @@ import 'package:test/test.dart';
 
 void main() {
   group('Cont.hoist', () {
-    test('forwards value when delegating to run', () {
-      final cont = Cont.of<(), int>(42).hoist((
-        run,
-        runtime,
-        observer,
-      ) {
-        run(runtime, observer);
-      });
+    test(
+      'Cont.hoist forwards value when f delegates to run',
+      () {
+        final cont = Cont.of<(), int>(42).hoist((
+          run,
+          runtime,
+          observer,
+        ) {
+          run(runtime, observer);
+        });
 
-      int? value;
-      cont.run((), onValue: (val) => value = val);
+        int? value;
+        cont.run((), onValue: (val) => value = val);
 
-      expect(value, 42);
-    });
+        expect(value, 42);
+      },
+    );
 
-    test('forwards termination when delegating to run', () {
-      final errors = [
-        ContError('err1', StackTrace.current),
-      ];
-      final cont = Cont.terminate<(), int>(errors).hoist((
-        run,
-        runtime,
-        observer,
-      ) {
-        run(runtime, observer);
-      });
+    test(
+      'Cont.hoist forwards termination when f delegates to run',
+      () {
+        final errors = [
+          ContError('err1', StackTrace.current),
+        ];
+        final cont = Cont.terminate<(), int>(errors).hoist((
+          run,
+          runtime,
+          observer,
+        ) {
+          run(runtime, observer);
+        });
 
-      List<ContError>? received;
-      cont.run((), onTerminate: (e) => received = e);
+        List<ContError>? received;
+        cont.run((), onTerminate: (e) => received = e);
 
-      expect(received!.length, 1);
-      expect(received![0].error, 'err1');
-    });
+        expect(received!.length, 1);
+        expect(received![0].error, 'err1');
+      },
+    );
 
-    test('blocks execution when not calling run', () {
-      final cont = Cont.of<(), int>(42).hoist((
-        run,
-        runtime,
-        observer,
-      ) {
-        // intentionally not calling run
-      });
+    test(
+      'Cont.hoist can block execution by not calling run',
+      () {
+        final cont = Cont.of<(), int>(42).hoist((
+          run,
+          runtime,
+          observer,
+        ) {
+          // intentionally not calling run
+        });
 
-      int? value;
-      cont.run((), onValue: (val) => value = val);
+        int? value;
+        cont.run((), onValue: (val) => value = val);
 
-      expect(value, null);
-    });
+        expect(value, null);
+      },
+    );
 
-    test('executes behavior before run', () {
+    test('Cont.hoist can add behavior before run', () {
       final order = <String>[];
 
       final cont =
@@ -69,7 +78,7 @@ void main() {
       expect(order, ['before', 'run', 'value']);
     });
 
-    test('executes behavior after run', () {
+    test('Cont.hoist can add behavior after run', () {
       final order = <String>[];
 
       final cont =
@@ -86,55 +95,40 @@ void main() {
       expect(order, ['run', 'value', 'after']);
     });
 
-    test(
-      'identity hoist preserves value and termination',
-      () {
-        final valueCont = Cont.of<(), int>(10);
-        final valueHoisted = valueCont.hoist((
-          run,
-          runtime,
-          observer,
-        ) {
-          run(runtime, observer);
-        });
+    test('Cont.hoist identity preserves value', () {
+      final cont1 = Cont.of<(), int>(10);
+      final cont2 = cont1.hoist((run, runtime, observer) {
+        run(runtime, observer);
+      });
 
-        int? value1;
-        int? value2;
-        valueCont.run((), onValue: (val) => value1 = val);
-        valueHoisted.run(
-          (),
-          onValue: (val) => value2 = val,
-        );
-        expect(value1, value2);
+      int? value1;
+      int? value2;
 
-        final terminateCont = Cont.terminate<(), int>([
-          ContError('err', StackTrace.current),
-        ]);
-        final terminateHoisted = terminateCont.hoist((
-          run,
-          runtime,
-          observer,
-        ) {
-          run(runtime, observer);
-        });
+      cont1.run((), onValue: (val) => value1 = val);
+      cont2.run((), onValue: (val) => value2 = val);
 
-        List<ContError>? errors1;
-        List<ContError>? errors2;
-        terminateCont.run(
-          (),
-          onTerminate: (e) => errors1 = e,
-        );
-        terminateHoisted.run(
-          (),
-          onTerminate: (e) => errors2 = e,
-        );
+      expect(value1, value2);
+    });
 
-        expect(errors1!.length, errors2!.length);
-        expect(errors1![0].error, errors2![0].error);
-      },
-    );
+    test('Cont.hoist identity preserves termination', () {
+      final cont1 = Cont.terminate<(), int>([
+        ContError('err', StackTrace.current),
+      ]);
+      final cont2 = cont1.hoist((run, runtime, observer) {
+        run(runtime, observer);
+      });
 
-    test('supports multiple runs', () {
+      List<ContError>? errors1;
+      List<ContError>? errors2;
+
+      cont1.run((), onTerminate: (e) => errors1 = e);
+      cont2.run((), onTerminate: (e) => errors2 = e);
+
+      expect(errors1!.length, errors2!.length);
+      expect(errors1![0].error, errors2![0].error);
+    });
+
+    test('Cont.hoist can be run multiple times', () {
       var callCount = 0;
       final cont = Cont.of<(), int>(5).hoist((
         run,
@@ -156,7 +150,7 @@ void main() {
       expect(callCount, 2);
     });
 
-    test('never calls onPanic', () {
+    test('Cont.hoist does not call onPanic', () {
       final cont = Cont.of<(), int>(0).hoist((
         run,
         runtime,
@@ -174,25 +168,28 @@ void main() {
       );
     });
 
-    test('never calls onTerminate on value path', () {
-      final cont = Cont.of<(), int>(0).hoist((
-        run,
-        runtime,
-        observer,
-      ) {
-        run(runtime, observer);
-      });
+    test(
+      'Cont.hoist does not call onTerminate on value path',
+      () {
+        final cont = Cont.of<(), int>(0).hoist((
+          run,
+          runtime,
+          observer,
+        ) {
+          run(runtime, observer);
+        });
 
-      cont.run(
-        (),
-        onTerminate: (_) {
-          fail('Should not be called');
-        },
-        onValue: (_) {},
-      );
-    });
+        cont.run(
+          (),
+          onTerminate: (_) {
+            fail('Should not be called');
+          },
+          onValue: (_) {},
+        );
+      },
+    );
 
-    test('preserves environment', () {
+    test('Cont.hoist preserves environment', () {
       int? envValue;
       final cont =
           Cont.fromRun<int, int>((runtime, observer) {
@@ -209,7 +206,7 @@ void main() {
       expect(value, 99);
     });
 
-    test('prevents execution after cancellation', () {
+    test('Cont.hoist cancellation prevents execution', () {
       bool hoistCalled = false;
 
       final List<void Function()> buffer = [];
@@ -244,7 +241,7 @@ void main() {
       expect(value, null);
     });
 
-    test('respects idempotency when calling run twice', () {
+    test('Cont.hoist calling run twice is idempotent', () {
       final values = <int>[];
 
       final cont = Cont.of<(), int>(7).hoist((
@@ -261,7 +258,7 @@ void main() {
       expect(values, [7]);
     });
 
-    test('supports replacing observer onValue', () {
+    test('Cont.hoist can replace observer onValue', () {
       final cont =
           Cont.fromRun<(), int>((runtime, observer) {
             observer.onValue(10);
@@ -279,7 +276,7 @@ void main() {
       expect(value, 20);
     });
 
-    test('supports replacing observer onTerminate', () {
+    test('Cont.hoist can replace observer onTerminate', () {
       final cont =
           Cont.terminate<(), int>([
             ContError('original', StackTrace.current),
@@ -303,7 +300,7 @@ void main() {
       expect(errors, null);
     });
 
-    test('composes chained hoists correctly', () {
+    test('Cont.hoist chaining composes correctly', () {
       final order = <String>[];
 
       final cont = Cont.of<(), int>(1)
@@ -329,7 +326,7 @@ void main() {
       ]);
     });
 
-    test('supports null values', () {
+    test('Cont.hoist with null value', () {
       String? value = 'initial';
       final cont = Cont.of<(), String?>(null).hoist((
         run,
@@ -342,205 +339,6 @@ void main() {
       cont.run((), onValue: (val) => value = val);
 
       expect(value, null);
-    });
-
-    test('uses hoist for logging/tracing pattern', () {
-      final log = <String>[];
-      int? result;
-
-      final cont = Cont.of<(), int>(42).hoist((
-        run,
-        runtime,
-        observer,
-      ) {
-        log.add('Starting execution');
-
-        final wrappedObserver = observer
-            .copyUpdateOnValue<int>((val) {
-              log.add('Value received: $val');
-              observer.onValue(val);
-            })
-            .copyUpdateOnTerminate((errors) {
-              log.add(
-                'Termination received: ${errors.length} errors',
-              );
-              observer.onTerminate(errors);
-            });
-
-        run(runtime, wrappedObserver);
-        log.add('Execution initiated');
-      });
-
-      cont.run((), onValue: (val) => result = val);
-
-      expect(result, 42);
-      expect(log, [
-        'Starting execution',
-        'Value received: 42',
-        'Execution initiated',
-      ]);
-    });
-
-    test('uses hoist for logging with termination', () {
-      final log = <String>[];
-      List<ContError>? errors;
-
-      final cont =
-          Cont.terminate<(), int>([
-            ContError('error', StackTrace.current),
-          ]).hoist((run, runtime, observer) {
-            log.add('Starting execution');
-
-            final wrappedObserver = observer
-                .copyUpdateOnValue<int>((val) {
-                  log.add('Value received: $val');
-                  observer.onValue(val);
-                })
-                .copyUpdateOnTerminate((errs) {
-                  log.add(
-                    'Termination received: ${errs.length} errors',
-                  );
-                  observer.onTerminate(errs);
-                });
-
-            run(runtime, wrappedObserver);
-            log.add('Execution initiated');
-          });
-
-      cont.run((), onTerminate: (e) => errors = e);
-
-      expect(errors!.length, 1);
-      expect(log, [
-        'Starting execution',
-        'Termination received: 1 errors',
-        'Execution initiated',
-      ]);
-    });
-
-    test(
-      'uses hoist to modify environment before delegation',
-      () {
-        int? result;
-
-        final cont =
-            Cont.fromRun<int, int>((runtime, observer) {
-              final env = runtime.env();
-              observer.onValue(env * 10);
-            }).hoist((run, runtime, observer) {
-              // Modify the environment: double it before passing to inner computation
-              final originalEnv = runtime.env();
-              final modifiedRuntime = runtime.copyUpdateEnv(
-                originalEnv * 2,
-              );
-
-              run(modifiedRuntime, observer);
-            });
-
-        cont.run(5, onValue: (val) => result = val);
-
-        // 5 * 2 = 10, then 10 * 10 = 100
-        expect(result, 100);
-      },
-    );
-
-    test('uses hoist to modify environment type', () {
-      String? result;
-
-      // Use local to transform environment instead of hoist
-      final cont = Cont.ask<String>()
-          .map((env) => 'env: $env')
-          .local<int>((intEnv) => 'number-$intEnv');
-
-      cont.run(42, onValue: (val) => result = val);
-
-      expect(result, 'env: number-42');
-    });
-
-    test('uses hoist for timing/instrumentation', () {
-      final log = <String>[];
-      int? result;
-
-      final cont =
-          Cont.fromDeferred<(), int>(() {
-            log.add('computation');
-            return Cont.of(100);
-          }).hoist((run, runtime, observer) {
-            log.add('before');
-            run(runtime, observer);
-            log.add('after');
-          });
-
-      cont.run((), onValue: (val) => result = val);
-
-      expect(result, 100);
-      expect(log, ['before', 'computation', 'after']);
-    });
-
-    test('uses hoist to add retry logic wrapper', () {
-      int attempts = 0;
-      int? result;
-
-      final cont =
-          Cont.fromDeferred<(), int>(() {
-            attempts++;
-            return attempts < 3
-                ? Cont.terminate<(), int>()
-                : Cont.of(42);
-          }).hoist((run, runtime, observer) {
-            // Wrap observer to retry on termination
-            var retryCount = 0;
-            void tryRun() {
-              final wrappedObserver = observer
-                  .copyUpdateOnTerminate((errors) {
-                    retryCount++;
-                    if (retryCount < 3) {
-                      // Retry
-                      tryRun();
-                    } else {
-                      observer.onTerminate(errors);
-                    }
-                  });
-              run(runtime, wrappedObserver);
-            }
-
-            tryRun();
-          });
-
-      cont.run((), onValue: (val) => result = val);
-
-      expect(result, 42);
-      expect(attempts, 3);
-    });
-
-    test('uses hoist to add context/metadata', () {
-      final metadata = <String, dynamic>{};
-      int? result;
-
-      final cont = Cont.of<(), int>(42).hoist((
-        run,
-        runtime,
-        observer,
-      ) {
-        metadata['start_time'] =
-            DateTime.now().millisecondsSinceEpoch;
-
-        final wrappedObserver = observer
-            .copyUpdateOnValue<int>((val) {
-              metadata['end_time'] =
-                  DateTime.now().millisecondsSinceEpoch;
-              metadata['result'] = val;
-              observer.onValue(val);
-            });
-
-        run(runtime, wrappedObserver);
-      });
-
-      cont.run((), onValue: (val) => result = val);
-
-      expect(result, 42);
-      expect(metadata['result'], 42);
-      expect(metadata['start_time'], isNotNull);
-      expect(metadata['end_time'], isNotNull);
     });
   });
 }

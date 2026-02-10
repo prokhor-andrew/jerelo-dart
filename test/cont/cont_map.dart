@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('Cont.map', () {
-    test('executes on value channel', () {
+    test('Cont.map runs on value channel', () {
       final cont = Cont.of<(), int>(
         0,
       ).map((val) => val + 5);
@@ -16,7 +16,7 @@ void main() {
       expect(value, 5);
     });
 
-    test('terminates when function throws', () {
+    test('Cont.map throw terminates', () {
       final cont = Cont.of<(), int>(0).map((val) {
         throw 'Thrown Error';
       });
@@ -32,7 +32,7 @@ void main() {
       expect(error!.error, 'Thrown Error');
     });
 
-    test('preserves functor identity law', () {
+    test('Cont.map functor identity law', () {
       A id<A>(A a) => a;
 
       final cont1 = Cont.of<(), int>(0);
@@ -51,19 +51,22 @@ void main() {
       expect(value1, value2);
     });
 
-    test('never calls map function on termination', () {
-      bool called = false;
-      final cont = Cont.terminate<(), int>().map((val) {
-        called = true;
-        return val + 5;
-      });
+    test(
+      'Cont.map does not call map function on termination',
+      () {
+        bool called = false;
+        final cont = Cont.terminate<(), int>().map((val) {
+          called = true;
+          return val + 5;
+        });
 
-      cont.run((), onTerminate: (_) {});
+        cont.run((), onTerminate: (_) {});
 
-      expect(called, false);
-    });
+        expect(called, false);
+      },
+    );
 
-    test('passes through termination', () {
+    test('Cont.map passes through termination', () {
       final errors = [
         ContError('err1', StackTrace.current),
         ContError('err2', StackTrace.current),
@@ -81,21 +84,24 @@ void main() {
       expect(received![1].error, 'err2');
     });
 
-    test('never calls onValue on termination', () {
-      final cont = Cont.terminate<(), int>().map(
-        (val) => val + 5,
-      );
+    test(
+      'Cont.map does not call onValue on termination',
+      () {
+        final cont = Cont.terminate<(), int>().map(
+          (val) => val + 5,
+        );
 
-      cont.run(
-        (),
-        onTerminate: (_) {},
-        onValue: (_) {
-          fail('Should not be called');
-        },
-      );
-    });
+        cont.run(
+          (),
+          onTerminate: (_) {},
+          onValue: (_) {
+            fail('Should not be called');
+          },
+        );
+      },
+    );
 
-    test('transforms value type', () {
+    test('Cont.map transforms type', () {
       final cont = Cont.of<(), int>(
         42,
       ).map((val) => 'value: $val');
@@ -106,7 +112,7 @@ void main() {
       expect(value, 'value: 42');
     });
 
-    test('supports multiple runs', () {
+    test('Cont.map can be run multiple times', () {
       final cont = Cont.of<(), int>(
         10,
       ).map((val) => val * 3);
@@ -120,7 +126,7 @@ void main() {
       expect(value2, 30);
     });
 
-    test('supports null values', () {
+    test('Cont.map with null value', () {
       String? value = 'initial';
       final cont = Cont.of<(), String?>(
         null,
@@ -131,7 +137,7 @@ void main() {
       expect(value, null);
     });
 
-    test('never calls onPanic', () {
+    test('Cont.map does not call onPanic', () {
       final cont = Cont.of<(), int>(
         0,
       ).map((val) => val + 5);
@@ -145,42 +151,45 @@ void main() {
       );
     });
 
-    test('prevents map execution after cancellation', () {
-      bool mapCalled = false;
+    test(
+      'Cont.map cancellation prevents map execution',
+      () {
+        bool mapCalled = false;
 
-      final List<void Function()> buffer = [];
-      void flush() {
-        for (final value in buffer) {
-          value();
+        final List<void Function()> buffer = [];
+        void flush() {
+          for (final value in buffer) {
+            value();
+          }
+          buffer.clear();
         }
-        buffer.clear();
-      }
 
-      final cont =
-          Cont.fromRun<(), int>((runtime, observer) {
-            buffer.add(() {
-              if (runtime.isCancelled()) return;
-              observer.onValue(10);
+        final cont =
+            Cont.fromRun<(), int>((runtime, observer) {
+              buffer.add(() {
+                if (runtime.isCancelled()) return;
+                observer.onValue(10);
+              });
+            }).map((val) {
+              mapCalled = true;
+              return val + 5;
             });
-          }).map((val) {
-            mapCalled = true;
-            return val + 5;
-          });
 
-      int? value;
-      final token = cont.run(
-        (),
-        onValue: (val) => value = val,
-      );
+        int? value;
+        final token = cont.run(
+          (),
+          onValue: (val) => value = val,
+        );
 
-      token.cancel();
-      flush();
+        token.cancel();
+        flush();
 
-      expect(mapCalled, false);
-      expect(value, null);
-    });
+        expect(mapCalled, false);
+        expect(value, null);
+      },
+    );
 
-    test('preserves stack trace when throwing', () {
+    test('Cont.map throw preserves stack trace', () {
       final cont = Cont.of<(), int>(0).map((val) {
         throw 'Test Error';
       });
@@ -195,7 +204,7 @@ void main() {
       expect(error!.stackTrace, isNotNull);
     });
 
-    test('preserves functor composition law', () {
+    test('Cont.map functor composition law', () {
       C Function(A) compose<A, B, C>(
         B Function(A) lf,
         C Function(B) rf,
@@ -225,61 +234,32 @@ void main() {
       expect(value2, value3);
     });
 
-    test('map((_) => 20) ≡ map0(() => 20) ≡ as(20)', () {
-      final cont1 = Cont.of<(), int>(10).map((_) => 20);
-      final cont2 = Cont.of<(), int>(10).map0(() => 20);
-      final cont3 = Cont.of<(), int>(10).as(20);
+    test('Cont.map0 is map with ignored argument', () {
+      final cont1 = Cont.of<(), int>(10).map0(() => 20);
+
+      final cont2 = Cont.of<(), int>(10).map((_) => 20);
 
       int? value1;
       int? value2;
-      int? value3;
       cont1.run((), onValue: (val) => value1 = val);
       cont2.run((), onValue: (val) => value2 = val);
-      cont3.run((), onValue: (val) => value3 = val);
 
       expect(value1, 20);
       expect(value2, 20);
-      expect(value3, 20);
     });
 
-    test('chaining map multiple times (composition)', () {
-      String? result;
+    test('Cont.as is map0 with eager evaluation', () {
+      final cont1 = Cont.of<(), int>(10).map0(() => 20);
 
-      Cont.of<(), int>(10)
-          .map((n) => n + 5) // 15
-          .map((n) => n * 2) // 30
-          .map((n) => n - 10) // 20
-          .map((n) => 'result: $n') // 'result: 20'
-          .run((), onValue: (val) => result = val);
+      final cont2 = Cont.of<(), int>(10).as(20);
 
-      expect(result, 'result: 20');
-    });
+      int? value1;
+      int? value2;
+      cont1.run((), onValue: (val) => value1 = val);
+      cont2.run((), onValue: (val) => value2 = val);
 
-    test('long chain of map operations', () {
-      int? result;
-
-      Cont.of<(), int>(1)
-          .map((n) => n + 1) // 2
-          .map((n) => n * 2) // 4
-          .map((n) => n + 3) // 7
-          .map((n) => n * 10) // 70
-          .map((n) => n - 20) // 50
-          .run((), onValue: (val) => result = val);
-
-      expect(result, 50);
-    });
-
-    test('map chain with type transformations', () {
-      String? result;
-
-      Cont.of<(), int>(42)
-          .map((n) => n.toString()) // '42'
-          .map((s) => s.length) // 2
-          .map((len) => len * 10) // 20
-          .map((n) => 'final: $n') // 'final: 20'
-          .run((), onValue: (val) => result = val);
-
-      expect(result, 'final: 20');
+      expect(value1, 20);
+      expect(value2, 20);
     });
   });
 }

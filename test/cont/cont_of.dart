@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('Cont.of', () {
-    test('produces value immediately', () {
+    test('Cont.of is run correctly', () {
       var value = 15;
       final cont = Cont.of<(), int>(0);
 
@@ -12,7 +12,7 @@ void main() {
       expect(value, 0);
     });
 
-    test('never calls onTerminate', () {
+    test('Cont.of does not call onTerminate', () {
       final cont = Cont.of<(), int>(0);
 
       cont.run(
@@ -24,7 +24,7 @@ void main() {
       );
     });
 
-    test('never calls onPanic', () {
+    test('Cont.of does not call onPanic', () {
       final cont = Cont.of<(), int>(0);
 
       cont.run(
@@ -36,7 +36,7 @@ void main() {
       );
     });
 
-    test('supports multiple runs', () {
+    test('Cont.of can be run multiple times', () {
       var value = 0;
       final cont = Cont.of<(), int>(15);
 
@@ -48,7 +48,7 @@ void main() {
       expect(value, 15);
     });
 
-    test('supports null values', () {
+    test('Cont.of with null value', () {
       String? value = 'initial';
       final cont = Cont.of<(), String?>(null);
 

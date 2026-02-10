@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('Cont.ask', () {
-    test('returns environment value unchanged', () {
+    test('Cont.ask triggers onValue with same value', () {
       final cont = Cont.ask<int>();
 
       var value = 0;
@@ -20,7 +20,7 @@ void main() {
       expect(value, 5);
     });
 
-    test('returns null environment unchanged', () {
+    test('Cont.ask triggers onValue with same null', () {
       final cont = Cont.ask<int?>();
 
       int? value = 0;
@@ -37,7 +37,7 @@ void main() {
       expect(value, null);
     });
 
-    test('preserves environment identity', () {
+    test('Cont.ask preserves environment identity', () {
       final env = [1, 2, 3];
       final cont = Cont.ask<List<int>>();
 
@@ -53,7 +53,7 @@ void main() {
       expect(identical(env, received), isTrue);
     });
 
-    test('never calls onTerminate', () {
+    test('Cont.ask does not trigger onTerminate', () {
       final cont = Cont.ask<int>();
 
       cont.run(
@@ -64,7 +64,7 @@ void main() {
       );
     });
 
-    test('never calls onPanic', () {
+    test('Cont.ask does not trigger onPanic', () {
       final cont = Cont.ask<int>();
 
       cont.run(
@@ -75,7 +75,7 @@ void main() {
       );
     });
 
-    test('supports multiple runs', () {
+    test('Cont.ask can be run multiple times', () {
       var callCount = 0;
       final cont = Cont.ask<int>();
 

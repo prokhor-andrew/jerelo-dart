@@ -3,28 +3,34 @@ import 'package:test/test.dart';
 
 void main() {
   group('Cont.terminate', () {
-    test('terminates with empty error list by default', () {
-      List<ContError>? errors;
-      final cont = Cont.terminate<(), int>();
+    test(
+      'Cont.terminate calls onTerminate with empty errors by default',
+      () {
+        List<ContError>? errors;
+        final cont = Cont.terminate<(), int>();
 
-      cont.run((), onTerminate: (e) => errors = e);
-      expect(errors, []);
-    });
+        cont.run((), onTerminate: (e) => errors = e);
+        expect(errors, []);
+      },
+    );
 
-    test('terminates with provided errors', () {
-      final error = ContError(
-        'test error',
-        StackTrace.current,
-      );
-      List<ContError>? errors;
-      final cont = Cont.terminate<(), int>([error]);
+    test(
+      'Cont.terminate calls onTerminate with provided errors',
+      () {
+        final error = ContError(
+          'test error',
+          StackTrace.current,
+        );
+        List<ContError>? errors;
+        final cont = Cont.terminate<(), int>([error]);
 
-      cont.run((), onTerminate: (e) => errors = e);
-      expect(errors, hasLength(1));
-      expect(errors![0].error, 'test error');
-    });
+        cont.run((), onTerminate: (e) => errors = e);
+        expect(errors, hasLength(1));
+        expect(errors![0].error, 'test error');
+      },
+    );
 
-    test('supports multiple errors', () {
+    test('Cont.terminate with multiple errors', () {
       final error1 = ContError(
         'error 1',
         StackTrace.current,
@@ -45,7 +51,7 @@ void main() {
       expect(errors![1].error, 'error 2');
     });
 
-    test('never calls onValue', () {
+    test('Cont.terminate does not call onValue', () {
       final cont = Cont.terminate<(), int>();
 
       cont.run(
@@ -56,7 +62,7 @@ void main() {
       );
     });
 
-    test('never calls onPanic', () {
+    test('Cont.terminate does not call onPanic', () {
       final cont = Cont.terminate<(), int>();
 
       cont.run(
@@ -67,7 +73,7 @@ void main() {
       );
     });
 
-    test('supports multiple runs', () {
+    test('Cont.terminate can be run multiple times', () {
       var callCount = 0;
       final cont = Cont.terminate<(), int>();
 
@@ -77,50 +83,56 @@ void main() {
       expect(callCount, 2);
     });
 
-    test('provides defensive copy of input error list', () {
-      final errors = <ContError>[
-        ContError('original', StackTrace.current),
-      ];
-      final cont = Cont.terminate<(), int>(errors);
+    test(
+      'Cont.terminate defensively copies the input error list',
+      () {
+        final errors = <ContError>[
+          ContError('original', StackTrace.current),
+        ];
+        final cont = Cont.terminate<(), int>(errors);
 
-      errors.add(
-        ContError(
-          'added after creation',
-          StackTrace.current,
-        ),
-      );
+        errors.add(
+          ContError(
+            'added after creation',
+            StackTrace.current,
+          ),
+        );
 
-      List<ContError>? received;
-      cont.run((), onTerminate: (e) => received = e);
+        List<ContError>? received;
+        cont.run((), onTerminate: (e) => received = e);
 
-      expect(received, hasLength(1));
-      expect(received![0].error, 'original');
-    });
+        expect(received, hasLength(1));
+        expect(received![0].error, 'original');
+      },
+    );
 
-    test('provides defensive copy on each run', () {
-      final cont = Cont.terminate<(), int>([
-        ContError('error', StackTrace.current),
-      ]);
+    test(
+      'Cont.terminate defensively copies errors on each run',
+      () {
+        final cont = Cont.terminate<(), int>([
+          ContError('error', StackTrace.current),
+        ]);
 
-      List<ContError>? firstRun;
-      List<ContError>? secondRun;
+        List<ContError>? firstRun;
+        List<ContError>? secondRun;
 
-      cont.run(
-        (),
-        onTerminate: (e) {
-          firstRun = e;
-          e.add(ContError('mutated', StackTrace.current));
-        },
-      );
+        cont.run(
+          (),
+          onTerminate: (e) {
+            firstRun = e;
+            e.add(ContError('mutated', StackTrace.current));
+          },
+        );
 
-      cont.run((), onTerminate: (e) => secondRun = e);
+        cont.run((), onTerminate: (e) => secondRun = e);
 
-      expect(firstRun, hasLength(2));
-      expect(secondRun, hasLength(1));
-      expect(secondRun![0].error, 'error');
-    });
+        expect(firstRun, hasLength(2));
+        expect(secondRun, hasLength(1));
+        expect(secondRun![0].error, 'error');
+      },
+    );
 
-    test('supports Never value type', () {
+    test('Cont.terminate works with Never value type', () {
       List<ContError>? errors;
       final cont = Cont.terminate<(), Never>();
 
@@ -134,20 +146,23 @@ void main() {
       expect(errors, []);
     });
 
-    test('treats empty list same as no argument', () {
-      List<ContError>? errorsNoArg;
-      List<ContError>? errorsEmptyList;
+    test(
+      'Cont.terminate with empty list is same as no argument',
+      () {
+        List<ContError>? errorsNoArg;
+        List<ContError>? errorsEmptyList;
 
-      Cont.terminate<(), int>().run(
-        (),
-        onTerminate: (e) => errorsNoArg = e,
-      );
-      Cont.terminate<(), int>(
-        [],
-      ).run((), onTerminate: (e) => errorsEmptyList = e);
+        Cont.terminate<(), int>().run(
+          (),
+          onTerminate: (e) => errorsNoArg = e,
+        );
+        Cont.terminate<(), int>(
+          [],
+        ).run((), onTerminate: (e) => errorsEmptyList = e);
 
-      expect(errorsNoArg, []);
-      expect(errorsEmptyList, []);
-    });
+        expect(errorsNoArg, []);
+        expect(errorsEmptyList, []);
+      },
+    );
   });
 }
