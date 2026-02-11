@@ -1,4 +1,4 @@
-part of 'cont.dart';
+part of '../cont.dart';
 
 /// An observer that handles both success and termination cases of a continuation.
 ///

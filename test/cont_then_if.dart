@@ -68,7 +68,7 @@ void main() {
 
       final processEven = (int n) => Cont.of<(), int>(n)
           .thenIf((x) => x.isEven)
-          .map((x) => 'even: $x')
+          .thenMap((x) => 'even: $x')
           .recover((_) => 'not even');
 
       processEven(
@@ -91,7 +91,7 @@ void main() {
             counter++;
             return Cont.of(counter);
           })
-          .asLongAs((n) => n < 5)
+          .thenWhile((n) => n < 5)
           .run((), onValue: (val) => values.add(val));
 
       expect(values, [5]); // stops when counter reaches 5
@@ -104,7 +104,7 @@ void main() {
         int? value;
 
         Cont.of<(), int>(42)
-            .asLongAs((n) => false)
+            .thenWhile((n) => false)
             .run((), onValue: (val) => value = val);
 
         expect(value, 42);
@@ -124,7 +124,7 @@ void main() {
             }
             return Cont.of(iterations);
           })
-          .asLongAs((n) => n < 10)
+          .thenWhile((n) => n < 10)
           .run((), onTerminate: (e) => errors = e);
 
       expect(errors!.length, 1);
@@ -133,7 +133,7 @@ void main() {
     });
 
     test('terminates when predicate throws', () {
-      final cont = Cont.of<(), int>(42).asLongAs((n) {
+      final cont = Cont.of<(), int>(42).thenWhile((n) {
         throw 'Predicate Error';
       });
 
@@ -153,7 +153,7 @@ void main() {
             counter++;
             return Cont.of(counter);
           })
-          .asLongAs((n) => n < 3)
+          .thenWhile((n) => n < 3)
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
@@ -168,7 +168,7 @@ void main() {
       final cont = Cont.fromDeferred<(), int>(() {
         counter++;
         return Cont.of(counter);
-      }).asLongAs((n) => n < 3);
+      }).thenWhile((n) => n < 3);
 
       int? value1;
       cont.run((), onValue: (val) => value1 = val);
@@ -194,14 +194,14 @@ void main() {
             counter1++;
             return Cont.of(counter1);
           })
-          .until((n) => n == 5)
+          .thenUntil((n) => n == 5)
           .run((), onValue: (val) => value1 = val);
 
       Cont.fromDeferred<(), int>(() {
             counter2++;
             return Cont.of(counter2);
           })
-          .asLongAs((n) => n != 5)
+          .thenWhile((n) => n != 5)
           .run((), onValue: (val) => value2 = val);
 
       expect(value1, value2);
@@ -215,7 +215,7 @@ void main() {
             counter++;
             return Cont.of(counter);
           })
-          .until((n) => n == 3)
+          .thenUntil((n) => n == 3)
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
@@ -232,7 +232,7 @@ void main() {
           Cont.fromDeferred<(), int>(() {
             counter++;
             return Cont.of(counter);
-          }).until((n) {
+          }).thenUntil((n) {
             if (n == 3) throw 'Predicate Error';
             return false;
           });
@@ -260,7 +260,7 @@ void main() {
             }
             return Cont.of(iterations);
           })
-          .until((n) => n == 10)
+          .thenUntil((n) => n == 10)
           .run((), onTerminate: (e) => errors = e);
 
       expect(errors!.length, 1);
@@ -273,7 +273,7 @@ void main() {
       final cont = Cont.fromDeferred<(), int>(() {
         counter++;
         return Cont.of(counter);
-      }).until((n) => n == 3);
+      }).thenUntil((n) => n == 3);
 
       int? value1;
       cont.run((), onValue: (val) => value1 = val);

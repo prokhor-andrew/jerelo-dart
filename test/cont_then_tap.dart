@@ -16,7 +16,7 @@ void main() {
       var sideEffectValue = 0;
       Cont.of<(), int>(10)
           .thenTap(
-            (a) => Cont.of<(), ()>(()).map((_) {
+            (a) => Cont.of<(), ()>(()).thenMap((_) {
               sideEffectValue = a * 2;
               return ();
             }),
@@ -82,7 +82,7 @@ void main() {
     test('supports multiple runs', () {
       var callCount = 0;
       final cont = Cont.of<(), int>(10).thenTap(
-        (a) => Cont.of<(), ()>(()).map((_) {
+        (a) => Cont.of<(), ()>(()).thenMap((_) {
           callCount++;
           return ();
         }),
@@ -172,13 +172,13 @@ void main() {
       var count2 = 0;
 
       final cont1 = Cont.of<(), int>(10).thenTap0(
-        () => Cont.of<(), ()>(()).map((_) {
+        () => Cont.of<(), ()>(()).thenMap((_) {
           count1++;
           return ();
         }),
       );
       final cont2 = Cont.of<(), int>(10).thenTap(
-        (_) => Cont.of<(), ()>(()).map((_) {
+        (_) => Cont.of<(), ()>(()).thenMap((_) {
           count2++;
           return ();
         }),
@@ -201,7 +201,7 @@ void main() {
             order.add('side-effect: $val');
             return Cont.of(());
           })
-          .map((val) {
+          .thenMap((val) {
             order.add('main-value: $val');
             return val;
           })
@@ -256,7 +256,7 @@ void main() {
               return Cont.of(());
             });
           })
-          .map((val) {
+          .thenMap((val) {
             order.add('map');
             return val * 2;
           })

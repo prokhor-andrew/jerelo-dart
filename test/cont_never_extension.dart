@@ -275,7 +275,7 @@ void main() {
 
       Cont.terminate<(), Never>([ContError.capture('err')])
           .absurd<int>()
-          .map((n) => n * 2)
+          .thenMap((n) => n * 2)
           .run(
             (),
             onValue: (_) => fail('Should not be called'),

@@ -2,11 +2,11 @@ import 'package:jerelo/jerelo.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('Cont.hoist', () {
+  group('Cont.decor', () {
     test(
-      'Cont.hoist forwards value when f delegates to run',
+      'Cont.decor forwards value when f delegates to run',
       () {
-        final cont = Cont.of<(), int>(42).hoist((
+        final cont = Cont.of<(), int>(42).decor((
           run,
           runtime,
           observer,
@@ -22,10 +22,10 @@ void main() {
     );
 
     test(
-      'Cont.hoist forwards termination when f delegates to run',
+      'Cont.decor forwards termination when f delegates to run',
       () {
         final errors = [ContError.capture('err1')];
-        final cont = Cont.terminate<(), int>(errors).hoist((
+        final cont = Cont.terminate<(), int>(errors).decor((
           run,
           runtime,
           observer,
@@ -42,9 +42,9 @@ void main() {
     );
 
     test(
-      'Cont.hoist can block execution by not calling run',
+      'Cont.decor can block execution by not calling run',
       () {
-        final cont = Cont.of<(), int>(42).hoist((
+        final cont = Cont.of<(), int>(42).decor((
           run,
           runtime,
           observer,
@@ -59,14 +59,14 @@ void main() {
       },
     );
 
-    test('Cont.hoist can add behavior before run', () {
+    test('Cont.decor can add behavior before run', () {
       final order = <String>[];
 
       final cont =
           Cont.fromRun<(), int>((runtime, observer) {
             order.add('run');
             observer.onValue(10);
-          }).hoist((run, runtime, observer) {
+          }).decor((run, runtime, observer) {
             order.add('before');
             run(runtime, observer);
           });
@@ -76,14 +76,14 @@ void main() {
       expect(order, ['before', 'run', 'value']);
     });
 
-    test('Cont.hoist can add behavior after run', () {
+    test('Cont.decor can add behavior after run', () {
       final order = <String>[];
 
       final cont =
           Cont.fromRun<(), int>((runtime, observer) {
             order.add('run');
             observer.onValue(10);
-          }).hoist((run, runtime, observer) {
+          }).decor((run, runtime, observer) {
             run(runtime, observer);
             order.add('after');
           });
@@ -93,9 +93,9 @@ void main() {
       expect(order, ['run', 'value', 'after']);
     });
 
-    test('Cont.hoist identity preserves value', () {
+    test('Cont.decor identity preserves value', () {
       final cont1 = Cont.of<(), int>(10);
-      final cont2 = cont1.hoist((run, runtime, observer) {
+      final cont2 = cont1.decor((run, runtime, observer) {
         run(runtime, observer);
       });
 
@@ -108,11 +108,11 @@ void main() {
       expect(value1, value2);
     });
 
-    test('Cont.hoist identity preserves termination', () {
+    test('Cont.decor identity preserves termination', () {
       final cont1 = Cont.terminate<(), int>([
         ContError.capture('err'),
       ]);
-      final cont2 = cont1.hoist((run, runtime, observer) {
+      final cont2 = cont1.decor((run, runtime, observer) {
         run(runtime, observer);
       });
 
@@ -126,9 +126,9 @@ void main() {
       expect(errors1![0].error, errors2![0].error);
     });
 
-    test('Cont.hoist can be run multiple times', () {
+    test('Cont.decor can be run multiple times', () {
       var callCount = 0;
-      final cont = Cont.of<(), int>(5).hoist((
+      final cont = Cont.of<(), int>(5).decor((
         run,
         runtime,
         observer,
@@ -148,8 +148,8 @@ void main() {
       expect(callCount, 2);
     });
 
-    test('Cont.hoist does not call onPanic', () {
-      final cont = Cont.of<(), int>(0).hoist((
+    test('Cont.decor does not call onPanic', () {
+      final cont = Cont.of<(), int>(0).decor((
         run,
         runtime,
         observer,
@@ -167,9 +167,9 @@ void main() {
     });
 
     test(
-      'Cont.hoist does not call onTerminate on value path',
+      'Cont.decor does not call onTerminate on value path',
       () {
-        final cont = Cont.of<(), int>(0).hoist((
+        final cont = Cont.of<(), int>(0).decor((
           run,
           runtime,
           observer,
@@ -187,13 +187,13 @@ void main() {
       },
     );
 
-    test('Cont.hoist preserves environment', () {
+    test('Cont.decor preserves environment', () {
       int? envValue;
       final cont =
           Cont.fromRun<int, int>((runtime, observer) {
             envValue = runtime.env();
             observer.onValue(runtime.env());
-          }).hoist((run, runtime, observer) {
+          }).decor((run, runtime, observer) {
             run(runtime, observer);
           });
 
@@ -204,8 +204,8 @@ void main() {
       expect(value, 99);
     });
 
-    test('Cont.hoist cancellation prevents execution', () {
-      bool hoistCalled = false;
+    test('Cont.decor cancellation prevents execution', () {
+      bool decorCalled = false;
 
       final List<void Function()> buffer = [];
       void flush() {
@@ -221,8 +221,8 @@ void main() {
               if (runtime.isCancelled()) return;
               observer.onValue(10);
             });
-          }).hoist((run, runtime, observer) {
-            hoistCalled = true;
+          }).decor((run, runtime, observer) {
+            decorCalled = true;
             run(runtime, observer);
           });
 
@@ -232,17 +232,17 @@ void main() {
         onValue: (val) => value = val,
       );
 
-      expect(hoistCalled, true);
+      expect(decorCalled, true);
       token.cancel();
       flush();
 
       expect(value, null);
     });
 
-    test('Cont.hoist calling run twice is idempotent', () {
+    test('Cont.decor calling run twice is idempotent', () {
       final values = <int>[];
 
-      final cont = Cont.of<(), int>(7).hoist((
+      final cont = Cont.of<(), int>(7).decor((
         run,
         runtime,
         observer,
@@ -256,11 +256,11 @@ void main() {
       expect(values, [7]);
     });
 
-    test('Cont.hoist can replace observer onValue', () {
+    test('Cont.decor can replace observer onValue', () {
       final cont =
           Cont.fromRun<(), int>((runtime, observer) {
             observer.onValue(10);
-          }).hoist((run, runtime, observer) {
+          }).decor((run, runtime, observer) {
             final newObserver = observer
                 .copyUpdateOnValue<int>(
                   (val) => observer.onValue(val * 2),
@@ -274,11 +274,11 @@ void main() {
       expect(value, 20);
     });
 
-    test('Cont.hoist can replace observer onTerminate', () {
+    test('Cont.decor can replace observer onTerminate', () {
       final cont =
           Cont.terminate<(), int>([
             ContError.capture('original'),
-          ]).hoist((run, runtime, observer) {
+          ]).decor((run, runtime, observer) {
             final newObserver = observer
                 .copyUpdateOnTerminate(
                   (errors) => observer.onValue(0),
@@ -298,16 +298,16 @@ void main() {
       expect(errors, null);
     });
 
-    test('Cont.hoist chaining composes correctly', () {
+    test('Cont.decor chaining composes correctly', () {
       final order = <String>[];
 
       final cont = Cont.of<(), int>(1)
-          .hoist((run, runtime, observer) {
+          .decor((run, runtime, observer) {
             order.add('outer-before');
             run(runtime, observer);
             order.add('outer-after');
           })
-          .hoist((run, runtime, observer) {
+          .decor((run, runtime, observer) {
             order.add('inner-before');
             run(runtime, observer);
             order.add('inner-after');

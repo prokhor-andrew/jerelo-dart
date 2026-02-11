@@ -39,7 +39,7 @@ void main() {
       String? value;
 
       Cont.ask<int>()
-          .map((n) => 'number: $n')
+          .thenMap((n) => 'number: $n')
           .local<String>((str) => str.length)
           .run('hello', onValue: (val) => value = val);
 

@@ -129,9 +129,9 @@ void main() {
     test('provides fallback value on termination', () {
       int? value;
 
-      Cont.terminate<(), int>(
-        [ContError.capture('err')],
-      ).fallback(42).run((), onValue: (val) => value = val);
+      Cont.terminate<(), int>([ContError.capture('err')])
+          .recoverWith(42)
+          .run((), onValue: (val) => value = val);
 
       expect(value, 42);
     });
@@ -139,9 +139,9 @@ void main() {
     test('never uses fallback on value path', () {
       int? value;
 
-      Cont.of<(), int>(
-        10,
-      ).fallback(42).run((), onValue: (val) => value = val);
+      Cont.of<(), int>(10)
+          .recoverWith(42)
+          .run((), onValue: (val) => value = val);
 
       expect(value, 10);
     });
@@ -150,7 +150,9 @@ void main() {
       int? value1;
       int? value2;
 
-      final cont1 = Cont.terminate<(), int>().fallback(99);
+      final cont1 = Cont.terminate<(), int>().recoverWith(
+        99,
+      );
       final cont2 = Cont.terminate<(), int>().recover0(
         () => 99,
       );
@@ -162,7 +164,9 @@ void main() {
     });
 
     test('supports multiple runs', () {
-      final cont = Cont.terminate<(), int>().fallback(42);
+      final cont = Cont.terminate<(), int>().recoverWith(
+        42,
+      );
 
       int? value1;
       cont.run((), onValue: (val) => value1 = val);

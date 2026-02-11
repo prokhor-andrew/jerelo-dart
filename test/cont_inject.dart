@@ -8,7 +8,7 @@ void main() {
 
       Cont.of<(), int>(42)
           .injectInto(
-            Cont.ask<int>().map((env) => 'env: $env'),
+            Cont.ask<int>().thenMap((env) => 'env: $env'),
           )
           .run((), onValue: (val) => value = val);
 
@@ -64,7 +64,7 @@ void main() {
       // Source produces int, target uses int as env to produce String
       Cont.of<(), int>(5)
           .injectInto(
-            Cont.ask<int>().map((n) => 'number is $n'),
+            Cont.ask<int>().thenMap((n) => 'number is $n'),
           )
           .run((), onValue: (val) => value = val);
 
@@ -114,7 +114,7 @@ void main() {
       String? value;
 
       Cont.ask<int>()
-          .map((env) => 'env: $env')
+          .thenMap((env) => 'env: $env')
           .injectedBy(Cont.of<(), int>(42))
           .run((), onValue: (val) => value = val);
 
@@ -125,7 +125,7 @@ void main() {
       String? value1;
       String? value2;
 
-      final target = Cont.ask<int>().map(
+      final target = Cont.ask<int>().thenMap(
         (env) => 'env: $env',
       );
       final provider = Cont.of<(), int>(42);

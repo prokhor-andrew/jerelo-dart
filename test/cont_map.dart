@@ -6,7 +6,7 @@ void main() {
     test('Cont.map runs on value channel', () {
       final cont = Cont.of<(), int>(
         0,
-      ).map((val) => val + 5);
+      ).thenMap((val) => val + 5);
 
       int? value = null;
 
@@ -17,7 +17,7 @@ void main() {
     });
 
     test('Cont.map throw terminates', () {
-      final cont = Cont.of<(), int>(0).map((val) {
+      final cont = Cont.of<(), int>(0).thenMap((val) {
         throw 'Thrown Error';
       });
 
@@ -37,7 +37,7 @@ void main() {
 
       final cont1 = Cont.of<(), int>(0);
 
-      final cont2 = cont1.map(id);
+      final cont2 = cont1.thenMap(id);
 
       int? value1 = null;
       int? value2 = null;
@@ -58,7 +58,7 @@ void main() {
       ];
       final cont = Cont.terminate<(), int>(
         errors,
-      ).map((val) => val + 5);
+      ).thenMap((val) => val + 5);
 
       List<ContError>? received;
 
@@ -72,7 +72,7 @@ void main() {
     test(
       'Cont.map does not call onValue on termination',
       () {
-        final cont = Cont.terminate<(), int>().map(
+        final cont = Cont.terminate<(), int>().thenMap(
           (val) => val + 5,
         );
 
@@ -88,7 +88,7 @@ void main() {
     test('Cont.map transforms type', () {
       final cont = Cont.of<(), int>(
         42,
-      ).map((val) => 'value: $val');
+      ).thenMap((val) => 'value: $val');
 
       String? value;
       cont.run((), onValue: (val) => value = val);
@@ -99,7 +99,7 @@ void main() {
     test('Cont.map can be run multiple times', () {
       final cont = Cont.of<(), int>(
         10,
-      ).map((val) => val * 3);
+      ).thenMap((val) => val * 3);
 
       int? value1;
       cont.run((), onValue: (val) => value1 = val);
@@ -113,7 +113,7 @@ void main() {
     test('Cont.map does not call onPanic', () {
       final cont = Cont.of<(), int>(
         0,
-      ).map((val) => val + 5);
+      ).thenMap((val) => val + 5);
 
       cont.run(
         (),
@@ -143,7 +143,7 @@ void main() {
                 if (runtime.isCancelled()) return;
                 observer.onValue(10);
               });
-            }).map((val) {
+            }).thenMap((val) {
               mapCalled = true;
               return val + 5;
             });
@@ -177,9 +177,9 @@ void main() {
 
       final cont1 = Cont.of<(), int>(10);
 
-      final cont2 = cont1.map(add5).map(mul2);
+      final cont2 = cont1.thenMap(add5).thenMap(mul2);
 
-      final cont3 = cont1.map(compose(add5, mul2));
+      final cont3 = cont1.thenMap(compose(add5, mul2));
 
       int? value2 = null;
       int? value3 = null;
@@ -193,9 +193,9 @@ void main() {
     });
 
     test('Cont.map0 is map with ignored argument', () {
-      final cont1 = Cont.of<(), int>(10).map0(() => 20);
+      final cont1 = Cont.of<(), int>(10).thenMap0(() => 20);
 
-      final cont2 = Cont.of<(), int>(10).map((_) => 20);
+      final cont2 = Cont.of<(), int>(10).thenMap((_) => 20);
 
       int? value1;
       int? value2;
@@ -207,9 +207,9 @@ void main() {
     });
 
     test('Cont.as is map0 with eager evaluation', () {
-      final cont1 = Cont.of<(), int>(10).map0(() => 20);
+      final cont1 = Cont.of<(), int>(10).thenMap0(() => 20);
 
-      final cont2 = Cont.of<(), int>(10).as(20);
+      final cont2 = Cont.of<(), int>(10).thenMapTo(20);
 
       int? value1;
       int? value2;

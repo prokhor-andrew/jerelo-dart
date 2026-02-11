@@ -95,7 +95,7 @@ void main() {
     test('preserves environment', () {
       String? value;
 
-      final nested = Cont.ask<String>().map(
+      final nested = Cont.ask<String>().thenMap(
         (env) => Cont.of<String, String>('env: $env'),
       );
 
@@ -188,7 +188,7 @@ void main() {
       int? value;
 
       Cont.of<(), int>(5)
-          .map((n) => Cont.of<(), int>(n * 2))
+          .thenMap((n) => Cont.of<(), int>(n * 2))
           .flatten()
           .run((), onValue: (val) => value = val);
 
@@ -227,7 +227,7 @@ void main() {
       );
 
       tripleNested
-          .map((nested) => nested.flatten())
+          .thenMap((nested) => nested.flatten())
           .flatten()
           .run((), onValue: (val) => value2 = val);
 
