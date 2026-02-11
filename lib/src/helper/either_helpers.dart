@@ -22,10 +22,10 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
       if (isOneTerminate) {
         if (isLeft) {
           leftVal = value;
-          observer.onValue(value);
+          observer.onThen(value);
         } else {
           rightVal = value;
-          observer.onValue(value);
+          observer.onThen(value);
         }
 
         return;
@@ -51,11 +51,11 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
         }
 
         try {
-          observer.onValue(
+          observer.onThen(
             combine(firstValue, secondValue),
           );
         } catch (error, st) {
-          observer.onTerminate([
+          observer.onElse([
             ContError.withStackTrace(error, st),
           ]);
         }
@@ -75,9 +75,9 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
     void handleTerminate(bool isLeft) {
       if (isOneSuccess) {
         if (isLeft) {
-          observer.onValue(rightVal as A);
+          observer.onThen(rightVal as A);
         } else {
-          observer.onValue(leftVal as A);
+          observer.onThen(leftVal as A);
         }
         return;
       }
@@ -89,9 +89,9 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
 
       try {
         final result = outerLeft! + outerRight!;
-        observer.onTerminate(result);
+        observer.onElse(result);
       } catch (error, st) {
-        observer.onTerminate([
+        observer.onElse([
           ContError.withStackTrace(error, st),
         ]);
       }
@@ -172,7 +172,7 @@ Cont<E, A> _eitherQuitFast<E, A>(
       if (isOneFailed) {
         codeToUpdateState();
 
-        observer.onTerminate(resultErrors);
+        observer.onElse(resultErrors);
         return;
       }
       isOneFailed = true;
@@ -200,7 +200,7 @@ Cont<E, A> _eitherQuitFast<E, A>(
           }
 
           isDone = true;
-          observer.onValue(a);
+          observer.onThen(a);
         },
       );
     }

@@ -6,13 +6,13 @@ void main() {
     test('recovers with env access', () {
       String? value;
 
-      Cont.terminate<String, String>([
+      Cont.stop<String, String>([
             ContError.capture('err'),
           ])
           .elseZipWithEnv(
             (env, errors) => Cont.of('$env: recovered'),
           )
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(value, 'hello: recovered');
     });
@@ -20,15 +20,15 @@ void main() {
     test('combines errors when both fail', () {
       List<ContError>? errors;
 
-      Cont.terminate<String, int>([
+      Cont.stop<String, int>([
             ContError.capture('err1'),
           ])
           .elseZipWithEnv((env, e) {
-            return Cont.terminate<String, int>([
+            return Cont.stop<String, int>([
               ContError.capture('err2-$env'),
             ]);
           })
-          .run('cfg', onTerminate: (e) => errors = e);
+          .run('cfg', onElse: (e) => errors = e);
 
       expect(errors!.length, 2);
       expect(errors![0].error, 'err1');
@@ -44,7 +44,7 @@ void main() {
             called = true;
             return Cont.of(0);
           })
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(called, false);
       expect(value, 42);
@@ -54,7 +54,7 @@ void main() {
       final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
-      Cont.terminate<String, int>(originalErrors)
+      Cont.stop<String, int>(originalErrors)
           .elseZipWithEnv((env, errors) {
             receivedErrors = errors;
             errors.add(ContError.capture('err2'));
@@ -68,19 +68,19 @@ void main() {
 
     test('supports multiple runs with different envs', () {
       var callCount = 0;
-      final cont = Cont.terminate<String, int>()
+      final cont = Cont.stop<String, int>()
           .elseZipWithEnv((env, errors) {
             callCount++;
             return Cont.of(env.length);
           });
 
       int? value1;
-      cont.run('hi', onValue: (val) => value1 = val);
+      cont.run('hi', onThen: (val) => value1 = val);
       expect(value1, 2);
       expect(callCount, 1);
 
       int? value2;
-      cont.run('hello', onValue: (val) => value2 = val);
+      cont.run('hello', onThen: (val) => value2 = val);
       expect(value2, 5);
       expect(callCount, 2);
     });
@@ -100,7 +100,7 @@ void main() {
           Cont.fromRun<String, int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onTerminate([
+              observer.onElse([
                 ContError.capture('error'),
               ]);
             });
@@ -122,11 +122,11 @@ void main() {
     test('provides env only', () {
       String? value;
 
-      Cont.terminate<String, String>()
+      Cont.stop<String, String>()
           .elseZipWithEnv0(
             (env) => Cont.of('recovered: $env'),
           )
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(value, 'recovered: hello');
     });
@@ -137,15 +137,15 @@ void main() {
         int? value1;
         int? value2;
 
-        final cont1 = Cont.terminate<String, int>()
+        final cont1 = Cont.stop<String, int>()
             .elseZipWithEnv0((env) => Cont.of(env.length));
-        final cont2 = Cont.terminate<String, int>()
+        final cont2 = Cont.stop<String, int>()
             .elseZipWithEnv(
               (env, _) => Cont.of(env.length),
             );
 
-        cont1.run('hello', onValue: (val) => value1 = val);
-        cont2.run('hello', onValue: (val) => value2 = val);
+        cont1.run('hello', onThen: (val) => value1 = val);
+        cont2.run('hello', onThen: (val) => value2 = val);
 
         expect(value1, value2);
       },

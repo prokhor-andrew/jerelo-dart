@@ -8,7 +8,7 @@ void main() {
 
       Cont.fromRun<(), ()>((runtime, observer) {
         executed = true;
-        observer.onValue(());
+        observer.onThen(());
       }).ff(());
 
       expect(executed, true);
@@ -20,7 +20,7 @@ void main() {
     });
 
     test('ignores termination', () {
-      Cont.terminate<(), int>([
+      Cont.stop<(), int>([
         ContError.capture('err'),
       ]).ff(());
     });
@@ -30,7 +30,7 @@ void main() {
 
       Cont.fromRun<String, ()>((runtime, observer) {
         receivedEnv = runtime.env();
-        observer.onValue(());
+        observer.onThen(());
       }).ff('hello');
 
       expect(receivedEnv, 'hello');
@@ -44,7 +44,7 @@ void main() {
         observer,
       ) {
         callCount++;
-        observer.onValue(());
+        observer.onThen(());
       });
 
       cont.ff(());
@@ -62,7 +62,7 @@ void main() {
         // isCancelled should always return false for ff
         expect(runtime.isCancelled(), false);
         executed = true;
-        observer.onValue(());
+        observer.onThen(());
       }).ff(());
 
       expect(executed, true);

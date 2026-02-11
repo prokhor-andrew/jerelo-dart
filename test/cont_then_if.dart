@@ -7,7 +7,7 @@ void main() {
       int? value;
       Cont.of<(), int>(42)
           .thenIf((n) => n > 0)
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 42);
     });
@@ -20,8 +20,8 @@ void main() {
           .thenIf((n) => n > 0)
           .run(
             (),
-            onValue: (val) => value = val,
-            onTerminate: (e) => errors = e,
+            onThen: (val) => value = val,
+            onElse: (e) => errors = e,
           );
 
       expect(value, null);
@@ -32,9 +32,9 @@ void main() {
     test('passes through original termination', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([ContError.capture('err')])
+      Cont.stop<(), int>([ContError.capture('err')])
           .thenIf((n) => n > 0)
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'err');
@@ -48,7 +48,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Predicate Error');
@@ -73,10 +73,10 @@ void main() {
 
       processEven(
         4,
-      ).run((), onValue: (v) => results.add(v));
+      ).run((), onThen: (v) => results.add(v));
       processEven(
         5,
-      ).run((), onValue: (v) => results.add(v));
+      ).run((), onThen: (v) => results.add(v));
 
       expect(results, ['even: 4', 'not even']);
     });
@@ -92,7 +92,7 @@ void main() {
             return Cont.of(counter);
           })
           .thenWhile((n) => n < 5)
-          .run((), onValue: (val) => values.add(val));
+          .run((), onThen: (val) => values.add(val));
 
       expect(values, [5]); // stops when counter reaches 5
       expect(counter, 5);
@@ -105,7 +105,7 @@ void main() {
 
         Cont.of<(), int>(42)
             .thenWhile((n) => false)
-            .run((), onValue: (val) => value = val);
+            .run((), onThen: (val) => value = val);
 
         expect(value, 42);
       },
@@ -118,14 +118,14 @@ void main() {
       Cont.fromDeferred<(), int>(() {
             iterations++;
             if (iterations == 3) {
-              return Cont.terminate<(), int>([
+              return Cont.stop<(), int>([
                 ContError.capture('loop error'),
               ]);
             }
             return Cont.of(iterations);
           })
           .thenWhile((n) => n < 10)
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'loop error');
@@ -140,7 +140,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Predicate Error');
@@ -157,7 +157,7 @@ void main() {
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
-            onValue: (_) {},
+            onThen: (_) {},
           );
 
       expect(counter, 3);
@@ -171,13 +171,13 @@ void main() {
       }).thenWhile((n) => n < 3);
 
       int? value1;
-      cont.run((), onValue: (val) => value1 = val);
+      cont.run((), onThen: (val) => value1 = val);
       expect(value1, 3);
       expect(counter, 3);
 
       counter = 0;
       int? value2;
-      cont.run((), onValue: (val) => value2 = val);
+      cont.run((), onThen: (val) => value2 = val);
       expect(value2, 3);
       expect(counter, 3);
     });
@@ -195,14 +195,14 @@ void main() {
             return Cont.of(counter1);
           })
           .thenUntil((n) => n == 5)
-          .run((), onValue: (val) => value1 = val);
+          .run((), onThen: (val) => value1 = val);
 
       Cont.fromDeferred<(), int>(() {
             counter2++;
             return Cont.of(counter2);
           })
           .thenWhile((n) => n != 5)
-          .run((), onValue: (val) => value2 = val);
+          .run((), onThen: (val) => value2 = val);
 
       expect(value1, value2);
       expect(counter1, counter2);
@@ -219,7 +219,7 @@ void main() {
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
-            onValue: (_) {},
+            onThen: (_) {},
           );
 
       expect(counter, 3);
@@ -240,7 +240,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Predicate Error');
@@ -254,14 +254,14 @@ void main() {
       Cont.fromDeferred<(), int>(() {
             iterations++;
             if (iterations == 3) {
-              return Cont.terminate<(), int>([
+              return Cont.stop<(), int>([
                 ContError.capture('manual error'),
               ]);
             }
             return Cont.of(iterations);
           })
           .thenUntil((n) => n == 10)
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'manual error');
@@ -276,13 +276,13 @@ void main() {
       }).thenUntil((n) => n == 3);
 
       int? value1;
-      cont.run((), onValue: (val) => value1 = val);
+      cont.run((), onThen: (val) => value1 = val);
       expect(value1, 3);
       expect(counter, 3);
 
       counter = 0;
       int? value2;
-      cont.run((), onValue: (val) => value2 = val);
+      cont.run((), onThen: (val) => value2 = val);
       expect(value2, 3);
       expect(counter, 3);
     });
@@ -303,25 +303,25 @@ void main() {
       Cont.fromDeferred<(), int>(() {
         iterations++;
         if (iterations == 5) {
-          return Cont.terminate<(), int>([
+          return Cont.stop<(), int>([
             ContError.capture('stop'),
           ]);
         }
         return Cont.of(iterations);
-      }).forever().trap((), onTerminate: (e) => errors = e);
+      }).forever().trap((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'stop');
       expect(iterations, 5);
     });
 
-    test('never calls onValue', () {
+    test('never calls onThen', () {
       int iterations = 0;
 
       Cont.fromDeferred<(), int>(() {
         iterations++;
         if (iterations == 3) {
-          return Cont.terminate<(), int>();
+          return Cont.stop<(), int>();
         }
         return Cont.of(iterations);
       }).forever().trap(());
@@ -356,15 +356,15 @@ void main() {
       ) {
         buffer.add(() {
           if (cancelled || runtime.isCancelled()) {
-            observer.onTerminate([]);
+            observer.onElse([]);
             return;
           }
           iterations++;
-          observer.onValue(iterations);
+          observer.onThen(iterations);
         });
       }).forever();
 
-      cont.trap((), onTerminate: (_) {});
+      cont.trap((), onElse: (_) {});
 
       flush(); // iteration 1
       expect(iterations, 1);

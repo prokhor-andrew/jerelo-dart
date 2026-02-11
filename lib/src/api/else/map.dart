@@ -12,7 +12,7 @@ extension ContElseMapExtension<E, A> on Cont<E, A> {
     List<ContError> Function(List<ContError> errors) f,
   ) {
     return elseDo((errors) {
-      return Cont.terminate<E, A>(f(errors));
+      return Cont.stop<E, A>(f(errors));
     });
   }
 

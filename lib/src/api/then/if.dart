@@ -26,7 +26,7 @@ extension ContThenIfExtension<E, A> on Cont<E, A> {
         return Cont.of(a);
       }
 
-      return Cont.terminate<E, A>();
+      return Cont.stop<E, A>();
     });
   }
 

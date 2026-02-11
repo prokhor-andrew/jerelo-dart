@@ -9,7 +9,7 @@ void main() {
       Cont.all<(), int>(
         [Cont.of(1), Cont.of(2), Cont.of(3)],
         policy: ContBothPolicy.sequence(),
-      ).run((), onValue: (val) => value = val);
+      ).run((), onThen: (val) => value = val);
 
       expect(value, [1, 2, 3]);
     });
@@ -21,19 +21,19 @@ void main() {
       Cont.all<(), int>([
         Cont.fromRun((runtime, observer) {
           order.add(1);
-          observer.onValue(1);
+          observer.onThen(1);
         }),
         Cont.fromRun((runtime, observer) {
           order.add(2);
-          observer.onValue(2);
+          observer.onThen(2);
         }),
         Cont.fromRun((runtime, observer) {
           order.add(3);
-          observer.onValue(3);
+          observer.onThen(3);
         }),
       ], policy: ContBothPolicy.sequence()).run(
         (),
-        onValue: (val) => value = val,
+        onThen: (val) => value = val,
       );
 
       expect(order, [1, 2, 3]);
@@ -47,14 +47,14 @@ void main() {
       Cont.all<(), int>(
         [
           Cont.of(1),
-          Cont.terminate([ContError.capture('err')]),
+          Cont.stop([ContError.capture('err')]),
           Cont.fromRun((runtime, observer) {
             thirdCalled = true;
-            observer.onValue(3);
+            observer.onThen(3);
           }),
         ],
         policy: ContBothPolicy.sequence(),
-      ).run((), onTerminate: (e) => errors = e);
+      ).run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'err');
@@ -67,7 +67,7 @@ void main() {
       Cont.all<(), int>(
         [],
         policy: ContBothPolicy.sequence(),
-      ).run((), onValue: (val) => value = val);
+      ).run((), onThen: (val) => value = val);
 
       expect(value, isEmpty);
     });
@@ -80,7 +80,7 @@ void main() {
       Cont.all<(), int>(
         [Cont.of(1), Cont.of(2), Cont.of(3)],
         policy: ContBothPolicy.mergeWhenAll(),
-      ).run((), onValue: (val) => value = val);
+      ).run((), onThen: (val) => value = val);
 
       expect(value, [1, 2, 3]);
     });
@@ -90,12 +90,12 @@ void main() {
 
       Cont.all<(), int>(
         [
-          Cont.terminate([ContError.capture('err1')]),
+          Cont.stop([ContError.capture('err1')]),
           Cont.of(2),
-          Cont.terminate([ContError.capture('err3')]),
+          Cont.stop([ContError.capture('err3')]),
         ],
         policy: ContBothPolicy.mergeWhenAll(),
-      ).run((), onTerminate: (e) => errors = e);
+      ).run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 2);
       expect(errors![0].error, 'err1');
@@ -110,7 +110,7 @@ void main() {
       Cont.all<(), int>(
         [Cont.of(1), Cont.of(2), Cont.of(3)],
         policy: ContBothPolicy.quitFast(),
-      ).run((), onValue: (val) => value = val);
+      ).run((), onThen: (val) => value = val);
 
       expect(value, [1, 2, 3]);
     });
@@ -121,11 +121,11 @@ void main() {
       Cont.all<(), int>(
         [
           Cont.of(1),
-          Cont.terminate([ContError.capture('err')]),
+          Cont.stop([ContError.capture('err')]),
           Cont.of(3),
         ],
         policy: ContBothPolicy.quitFast(),
-      ).run((), onTerminate: (e) => errors = e);
+      ).run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'err');
@@ -138,17 +138,17 @@ void main() {
       final cont = Cont.all<(), int>([
         Cont.fromRun((runtime, observer) {
           callCount++;
-          observer.onValue(callCount);
+          observer.onThen(callCount);
         }),
       ], policy: ContBothPolicy.sequence());
 
       List<int>? value1;
-      cont.run((), onValue: (val) => value1 = val);
+      cont.run((), onThen: (val) => value1 = val);
       expect(value1, [1]);
       expect(callCount, 1);
 
       List<int>? value2;
-      cont.run((), onValue: (val) => value2 = val);
+      cont.run((), onThen: (val) => value2 = val);
       expect(value2, [2]);
       expect(callCount, 2);
     });
@@ -163,7 +163,7 @@ void main() {
       list.add(Cont.of(3));
 
       List<int>? value;
-      cont.run((), onValue: (val) => value = val);
+      cont.run((), onThen: (val) => value = val);
 
       expect(value, [1, 2]); // original list, not mutated
     });

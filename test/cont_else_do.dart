@@ -6,9 +6,9 @@ void main() {
     test('recovers from termination', () {
       int? value;
 
-      Cont.terminate<(), int>()
+      Cont.stop<(), int>()
           .elseDo((errors) => Cont.of(42))
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 42);
     });
@@ -16,7 +16,7 @@ void main() {
     test('receives original errors', () {
       List<ContError>? receivedErrors;
 
-      Cont.terminate<(), int>([
+      Cont.stop<(), int>([
             ContError.capture('err1'),
             ContError.capture('err2'),
           ])
@@ -36,15 +36,15 @@ void main() {
       () {
         List<ContError>? errors;
 
-        Cont.terminate<(), int>([
+        Cont.stop<(), int>([
               ContError.capture('original'),
             ])
             .elseDo((e) {
-              return Cont.terminate<(), int>([
+              return Cont.stop<(), int>([
                 ContError.capture('fallback'),
               ]);
             })
-            .run((), onTerminate: (e) => errors = e);
+            .run((), onElse: (e) => errors = e);
 
         expect(errors!.length, 1);
         expect(errors![0].error, 'fallback');
@@ -60,14 +60,14 @@ void main() {
             elseCalled = true;
             return Cont.of(0);
           })
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(elseCalled, false);
       expect(value, 42);
     });
 
     test('terminates when fallback builder throws', () {
-      final cont = Cont.terminate<(), int>().elseDo((
+      final cont = Cont.stop<(), int>().elseDo((
         errors,
       ) {
         throw 'Fallback Builder Error';
@@ -76,7 +76,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Fallback Builder Error');
@@ -85,21 +85,21 @@ void main() {
     test('supports chaining', () {
       int? value;
 
-      Cont.terminate<(), int>([ContError.capture('err1')])
+      Cont.stop<(), int>([ContError.capture('err1')])
           .elseDo(
-            (e) => Cont.terminate<(), int>([
+            (e) => Cont.stop<(), int>([
               ContError.capture('err2'),
             ]),
           )
           .elseDo((e) => Cont.of(42))
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 42);
     });
 
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont = Cont.terminate<(), int>().elseDo((
+      final cont = Cont.stop<(), int>().elseDo((
         errors,
       ) {
         callCount++;
@@ -107,12 +107,12 @@ void main() {
       });
 
       int? value1;
-      cont.run((), onValue: (val) => value1 = val);
+      cont.run((), onThen: (val) => value1 = val);
       expect(value1, 10);
       expect(callCount, 1);
 
       int? value2;
-      cont.run((), onValue: (val) => value2 = val);
+      cont.run((), onThen: (val) => value2 = val);
       expect(value2, 10);
       expect(callCount, 2);
     });
@@ -120,7 +120,7 @@ void main() {
     test('supports empty error list', () {
       List<ContError>? receivedErrors;
 
-      Cont.terminate<(), int>([])
+      Cont.stop<(), int>([])
           .elseDo((errors) {
             receivedErrors = errors;
             return Cont.of(0);
@@ -136,7 +136,7 @@ void main() {
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
-            onValue: (_) {},
+            onThen: (_) {},
           );
     });
 
@@ -155,7 +155,7 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onTerminate([
+              observer.onElse([
                 ContError.capture('error'),
               ]);
             });
@@ -167,7 +167,7 @@ void main() {
       int? value;
       final token = cont.run(
         (),
-        onValue: (val) => value = val,
+        onThen: (val) => value = val,
       );
 
       token.cancel();
@@ -181,7 +181,7 @@ void main() {
       final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
-      Cont.terminate<(), int>(originalErrors)
+      Cont.stop<(), int>(originalErrors)
           .elseDo((errors) {
             receivedErrors = errors;
             errors.add(ContError.capture('err2'));
@@ -198,9 +198,9 @@ void main() {
     test('recovers without error information', () {
       int? value;
 
-      Cont.terminate<(), int>()
+      Cont.stop<(), int>()
           .elseDo0(() => Cont.of(42))
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 42);
     });
@@ -209,15 +209,15 @@ void main() {
       int? value1;
       int? value2;
 
-      final cont1 = Cont.terminate<(), int>().elseDo0(
+      final cont1 = Cont.stop<(), int>().elseDo0(
         () => Cont.of(99),
       );
-      final cont2 = Cont.terminate<(), int>().elseDo(
+      final cont2 = Cont.stop<(), int>().elseDo(
         (_) => Cont.of(99),
       );
 
-      cont1.run((), onValue: (val) => value1 = val);
-      cont2.run((), onValue: (val) => value2 = val);
+      cont1.run((), onThen: (val) => value1 = val);
+      cont2.run((), onThen: (val) => value2 = val);
 
       expect(value1, value2);
     });

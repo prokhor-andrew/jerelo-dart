@@ -91,10 +91,10 @@ Cont<E, A> _thenWhile<E, A>(
           ):
             switch (result) {
               case _Left(value: final a):
-                observer.onValue(a);
+                observer.onThen(a);
                 return;
               case _Right(value: final errors):
-                observer.onTerminate(errors);
+                observer.onElse(errors);
                 return;
             }
         }
@@ -194,10 +194,10 @@ Cont<E, A> _elseWhile<E, A>(
           ):
             switch (result) {
               case _Left(value: final a):
-                observer.onValue(a);
+                observer.onThen(a);
                 return;
               case _Right(value: final errors):
-                observer.onTerminate(errors);
+                observer.onElse(errors);
                 return;
             }
         }

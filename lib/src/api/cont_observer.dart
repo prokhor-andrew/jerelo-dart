@@ -6,18 +6,18 @@ part of '../cont.dart';
 /// a [Cont] execution. It encapsulates handlers for both successful values
 /// and termination (failure) scenarios.
 final class ContObserver<A> {
-  final void Function(List<ContError> errors) _onTerminate;
+  final void Function(List<ContError> errors) _onElse;
 
   /// The callback function invoked when the continuation produces a successful value.
-  final void Function(A value) onValue;
+  final void Function(A value) onThen;
 
-  const ContObserver._(this._onTerminate, this.onValue);
+  const ContObserver._(this._onElse, this.onThen);
 
   /// Invokes the termination callback with the provided errors.
   ///
   /// - [errors]: List of errors that caused termination. Defaults to an empty list.
-  void onTerminate([List<ContError> errors = const []]) {
-    _onTerminate(errors);
+  void onElse([List<ContError> errors = const []]) {
+    _onElse(errors);
   }
 
   /// Creates a new observer with an updated termination handler.
@@ -25,11 +25,11 @@ final class ContObserver<A> {
   /// Returns a copy of this observer with a different termination callback,
   /// while preserving the value callback.
   ///
-  /// - [onTerminate]: The new termination handler to use.
-  ContObserver<A> copyUpdateOnTerminate(
-    void Function(List<ContError> errors) onTerminate,
+  /// - [onElse]: The new termination handler to use.
+  ContObserver<A> copyUpdateOnElse(
+    void Function(List<ContError> errors) onElse,
   ) {
-    return ContObserver._(onTerminate, onValue);
+    return ContObserver._(onElse, onThen);
   }
 
   /// Creates a new observer with an updated value handler and potentially different type.
@@ -37,10 +37,10 @@ final class ContObserver<A> {
   /// Returns a copy of this observer with a different value callback type,
   /// while preserving the termination callback.
   ///
-  /// - [onValue]: The new value handler to use.
-  ContObserver<A2> copyUpdateOnValue<A2>(
-    void Function(A2 value) onValue,
+  /// - [onThen]: The new value handler to use.
+  ContObserver<A2> copyUpdateOnThen<A2>(
+    void Function(A2 value) onThen,
   ) {
-    return ContObserver._(onTerminate, onValue);
+    return ContObserver._(onElse, onThen);
   }
 }

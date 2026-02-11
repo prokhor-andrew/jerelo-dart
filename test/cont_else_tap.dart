@@ -7,12 +7,12 @@ void main() {
       var sideEffectErrors = <ContError>[];
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([ContError.capture('err1')])
+      Cont.stop<(), int>([ContError.capture('err1')])
           .elseTap((e) {
             sideEffectErrors = e;
-            return Cont.terminate<(), int>([]);
+            return Cont.stop<(), int>([]);
           })
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(sideEffectErrors.length, 1);
       expect(sideEffectErrors[0].error, 'err1');
@@ -25,11 +25,11 @@ void main() {
       () {
         List<ContError>? errors;
 
-        Cont.terminate<(), int>([
+        Cont.stop<(), int>([
               ContError.capture('original'),
             ])
-            .elseTap((e) => Cont.terminate<(), int>([]))
-            .run((), onTerminate: (e) => errors = e);
+            .elseTap((e) => Cont.stop<(), int>([]))
+            .run((), onElse: (e) => errors = e);
 
         expect(errors!.length, 1);
         expect(errors![0].error, 'original');
@@ -39,11 +39,11 @@ void main() {
     test('recovers when side effect succeeds', () {
       int? value;
 
-      Cont.terminate<(), int>([
+      Cont.stop<(), int>([
             ContError.capture('original'),
           ])
           .elseTap((e) => Cont.of(42))
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 42);
     });
@@ -51,15 +51,15 @@ void main() {
     test('propagates side effect termination', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([
+      Cont.stop<(), int>([
             ContError.capture('original'),
           ])
           .elseTap((e) {
-            return Cont.terminate<(), int>([
+            return Cont.stop<(), int>([
               ContError.capture('side effect'),
             ]);
           })
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'original');
@@ -72,9 +72,9 @@ void main() {
       Cont.of<(), int>(42)
           .elseTap((errors) {
             elseCalled = true;
-            return Cont.terminate<(), int>([]);
+            return Cont.stop<(), int>([]);
           })
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(elseCalled, false);
       expect(value, 42);
@@ -82,7 +82,7 @@ void main() {
 
     test('terminates when side effect builder throws', () {
       final cont =
-          Cont.terminate<(), int>([
+          Cont.stop<(), int>([
             ContError.capture('original'),
           ]).elseTap((errors) {
             throw 'Side Effect Builder Error';
@@ -91,7 +91,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'original');
@@ -99,40 +99,40 @@ void main() {
 
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont = Cont.terminate<(), int>().elseTap((
+      final cont = Cont.stop<(), int>().elseTap((
         errors,
       ) {
         callCount++;
-        return Cont.terminate<(), int>([]);
+        return Cont.stop<(), int>([]);
       });
 
-      cont.run((), onTerminate: (_) {});
+      cont.run((), onElse: (_) {});
       expect(callCount, 1);
 
-      cont.run((), onTerminate: (_) {});
+      cont.run((), onElse: (_) {});
       expect(callCount, 2);
     });
 
     test('supports empty error list', () {
       List<ContError>? receivedErrors;
 
-      Cont.terminate<(), int>([])
+      Cont.stop<(), int>([])
           .elseTap((errors) {
             receivedErrors = errors;
-            return Cont.terminate<(), int>([]);
+            return Cont.stop<(), int>([]);
           })
-          .run((), onTerminate: (_) {});
+          .run((), onElse: (_) {});
 
       expect(receivedErrors, isEmpty);
     });
 
     test('never calls onPanic on value path', () {
       Cont.of<(), int>(42)
-          .elseTap((errors) => Cont.terminate<(), int>([]))
+          .elseTap((errors) => Cont.stop<(), int>([]))
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
-            onValue: (_) {},
+            onThen: (_) {},
           );
     });
 
@@ -151,16 +151,16 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onTerminate([
+              observer.onElse([
                 ContError.capture('error'),
               ]);
             });
           }).elseTap((errors) {
             sideEffectCalled = true;
-            return Cont.terminate<(), int>([]);
+            return Cont.stop<(), int>([]);
           });
 
-      final token = cont.run((), onTerminate: (_) {});
+      final token = cont.run((), onElse: (_) {});
 
       token.cancel();
       flush();
@@ -172,13 +172,13 @@ void main() {
       final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
-      Cont.terminate<(), int>(originalErrors)
+      Cont.stop<(), int>(originalErrors)
           .elseTap((errors) {
             receivedErrors = errors;
             errors.add(ContError.capture('err2'));
-            return Cont.terminate<(), int>([]);
+            return Cont.stop<(), int>([]);
           })
-          .run((), onTerminate: (_) {});
+          .run((), onElse: (_) {});
 
       expect(originalErrors.length, 1);
       expect(receivedErrors!.length, 2);
@@ -188,17 +188,17 @@ void main() {
       var count1 = 0;
       var count2 = 0;
 
-      final cont1 = Cont.terminate<(), int>().elseTap0(() {
+      final cont1 = Cont.stop<(), int>().elseTap0(() {
         count1++;
-        return Cont.terminate<(), int>([]);
+        return Cont.stop<(), int>([]);
       });
-      final cont2 = Cont.terminate<(), int>().elseTap((_) {
+      final cont2 = Cont.stop<(), int>().elseTap((_) {
         count2++;
-        return Cont.terminate<(), int>([]);
+        return Cont.stop<(), int>([]);
       });
 
-      cont1.run((), onTerminate: (_) {});
-      cont2.run((), onTerminate: (_) {});
+      cont1.run((), onElse: (_) {});
+      cont2.run((), onElse: (_) {});
 
       expect(count1, 1);
       expect(count2, 1);
@@ -207,9 +207,9 @@ void main() {
     test('recovers with value-returning side effect', () {
       int? value;
 
-      Cont.terminate<(), int>([ContError.capture('error')])
+      Cont.stop<(), int>([ContError.capture('error')])
           .elseTap((errors) => Cont.of(100))
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 100);
     });

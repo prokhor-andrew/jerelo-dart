@@ -15,7 +15,7 @@ void main() {
         });
 
         int? value;
-        cont.run((), onValue: (val) => value = val);
+        cont.run((), onThen: (val) => value = val);
 
         expect(value, 42);
       },
@@ -25,7 +25,7 @@ void main() {
       'Cont.decor forwards termination when f delegates to run',
       () {
         final errors = [ContError.capture('err1')];
-        final cont = Cont.terminate<(), int>(errors).decor((
+        final cont = Cont.stop<(), int>(errors).decor((
           run,
           runtime,
           observer,
@@ -34,7 +34,7 @@ void main() {
         });
 
         List<ContError>? received;
-        cont.run((), onTerminate: (e) => received = e);
+        cont.run((), onElse: (e) => received = e);
 
         expect(received!.length, 1);
         expect(received![0].error, 'err1');
@@ -53,7 +53,7 @@ void main() {
         });
 
         int? value;
-        cont.run((), onValue: (val) => value = val);
+        cont.run((), onThen: (val) => value = val);
 
         expect(value, null);
       },
@@ -65,13 +65,13 @@ void main() {
       final cont =
           Cont.fromRun<(), int>((runtime, observer) {
             order.add('run');
-            observer.onValue(10);
+            observer.onThen(10);
           }).decor((run, runtime, observer) {
             order.add('before');
             run(runtime, observer);
           });
 
-      cont.run((), onValue: (_) => order.add('value'));
+      cont.run((), onThen: (_) => order.add('value'));
 
       expect(order, ['before', 'run', 'value']);
     });
@@ -82,13 +82,13 @@ void main() {
       final cont =
           Cont.fromRun<(), int>((runtime, observer) {
             order.add('run');
-            observer.onValue(10);
+            observer.onThen(10);
           }).decor((run, runtime, observer) {
             run(runtime, observer);
             order.add('after');
           });
 
-      cont.run((), onValue: (_) => order.add('value'));
+      cont.run((), onThen: (_) => order.add('value'));
 
       expect(order, ['run', 'value', 'after']);
     });
@@ -102,14 +102,14 @@ void main() {
       int? value1;
       int? value2;
 
-      cont1.run((), onValue: (val) => value1 = val);
-      cont2.run((), onValue: (val) => value2 = val);
+      cont1.run((), onThen: (val) => value1 = val);
+      cont2.run((), onThen: (val) => value2 = val);
 
       expect(value1, value2);
     });
 
     test('Cont.decor identity preserves termination', () {
-      final cont1 = Cont.terminate<(), int>([
+      final cont1 = Cont.stop<(), int>([
         ContError.capture('err'),
       ]);
       final cont2 = cont1.decor((run, runtime, observer) {
@@ -119,8 +119,8 @@ void main() {
       List<ContError>? errors1;
       List<ContError>? errors2;
 
-      cont1.run((), onTerminate: (e) => errors1 = e);
-      cont2.run((), onTerminate: (e) => errors2 = e);
+      cont1.run((), onElse: (e) => errors1 = e);
+      cont2.run((), onElse: (e) => errors2 = e);
 
       expect(errors1!.length, errors2!.length);
       expect(errors1![0].error, errors2![0].error);
@@ -138,12 +138,12 @@ void main() {
       });
 
       int? value1;
-      cont.run((), onValue: (val) => value1 = val);
+      cont.run((), onThen: (val) => value1 = val);
       expect(value1, 5);
       expect(callCount, 1);
 
       int? value2;
-      cont.run((), onValue: (val) => value2 = val);
+      cont.run((), onThen: (val) => value2 = val);
       expect(value2, 5);
       expect(callCount, 2);
     });
@@ -162,12 +162,12 @@ void main() {
         onPanic: (_) {
           fail('Should not be called');
         },
-        onValue: (_) {},
+        onThen: (_) {},
       );
     });
 
     test(
-      'Cont.decor does not call onTerminate on value path',
+      'Cont.decor does not call onElse on value path',
       () {
         final cont = Cont.of<(), int>(0).decor((
           run,
@@ -179,10 +179,10 @@ void main() {
 
         cont.run(
           (),
-          onTerminate: (_) {
+          onElse: (_) {
             fail('Should not be called');
           },
-          onValue: (_) {},
+          onThen: (_) {},
         );
       },
     );
@@ -192,13 +192,13 @@ void main() {
       final cont =
           Cont.fromRun<int, int>((runtime, observer) {
             envValue = runtime.env();
-            observer.onValue(runtime.env());
+            observer.onThen(runtime.env());
           }).decor((run, runtime, observer) {
             run(runtime, observer);
           });
 
       int? value;
-      cont.run(99, onValue: (val) => value = val);
+      cont.run(99, onThen: (val) => value = val);
 
       expect(envValue, 99);
       expect(value, 99);
@@ -219,7 +219,7 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onValue(10);
+              observer.onThen(10);
             });
           }).decor((run, runtime, observer) {
             decorCalled = true;
@@ -229,7 +229,7 @@ void main() {
       int? value;
       final token = cont.run(
         (),
-        onValue: (val) => value = val,
+        onThen: (val) => value = val,
       );
 
       expect(decorCalled, true);
@@ -251,37 +251,37 @@ void main() {
         run(runtime, observer);
       });
 
-      cont.run((), onValue: (val) => values.add(val));
+      cont.run((), onThen: (val) => values.add(val));
 
       expect(values, [7]);
     });
 
-    test('Cont.decor can replace observer onValue', () {
+    test('Cont.decor can replace observer onThen', () {
       final cont =
           Cont.fromRun<(), int>((runtime, observer) {
-            observer.onValue(10);
+            observer.onThen(10);
           }).decor((run, runtime, observer) {
             final newObserver = observer
-                .copyUpdateOnValue<int>(
-                  (val) => observer.onValue(val * 2),
+                .copyUpdateOnThen<int>(
+                  (val) => observer.onThen(val * 2),
                 );
             run(runtime, newObserver);
           });
 
       int? value;
-      cont.run((), onValue: (val) => value = val);
+      cont.run((), onThen: (val) => value = val);
 
       expect(value, 20);
     });
 
-    test('Cont.decor can replace observer onTerminate', () {
+    test('Cont.decor can replace observer onElse', () {
       final cont =
-          Cont.terminate<(), int>([
+          Cont.stop<(), int>([
             ContError.capture('original'),
           ]).decor((run, runtime, observer) {
             final newObserver = observer
-                .copyUpdateOnTerminate(
-                  (errors) => observer.onValue(0),
+                .copyUpdateOnElse(
+                  (errors) => observer.onThen(0),
                 );
             run(runtime, newObserver);
           });
@@ -290,8 +290,8 @@ void main() {
       List<ContError>? errors;
       cont.run(
         (),
-        onValue: (val) => value = val,
-        onTerminate: (e) => errors = e,
+        onThen: (val) => value = val,
+        onElse: (e) => errors = e,
       );
 
       expect(value, 0);
@@ -313,7 +313,7 @@ void main() {
             order.add('inner-after');
           });
 
-      cont.run((), onValue: (_) => order.add('value'));
+      cont.run((), onThen: (_) => order.add('value'));
 
       expect(order, [
         'inner-before',

@@ -18,22 +18,22 @@ extension ContRunExtension<E, A> on Cont<E, A> {
   /// - [onPanic]: Callback invoked when a fatal, unrecoverable error occurs
   ///   (e.g. an observer callback throws). Defaults to re-throwing inside a
   ///   microtask.
-  /// - [onTerminate]: Callback invoked when the continuation terminates with
+  /// - [onElse]: Callback invoked when the continuation terminates with
   ///   errors. Defaults to ignoring the errors.
-  /// - [onValue]: Callback invoked when the continuation produces a successful
+  /// - [onThen]: Callback invoked when the continuation produces a successful
   ///   value. Defaults to ignoring the value.
   ContCancelToken run(
     E env, {
     void Function(ContError fatal) onPanic = _panic,
-    void Function(List<ContError> errors) onTerminate =
+    void Function(List<ContError> errors) onElse =
         _ignore,
-    void Function(A value) onValue = _ignore,
+    void Function(A value) onThen = _ignore,
   }) {
     final cancelToken = ContCancelToken._();
 
     _run(
       ContRuntime._(env, cancelToken.isCancelled, onPanic),
-      ContObserver._(onTerminate, onValue),
+      ContObserver._(onElse, onThen),
     );
 
     // returns cancel token

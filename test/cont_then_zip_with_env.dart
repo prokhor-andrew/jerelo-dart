@@ -11,7 +11,7 @@ void main() {
             (env, a) => Cont.of('$env-$a'),
             (a, b) => '$b=$a',
           )
-          .run('cfg', onValue: (val) => value = val);
+          .run('cfg', onThen: (val) => value = val);
 
       expect(value, 'cfg-10=10');
     });
@@ -35,14 +35,14 @@ void main() {
     test('passes through termination', () {
       List<ContError>? errors;
 
-      Cont.terminate<String, int>([
+      Cont.stop<String, int>([
             ContError.capture('err'),
           ])
           .thenZipWithEnv(
             (env, a) => Cont.of(0),
             (a, b) => a + b,
           )
-          .run('hello', onTerminate: (e) => errors = e);
+          .run('hello', onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'err');
@@ -55,12 +55,12 @@ void main() {
 
         Cont.of<String, int>(42)
             .thenZipWithEnv(
-              (env, a) => Cont.terminate<String, int>([
+              (env, a) => Cont.stop<String, int>([
                 ContError.capture('second err'),
               ]),
               (a, b) => a + b,
             )
-            .run('hello', onTerminate: (e) => errors = e);
+            .run('hello', onElse: (e) => errors = e);
 
         expect(errors!.length, 1);
         expect(errors![0].error, 'second err');
@@ -78,7 +78,7 @@ void main() {
       ContError? error;
       cont.run(
         'hello',
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Combine Error');
@@ -95,12 +95,12 @@ void main() {
       }, (a, b) => a + b);
 
       int? value1;
-      cont.run('hi', onValue: (val) => value1 = val);
+      cont.run('hi', onThen: (val) => value1 = val);
       expect(value1, 7); // 5 + 2
       expect(callCount, 1);
 
       int? value2;
-      cont.run('hello', onValue: (val) => value2 = val);
+      cont.run('hello', onThen: (val) => value2 = val);
       expect(value2, 10); // 5 + 5
       expect(callCount, 2);
     });
@@ -115,7 +115,7 @@ void main() {
             (env) => Cont.of(env.length),
             (a, b) => '$a+$b',
           )
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(value, '10+5');
     });
@@ -137,8 +137,8 @@ void main() {
               (a, b) => '$a+$b',
             );
 
-        cont1.run('hello', onValue: (val) => value1 = val);
-        cont2.run('hello', onValue: (val) => value2 = val);
+        cont1.run('hello', onThen: (val) => value1 = val);
+        cont2.run('hello', onThen: (val) => value2 = val);
 
         expect(value1, value2);
       },

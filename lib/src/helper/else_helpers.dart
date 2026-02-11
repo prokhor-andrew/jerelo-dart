@@ -7,7 +7,7 @@ Cont<E, A> _elseDo<E, A>(
   return Cont.fromRun((runtime, observer) {
     cont._run(
       runtime,
-      observer.copyUpdateOnTerminate((errors) {
+      observer.copyUpdateOnElse((errors) {
         if (runtime.isCancelled()) {
           return;
         }
@@ -21,15 +21,15 @@ Cont<E, A> _elseDo<E, A>(
 
           contA._run(
             runtime,
-            observer.copyUpdateOnTerminate((errors2) {
+            observer.copyUpdateOnElse((errors2) {
               if (runtime.isCancelled()) {
                 return;
               }
-              observer.onTerminate([...errors2]);
+              observer.onElse([...errors2]);
             }),
           );
         } catch (error, st) {
-          observer.onTerminate([
+          observer.onElse([
             ContError.withStackTrace(error, st),
           ]); // we return latest error
         }
@@ -45,7 +45,7 @@ Cont<E, A> _elseTap<E, A>(
   return Cont.fromRun((runtime, observer) {
     cont._run(
       runtime,
-      observer.copyUpdateOnTerminate((errors) {
+      observer.copyUpdateOnElse((errors) {
         if (runtime.isCancelled()) {
           return;
         }
@@ -63,16 +63,16 @@ Cont<E, A> _elseTap<E, A>(
 
           contA._run(
             runtime,
-            observer.copyUpdateOnTerminate((_) {
+            observer.copyUpdateOnElse((_) {
               if (runtime.isCancelled()) {
                 return;
               }
-              observer.onTerminate(errors);
+              observer.onElse(errors);
             }),
           );
         } catch (_) {
           // we return original errors
-          observer.onTerminate(errors);
+          observer.onElse(errors);
         }
       }),
     );
@@ -86,7 +86,7 @@ Cont<E, A> _elseZip<E, A>(
   return Cont.fromRun((runtime, observer) {
     cont._run(
       runtime,
-      observer.copyUpdateOnTerminate((errors) {
+      observer.copyUpdateOnElse((errors) {
         if (runtime.isCancelled()) {
           return;
         }
@@ -102,20 +102,20 @@ Cont<E, A> _elseZip<E, A>(
           }
           contA._run(
             runtime,
-            observer.copyUpdateOnTerminate((errors2) {
+            observer.copyUpdateOnElse((errors2) {
               if (runtime.isCancelled()) {
                 return;
               }
               errors2 = errors2.toList(); // defensive copy
               final combinedErrors = errors + errors2;
-              observer.onTerminate(combinedErrors);
+              observer.onElse(combinedErrors);
             }),
           );
         } catch (error, st) {
           final combinedErrors =
               errors +
               [ContError.withStackTrace(error, st)];
-          observer.onTerminate(combinedErrors);
+          observer.onElse(combinedErrors);
         }
       }),
     );
@@ -129,7 +129,7 @@ Cont<E, A> _elseFork<E, A, A2>(
   return Cont.fromRun((runtime, observer) {
     cont._run(
       runtime,
-      observer.copyUpdateOnTerminate((errors) {
+      observer.copyUpdateOnElse((errors) {
         if (runtime.isCancelled()) {
           return;
         }
@@ -147,7 +147,7 @@ Cont<E, A> _elseFork<E, A, A2>(
           // do nothing, if anything happens to side-effect, it's not
           // a concern of the orElseFork
         }
-        observer.onTerminate([...errors]);
+        observer.onElse([...errors]);
       }),
     );
   });

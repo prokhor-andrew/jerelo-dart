@@ -138,7 +138,7 @@ Signals cancellation to the running computation. After this call, `isCancelled()
 ```dart
 final token = computation.run(
   env,
-  onValue: (value) => print('Success: $value'),
+  onThen: (value) => print('Success: $value'),
 );
 
 // Later, cancel the computation
@@ -197,7 +197,7 @@ Creates an error wrapper and captures the current stack trace automatically. Use
 try {
   riskyOperation();
 } catch (error, st) {
-  observer.onTerminate([ContError.withStackTrace(error, st)]);
+  observer.onElse([ContError.withStackTrace(error, st)]);
 }
 
 // Logical termination without a stack trace
@@ -512,7 +512,7 @@ Function that checks whether the continuation execution has been cancelled. Retu
 ```dart
 void onPanic(ContError fatal)
 ```
-Callback invoked when a fatal, unrecoverable error occurs during continuation execution. Unlike `ContObserver.onTerminate`, which handles expected termination errors within the normal control flow, `onPanic` is reserved for situations that violate internal invariants (e.g. an observer callback throwing an exception). The default implementation re-throws the error inside a microtask so it surfaces as an unhandled exception.
+Callback invoked when a fatal, unrecoverable error occurs during continuation execution. Unlike `ContObserver.onElse`, which handles expected termination errors within the normal control flow, `onPanic` is reserved for situations that violate internal invariants (e.g. an observer callback throwing an exception). The default implementation re-throws the error inside a microtask so it surfaces as an unhandled exception.
 
 ```dart
 E env()
@@ -542,12 +542,12 @@ An observer that handles both success and termination cases of a continuation.
 **Methods:**
 
 ```dart
-void onValue(A value)
+void onThen(A value)
 ```
 The callback function invoked when the continuation produces a successful value.
 
 ```dart
-void onTerminate([List<ContError> errors = const []])
+void onElse([List<ContError> errors = const []])
 ```
 Invokes the termination callback with the provided errors.
 
@@ -555,20 +555,20 @@ Invokes the termination callback with the provided errors.
   - `errors`: List of errors that caused termination. Defaults to an empty list
 
 ```dart
-ContObserver<A> copyUpdateOnTerminate(void Function(List<ContError> errors) onTerminate)
+ContObserver<A> copyUpdateOnElse(void Function(List<ContError> errors) onElse)
 ```
 Creates a new observer with an updated termination handler. Returns a copy of this observer with a different termination callback, while preserving the value callback.
 
 - **Parameters:**
-  - `onTerminate`: The new termination handler to use
+  - `onElse`: The new termination handler to use
 
 ```dart
-ContObserver<A2> copyUpdateOnValue<A2>(void Function(A2 value) onValue)
+ContObserver<A2> copyUpdateOnValue<A2>(void Function(A2 value) onThen)
 ```
 Creates a new observer with an updated value handler and potentially different type. Returns a copy of this observer with a different value callback type, while preserving the termination callback.
 
 - **Parameters:**
-  - `onValue`: The new value handler to use
+  - `onThen`: The new value handler to use
 
 ---
 
@@ -582,7 +582,7 @@ static Cont<E, A> fromRun<E, A>(void Function(ContRuntime<E> runtime, ContObserv
 
 Creates a `Cont` from a run function that accepts an observer.
 
-Constructs a continuation with guaranteed idempotence and exception catching. The run function receives an observer with `onValue` and `onTerminate` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later.
+Constructs a continuation with guaranteed idempotence and exception catching. The run function receives an observer with `onThen` and `onElse` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later.
 
 - **Parameters:**
   - `run`: Function that executes the continuation and calls observer callbacks
@@ -711,8 +711,8 @@ final result = Cont.bracket(
 ContCancelToken run(
   E env, {
   void Function(ContError fatal) onPanic = _panic,
-  void Function(List<ContError> errors) onTerminate = _ignore,
-  void Function(A value) onValue = _ignore,
+  void Function(List<ContError> errors) onElse = _ignore,
+  void Function(A value) onThen = _ignore,
 })
 ```
 
@@ -725,8 +725,8 @@ Initiates execution of the continuation with separate handlers for success and f
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
   - `onPanic`: Callback invoked when a fatal, unrecoverable error occurs (e.g. an observer callback throws). Defaults to re-throwing inside a microtask
-  - `onTerminate`: Callback invoked when the continuation terminates with errors. Defaults to ignoring the errors
-  - `onValue`: Callback invoked when the continuation produces a successful value. Defaults to ignoring the value
+  - `onElse`: Callback invoked when the continuation terminates with errors. Defaults to ignoring the errors
+  - `onThen`: Callback invoked when the continuation produces a successful value. Defaults to ignoring the value
 
 **Example:**
 ```dart
@@ -734,12 +734,12 @@ Initiates execution of the continuation with separate handlers for success and f
 final token = computation.run(
   env,
   onPanic: (fatal) => log('PANIC: ${fatal.error}'),
-  onTerminate: (errors) => print('Failed: $errors'),
-  onValue: (value) => print('Success: $value'),
+  onElse: (errors) => print('Failed: $errors'),
+  onThen: (value) => print('Success: $value'),
 );
 
 // Subscribe only to the value channel
-final token = computation.run(env, onValue: print);
+final token = computation.run(env, onThen: print);
 
 // Cancel the computation when needed
 token.cancel();
@@ -1109,7 +1109,7 @@ If the continuation terminates, applies `f` to the error list and succeeds with 
 final cont = Cont.terminate<(), int>([ContError.capture('not found')])
   .recover((errors) => -1);
 
-cont.run((), onValue: print); // prints: -1
+cont.run((), onThen: print); // prints: -1
 ```
 
 ---
@@ -1147,7 +1147,7 @@ If the continuation terminates, succeeds with `value` instead. This is the simpl
 final cont = Cont.terminate<(), int>([ContError.capture('error')])
   .fallback(0);
 
-cont.run((), onValue: print); // prints: 0
+cont.run((), onThen: print); // prints: 0
 ```
 
 ---
@@ -1674,7 +1674,7 @@ final server = acceptConnection()
     .forever();
 
 // Run with only a termination handler (using trap extension)
-final token = server.trap(env, onTerminate: (errors) => print('Server stopped: $errors'));
+final token = server.trap(env, onElse: (errors) => print('Server stopped: $errors'));
 
 // Can cancel the server when needed
 // token.cancel();
@@ -1859,7 +1859,7 @@ This extension provides specialized methods for `Cont<E, Never>` where only term
 ContCancelToken trap(
   E env, {
   void Function(ContError error) onPanic = _panic,
-  void Function(List<ContError> errors) onTerminate = _ignore,
+  void Function(List<ContError> errors) onElse = _ignore,
 })
 ```
 Executes the continuation expecting only termination. This is a convenience method for `Cont<E, Never>` that executes the continuation with only a termination handler, since a value callback would never be called for a `Cont<E, Never>`. All callbacks are optional and default to no-op.
@@ -1869,12 +1869,12 @@ Executes the continuation expecting only termination. This is a convenience meth
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
   - `onPanic`: Callback invoked when a fatal, unrecoverable error occurs. Defaults to re-throwing inside a microtask
-  - `onTerminate`: Callback invoked when the continuation terminates with errors. Defaults to ignoring the errors
+  - `onElse`: Callback invoked when the continuation terminates with errors. Defaults to ignoring the errors
 
 **Example:**
 ```dart
 final cont = Cont.terminate<MyEnv, Never>([ContError.capture(Exception('Failed'))]);
-final token = cont.trap(myEnv, onTerminate: (errors) {
+final token = cont.trap(myEnv, onElse: (errors) {
   print('Terminated with ${errors.length} error(s)');
 });
 

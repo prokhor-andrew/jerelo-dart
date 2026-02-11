@@ -7,7 +7,7 @@ void main() {
       int? value;
       Cont.of<(), int>(0)
           .thenDo((a) => Cont.of(a + 2))
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 2);
     });
@@ -20,8 +20,8 @@ void main() {
       final cont1 = f(5);
       final cont2 = Cont.of<(), int>(5).thenDo(f);
 
-      cont1.run((), onValue: (val) => value1 = val);
-      cont2.run((), onValue: (val) => value2 = val);
+      cont1.run((), onThen: (val) => value1 = val);
+      cont2.run((), onThen: (val) => value2 = val);
 
       expect(value1, value2);
     });
@@ -33,8 +33,8 @@ void main() {
       final cont1 = Cont.of<(), int>(5);
       final cont2 = cont1.thenDo(Cont.of);
 
-      cont1.run((), onValue: (val1) => value1 = val1);
-      cont2.run((), onValue: (val2) => value2 = val2);
+      cont1.run((), onThen: (val1) => value1 = val1);
+      cont2.run((), onThen: (val2) => value2 = val2);
 
       expect(value1, value2);
     });
@@ -53,20 +53,20 @@ void main() {
         ).thenDo((a) => Cont.of(a * 3)),
       );
 
-      cont2.run((), onValue: (val2) => value2 = val2);
-      cont3.run((), onValue: (val3) => value3 = val3);
+      cont2.run((), onThen: (val2) => value2 = val2);
+      cont3.run((), onThen: (val3) => value3 = val3);
 
       expect(value2, value3);
     });
 
     test('Cont.thenDo ignore terminate channel', () {
-      final cont = Cont.terminate<(), int>().thenDo(
+      final cont = Cont.stop<(), int>().thenDo(
         (a) => Cont.of(a * 2),
       );
 
       cont.run(
         (),
-        onValue: (_) => fail('Must not be called'),
+        onThen: (_) => fail('Must not be called'),
       );
     });
 
@@ -78,7 +78,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Thrown Error');
@@ -89,19 +89,19 @@ void main() {
 
       Cont.of<(), int>(42)
           .thenDo((val) => Cont.of('value: $val'))
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 'value: 42');
     });
 
     test(
-      'Cont.thenDo calls onTerminate when terminated',
+      'Cont.thenDo calls onElse when terminated',
       () {
         List<ContError>? errors;
 
-        Cont.terminate<(), int>()
+        Cont.stop<(), int>()
             .thenDo((a) => Cont.of(a * 2))
-            .run((), onTerminate: (e) => errors = e);
+            .run((), onElse: (e) => errors = e);
 
         expect(errors, isNotNull);
         expect(errors, isEmpty);
@@ -118,11 +118,11 @@ void main() {
 
         List<ContError>? receivedErrors;
 
-        Cont.terminate<(), int>(inputErrors)
+        Cont.stop<(), int>(inputErrors)
             .thenDo((val) => Cont.of(val + 5))
             .run(
               (),
-              onTerminate: (e) => receivedErrors = e,
+              onElse: (e) => receivedErrors = e,
             );
 
         expect(receivedErrors!.length, 2);
@@ -136,13 +136,13 @@ void main() {
       () {
         final cont = Cont.of<(), int>(
           5,
-        ).thenDo((a) => Cont.terminate<(), int>());
+        ).thenDo((a) => Cont.stop<(), int>());
 
         cont.run(
           (),
-          onValue: (_) =>
-              fail('onValue must not be called'),
-          onTerminate: (_) {}, // Should be called
+          onThen: (_) =>
+              fail('onThen must not be called'),
+          onElse: (_) {}, // Should be called
         );
       },
     );
@@ -153,11 +153,11 @@ void main() {
       ).thenDo((val) => Cont.of(val * 3));
 
       int? value1;
-      cont.run((), onValue: (val) => value1 = val);
+      cont.run((), onThen: (val) => value1 = val);
       expect(value1, 30);
 
       int? value2;
-      cont.run((), onValue: (val) => value2 = val);
+      cont.run((), onThen: (val) => value2 = val);
       expect(value2, 30);
     });
 
@@ -167,7 +167,7 @@ void main() {
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
-            onValue: (_) {},
+            onThen: (_) {},
           );
     });
 
@@ -188,7 +188,7 @@ void main() {
             Cont.fromRun<(), int>((runtime, observer) {
               buffer.add(() {
                 if (runtime.isCancelled()) return;
-                observer.onValue(10);
+                observer.onThen(10);
               });
             }).thenDo((val) {
               thenDoCalled = true;
@@ -198,7 +198,7 @@ void main() {
         int? value;
         final token = cont.run(
           (),
-          onValue: (val) => value = val,
+          onThen: (val) => value = val,
         );
 
         token.cancel();
@@ -220,8 +220,8 @@ void main() {
       int? value1;
       int? value2;
 
-      cont1.run((), onValue: (val1) => value1 = val1);
-      cont2.run((), onValue: (val2) => value2 = val2);
+      cont1.run((), onThen: (val1) => value1 = val1);
+      cont2.run((), onThen: (val2) => value2 = val2);
 
       expect(value1, value2);
     });

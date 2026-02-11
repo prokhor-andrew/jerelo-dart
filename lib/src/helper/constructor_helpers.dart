@@ -14,7 +14,7 @@ Cont<E, A> _fromRun<E, A>(
 
     if (observer is ContObserver<Never>) {
       observer = ContObserver<A>._(
-        observer.onTerminate,
+        observer.onElse,
         (_) {},
       );
     }
@@ -32,7 +32,7 @@ Cont<E, A> _fromRun<E, A>(
       }
       isDone = true;
       try {
-        observer.onTerminate(errors);
+        observer.onElse(errors);
       } catch (error, st) {
         try {
           runtime.onPanic(
@@ -54,7 +54,7 @@ Cont<E, A> _fromRun<E, A>(
       }
       isDone = true;
       try {
-        observer.onValue(a);
+        observer.onThen(a);
       } catch (error, st) {
         try {
           runtime.onPanic(

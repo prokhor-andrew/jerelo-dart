@@ -6,9 +6,9 @@ void main() {
     test('executes with only termination handler', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), Never>([
+      Cont.stop<(), Never>([
         ContError.capture('err'),
-      ]).trap((), onTerminate: (e) => errors = e);
+      ]).trap((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'err');
@@ -17,21 +17,21 @@ void main() {
     test('supports empty errors', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), Never>().trap(
+      Cont.stop<(), Never>().trap(
         (),
-        onTerminate: (e) => errors = e,
+        onElse: (e) => errors = e,
       );
 
       expect(errors, isEmpty);
     });
 
     test('never calls onPanic on termination', () {
-      Cont.terminate<(), Never>([
+      Cont.stop<(), Never>([
         ContError.capture('err'),
       ]).trap(
         (),
         onPanic: (_) => fail('Should not be called'),
-        onTerminate: (_) {},
+        onElse: (_) {},
       );
     });
 
@@ -42,12 +42,12 @@ void main() {
       Cont.fromDeferred<(), int>(() {
         iterations++;
         if (iterations == 3) {
-          return Cont.terminate<(), int>([
+          return Cont.stop<(), int>([
             ContError.capture('stop'),
           ]);
         }
         return Cont.of(iterations);
-      }).forever().trap((), onTerminate: (e) => errors = e);
+      }).forever().trap((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'stop');
@@ -59,8 +59,8 @@ void main() {
 
       Cont.fromRun<String, Never>((runtime, observer) {
         receivedEnv = runtime.env();
-        observer.onTerminate([]);
-      }).trap('test-env', onTerminate: (_) {});
+        observer.onElse([]);
+      }).trap('test-env', onElse: (_) {});
 
       expect(receivedEnv, 'test-env');
     });
@@ -68,14 +68,14 @@ void main() {
     test('supports multiple calls', () {
       var callCount = 0;
 
-      final cont = Cont.terminate<(), Never>([
+      final cont = Cont.stop<(), Never>([
         ContError.capture('err'),
       ]);
 
-      cont.trap((), onTerminate: (_) => callCount++);
+      cont.trap((), onElse: (_) => callCount++);
       expect(callCount, 1);
 
-      cont.trap((), onTerminate: (_) => callCount++);
+      cont.trap((), onElse: (_) => callCount++);
       expect(callCount, 2);
     });
 
@@ -97,26 +97,26 @@ void main() {
         buffer.add(() {
           if (runtime.isCancelled()) return;
           terminated = true;
-          observer.onTerminate([]);
+          observer.onElse([]);
         });
       });
 
-      final token = cont.run((), onTerminate: (_) {});
+      final token = cont.run((), onElse: (_) {});
       token.cancel();
       flush();
 
       expect(terminated, false);
     });
 
-    test('triggers onPanic when onTerminate throws', () {
+    test('triggers onPanic when onElse throws', () {
       ContError? panic;
 
-      Cont.terminate<(), Never>([
+      Cont.stop<(), Never>([
         ContError.capture('err'),
       ]).trap(
         (),
         onPanic: (error) => panic = error,
-        onTerminate: (errors) {
+        onElse: (errors) {
           throw 'terminate callback error';
         },
       );
@@ -127,7 +127,7 @@ void main() {
 
   group('Cont<E, Never>.absurd', () {
     test('transforms Never to any type', () {
-      final cont = Cont.terminate<(), Never>()
+      final cont = Cont.stop<(), Never>()
           .absurd<int>();
 
       expect(cont, isA<Cont<Object?, int>>());
@@ -136,26 +136,26 @@ void main() {
     test('preserves termination', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), Never>([ContError.capture('err')])
+      Cont.stop<(), Never>([ContError.capture('err')])
           .absurd<String>()
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'err');
     });
 
     test('never produces value', () {
-      Cont.terminate<(), Never>([
+      Cont.stop<(), Never>([
         ContError.capture('err'),
       ]).absurd<int>().run(
         (),
-        onValue: (_) => fail('Should never be called'),
-        onTerminate: (_) {},
+        onThen: (_) => fail('Should never be called'),
+        onElse: (_) {},
       );
     });
 
     test('transforms to different types', () {
-      final cont = Cont.terminate<(), Never>();
+      final cont = Cont.stop<(), Never>();
 
       final asInt = cont.absurd<int>();
       final asString = cont.absurd<String>();
@@ -173,14 +173,14 @@ void main() {
       Cont.fromDeferred<(), int>(() {
         iterations++;
         if (iterations == 5) {
-          return Cont.terminate<(), int>([
+          return Cont.stop<(), int>([
             ContError.capture('stop'),
           ]);
         }
         return Cont.of(iterations);
       }).forever().absurd<String>().run(
         (),
-        onTerminate: (e) => errors = e,
+        onElse: (e) => errors = e,
       );
 
       expect(errors!.length, 1);
@@ -193,8 +193,8 @@ void main() {
 
       Cont.fromRun<String, Never>((runtime, observer) {
         receivedEnv = runtime.env();
-        observer.onTerminate([]);
-      }).absurd<int>().run('test-env', onTerminate: (_) {});
+        observer.onElse([]);
+      }).absurd<int>().run('test-env', onElse: (_) {});
 
       expect(receivedEnv, 'test-env');
     });
@@ -202,24 +202,24 @@ void main() {
     test('supports multiple runs', () {
       var callCount = 0;
 
-      final cont = Cont.terminate<(), Never>([
+      final cont = Cont.stop<(), Never>([
         ContError.capture('err'),
       ]).absurd<int>();
 
-      cont.run((), onTerminate: (_) => callCount++);
+      cont.run((), onElse: (_) => callCount++);
       expect(callCount, 1);
 
-      cont.run((), onTerminate: (_) => callCount++);
+      cont.run((), onElse: (_) => callCount++);
       expect(callCount, 2);
     });
 
     test('never calls onPanic', () {
-      Cont.terminate<(), Never>([
+      Cont.stop<(), Never>([
         ContError.capture('err'),
       ]).absurd<int>().run(
         (),
         onPanic: (_) => fail('Should not be called'),
-        onTerminate: (_) {},
+        onElse: (_) {},
       );
     });
 
@@ -241,11 +241,11 @@ void main() {
         buffer.add(() {
           if (runtime.isCancelled()) return;
           executed = true;
-          observer.onTerminate([]);
+          observer.onElse([]);
         });
       }).absurd<int>();
 
-      final token = cont.run((), onTerminate: (_) {});
+      final token = cont.run((), onElse: (_) {});
       token.cancel();
       flush();
 
@@ -255,7 +255,7 @@ void main() {
     test('provides type compatibility in composition', () {
       List<ContError>? errors;
 
-      final neverCont = Cont.terminate<(), Never>([
+      final neverCont = Cont.stop<(), Never>([
         ContError.capture('never error'),
       ]);
 
@@ -264,7 +264,7 @@ void main() {
       // Use absurd to make types compatible for elseDo
       intCont
           .thenDo((n) => neverCont.absurd<int>())
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'never error');
@@ -273,13 +273,13 @@ void main() {
     test('supports chaining with map', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), Never>([ContError.capture('err')])
+      Cont.stop<(), Never>([ContError.capture('err')])
           .absurd<int>()
           .thenMap((n) => n * 2)
           .run(
             (),
-            onValue: (_) => fail('Should not be called'),
-            onTerminate: (e) => errors = e,
+            onThen: (_) => fail('Should not be called'),
+            onElse: (e) => errors = e,
           );
 
       expect(errors!.length, 1);
@@ -290,14 +290,14 @@ void main() {
       final result = <int?>[];
 
       final cont1 = Cont.of<(), int>(42);
-      final cont2 = Cont.terminate<(), Never>()
+      final cont2 = Cont.stop<(), Never>()
           .absurd<int>();
 
-      cont1.run((), onValue: (v) => result.add(v));
+      cont1.run((), onThen: (v) => result.add(v));
       cont2.run(
         (),
-        onValue: (v) => result.add(v),
-        onTerminate: (_) => result.add(null),
+        onThen: (v) => result.add(v),
+        onElse: (_) => result.add(null),
       );
 
       expect(result, [42, null]);

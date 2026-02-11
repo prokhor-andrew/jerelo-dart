@@ -68,7 +68,7 @@ final class Cont<E, A> {
   /// Creates a [Cont] from a run function that accepts an observer.
   ///
   /// Constructs a continuation with guaranteed idempotence and exception catching.
-  /// The run function receives an observer with `onValue` and `onTerminate` callbacks.
+  /// The run function receives an observer with `onThen` and `onElse` callbacks.
   /// The callbacks should be called as the last instruction in the run function
   /// or saved to be called later.
   ///
@@ -108,7 +108,7 @@ final class Cont<E, A> {
   /// - [value]: The value to wrap.
   static Cont<E, A> of<E, A>(A value) {
     return Cont.fromRun((runtime, observer) {
-      observer.onValue(value);
+      observer.onThen(value);
     });
   }
 
@@ -118,14 +118,14 @@ final class Cont<E, A> {
   /// Used to represent failure states.
   ///
   /// - [errors]: List of errors to terminate with. Defaults to an empty list.
-  static Cont<E, A> terminate<E, A>([
+  static Cont<E, A> stop<E, A>([
     List<ContError> errors = const [],
   ]) {
     errors = errors.toList();
     return Cont.fromRun((runtime, observer) {
       errors = errors
           .toList(); // if same computation ran twice, and got list modified, it won't affect the other one
-      observer.onTerminate(errors);
+      observer.onElse(errors);
     });
   }
 
@@ -138,7 +138,7 @@ final class Cont<E, A> {
   /// Returns a continuation that succeeds with the environment value.
   static Cont<E, E> ask<E>() {
     return Cont.fromRun((runtime, observer) {
-      observer.onValue(runtime.env());
+      observer.onThen(runtime.env());
     });
   }
 
@@ -248,7 +248,7 @@ final class Cont<E, A> {
       case EitherSequencePolicy<A>():
         return left.elseDo((errors1) {
           return right.elseDo((errors2) {
-            return Cont.terminate(errors1 + errors2);
+            return Cont.stop(errors1 + errors2);
           });
         });
       case EitherMergeWhenAllPolicy<A>(

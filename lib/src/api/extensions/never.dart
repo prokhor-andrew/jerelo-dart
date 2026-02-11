@@ -20,13 +20,13 @@ extension ContNeverExtension<E> on Cont<E, Never> {
   ///   returning `false` (never cancelled).
   /// - [onPanic]: Callback invoked when a fatal, unrecoverable error occurs.
   ///   Defaults to re-throwing inside a microtask.
-  /// - [onTerminate]: Callback invoked when the continuation terminates with
+  /// - [onElse]: Callback invoked when the continuation terminates with
   ///   errors. Defaults to ignoring the errors.
   ///
   /// Example:
   /// ```dart
   /// final cont = Cont.terminate<MyEnv, Never>([ContError(Exception('Failed'), StackTrace.current)]);
-  /// cont.trap(myEnv, onTerminate: (errors) {
+  /// cont.trap(myEnv, onElse: (errors) {
   ///   print('Terminated with ${errors.length} error(s)');
   /// });
   /// ```
@@ -34,13 +34,13 @@ extension ContNeverExtension<E> on Cont<E, Never> {
     E env, {
     bool Function() isCancelled = _false,
     void Function(ContError error) onPanic = _panic,
-    void Function(List<ContError> errors) onTerminate =
+    void Function(List<ContError> errors) onElse =
         _ignore,
   }) {
     final ContCancelToken cancelToken = ContCancelToken._();
     _run(
       ContRuntime._(env, cancelToken.isCancelled, onPanic),
-      ContObserver._(onTerminate, (_) {}),
+      ContObserver._(onElse, (_) {}),
     );
 
     return cancelToken;

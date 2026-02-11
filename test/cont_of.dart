@@ -8,19 +8,19 @@ void main() {
       final cont = Cont.of<(), int>(0);
 
       expect(value, 15);
-      cont.run((), onValue: (val) => value = val);
+      cont.run((), onThen: (val) => value = val);
       expect(value, 0);
     });
 
-    test('Cont.of does not call onTerminate', () {
+    test('Cont.of does not call onElse', () {
       final cont = Cont.of<(), int>(0);
 
       cont.run(
         (),
-        onTerminate: (_) {
+        onElse: (_) {
           fail('Should not be called');
         },
-        onValue: (_) {},
+        onThen: (_) {},
       );
     });
 
@@ -32,7 +32,7 @@ void main() {
         onPanic: (_) {
           fail('Should not be called');
         },
-        onValue: (_) {},
+        onThen: (_) {},
       );
     });
 
@@ -40,11 +40,11 @@ void main() {
       var value = 0;
       final cont = Cont.of<(), int>(15);
 
-      cont.run((), onValue: (val) => value = val);
+      cont.run((), onThen: (val) => value = val);
       expect(value, 15);
 
       value = 0;
-      cont.run((), onValue: (val) => value = val);
+      cont.run((), onThen: (val) => value = val);
       expect(value, 15);
     });
   });

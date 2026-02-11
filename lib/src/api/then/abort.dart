@@ -11,7 +11,7 @@ extension ContAbortExtension<E, A> on Cont<E, A> {
   Cont<E, A> abort(List<ContError> Function(A value) f) {
     return thenDo((a) {
       final errors = f(a);
-      return Cont.terminate<E, A>(errors);
+      return Cont.stop<E, A>(errors);
     });
   }
 

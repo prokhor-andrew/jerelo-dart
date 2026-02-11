@@ -36,7 +36,7 @@ Cont<E, A> _bracket<E, R, A>({
             }
             return cont;
           } catch (error, st) {
-            return Cont.terminate<E, ()>([
+            return Cont.stop<E, ()>([
               ContError.withStackTrace(error, st),
             ]);
           }
@@ -53,7 +53,7 @@ Cont<E, A> _bracket<E, R, A>({
                 switch (useResult) {
                   case _Left<A, List<ContError>>():
                     // Use succeeded but release failed
-                    observer.onTerminate([
+                    observer.onElse([
                       ...releaseErrors,
                     ]);
                   case _Right<A, List<ContError>>(
@@ -64,7 +64,7 @@ Cont<E, A> _bracket<E, R, A>({
                       ...useErrors,
                       ...releaseErrors,
                     ];
-                    observer.onTerminate(combinedErrors);
+                    observer.onElse(combinedErrors);
                 }
               },
               // Release succeeded
@@ -74,12 +74,12 @@ Cont<E, A> _bracket<E, R, A>({
                     value: final value,
                   ):
                     // Both use and release succeeded - return the value
-                    observer.onValue(value);
+                    observer.onThen(value);
                   case _Right<A, List<ContError>>(
                     value: final useErrors,
                   ):
                     // Use failed but release succeeded - propagate use errors
-                    observer.onTerminate(useErrors);
+                    observer.onElse(useErrors);
                 }
               },
             ),
@@ -89,7 +89,7 @@ Cont<E, A> _bracket<E, R, A>({
           switch (useResult) {
             case _Left<A, List<ContError>>():
               // Use succeeded but release setup failed
-              observer.onTerminate([
+              observer.onElse([
                 ContError.withStackTrace(error, st),
               ]);
             case _Right<A, List<ContError>>(
@@ -100,7 +100,7 @@ Cont<E, A> _bracket<E, R, A>({
                 ...useErrors,
                 ContError.withStackTrace(error, st),
               ];
-              observer.onTerminate(combinedErrors);
+              observer.onElse(combinedErrors);
           }
         }
       }

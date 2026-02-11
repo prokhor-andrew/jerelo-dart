@@ -36,7 +36,7 @@ extension ContElseIfExtension<E, A> on Cont<E, A> {
         return Cont.of(value);
       }
 
-      return Cont.terminate<E, A>(errors);
+      return Cont.stop<E, A>(errors);
     });
   }
 
