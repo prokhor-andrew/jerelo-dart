@@ -67,7 +67,7 @@ Complete reference for all public types and APIs in the Jerelo continuation libr
       - [injectInto](#injectinto)
       - [injectedBy](#injectedby)
     - [Loop & Conditional Methods](#loop--conditional-methods)
-      - [when](#when)
+      - [thenIf](#thenif)
       - [asLongAs](#aslongas)
       - [until](#until)
       - [forever](#forever)
@@ -1536,10 +1536,10 @@ final result = queryOp.injectedBy(configProvider);
 
 ### Loop & Conditional Methods
 
-#### when
+#### thenIf
 
 ```dart
-Cont<E, A> when(bool Function(A value) predicate)
+Cont<E, A> thenIf(bool Function(A value) predicate)
 ```
 
 Conditionally succeeds only when the predicate is satisfied.
@@ -1553,10 +1553,10 @@ This is useful for conditional execution where you want to treat a predicate fai
 
 **Example:**
 ```dart
-final cont = Cont.of(42).when((n) => n > 0);
+final cont = Cont.of(42).thenIf((n) => n > 0);
 // Succeeds with 42
 
-final cont2 = Cont.of(-5).when((n) => n > 0);
+final cont2 = Cont.of(-5).thenIf((n) => n > 0);
 // Terminates
 ```
 

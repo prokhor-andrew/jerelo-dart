@@ -2,22 +2,22 @@ import 'package:jerelo/jerelo.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('Cont.when', () {
-    test('succeeds when predicate is true', () {
+  group('Cont.thenIf', () {
+    test('succeeds if predicate is true', () {
       int? value;
       Cont.of<(), int>(42)
-          .when((n) => n > 0)
+          .thenIf((n) => n > 0)
           .run((), onValue: (val) => value = val);
 
       expect(value, 42);
     });
 
-    test('terminates when predicate is false', () {
+    test('terminates if predicate is false', () {
       List<ContError>? errors;
       int? value;
 
       Cont.of<(), int>(-5)
-          .when((n) => n > 0)
+          .thenIf((n) => n > 0)
           .run(
             (),
             onValue: (val) => value = val,
@@ -33,7 +33,7 @@ void main() {
       List<ContError>? errors;
 
       Cont.terminate<(), int>([ContError.capture('err')])
-          .when((n) => n > 0)
+          .thenIf((n) => n > 0)
           .run((), onTerminate: (e) => errors = e);
 
       expect(errors!.length, 1);
@@ -41,7 +41,7 @@ void main() {
     });
 
     test('terminates when predicate throws', () {
-      final cont = Cont.of<(), int>(42).when((n) {
+      final cont = Cont.of<(), int>(42).thenIf((n) {
         throw 'Predicate Error';
       });
 
@@ -56,7 +56,7 @@ void main() {
 
     test('never calls onPanic', () {
       Cont.of<(), int>(42)
-          .when((n) => n > 0)
+          .thenIf((n) => n > 0)
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
@@ -67,7 +67,7 @@ void main() {
       final results = <String>[];
 
       final processEven = (int n) => Cont.of<(), int>(n)
-          .when((x) => x.isEven)
+          .thenIf((x) => x.isEven)
           .map((x) => 'even: $x')
           .recover((_) => 'not even');
 

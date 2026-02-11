@@ -1073,13 +1073,13 @@ final class Cont<E, A> {
   ///
   /// Example:
   /// ```dart
-  /// final cont = Cont.of(42).when((n) => n > 0);
+  /// final cont = Cont.of(42).thenIf((n) => n > 0);
   /// // Succeeds with 42
   ///
-  /// final cont2 = Cont.of(-5).when((n) => n > 0);
+  /// final cont2 = Cont.of(-5).thenIf((n) => n > 0);
   /// // Terminates
   /// ```
-  Cont<E, A> when(bool Function(A value) predicate) {
+  Cont<E, A> thenIf(bool Function(A value) predicate) {
     return thenDo((a) {
       if (predicate(a)) {
         return Cont.of(a);

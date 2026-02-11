@@ -689,11 +689,11 @@ Branching operators allow you to conditionally execute or repeat computations ba
 
 ### Conditional Execution
 
-The `when` operator filters a computation based on a predicate. If the predicate returns `true`, the computation succeeds with the value. If it returns `false`, the computation terminates without errors.
+The `thenIf` operator filters a computation based on a predicate. If the predicate returns `true`, the computation succeeds with the value. If it returns `false`, the computation terminates without errors.
 
 ```dart
 Cont.of(5)
-  .when((value) => value > 3)
+  .thenIf((value) => value > 3)
   .run(
     (),
     onTerminate: (_) => print("terminated"),
@@ -701,7 +701,7 @@ Cont.of(5)
   ); // prints "success: 5"
 
 Cont.of(2)
-  .when((value) => value > 3)
+  .thenIf((value) => value > 3)
   .run(
     (),
     onTerminate: (_) => print("terminated"),
@@ -711,13 +711,13 @@ Cont.of(2)
 
 This is useful for early termination of computation chains when certain conditions are not met.
 
-#### Branching with when-thenDo-elseDo
+#### Branching with thenIf-thenDo-elseDo
 
-While `when` is powerful on its own, combining it with `thenDo` and `elseDo` creates an elegant if-then-else pattern that's fully composable. Since `when` terminates when the predicate is false, you can use `elseDo` to recover from that termination and provide an alternative path:
+While `thenIf` is powerful on its own, combining it with `thenDo` and `elseDo` creates an elegant if-then-else pattern that's fully composable. Since `thenIf` terminates when the predicate is false, you can use `elseDo` to recover from that termination and provide an alternative path:
 
 ```dart
 Cont.of(5)
-  .when((value) => value > 3)
+  .thenIf((value) => value > 3)
   .thenDo((value) {
     // Handle the "if true" branch
     return Cont.of("Value $value is greater than 3");
@@ -729,7 +729,7 @@ Cont.of(5)
   .run((), onValue: print); // prints "Value 5 is greater than 3"
 
 Cont.of(2)
-  .when((value) => value > 3)
+  .thenIf((value) => value > 3)
   .thenDo((value) {
     // This won't execute because predicate is false
     return Cont.of("Value $value is greater than 3");
@@ -750,7 +750,7 @@ This pattern is particularly handy because:
 ```dart
 // Real-world example: validate user age and take different actions
 getUserAge(userId)
-  .when((age) => age >= 18)
+  .thenIf((age) => age >= 18)
   .thenDo((age) => grantFullAccess(userId))
   .elseDo((_) => grantRestrictedAccess(userId))
   .thenDo((accessLevel) => logAccessGrant(userId, accessLevel))
@@ -1549,7 +1549,7 @@ Cont<AppConfig, User> getUser(String userId) {
     .thenDoWithEnv((config, _) {
       // Try API first
       return fetchFromApi(config.apiUrl, userId, config.timeout)
-        .when((user) => user.isValid)
+        .thenIf((user) => user.isValid)
         .elseTapWithEnv((env, errors) {
           // Log errors in background
           return logToFile(env.cacheDir, errors);

@@ -24,7 +24,7 @@ import 'package:jerelo/jerelo.dart';
 // Define a computation (doesn't execute yet)
 final getUserData = Cont.of(userId)
   .thenDo((id) => fetchUserFromApi(id))
-  .when((user) => user.isActive)
+  .thenIf((user) => user.isActive)
   .elseDo((_) => loadUserFromCache(userId))
   .thenTap((user) => logAccess(user));
 
@@ -117,7 +117,7 @@ Cont<AppConfig, void> logError(List<ContError> errors) {
 Cont<AppConfig, User> getUserData(String userId) {
   return fetchUserFromApi(userId)
     // Filter: only proceed if user is active
-    .when((user) => user.isActive)
+    .thenIf((user) => user.isActive)
     // Fallback: if API fails or user inactive, try cache
     .elseDoWithEnv((config, errors) {
       return config.enableCache
@@ -213,7 +213,7 @@ The example above showcases:
 - **Environment Management**: Configuration threaded through computations via `AppConfig`
 - **Chaining**: Sequential operations with `thenDo`, `thenDoWithEnv`
 - **Error Handling**: Fallbacks with `elseDo`, error logging with `elseTap`
-- **Conditional Logic**: Filtering with `when`
+- **Conditional Logic**: Filtering with `thenIf`
 - **Side Effects**: Non-blocking logging with `thenTap`
 - **Parallel Execution**: Multiple computations with `Cont.all` and `ContBothPolicy`
 - **Racing**: Competing computations with `Cont.either` and `ContEitherPolicy`
