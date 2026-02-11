@@ -6,29 +6,92 @@ Complete reference for all public types and APIs in the Jerelo continuation libr
 
 ## Table of Contents
 
-- [Core Types](#core-types)
+- [API Reference](#api-reference)
   - [Cont](#cont)
+    - [Constructors](#constructors)
+      - [Cont.fromRun](#contfromrun)
+      - [Cont.fromDeferred](#contfromdeferred)
+      - [Cont.of](#contof)
+      - [Cont.terminate](#contterminate)
+      - [Cont.ask](#contask)
+      - [Cont.bracket](#contbracket)
+    - [Execution Methods](#execution-methods)
+      - [run](#run)
+      - [ff](#ff)
+    - [Transformation Methods](#transformation-methods)
+      - [hoist](#hoist)
+    - [Chaining Methods](#chaining-methods)
+      - [map](#map)
+      - [map0](#map0)
+      - [as](#as)
+      - [thenDo](#thendo)
+      - [thenDo0](#thendo0)
+      - [thenDoWithEnv](#thendowithenv)
+      - [thenDoWithEnv0](#thendowithenv0)
+      - [thenTap](#thentap)
+      - [thenTap0](#thentap0)
+      - [thenTapWithEnv](#thentapwithenv)
+      - [thenTapWithEnv0](#thentapwithenv0)
+      - [thenZip](#thenzip)
+      - [thenZip0](#thenzip0)
+      - [thenZipWithEnv](#thenzipwithenv)
+      - [thenZipWithEnv0](#thenzipwithenv0)
+      - [thenFork](#thenfork)
+      - [thenFork0](#thenfork0)
+      - [thenForkWithEnv](#thenforkwithenv)
+      - [thenForkWithEnv0](#thenforkwithenv0)
+    - [Error Handling Methods](#error-handling-methods)
+      - [recover](#recover)
+      - [recover0](#recover0)
+      - [fallback](#fallback)
+      - [elseDo](#elsedo)
+      - [elseDo0](#elsedo0)
+      - [elseDoWithEnv](#elsedowithenv)
+      - [elseDoWithEnv0](#elsedowithenv0)
+      - [elseTap](#elsetap)
+      - [elseTap0](#elsetap0)
+      - [elseTapWithEnv](#elsetapwithenv)
+      - [elseTapWithEnv0](#elsetapwithenv0)
+      - [elseZip](#elsezip)
+      - [elseZip0](#elsezip0)
+      - [elseZipWithEnv](#elsezipwithenv)
+      - [elseZipWithEnv0](#elsezipwithenv0)
+      - [elseFork](#elsefork)
+      - [elseFork0](#elsefork0)
+      - [elseForkWithEnv](#elseforkwithenv)
+      - [elseForkWithEnv0](#elseforkwithenv0)
+    - [Environment Methods](#environment-methods)
+      - [local](#local)
+      - [local0](#local0)
+      - [scope](#scope)
+      - [injectInto](#injectinto)
+      - [injectedBy](#injectedby)
+    - [Loop & Conditional Methods](#loop--conditional-methods)
+      - [when](#when)
+      - [asLongAs](#aslongas)
+      - [until](#until)
+      - [forever](#forever)
+    - [Combination Methods](#combination-methods)
+      - [Cont.both](#contboth)
+      - [Cont.all](#contall)
+      - [Cont.either](#conteither)
+      - [Cont.any](#contany)
+      - [and](#and)
+      - [or](#or)
   - [ContCancelToken](#contcanceltoken)
   - [ContError](#conterror)
   - [ContBothPolicy](#contbothpolicy)
   - [ContEitherPolicy](#conteitherpolicy)
   - [ContRuntime](#contruntime)
   - [ContObserver](#contobserver)
-- [API Reference](#api-reference)
-  - [Constructors & Static Methods](#constructors--static-methods)
-  - [Execution Methods](#execution-methods)
-  - [Resource Management](#resource-management)
-  - [Transformation Methods](#transformation-methods)
-  - [Chaining Methods](#chaining-methods)
-  - [Error Handling Methods](#error-handling-methods)
-  - [Environment Methods](#environment-methods)
-  - [Loop & Conditional Methods](#loop--conditional-methods)
-  - [Combination & Racing Methods](#combination--racing-methods)
   - [Extensions](#extensions)
+    - [ContFlattenExtension](#contflattenextension)
+    - [ContRunExtension](#contrunextension)
+    - [ContAbsurdExtension](#contabsurdextension)
 
 ---
 
-## Core Types
+## API Reference
 
 ### Cont
 
@@ -167,15 +230,83 @@ static ContBothPolicy sequence()
 ```
 Creates a sequential execution policy. Operations are executed one after another in order. Execution stops at the first failure.
 
+When used with `both` or `all`:
+- Continuations execute sequentially in the order provided
+- If any continuation terminates, execution stops immediately
+- Only the errors from the first failing continuation are propagated
+- Guarantees that later continuations don't start if an earlier one fails
+
+Use this when:
+- Order of execution matters
+- You want to minimize resource usage by stopping early
+- Later operations depend on side effects of earlier ones
+
+**Example:**
+```dart
+final result = Cont.all(
+  [operation1, operation2, operation3],
+  policy: ContBothPolicy.sequence(),
+);
+// Runs operation1, then operation2, then operation3
+// Stops at first failure
+```
+
+---
+
 ```dart
 static ContBothPolicy mergeWhenAll()
 ```
 Creates a merge-when-all policy. All operations are executed in parallel and all must complete. Errors from all failed operations are concatenated into a single error list.
 
+When used with `both` or `all`:
+- All continuations start executing in parallel
+- Waits for all continuations to complete (success or failure)
+- If multiple continuations fail, all their errors are collected and concatenated
+- All operations run to completion regardless of failures
+
+Use this when:
+- You want to collect all errors from all failed operations
+- Operations are independent and can run in parallel
+- You need comprehensive error information from all attempts
+
+**Example:**
+```dart
+final result = Cont.all(
+  [validateEmail, validatePassword, validateAge],
+  policy: ContBothPolicy.mergeWhenAll(),
+);
+// Runs all validations in parallel
+// Returns all validation errors if any fail
+```
+
+---
+
 ```dart
 static ContBothPolicy quitFast()
 ```
 Creates a quit-fast policy. Terminates immediately on the first failure. Provides the fastest feedback but may leave other operations running.
+
+When used with `both` or `all`:
+- All continuations start executing in parallel
+- Returns immediately when the first continuation fails
+- Only the errors from the first failing continuation are propagated
+- Other operations may continue running in the background
+
+Use this when:
+- You want the fastest possible failure feedback
+- A single failure is enough to determine overall failure
+- The cost of waiting for other operations is high
+
+**Example:**
+```dart
+final result = Cont.either(
+  checkPrimaryDb,
+  checkSecondaryDb,
+  policy: ContBothPolicy.quitFast(),
+);
+// Runs both checks in parallel
+// Fails immediately if either fails
+```
 
 **Policy Type Details:**
 
@@ -236,18 +367,92 @@ static ContEitherPolicy<A> sequence<A>()
 ```
 Creates a sequential execution policy. Operations are executed one after another in order. Execution continues until one succeeds or all fail.
 
+When used with `either` or `any`:
+- Continuations execute sequentially in the order provided
+- If a continuation succeeds, returns immediately with that value
+- If a continuation fails, tries the next one
+- If all continuations fail, all errors are collected and concatenated
+
+Use this when:
+- You want to try fallback options one at a time
+- Order of preference matters (try primary first, then fallback)
+- You want to minimize resource usage by stopping at first success
+
+**Example:**
+```dart
+final result = Cont.any(
+  [fetchFromCache, fetchFromPrimaryDb, fetchFromBackupDb],
+  policy: ContEitherPolicy.sequence(),
+);
+// Tries cache first, then primary DB, then backup DB
+// Returns first successful result
+```
+
+---
+
 ```dart
 static ContEitherPolicy<A> mergeWhenAll<A>(A Function(A a1, A a2) combine)
 ```
 Creates a merge-when-all policy with a custom combiner. All operations are executed in parallel. If multiple operations succeed, their results are combined using the provided `combine` function. The function receives the accumulated value and the new value, returning the combined result.
 
+When used with `either` or `any`:
+- All continuations start executing in parallel
+- Waits for all continuations to complete
+- If multiple continuations succeed, combines their values using the `combine` function
+- The combine function is called sequentially: `combine(combine(a1, a2), a3)` for three values
+- If all continuations fail, all errors are collected and concatenated
+
+Use this when:
+- You want to execute all operations and merge their results
+- Multiple successful outcomes should be combined (e.g., merging data from multiple sources)
+- You need the aggregated result from all successful attempts
+
 - **Parameters:**
-  - `combine`: Function to merge two successful values
+  - `combine`: Function to merge two successful values. Called with the accumulated result and the next value.
+
+**Example:**
+```dart
+final result = Cont.any(
+  [fetchUserFromDb1, fetchUserFromDb2, fetchUserFromDb3],
+  policy: ContEitherPolicy.mergeWhenAll((user1, user2) {
+    // Merge user data, preferring non-null fields
+    return User(
+      name: user1.name ?? user2.name,
+      email: user1.email ?? user2.email,
+    );
+  }),
+);
+// Fetches from all DBs and merges the results
+```
+
+---
 
 ```dart
 static ContEitherPolicy<A> quitFast<A>()
 ```
 Creates a quit-fast policy. Terminates immediately on the first success. Provides the fastest feedback but may leave other operations running.
+
+When used with `either` or `any`:
+- All continuations start executing in parallel
+- Returns immediately when the first continuation succeeds
+- Other operations may continue running in the background
+- If all fail before any success, collects all errors
+
+Use this when:
+- You want the fastest possible success feedback
+- Any single success is sufficient
+- You don't need to wait for or combine multiple successful results
+
+**Example:**
+```dart
+final result = Cont.either(
+  fetchFromCdn,
+  fetchFromOrigin,
+  policy: ContEitherPolicy.quitFast(),
+);
+// Tries both sources in parallel
+// Returns immediately when either succeeds
+```
 
 **Policy Type Details:**
 
@@ -366,9 +571,7 @@ Creates a new observer with an updated value handler and potentially different t
 
 ---
 
-## API Reference
-
-### Constructors & Static Methods
+### Constructors
 
 #### Cont.fromRun
 
@@ -444,6 +647,61 @@ Returns a continuation that succeeds with the environment value.
 
 ---
 
+#### Cont.bracket
+
+```dart
+static Cont<E, A> bracket<E, R, A>({
+  required Cont<E, R> acquire,
+  required Cont<E, ()> Function(R resource) release,
+  required Cont<E, A> Function(R resource) use,
+})
+```
+
+Manages resource lifecycle with guaranteed cleanup.
+
+The bracket pattern ensures that a resource is properly released after use, even if an error occurs during the `use` phase or if cancellation occurs. This is the functional equivalent of try-with-resources or using statements.
+
+**The execution order is:**
+1. `acquire` - Obtain the resource
+2. `use` - Use the resource to produce a value
+3. `release` - Release the resource (always runs if `acquire` succeeded, even if `use` fails or is cancelled)
+
+**Cancellation behavior:**
+- The `release` function is called even when the runtime is cancelled
+- Release runs with a non-cancellable runtime, ensuring complete cleanup
+- Cancellation is checked before the `use` phase; if cancelled, `use` is skipped but `release` still runs
+
+**Error handling behavior:**
+- If `acquire` fails: terminates immediately with `acquire` errors (neither `use` nor `release` execute)
+- If `use` succeeds and `release` succeeds: returns the value from `use`
+- If `use` succeeds and `release` fails: terminates with release errors
+- If `use` fails and `release` succeeds: terminates with use errors
+- If `use` fails and `release` fails: terminates with both error lists concatenated
+
+- **Parameters:**
+  - `acquire`: Continuation that acquires the resource
+  - `release`: Function that takes the resource and returns a continuation that releases it
+  - `use`: Function that takes the resource and returns a continuation that uses it
+
+**Example:**
+```dart
+// With explicit type parameters: <Environment, Resource, Result>
+final result = Cont.bracket<MyEnv, File, String>(
+  acquire: openFile('data.txt'),           // Cont<MyEnv, File>
+  release: (file) => closeFile(file),      // File => Cont<MyEnv, ()>
+  use: (file) => readContents(file),       // File => Cont<MyEnv, String>
+);
+
+// Or using type inference (recommended):
+final result = Cont.bracket(
+  acquire: openFile('data.txt'),
+  release: (file) => closeFile(file),
+  use: (file) => readContents(file),
+);
+```
+
+---
+
 ### Execution Methods
 
 #### run
@@ -510,64 +768,36 @@ Runs the continuation without waiting for the result. Both success and failure o
 
 ---
 
-### Resource Management
+### Transformation Methods
 
-#### Cont.bracket
+#### hoist
 
 ```dart
-static Cont<E, A> bracket<E, R, A>({
-  required Cont<E, R> acquire,
-  required Cont<E, ()> Function(R resource) release,
-  required Cont<E, A> Function(R resource) use,
-})
+Cont<E, A> hoist(void Function(void Function(ContRuntime<E>, ContObserver<A>) run, ContRuntime<E> runtime, ContObserver<A> observer) f)
 ```
 
-Manages resource lifecycle with guaranteed cleanup.
+Transforms the execution of the continuation using a natural transformation.
 
-The bracket pattern ensures that a resource is properly released after use, even if an error occurs during the `use` phase or if cancellation occurs. This is the functional equivalent of try-with-resources or using statements.
+Applies a function that wraps or modifies the underlying run behavior. This is useful for intercepting execution to add middleware-like behavior such as logging, timing, or modifying how observers receive callbacks.
 
-**The execution order is:**
-1. `acquire` - Obtain the resource
-2. `use` - Use the resource to produce a value
-3. `release` - Release the resource (always runs if `acquire` succeeded, even if `use` fails or is cancelled)
-
-**Cancellation behavior:**
-- The `release` function is called even when the runtime is cancelled
-- Release runs with a non-cancellable runtime, ensuring complete cleanup
-- Cancellation is checked before the `use` phase; if cancelled, `use` is skipped but `release` still runs
-
-**Error handling behavior:**
-- If `acquire` fails: terminates immediately with `acquire` errors (neither `use` nor `release` execute)
-- If `use` succeeds and `release` succeeds: returns the value from `use`
-- If `use` succeeds and `release` fails: terminates with release errors
-- If `use` fails and `release` succeeds: terminates with use errors
-- If `use` fails and `release` fails: terminates with both error lists concatenated
+The transformation function receives both the original run function and the observer, allowing custom execution behavior to be injected.
 
 - **Parameters:**
-  - `acquire`: Continuation that acquires the resource
-  - `release`: Function that takes the resource and returns a continuation that releases it
-  - `use`: Function that takes the resource and returns a continuation that uses it
+  - `f`: A transformation function that receives the run function and observer, and implements custom execution logic by calling the run function with the observer at the appropriate time
 
 **Example:**
 ```dart
-// With explicit type parameters: <Environment, Resource, Result>
-final result = Cont.bracket<MyEnv, File, String>(
-  acquire: openFile('data.txt'),           // Cont<MyEnv, File>
-  release: (file) => closeFile(file),      // File => Cont<MyEnv, ()>
-  use: (file) => readContents(file),       // File => Cont<MyEnv, String>
-);
-
-// Or using type inference (recommended):
-final result = Cont.bracket(
-  acquire: openFile('data.txt'),
-  release: (file) => closeFile(file),
-  use: (file) => readContents(file),
-);
+// Add logging around execution
+final logged = cont.hoist((run, runtime, observer) {
+  print('Starting execution');
+  run(runtime, observer);
+  print('Execution initiated');
+});
 ```
 
 ---
 
-### Transformation Methods
+### Chaining Methods
 
 #### map
 
@@ -614,35 +844,6 @@ Discards the current value and replaces it with a fixed value.
 
 ---
 
-#### hoist
-
-```dart
-Cont<E, A> hoist(void Function(void Function(ContRuntime<E>, ContObserver<A>) run, ContRuntime<E> runtime, ContObserver<A> observer) f)
-```
-
-Transforms the execution of the continuation using a natural transformation.
-
-Applies a function that wraps or modifies the underlying run behavior. This is useful for intercepting execution to add middleware-like behavior such as logging, timing, or modifying how observers receive callbacks.
-
-The transformation function receives both the original run function and the observer, allowing custom execution behavior to be injected.
-
-- **Parameters:**
-  - `f`: A transformation function that receives the run function and observer, and implements custom execution logic by calling the run function with the observer at the appropriate time
-
-**Example:**
-```dart
-// Add logging around execution
-final logged = cont.hoist((run, runtime, observer) {
-  print('Starting execution');
-  run(runtime, observer);
-  print('Execution initiated');
-});
-```
-
----
-
-### Chaining Methods
-
 #### thenDo
 
 ```dart
@@ -673,6 +874,36 @@ Similar to `thenDo` but ignores the current value.
 
 ---
 
+#### thenDoWithEnv
+
+```dart
+Cont<E, A2> thenDoWithEnv<A2>(Cont<E, A2> Function(E env, A a) f)
+```
+
+Chains a continuation-returning function that has access to both the environment and the value.
+
+Similar to `thenDo`, but the function receives both the environment and the value. This is useful when the next computation needs access to configuration or context from the environment.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and value, and returns a continuation
+
+---
+
+#### thenDoWithEnv0
+
+```dart
+Cont<E, A2> thenDoWithEnv0<A2>(Cont<E, A2> Function(E env) f)
+```
+
+Chains a continuation-returning function with access to the environment only.
+
+Similar to `thenDoWithEnv`, but the function only receives the environment and ignores the current value. This is useful when the next computation needs access to configuration or context but doesn't depend on the previous value.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a continuation
+
+---
+
 #### thenTap
 
 ```dart
@@ -700,6 +931,36 @@ Similar to `thenTap` but with a zero-argument function.
 
 - **Parameters:**
   - `f`: Zero-argument side-effect function
+
+---
+
+#### thenTapWithEnv
+
+```dart
+Cont<E, A> thenTapWithEnv<A2>(Cont<E, A2> Function(E env, A a) f)
+```
+
+Chains a side-effect continuation with access to both the environment and the value.
+
+Similar to `thenTap`, but the side-effect function receives both the environment and the value. After executing the side-effect, returns the original value. This is useful for logging, monitoring, or other side-effects that need access to both the environment and configuration context.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and value, and returns a side-effect continuation
+
+---
+
+#### thenTapWithEnv0
+
+```dart
+Cont<E, A> thenTapWithEnv0<A2>(Cont<E, A2> Function(E env) f)
+```
+
+Chains a side-effect continuation with access to the environment only.
+
+Similar to `thenTapWithEnv`, but the side-effect function only receives the environment and ignores the current value. After executing the side-effect, returns the original value.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a side-effect continuation
 
 ---
 
@@ -735,6 +996,38 @@ Similar to `thenZip` but the second continuation doesn't depend on the first val
 
 ---
 
+#### thenZipWithEnv
+
+```dart
+Cont<E, A3> thenZipWithEnv<A2, A3>(Cont<E, A2> Function(E env, A value) f, A3 Function(A a1, A2 a2) combine)
+```
+
+Chains and combines two continuations with access to the environment.
+
+Similar to `thenZip`, but the function producing the second continuation receives both the environment and the value. This is useful when the second computation needs access to configuration or context.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and value, and produces the second continuation
+  - `combine`: Function to combine both values into a result
+
+---
+
+#### thenZipWithEnv0
+
+```dart
+Cont<E, A3> thenZipWithEnv0<A2, A3>(Cont<E, A2> Function(E env) f, A3 Function(A a1, A2 a2) combine)
+```
+
+Chains and combines with a continuation that has access to the environment only.
+
+Similar to `thenZipWithEnv`, but the function producing the second continuation only receives the environment and ignores the current value.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and produces the second continuation
+  - `combine`: Function to combine both values into a result
+
+---
+
 #### thenFork
 
 ```dart
@@ -765,138 +1058,37 @@ Similar to `thenFork` but ignores the current value.
 
 ---
 
+#### thenForkWithEnv
+
+```dart
+Cont<E, A> thenForkWithEnv<A2>(Cont<E, A2> Function(E env, A a) f)
+```
+
+Executes a side-effect continuation in a fire-and-forget manner with access to the environment.
+
+Similar to `thenFork`, but the side-effect function receives both the environment and the value. The side-effect is started immediately without waiting, and any errors are silently ignored.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and value, and returns a side-effect continuation
+
+---
+
+#### thenForkWithEnv0
+
+```dart
+Cont<E, A> thenForkWithEnv0<A2>(Cont<E, A2> Function(E env) f)
+```
+
+Executes a side-effect continuation in a fire-and-forget manner with access to the environment only.
+
+Similar to `thenForkWithEnv`, but the side-effect function only receives the environment and ignores the current value.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a side-effect continuation
+
+---
+
 ### Error Handling Methods
-
-#### elseDo
-
-```dart
-Cont<E, A> elseDo(Cont<E, A> Function(List<ContError> errors) f)
-```
-
-Provides a fallback continuation in case of termination.
-
-If the continuation terminates, executes the fallback. If the fallback also terminates, only the fallback's errors are propagated (the original errors are discarded).
-
-To accumulate errors from both attempts, use `elseZip` instead.
-
-- **Parameters:**
-  - `f`: Function that receives errors and produces a fallback continuation
-
----
-
-#### elseDo0
-
-```dart
-Cont<E, A> elseDo0(Cont<E, A> Function() f)
-```
-
-Provides a zero-argument fallback continuation.
-
-Similar to `elseDo` but doesn't use the error information.
-
-- **Parameters:**
-  - `f`: Zero-argument function that produces a fallback continuation
-
----
-
-#### elseTap
-
-```dart
-Cont<E, A> elseTap(Cont<E, A> Function(List<ContError> errors) f)
-```
-
-Executes a side-effect continuation on termination.
-
-If the continuation terminates, executes the side-effect continuation for its effects. The behavior depends on the side-effect's outcome:
-
-- If the side-effect terminates: Returns the original errors (ignoring side-effect errors)
-- If the side-effect succeeds: Returns the side-effect's success value, effectively recovering from the original termination
-
-This means the operation can recover from termination if the side-effect succeeds. If you want to always propagate the original termination regardless of the side-effect's outcome, use `elseFork` instead.
-
-- **Parameters:**
-  - `f`: Function that receives the original errors and returns a side-effect continuation
-
----
-
-#### elseTap0
-
-```dart
-Cont<E, A> elseTap0(Cont<E, A> Function() f)
-```
-
-Executes a zero-argument side-effect continuation on termination.
-
-Similar to `elseTap` but ignores the error information.
-
-- **Parameters:**
-  - `f`: Zero-argument function that returns a side-effect continuation
-
----
-
-#### elseZip
-
-```dart
-Cont<E, A> elseZip(Cont<E, A> Function(List<ContError>) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
-```
-
-Attempts a fallback continuation and combines errors from both attempts.
-
-If the continuation terminates, executes the fallback. If the fallback also terminates, combines errors from both attempts using the provided `combine` function before terminating.
-
-Unlike `elseDo`, which only keeps the second error list, this method accumulates and combines errors from both attempts.
-
-- **Parameters:**
-  - `f`: Function that receives original errors and produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
-
----
-
-#### elseZip0
-
-```dart
-Cont<E, A> elseZip0(Cont<E, A> Function() f, List<ContError> Function(List<ContError>, List<ContError>) combine)
-```
-
-Zero-argument version of `elseZip`.
-
-Similar to `elseZip` but doesn't use the original error information when producing the fallback continuation.
-
-- **Parameters:**
-  - `f`: Zero-argument function that produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
-
----
-
-#### elseFork
-
-```dart
-Cont<E, A> elseFork<A2>(Cont<E, A2> Function(List<ContError> errors) f)
-```
-
-Executes a side-effect continuation on termination in a fire-and-forget manner.
-
-If the continuation terminates, starts the side-effect continuation without waiting for it to complete. Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the termination. Any errors from the side-effect are silently ignored.
-
-- **Parameters:**
-  - `f`: Function that returns a side-effect continuation
-
----
-
-#### elseFork0
-
-```dart
-Cont<E, A> elseFork0<A2>(Cont<E, A2> Function() f)
-```
-
-Executes a zero-argument side-effect continuation on termination in a fire-and-forget manner.
-
-Similar to `elseFork` but ignores the error information.
-
-- **Parameters:**
-  - `f`: Zero-argument function that returns a side-effect continuation
-
----
 
 #### recover
 
@@ -959,6 +1151,259 @@ cont.run((), onValue: print); // prints: 0
 
 ---
 
+#### elseDo
+
+```dart
+Cont<E, A> elseDo(Cont<E, A> Function(List<ContError> errors) f)
+```
+
+Provides a fallback continuation in case of termination.
+
+If the continuation terminates, executes the fallback. If the fallback also terminates, only the fallback's errors are propagated (the original errors are discarded).
+
+To accumulate errors from both attempts, use `elseZip` instead.
+
+- **Parameters:**
+  - `f`: Function that receives errors and produces a fallback continuation
+
+---
+
+#### elseDo0
+
+```dart
+Cont<E, A> elseDo0(Cont<E, A> Function() f)
+```
+
+Provides a zero-argument fallback continuation.
+
+Similar to `elseDo` but doesn't use the error information.
+
+- **Parameters:**
+  - `f`: Zero-argument function that produces a fallback continuation
+
+---
+
+#### elseDoWithEnv
+
+```dart
+Cont<E, A> elseDoWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f)
+```
+
+Provides a fallback continuation that has access to both errors and environment.
+
+Similar to `elseDo`, but the fallback function receives both the errors and the environment. This is useful when error recovery needs access to configuration or context from the environment.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and errors, and returns a fallback continuation
+
+---
+
+#### elseDoWithEnv0
+
+```dart
+Cont<E, A> elseDoWithEnv0(Cont<E, A> Function(E env) f)
+```
+
+Provides a fallback continuation with access to the environment only.
+
+Similar to `elseDoWithEnv`, but the fallback function only receives the environment and ignores the error information. This is useful when error recovery needs access to configuration but doesn't need to inspect the errors.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and produces a fallback continuation
+
+---
+
+#### elseTap
+
+```dart
+Cont<E, A> elseTap(Cont<E, A> Function(List<ContError> errors) f)
+```
+
+Executes a side-effect continuation on termination, with conditional recovery.
+
+If the continuation terminates, executes the side-effect continuation and waits for it to complete. The behavior depends on the side-effect's outcome:
+
+- If the side-effect succeeds: Recovers from the original termination and returns the side-effect's success value
+- If the side-effect terminates: Returns the original errors, ignoring the side-effect's errors
+
+This allows the operation to recover from termination when the side-effect succeeds. If you want to always propagate the original termination regardless of the side-effect's outcome, use `elseFork` instead.
+
+- **Parameters:**
+  - `f`: Function that receives the original errors and returns a side-effect continuation
+
+---
+
+#### elseTap0
+
+```dart
+Cont<E, A> elseTap0(Cont<E, A> Function() f)
+```
+
+Executes a zero-argument side-effect continuation on termination, with conditional recovery.
+
+Similar to `elseTap` but ignores the error information. Waits for the side-effect to complete and recovers if it succeeds, or returns the original errors if the side-effect terminates.
+
+- **Parameters:**
+  - `f`: Zero-argument function that returns a side-effect continuation
+
+---
+
+#### elseTapWithEnv
+
+```dart
+Cont<E, A> elseTapWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f)
+```
+
+Executes a side-effect continuation on termination with access to the environment, with conditional recovery.
+
+Similar to `elseTap`, but the side-effect function receives both the environment and the errors. Waits for the side-effect to complete and recovers if it succeeds, or returns the original errors if the side-effect terminates. This allows error-handling side-effects (like logging or reporting) to access configuration or context information.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and errors, and returns a side-effect continuation
+
+---
+
+#### elseTapWithEnv0
+
+```dart
+Cont<E, A> elseTapWithEnv0(Cont<E, A> Function(E env) f)
+```
+
+Executes a side-effect continuation on termination with access to the environment only, with conditional recovery.
+
+Similar to `elseTapWithEnv`, but the side-effect function only receives the environment and ignores the error information. Waits for the side-effect to complete and recovers if it succeeds, or returns the original errors if the side-effect terminates.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a side-effect continuation
+
+---
+
+#### elseZip
+
+```dart
+Cont<E, A> elseZip(Cont<E, A> Function(List<ContError>) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+```
+
+Attempts a fallback continuation and combines errors from both attempts.
+
+If the continuation terminates, executes the fallback. If the fallback also terminates, combines errors from both attempts using the provided `combine` function before terminating.
+
+Unlike `elseDo`, which only keeps the second error list, this method accumulates and combines errors from both attempts.
+
+- **Parameters:**
+  - `f`: Function that receives original errors and produces a fallback continuation
+  - `combine`: Function to combine error lists from both attempts
+
+---
+
+#### elseZip0
+
+```dart
+Cont<E, A> elseZip0(Cont<E, A> Function() f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+```
+
+Zero-argument version of `elseZip`.
+
+Similar to `elseZip` but doesn't use the original error information when producing the fallback continuation.
+
+- **Parameters:**
+  - `f`: Zero-argument function that produces a fallback continuation
+  - `combine`: Function to combine error lists from both attempts
+
+---
+
+#### elseZipWithEnv
+
+```dart
+Cont<E, A> elseZipWithEnv(Cont<E, A> Function(E env, List<ContError>) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+```
+
+Attempts a fallback continuation with access to the environment and combines errors.
+
+Similar to `elseZip`, but the fallback function receives both the environment and the original errors. If both the original attempt and fallback fail, their errors are combined using the `combine` function. This is useful when error recovery strategies need access to configuration or context.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and errors, and produces a fallback continuation
+  - `combine`: Function to combine error lists from both attempts
+
+---
+
+#### elseZipWithEnv0
+
+```dart
+Cont<E, A> elseZipWithEnv0(Cont<E, A> Function(E env) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+```
+
+Attempts a fallback continuation with access to the environment only and combines errors.
+
+Similar to `elseZipWithEnv`, but the fallback function only receives the environment and ignores the original error information.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and produces a fallback continuation
+  - `combine`: Function to combine error lists from both attempts
+
+---
+
+#### elseFork
+
+```dart
+Cont<E, A> elseFork<A2>(Cont<E, A2> Function(List<ContError> errors) f)
+```
+
+Executes a side-effect continuation on termination in a fire-and-forget manner.
+
+If the continuation terminates, starts the side-effect continuation without waiting for it to complete. Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the termination. Any errors from the side-effect are silently ignored.
+
+- **Parameters:**
+  - `f`: Function that returns a side-effect continuation
+
+---
+
+#### elseFork0
+
+```dart
+Cont<E, A> elseFork0<A2>(Cont<E, A2> Function() f)
+```
+
+Executes a zero-argument side-effect continuation on termination in a fire-and-forget manner.
+
+Similar to `elseFork` but ignores the error information.
+
+- **Parameters:**
+  - `f`: Zero-argument function that returns a side-effect continuation
+
+---
+
+#### elseForkWithEnv
+
+```dart
+Cont<E, A> elseForkWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f)
+```
+
+Executes a side-effect continuation on termination in a fire-and-forget manner with access to the environment.
+
+Similar to `elseFork`, but the side-effect function receives both the environment and the errors. The side-effect is started without waiting for it to complete, and any errors from the side-effect are silently ignored.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and errors, and returns a side-effect continuation
+
+---
+
+#### elseForkWithEnv0
+
+```dart
+Cont<E, A> elseForkWithEnv0(Cont<E, A> Function(E env) f)
+```
+
+Executes a side-effect continuation on termination in a fire-and-forget manner with access to the environment only.
+
+Similar to `elseForkWithEnv`, but the side-effect function only receives the environment and ignores the error information.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a side-effect continuation
+
+---
+
 ### Environment Methods
 
 #### local
@@ -1003,250 +1448,6 @@ Replaces the environment context with the provided value for the execution of th
 
 - **Parameters:**
   - `value`: The environment value to use
-
----
-
-#### thenDoWithEnv
-
-```dart
-Cont<E, A2> thenDoWithEnv<A2>(Cont<E, A2> Function(E env, A a) f)
-```
-
-Chains a continuation-returning function that has access to both the value and environment.
-
-Similar to `thenDo`, but the function receives both the current value and the environment. This is useful when the next computation needs access to configuration or context from the environment.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and value, and returns a continuation
-
----
-
-#### thenDoWithEnv0
-
-```dart
-Cont<E, A2> thenDoWithEnv0<A2>(Cont<E, A2> Function(E env) f)
-```
-
-Chains a continuation-returning function with access to the environment only.
-
-Similar to `thenDoWithEnv`, but the function only receives the environment and ignores the current value. This is useful when the next computation needs access to configuration or context but doesn't depend on the previous value.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and returns a continuation
-
----
-
-#### thenTapWithEnv
-
-```dart
-Cont<E, A> thenTapWithEnv<A2>(Cont<E, A2> Function(E env, A a) f)
-```
-
-Chains a side-effect continuation with access to both the environment and value.
-
-Similar to `thenTap`, but the side-effect function receives both the current value and the environment. After executing the side-effect, returns the original value. This is useful for logging, monitoring, or other side-effects that need access to both the value and configuration context.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and value, and returns a side-effect continuation
-
----
-
-#### thenTapWithEnv0
-
-```dart
-Cont<E, A> thenTapWithEnv0<A2>(Cont<E, A2> Function(E env) f)
-```
-
-Chains a side-effect continuation with access to the environment only.
-
-Similar to `thenTapWithEnv`, but the side-effect function only receives the environment and ignores the current value. After executing the side-effect, returns the original value.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and returns a side-effect continuation
-
----
-
-#### thenZipWithEnv
-
-```dart
-Cont<E, A3> thenZipWithEnv<A2, A3>(Cont<E, A2> Function(E env, A value) f, A3 Function(A a1, A2 a2) combine)
-```
-
-Chains and combines two continuations with access to the environment.
-
-Similar to `thenZip`, but the function producing the second continuation receives both the current value and the environment. This is useful when the second computation needs access to configuration or context.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and value, and produces the second continuation
-  - `combine`: Function to combine both values into a result
-
----
-
-#### thenZipWithEnv0
-
-```dart
-Cont<E, A3> thenZipWithEnv0<A2, A3>(Cont<E, A2> Function(E env) f, A3 Function(A a1, A2 a2) combine)
-```
-
-Chains and combines with a continuation that has access to the environment only.
-
-Similar to `thenZipWithEnv`, but the function producing the second continuation only receives the environment and ignores the current value.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and produces the second continuation
-  - `combine`: Function to combine both values into a result
-
----
-
-#### thenForkWithEnv
-
-```dart
-Cont<E, A> thenForkWithEnv<A2>(Cont<E, A2> Function(E env, A a) f)
-```
-
-Executes a side-effect continuation in a fire-and-forget manner with access to the environment.
-
-Similar to `thenFork`, but the side-effect function receives both the current value and the environment. The side-effect is started immediately without waiting, and any errors are silently ignored.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and value, and returns a side-effect continuation
-
----
-
-#### thenForkWithEnv0
-
-```dart
-Cont<E, A> thenForkWithEnv0<A2>(Cont<E, A2> Function(E env) f)
-```
-
-Executes a side-effect continuation in a fire-and-forget manner with access to the environment only.
-
-Similar to `thenForkWithEnv`, but the side-effect function only receives the environment and ignores the current value.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and returns a side-effect continuation
-
----
-
-#### elseDoWithEnv
-
-```dart
-Cont<E, A> elseDoWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f)
-```
-
-Provides a fallback continuation that has access to both errors and environment.
-
-Similar to `elseDo`, but the fallback function receives both the errors and the environment. This is useful when error recovery needs access to configuration or context from the environment.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and errors, and returns a fallback continuation
-
----
-
-#### elseDoWithEnv0
-
-```dart
-Cont<E, A> elseDoWithEnv0(Cont<E, A> Function(E env) f)
-```
-
-Provides a fallback continuation with access to the environment only.
-
-Similar to `elseDoWithEnv`, but the fallback function only receives the environment and ignores the error information. This is useful when error recovery needs access to configuration but doesn't need to inspect the errors.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and produces a fallback continuation
-
----
-
-#### elseTapWithEnv
-
-```dart
-Cont<E, A> elseTapWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f)
-```
-
-Executes a side-effect continuation on termination with access to the environment.
-
-Similar to `elseTap`, but the side-effect function receives both the errors and the environment. This allows error-handling side-effects (like logging or reporting) to access configuration or context information.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and errors, and returns a side-effect continuation
-
----
-
-#### elseTapWithEnv0
-
-```dart
-Cont<E, A> elseTapWithEnv0(Cont<E, A> Function(E env) f)
-```
-
-Executes a side-effect continuation on termination with access to the environment only.
-
-Similar to `elseTapWithEnv`, but the side-effect function only receives the environment and ignores the error information.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and returns a side-effect continuation
-
----
-
-#### elseZipWithEnv
-
-```dart
-Cont<E, A> elseZipWithEnv(Cont<E, A> Function(E env, List<ContError>) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
-```
-
-Attempts a fallback continuation with access to the environment and combines errors.
-
-Similar to `elseZip`, but the fallback function receives both the original errors and the environment. If both the original attempt and fallback fail, their errors are combined using the `combine` function. This is useful when error recovery strategies need access to configuration or context.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and errors, and produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
-
----
-
-#### elseZipWithEnv0
-
-```dart
-Cont<E, A> elseZipWithEnv0(Cont<E, A> Function(E env) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
-```
-
-Attempts a fallback continuation with access to the environment only and combines errors.
-
-Similar to `elseZipWithEnv`, but the fallback function only receives the environment and ignores the original error information.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
-
----
-
-#### elseForkWithEnv
-
-```dart
-Cont<E, A> elseForkWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f)
-```
-
-Executes a side-effect continuation on termination in a fire-and-forget manner with access to the environment.
-
-Similar to `elseFork`, but the side-effect function receives both the errors and the environment. The side-effect is started without waiting for it to complete, and any errors from the side-effect are silently ignored.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and errors, and returns a side-effect continuation
-
----
-
-#### elseForkWithEnv0
-
-```dart
-Cont<E, A> elseForkWithEnv0(Cont<E, A> Function(E env) f)
-```
-
-Executes a side-effect continuation on termination in a fire-and-forget manner with access to the environment only.
-
-Similar to `elseForkWithEnv`, but the side-effect function only receives the environment and ignores the error information.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and returns a side-effect continuation
 
 ---
 
@@ -1441,12 +1642,15 @@ final server = acceptConnection()
     .forever();
 
 // Run with only a termination handler (using trap extension)
-server.trap(env, onTerminate: (errors) => print('Server stopped: $errors'));
+final token = server.trap(env, onTerminate: (errors) => print('Server stopped: $errors'));
+
+// Can cancel the server when needed
+// token.cancel();
 ```
 
 ---
 
-### Combination & Racing Methods
+### Combination Methods
 
 #### Cont.both
 
@@ -1472,27 +1676,6 @@ The execution behavior depends on the provided `policy`:
 - **Parameters:**
   - `left`: First continuation to execute
   - `right`: Second continuation to execute
-  - `combine`: Function to combine both successful values
-  - `policy`: Execution policy determining how continuations are run and errors are handled
-
----
-
-#### and
-
-```dart
-Cont<E, A3> and<A2, A3>(
-  Cont<E, A2> right,
-  A3 Function(A a, A2 a2) combine, {
-  required ContBothPolicy policy,
-})
-```
-
-Instance method for combining this continuation with another.
-
-Convenient instance method wrapper for `Cont.both`. Executes this continuation and `right` according to the specified `policy`, then combines their values.
-
-- **Parameters:**
-  - `right`: The other continuation to combine with
   - `combine`: Function to combine both successful values
   - `policy`: Execution policy determining how continuations are run and errors are handled
 
@@ -1546,25 +1729,6 @@ Executes both continuations and returns the result from whichever succeeds first
 
 ---
 
-#### or
-
-```dart
-Cont<E, A> or(
-  Cont<E, A> right, {
-  required ContEitherPolicy<A> policy,
-})
-```
-
-Instance method for racing this continuation with another.
-
-Convenient instance method wrapper for `Cont.either`. Races this continuation against `right`, returning the first successful value.
-
-- **Parameters:**
-  - `right`: The other continuation to race with
-  - `policy`: Execution policy determining how continuations are run and how multiple successes are combined
-
----
-
 #### Cont.any
 
 ```dart
@@ -1584,6 +1748,46 @@ Executes all continuations in `list` and returns the first one that succeeds. If
 
 - **Parameters:**
   - `list`: List of continuations to race
+  - `policy`: Execution policy determining how continuations are run and how multiple successes are combined
+
+---
+
+#### and
+
+```dart
+Cont<E, A3> and<A2, A3>(
+  Cont<E, A2> right,
+  A3 Function(A a, A2 a2) combine, {
+  required ContBothPolicy policy,
+})
+```
+
+Instance method for combining this continuation with another.
+
+Convenient instance method wrapper for `Cont.both`. Executes this continuation and `right` according to the specified `policy`, then combines their values.
+
+- **Parameters:**
+  - `right`: The other continuation to combine with
+  - `combine`: Function to combine both successful values
+  - `policy`: Execution policy determining how continuations are run and errors are handled
+
+---
+
+#### or
+
+```dart
+Cont<E, A> or(
+  Cont<E, A> right, {
+  required ContEitherPolicy<A> policy,
+})
+```
+
+Instance method for racing this continuation with another.
+
+Convenient instance method wrapper for `Cont.either`. Races this continuation against `right`, returning the first successful value.
+
+- **Parameters:**
+  - `right`: The other continuation to race with
   - `policy`: Execution policy determining how continuations are run and how multiple successes are combined
 
 ---
@@ -1620,27 +1824,33 @@ This extension provides specialized methods for `Cont<E, Never>` where only term
 **Methods:**
 
 ```dart
-void trap(
+ContCancelToken trap(
   E env, {
-  bool Function() isCancelled = _false,
   void Function(ContError error) onPanic = _panic,
   void Function(List<ContError> errors) onTerminate = _ignore,
 })
 ```
 Executes the continuation expecting only termination. This is a convenience method for `Cont<E, Never>` that executes the continuation with only a termination handler, since a value callback would never be called for a `Cont<E, Never>`. All callbacks are optional and default to no-op.
 
+**Returns** a `ContCancelToken` that can be used to cooperatively cancel the execution. Calling `ContCancelToken.cancel()` sets an internal flag that the runtime polls via `isCancelled()`. The token also exposes `ContCancelToken.isCancelled()` to query the current cancellation state.
+
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
-  - `isCancelled`: Function polled by the runtime to check whether execution should be cooperatively cancelled. Defaults to always returning `false` (never cancelled)
   - `onPanic`: Callback invoked when a fatal, unrecoverable error occurs. Defaults to re-throwing inside a microtask
   - `onTerminate`: Callback invoked when the continuation terminates with errors. Defaults to ignoring the errors
 
 **Example:**
 ```dart
 final cont = Cont.terminate<MyEnv, Never>([ContError.capture(Exception('Failed'))]);
-cont.trap(myEnv, onTerminate: (errors) {
+final token = cont.trap(myEnv, onTerminate: (errors) {
   print('Terminated with ${errors.length} error(s)');
 });
+
+// Cancel the continuation when needed
+token.cancel();
+
+// Check cancellation state
+print(token.isCancelled()); // true
 ```
 
 ---
