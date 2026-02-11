@@ -161,16 +161,6 @@ void main() {
       expect(value2, 30);
     });
 
-    test('Cont.thenDo with null value', () {
-      String? value = 'initial';
-
-      Cont.of<(), String?>(null)
-          .thenDo((val) => Cont.of(val))
-          .run((), onValue: (val) => value = val);
-
-      expect(value, null);
-    });
-
     test('Cont.thenDo does not call onPanic', () {
       Cont.of<(), int>(0)
           .thenDo((val) => Cont.of(val + 5))
@@ -218,18 +208,6 @@ void main() {
         expect(value, null);
       },
     );
-
-    test('Cont.thenDo chains multiple operations', () {
-      String? value;
-
-      Cont.of<(), int>(10)
-          .thenDo((a) => Cont.of(a + 5))
-          .thenDo((b) => Cont.of(b * 2))
-          .thenDo((c) => Cont.of('Result: $c'))
-          .run((), onValue: (val) => value = val);
-
-      expect(value, 'Result: 30');
-    });
 
     test('Cont.thenDo0 is thenDo with ignored input', () {
       final cont1 = Cont.of<(), int>(

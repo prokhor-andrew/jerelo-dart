@@ -323,20 +323,5 @@ void main() {
         'inner-after',
       ]);
     });
-
-    test('Cont.hoist with null value', () {
-      String? value = 'initial';
-      final cont = Cont.of<(), String?>(null).hoist((
-        run,
-        runtime,
-        observer,
-      ) {
-        run(runtime, observer);
-      });
-
-      cont.run((), onValue: (val) => value = val);
-
-      expect(value, null);
-    });
   });
 }

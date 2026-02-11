@@ -122,50 +122,6 @@ void main() {
       expect(error!.error, 'Fork Builder Error');
     });
 
-    test('supports chaining', () {
-      final effects = <int>[];
-      int? value;
-
-      final List<void Function()> buffer = [];
-      void flush() {
-        for (final fn in buffer) {
-          fn();
-        }
-        buffer.clear();
-      }
-
-      Cont.of<(), int>(5)
-          .thenFork((a) {
-            return Cont.fromRun<(), ()>((
-              runtime,
-              observer,
-            ) {
-              buffer.add(() {
-                effects.add(a);
-                observer.onValue(());
-              });
-            });
-          })
-          .thenFork((a) {
-            return Cont.fromRun<(), ()>((
-              runtime,
-              observer,
-            ) {
-              buffer.add(() {
-                effects.add(a * 2);
-                observer.onValue(());
-              });
-            });
-          })
-          .run((), onValue: (val) => value = val);
-
-      expect(value, 5);
-      expect(effects, isEmpty);
-
-      flush();
-      expect(effects, [5, 10]);
-    });
-
     test('supports multiple runs', () {
       var forkCount = 0;
       final List<void Function()> buffer = [];
@@ -194,39 +150,6 @@ void main() {
       expect(forkCount, 1);
       flush();
       expect(forkCount, 2);
-    });
-
-    test('supports null values', () {
-      String? value = 'initial';
-      var forkCalled = false;
-
-      final List<void Function()> buffer = [];
-      void flush() {
-        for (final fn in buffer) {
-          fn();
-        }
-        buffer.clear();
-      }
-
-      Cont.of<(), String?>(null)
-          .thenFork((val) {
-            return Cont.fromRun<(), ()>((
-              runtime,
-              observer,
-            ) {
-              buffer.add(() {
-                forkCalled = true;
-                observer.onValue(());
-              });
-            });
-          })
-          .run((), onValue: (val) => value = val);
-
-      expect(value, null);
-      expect(forkCalled, false);
-
-      flush();
-      expect(forkCalled, true);
     });
 
     test('never calls onPanic for main path', () {

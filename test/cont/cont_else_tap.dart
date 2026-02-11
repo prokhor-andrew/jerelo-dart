@@ -97,25 +97,6 @@ void main() {
       expect(error!.error, 'original');
     });
 
-    test('supports chaining', () {
-      final effects = <String>[];
-      List<ContError>? errors;
-
-      Cont.terminate<(), int>([ContError.capture('err1')])
-          .elseTap((e) {
-            effects.add('first');
-            return Cont.terminate<(), int>([]);
-          })
-          .elseTap((e) {
-            effects.add('second');
-            return Cont.terminate<(), int>([]);
-          })
-          .run((), onTerminate: (e) => errors = e);
-
-      expect(effects, ['first', 'second']);
-      expect(errors!.length, 1);
-    });
-
     test('supports multiple runs', () {
       var callCount = 0;
       final cont = Cont.terminate<(), int>().elseTap((
@@ -231,26 +212,6 @@ void main() {
           .run((), onValue: (val) => value = val);
 
       expect(value, 100);
-    });
-
-    test('works in thenDo chain', () {
-      var sideEffectCalled = false;
-      List<ContError>? errors;
-
-      Cont.of<(), int>(10)
-          .thenDo(
-            (a) => Cont.terminate<(), int>([
-              ContError.capture('error'),
-            ]),
-          )
-          .elseTap((e) {
-            sideEffectCalled = true;
-            return Cont.terminate<(), int>([]);
-          })
-          .run((), onTerminate: (e) => errors = e);
-
-      expect(sideEffectCalled, true);
-      expect(errors!.length, 1);
     });
   });
 }

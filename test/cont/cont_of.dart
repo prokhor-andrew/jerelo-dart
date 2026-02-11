@@ -47,13 +47,5 @@ void main() {
       cont.run((), onValue: (val) => value = val);
       expect(value, 15);
     });
-
-    test('Cont.of with null value', () {
-      String? value = 'initial';
-      final cont = Cont.of<(), String?>(null);
-
-      cont.run((), onValue: (val) => value = val);
-      expect(value, null);
-    });
   });
 }

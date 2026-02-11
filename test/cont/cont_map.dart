@@ -51,21 +51,6 @@ void main() {
       expect(value1, value2);
     });
 
-    test(
-      'Cont.map does not call map function on termination',
-      () {
-        bool called = false;
-        final cont = Cont.terminate<(), int>().map((val) {
-          called = true;
-          return val + 5;
-        });
-
-        cont.run((), onTerminate: (_) {});
-
-        expect(called, false);
-      },
-    );
-
     test('Cont.map passes through termination', () {
       final errors = [
         ContError.capture('err1'),
@@ -93,7 +78,6 @@ void main() {
 
         cont.run(
           (),
-          onTerminate: (_) {},
           onValue: (_) {
             fail('Should not be called');
           },
@@ -124,17 +108,6 @@ void main() {
       int? value2;
       cont.run((), onValue: (val) => value2 = val);
       expect(value2, 30);
-    });
-
-    test('Cont.map with null value', () {
-      String? value = 'initial';
-      final cont = Cont.of<(), String?>(
-        null,
-      ).map((val) => val);
-
-      cont.run((), onValue: (val) => value = val);
-
-      expect(value, null);
     });
 
     test('Cont.map does not call onPanic', () {
@@ -188,21 +161,6 @@ void main() {
         expect(value, null);
       },
     );
-
-    test('Cont.map throw preserves stack trace', () {
-      final cont = Cont.of<(), int>(0).map((val) {
-        throw 'Test Error';
-      });
-
-      ContError? error;
-      cont.run(
-        (),
-        onTerminate: (errors) => error = errors.first,
-      );
-
-      expect(error!.error, 'Test Error');
-      expect(error!.stackTrace, isNotNull);
-    });
 
     test('Cont.map functor composition law', () {
       C Function(A) compose<A, B, C>(

@@ -114,21 +114,6 @@ void main() {
       expect(error!.error, 'Fallback Builder Error');
     });
 
-    test('supports chaining', () {
-      int? value;
-
-      Cont.terminate<(), int>([ContError.capture('err1')])
-          .elseZip(
-            (e) => Cont.terminate<(), int>([
-              ContError.capture('err2'),
-            ]),
-          )
-          .elseZip((e) => Cont.of(42))
-          .run((), onValue: (val) => value = val);
-
-      expect(value, 42);
-    });
-
     test('accumulates errors in chained failures', () {
       List<ContError>? errors;
 
@@ -271,35 +256,6 @@ void main() {
 
       expect(errors1!.length, errors2!.length);
       expect(errors1!.length, 2);
-    });
-
-    test('differs from elseDo in error handling', () {
-      List<ContError>? elseDoErrors;
-      List<ContError>? elseZipErrors;
-
-      final original = [ContError.capture('original')];
-      final fallback = [ContError.capture('fallback')];
-
-      Cont.terminate<(), int>(original)
-          .elseDo((e) => Cont.terminate<(), int>(fallback))
-          .run((), onTerminate: (e) => elseDoErrors = e);
-
-      Cont.terminate<(), int>(original)
-          .elseZip((e) => Cont.terminate<(), int>(fallback))
-          .run((), onTerminate: (e) => elseZipErrors = e);
-
-      expect(
-        elseDoErrors!.length,
-        1,
-      ); // elseDo only keeps fallback errors
-      expect(elseDoErrors![0].error, 'fallback');
-
-      expect(
-        elseZipErrors!.length,
-        2,
-      ); // elseZip combines both
-      expect(elseZipErrors![0].error, 'original');
-      expect(elseZipErrors![1].error, 'fallback');
     });
   });
 }

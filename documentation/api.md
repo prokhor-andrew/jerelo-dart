@@ -898,6 +898,67 @@ Similar to `elseFork` but ignores the error information.
 
 ---
 
+#### recover
+
+```dart
+Cont<E, A> recover(A Function(List<ContError> errors) f)
+```
+
+Recovers from termination by computing a replacement value from the errors.
+
+If the continuation terminates, applies `f` to the error list and succeeds with the returned value. This is a convenience over `elseDo` for cases where the recovery logic is a pure function rather than a full continuation.
+
+- **Parameters:**
+  - `f`: Function that receives the termination errors and returns a recovery value
+
+**Example:**
+```dart
+final cont = Cont.terminate<(), int>([ContError.capture('not found')])
+  .recover((errors) => -1);
+
+cont.run((), onValue: print); // prints: -1
+```
+
+---
+
+#### recover0
+
+```dart
+Cont<E, A> recover0(A Function() f)
+```
+
+Recovers from termination by computing a replacement value, ignoring the errors.
+
+Similar to `recover` but the recovery function takes no arguments.
+
+- **Parameters:**
+  - `f`: Zero-argument function that returns a recovery value
+
+---
+
+#### fallback
+
+```dart
+Cont<E, A> fallback(A value)
+```
+
+Recovers from termination with a constant fallback value.
+
+If the continuation terminates, succeeds with `value` instead. This is the simplest form of error recovery.
+
+- **Parameters:**
+  - `value`: The value to use when the continuation terminates
+
+**Example:**
+```dart
+final cont = Cont.terminate<(), int>([ContError.capture('error')])
+  .fallback(0);
+
+cont.run((), onValue: print); // prints: 0
+```
+
+---
+
 ### Environment Methods
 
 #### local

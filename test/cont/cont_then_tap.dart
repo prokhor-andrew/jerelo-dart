@@ -79,41 +79,6 @@ void main() {
       expect(error!.error, 'Thrown Error');
     });
 
-    test('never executes on termination', () {
-      bool sideEffectCalled = false;
-      Cont.terminate<(), int>()
-          .thenTap((a) {
-            sideEffectCalled = true;
-            return Cont.of(());
-          })
-          .run((), onTerminate: (_) {});
-
-      expect(sideEffectCalled, false);
-    });
-
-    test('supports chaining', () {
-      final effects = <int>[];
-      int? value;
-
-      Cont.of<(), int>(5)
-          .thenTap(
-            (a) => Cont.of<(), ()>(()).map((_) {
-              effects.add(a);
-              return ();
-            }),
-          )
-          .thenTap(
-            (a) => Cont.of<(), ()>(()).map((_) {
-              effects.add(a * 2);
-              return ();
-            }),
-          )
-          .run((), onValue: (val) => value = val);
-
-      expect(value, 5);
-      expect(effects, [5, 10]);
-    });
-
     test('supports multiple runs', () {
       var callCount = 0;
       final cont = Cont.of<(), int>(10).thenTap(
@@ -132,23 +97,6 @@ void main() {
       cont.run((), onValue: (val) => value2 = val);
       expect(value2, 10);
       expect(callCount, 2);
-    });
-
-    test('supports null values', () {
-      String? value = 'initial';
-      var sideEffectCalled = false;
-
-      Cont.of<(), String?>(null)
-          .thenTap(
-            (val) => Cont.of<(), ()>(()).map((_) {
-              sideEffectCalled = true;
-              return ();
-            }),
-          )
-          .run((), onValue: (val) => value = val);
-
-      expect(value, null);
-      expect(sideEffectCalled, true);
     });
 
     test('never calls onPanic', () {

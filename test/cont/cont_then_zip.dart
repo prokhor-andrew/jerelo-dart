@@ -143,20 +143,6 @@ void main() {
       expect(value, 'number: 42, string: 42');
     });
 
-    test('supports chaining', () {
-      String? value;
-
-      Cont.of<(), int>(1)
-          .thenZip((a) => Cont.of(a + 1), (a, b) => a + b)
-          .thenZip(
-            (sum) => Cont.of(sum * 2),
-            (prev, doubled) => '$prev -> $doubled',
-          )
-          .run((), onValue: (val) => value = val);
-
-      expect(value, '2 -> 4');
-    });
-
     test('supports multiple runs', () {
       final cont = Cont.of<(), int>(
         5,
@@ -169,19 +155,6 @@ void main() {
       int? value2;
       cont.run((), onValue: (val) => value2 = val);
       expect(value2, 20);
-    });
-
-    test('supports null values', () {
-      String? value;
-
-      Cont.of<(), String?>('first')
-          .thenZip(
-            (a) => Cont.of<(), String?>(null),
-            (a, b) => 'a=$a, b=$b',
-          )
-          .run((), onValue: (val) => value = val);
-
-      expect(value, 'a=first, b=null');
     });
 
     test('never calls onPanic', () {

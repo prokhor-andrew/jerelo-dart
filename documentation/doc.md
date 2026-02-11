@@ -663,6 +663,9 @@ Other error operators include:
 - `elseTap`: Execute side effects on termination (e.g., logging) while allowing the error to continue or recovering
 - `elseZip`: Combine error information with additional context
 - `elseFork`: Handle errors in the background without blocking
+- `recover`: Compute a replacement value from the errors (convenience over `elseDo`)
+- `recover0`: Compute a replacement value ignoring the errors
+- `fallback`: Provide a constant fallback value on termination
 
 ### Environment Variants
 

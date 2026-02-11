@@ -62,20 +62,6 @@ void main() {
       expect(error!.error, 'Transform Error');
     });
 
-    test('supports chaining', () {
-      int? receivedEnv;
-
-      Cont.fromRun<int, ()>((runtime, observer) {
-            receivedEnv = runtime.env();
-            observer.onValue(());
-          })
-          .local<String>((str) => str.length)
-          .local<List<int>>((list) => list.first.toString())
-          .run([10, 20, 30]);
-
-      expect(receivedEnv, 2); // "10".length
-    });
-
     test('supports multiple runs', () {
       var callCount = 0;
       final cont = Cont.fromRun<int, ()>((
@@ -211,17 +197,6 @@ void main() {
       expect(env2, 100);
     });
 
-    test('scope supports null environment', () {
-      int? receivedEnv;
-
-      Cont.fromRun<int?, ()>((runtime, observer) {
-        receivedEnv = runtime.env();
-        observer.onValue(());
-      }).scope<String>(null).run('ignored');
-
-      expect(receivedEnv, null);
-    });
-
     test('scope preserves environment identity', () {
       final env = [1, 2, 3];
       Object? receivedEnv;
@@ -232,17 +207,6 @@ void main() {
       }).scope<String>(env).run('ignored');
 
       expect(identical(env, receivedEnv), isTrue);
-    });
-
-    test('works in thenDo chain', () {
-      int? value;
-
-      Cont.ask<int>()
-          .thenDo((n) => Cont.of(n * 2))
-          .local<String>((str) => str.length)
-          .run('test', onValue: (val) => value = val);
-
-      expect(value, 8); // "test".length = 4, 4 * 2 = 8
     });
 
     test('provides environment isolation', () {

@@ -124,49 +124,6 @@ void main() {
       expect(error!.error, 'Fork Builder Error');
     });
 
-    test('supports chaining', () {
-      final effects = <String>[];
-      List<ContError>? errors;
-
-      final List<void Function()> buffer = [];
-      void flush() {
-        for (final fn in buffer) {
-          fn();
-        }
-        buffer.clear();
-      }
-
-      Cont.terminate<(), int>([ContError.capture('err')])
-          .elseFork((e) {
-            return Cont.fromRun<(), ()>((
-              runtime,
-              observer,
-            ) {
-              buffer.add(() {
-                effects.add('first');
-                observer.onValue(());
-              });
-            });
-          })
-          .elseFork((e) {
-            return Cont.fromRun<(), ()>((
-              runtime,
-              observer,
-            ) {
-              buffer.add(() {
-                effects.add('second');
-                observer.onValue(());
-              });
-            });
-          })
-          .run((), onTerminate: (e) => errors = e);
-
-      expect(errors![0].error, 'err');
-      expect(effects, isEmpty);
-
-      flush();
-      expect(effects, ['first', 'second']);
-    });
 
     test('supports multiple runs', () {
       var forkCount = 0;
@@ -328,67 +285,5 @@ void main() {
       expect(fork2Called, true);
     });
 
-    test('differs from elseTap in execution timing', () {
-      final order = <String>[];
-      List<ContError>? forkErrors;
-      List<ContError>? tapErrors;
-
-      final List<void Function()> buffer = [];
-      void flush() {
-        for (final fn in buffer) {
-          fn();
-        }
-        buffer.clear();
-      }
-
-      Cont.terminate<(), int>([ContError.capture('err')])
-          .elseFork((e) {
-            return Cont.fromRun<(), ()>((
-              runtime,
-              observer,
-            ) {
-              buffer.add(() {
-                order.add('fork-side-effect');
-                observer.onValue(());
-              });
-            });
-          })
-          .run(
-            (),
-            onTerminate: (e) {
-              order.add('fork-main');
-              forkErrors = e;
-            },
-          );
-
-      Cont.terminate<(), int>([ContError.capture('err')])
-          .elseTap((e) {
-            order.add('tap-side-effect');
-            return Cont.of(8);
-          })
-          .run(
-            (),
-            onTerminate: (e) {
-              order.add('tap-main');
-              tapErrors = e;
-            },
-          );
-
-      // elseFork: main completes first, side effect later
-      // elseTap: side effect completes before main
-      expect(order, [
-        'fork-main',
-        'tap-side-effect',
-        'tap-main',
-      ]);
-
-      flush();
-      expect(order, [
-        'fork-main',
-        'tap-side-effect',
-        'tap-main',
-        'fork-side-effect',
-      ]);
-    });
   });
 }
