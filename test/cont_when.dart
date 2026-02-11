@@ -228,13 +228,14 @@ void main() {
     test('stops when error thrown in predicate', () {
       int counter = 0;
 
-      final cont = Cont.fromDeferred<(), int>(() {
-        counter++;
-        return Cont.of(counter);
-      }).until((n) {
-        if (n == 3) throw 'Predicate Error';
-        return false;
-      });
+      final cont =
+          Cont.fromDeferred<(), int>(() {
+            counter++;
+            return Cont.of(counter);
+          }).until((n) {
+            if (n == 3) throw 'Predicate Error';
+            return false;
+          });
 
       ContError? error;
       cont.run(

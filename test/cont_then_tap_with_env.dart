@@ -7,9 +7,7 @@ void main() {
       int? value;
 
       Cont.of<String, int>(42)
-          .thenTapWithEnv(
-            (env, a) => Cont.of('$env: $a'),
-          )
+          .thenTapWithEnv((env, a) => Cont.of('$env: $a'))
           .run('hello', onValue: (val) => value = val);
 
       expect(value, 42);
@@ -37,9 +35,7 @@ void main() {
       Cont.terminate<String, int>([
             ContError.capture('err'),
           ])
-          .thenTapWithEnv(
-            (env, a) => Cont.of('$env: $a'),
-          )
+          .thenTapWithEnv((env, a) => Cont.of('$env: $a'))
           .run('hello', onTerminate: (e) => errors = e);
 
       expect(errors!.length, 1);
@@ -76,14 +72,13 @@ void main() {
 
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont =
-          Cont.of<String, int>(42).thenTapWithEnv((
-            env,
-            a,
-          ) {
-            callCount++;
-            return Cont.of(());
-          });
+      final cont = Cont.of<String, int>(42).thenTapWithEnv((
+        env,
+        a,
+      ) {
+        callCount++;
+        return Cont.of(());
+      });
 
       int? value1;
       cont.run('hello', onValue: (val) => value1 = val);
@@ -115,39 +110,38 @@ void main() {
       int? value;
 
       Cont.of<String, int>(42)
-          .thenTapWithEnv0(
-            (env) => Cont.of('side: $env'),
-          )
+          .thenTapWithEnv0((env) => Cont.of('side: $env'))
           .run('hello', onValue: (val) => value = val);
 
       expect(value, 42);
     });
 
-    test('behaves like thenTapWithEnv with ignored value',
-        () {
-      int? value1;
-      int? value2;
-      var count1 = 0;
-      var count2 = 0;
+    test(
+      'behaves like thenTapWithEnv with ignored value',
+      () {
+        int? value1;
+        int? value2;
+        var count1 = 0;
+        var count2 = 0;
 
-      final cont1 =
-          Cont.of<String, int>(42).thenTapWithEnv0((env) {
-            count1++;
-            return Cont.of(());
-          });
-      final cont2 = Cont.of<String, int>(
-        42,
-      ).thenTapWithEnv((env, _) {
-        count2++;
-        return Cont.of(());
-      });
+        final cont1 = Cont.of<String, int>(42)
+            .thenTapWithEnv0((env) {
+              count1++;
+              return Cont.of(());
+            });
+        final cont2 = Cont.of<String, int>(42)
+            .thenTapWithEnv((env, _) {
+              count2++;
+              return Cont.of(());
+            });
 
-      cont1.run('hello', onValue: (val) => value1 = val);
-      cont2.run('hello', onValue: (val) => value2 = val);
+        cont1.run('hello', onValue: (val) => value1 = val);
+        cont2.run('hello', onValue: (val) => value2 = val);
 
-      expect(value1, value2);
-      expect(count1, 1);
-      expect(count2, 1);
-    });
+        expect(value1, value2);
+        expect(count1, 1);
+        expect(count2, 1);
+      },
+    );
   });
 }

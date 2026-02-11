@@ -21,17 +21,14 @@ void main() {
     test('does not execute past first success', () {
       bool thirdCalled = false;
 
-      Cont.any<(), int>(
-        [
-          Cont.terminate([ContError.capture('err')]),
-          Cont.of(20),
-          Cont.fromRun((runtime, observer) {
-            thirdCalled = true;
-            observer.onValue(30);
-          }),
-        ],
-        policy: ContEitherPolicy.sequence(),
-      ).run(());
+      Cont.any<(), int>([
+        Cont.terminate([ContError.capture('err')]),
+        Cont.of(20),
+        Cont.fromRun((runtime, observer) {
+          thirdCalled = true;
+          observer.onValue(30);
+        }),
+      ], policy: ContEitherPolicy.sequence()).run(());
 
       expect(thirdCalled, false);
     });
@@ -147,15 +144,12 @@ void main() {
   group('Cont.any shared', () {
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont = Cont.any<(), int>(
-        [
-          Cont.fromRun((runtime, observer) {
-            callCount++;
-            observer.onValue(callCount);
-          }),
-        ],
-        policy: ContEitherPolicy.sequence(),
-      );
+      final cont = Cont.any<(), int>([
+        Cont.fromRun((runtime, observer) {
+          callCount++;
+          observer.onValue(callCount);
+        }),
+      ], policy: ContEitherPolicy.sequence());
 
       int? value1;
       cont.run((), onValue: (val) => value1 = val);
@@ -169,10 +163,7 @@ void main() {
     });
 
     test('makes defensive copy of list', () {
-      final list = <Cont<(), int>>[
-        Cont.of(1),
-        Cont.of(2),
-      ];
+      final list = <Cont<(), int>>[Cont.of(1), Cont.of(2)];
       final cont = Cont.any<(), int>(
         list,
         policy: ContEitherPolicy.sequence(),

@@ -39,7 +39,10 @@ void main() {
     test('supports multiple runs', () {
       var callCount = 0;
 
-      final cont = Cont.fromRun<(), ()>((runtime, observer) {
+      final cont = Cont.fromRun<(), ()>((
+        runtime,
+        observer,
+      ) {
         callCount++;
         observer.onValue(());
       });

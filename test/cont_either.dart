@@ -146,8 +146,7 @@ void main() {
       ).run((), onValue: (val) => value1 = val);
 
       left
-          .or(right,
-              policy: ContEitherPolicy.sequence())
+          .or(right, policy: ContEitherPolicy.sequence())
           .run((), onValue: (val) => value2 = val);
 
       expect(value1, value2);

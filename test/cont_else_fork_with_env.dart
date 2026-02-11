@@ -105,9 +105,7 @@ void main() {
     });
 
     test('receives defensive copy of errors', () {
-      final originalErrors = [
-        ContError.capture('err1'),
-      ];
+      final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
       final List<void Function()> buffer = [];
@@ -150,16 +148,16 @@ void main() {
 
       final cont = Cont.terminate<String, int>()
           .elseForkWithEnv((env, errors) {
-        return Cont.fromRun<String, int>((
-          runtime,
-          observer,
-        ) {
-          buffer.add(() {
-            forkCount++;
-            observer.onValue(0);
+            return Cont.fromRun<String, int>((
+              runtime,
+              observer,
+            ) {
+              buffer.add(() {
+                forkCount++;
+                observer.onValue(0);
+              });
+            });
           });
-        });
-      });
 
       cont.run('hello', onTerminate: (_) {});
       expect(forkCount, 0);
@@ -234,29 +232,29 @@ void main() {
 
         final cont1 = Cont.terminate<String, int>()
             .elseForkWithEnv0((env) {
-          return Cont.fromRun<String, int>((
-            runtime,
-            observer,
-          ) {
-            buffer.add(() {
-              count1++;
-              observer.onValue(0);
+              return Cont.fromRun<String, int>((
+                runtime,
+                observer,
+              ) {
+                buffer.add(() {
+                  count1++;
+                  observer.onValue(0);
+                });
+              });
             });
-          });
-        });
 
         final cont2 = Cont.terminate<String, int>()
             .elseForkWithEnv((env, _) {
-          return Cont.fromRun<String, int>((
-            runtime,
-            observer,
-          ) {
-            buffer.add(() {
-              count2++;
-              observer.onValue(0);
+              return Cont.fromRun<String, int>((
+                runtime,
+                observer,
+              ) {
+                buffer.add(() {
+                  count2++;
+                  observer.onValue(0);
+                });
+              });
             });
-          });
-        });
 
         cont1.run('hello', onTerminate: (_) {});
         cont2.run('hello', onTerminate: (_) {});

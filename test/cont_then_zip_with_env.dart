@@ -68,8 +68,7 @@ void main() {
     );
 
     test('terminates when combine throws', () {
-      final cont =
-          Cont.of<String, int>(5).thenZipWithEnv(
+      final cont = Cont.of<String, int>(5).thenZipWithEnv(
         (env, a) => Cont.of(10),
         (a, b) {
           throw 'Combine Error';
@@ -87,9 +86,10 @@ void main() {
 
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont = Cont.of<String, int>(
-        5,
-      ).thenZipWithEnv((env, a) {
+      final cont = Cont.of<String, int>(5).thenZipWithEnv((
+        env,
+        a,
+      ) {
         callCount++;
         return Cont.of(env.length);
       }, (a, b) => a + b);
@@ -126,18 +126,16 @@ void main() {
         String? value1;
         String? value2;
 
-        final cont1 = Cont.of<String, int>(
-          10,
-        ).thenZipWithEnv0(
-          (env) => Cont.of(env.length),
-          (a, b) => '$a+$b',
-        );
-        final cont2 = Cont.of<String, int>(
-          10,
-        ).thenZipWithEnv(
-          (env, _) => Cont.of(env.length),
-          (a, b) => '$a+$b',
-        );
+        final cont1 = Cont.of<String, int>(10)
+            .thenZipWithEnv0(
+              (env) => Cont.of(env.length),
+              (a, b) => '$a+$b',
+            );
+        final cont2 = Cont.of<String, int>(10)
+            .thenZipWithEnv(
+              (env, _) => Cont.of(env.length),
+              (a, b) => '$a+$b',
+            );
 
         cont1.run('hello', onValue: (val) => value1 = val);
         cont2.run('hello', onValue: (val) => value2 = val);

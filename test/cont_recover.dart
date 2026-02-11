@@ -47,10 +47,11 @@ void main() {
     });
 
     test('terminates when recover function throws', () {
-      final cont =
-          Cont.terminate<(), int>().recover((errors) {
-            throw 'Recover Error';
-          });
+      final cont = Cont.terminate<(), int>().recover((
+        errors,
+      ) {
+        throw 'Recover Error';
+      });
 
       ContError? error;
       cont.run(
@@ -128,9 +129,9 @@ void main() {
     test('provides fallback value on termination', () {
       int? value;
 
-      Cont.terminate<(), int>([ContError.capture('err')])
-          .fallback(42)
-          .run((), onValue: (val) => value = val);
+      Cont.terminate<(), int>(
+        [ContError.capture('err')],
+      ).fallback(42).run((), onValue: (val) => value = val);
 
       expect(value, 42);
     });
@@ -138,9 +139,9 @@ void main() {
     test('never uses fallback on value path', () {
       int? value;
 
-      Cont.of<(), int>(10)
-          .fallback(42)
-          .run((), onValue: (val) => value = val);
+      Cont.of<(), int>(
+        10,
+      ).fallback(42).run((), onValue: (val) => value = val);
 
       expect(value, 10);
     });

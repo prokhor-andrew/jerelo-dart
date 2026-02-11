@@ -28,9 +28,7 @@ void main() {
       Cont.terminate<String, int>([
             ContError.capture('err'),
           ])
-          .elseTapWithEnv(
-            (env, errors) => Cont.of(42),
-          )
+          .elseTapWithEnv((env, errors) => Cont.of(42))
           .run('hello', onValue: (val) => value = val);
 
       expect(value, 42);
@@ -72,9 +70,7 @@ void main() {
     });
 
     test('receives defensive copy of errors', () {
-      final originalErrors = [
-        ContError.capture('err1'),
-      ];
+      final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
       Cont.terminate<String, int>(originalErrors)
@@ -91,11 +87,8 @@ void main() {
 
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont =
-          Cont.terminate<String, int>().elseTapWithEnv((
-            env,
-            errors,
-          ) {
+      final cont = Cont.terminate<String, int>()
+          .elseTapWithEnv((env, errors) {
             callCount++;
             return Cont.terminate<String, int>([]);
           });
@@ -128,20 +121,16 @@ void main() {
         var count1 = 0;
         var count2 = 0;
 
-        final cont1 =
-            Cont.terminate<String, int>().elseTapWithEnv0(
-              (env) {
-                count1++;
-                return Cont.terminate<String, int>([]);
-              },
-            );
-        final cont2 =
-            Cont.terminate<String, int>().elseTapWithEnv(
-              (env, _) {
-                count2++;
-                return Cont.terminate<String, int>([]);
-              },
-            );
+        final cont1 = Cont.terminate<String, int>()
+            .elseTapWithEnv0((env) {
+              count1++;
+              return Cont.terminate<String, int>([]);
+            });
+        final cont2 = Cont.terminate<String, int>()
+            .elseTapWithEnv((env, _) {
+              count2++;
+              return Cont.terminate<String, int>([]);
+            });
 
         cont1.run('hello', onTerminate: (_) {});
         cont2.run('hello', onTerminate: (_) {});

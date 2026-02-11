@@ -51,9 +51,7 @@ void main() {
     });
 
     test('receives defensive copy of errors', () {
-      final originalErrors = [
-        ContError.capture('err1'),
-      ];
+      final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
       Cont.terminate<String, int>(originalErrors)
@@ -72,9 +70,9 @@ void main() {
       var callCount = 0;
       final cont = Cont.terminate<String, int>()
           .elseZipWithEnv((env, errors) {
-        callCount++;
-        return Cont.of(env.length);
-      });
+            callCount++;
+            return Cont.of(env.length);
+          });
 
       int? value1;
       cont.run('hi', onValue: (val) => value1 = val);
@@ -98,20 +96,18 @@ void main() {
         buffer.clear();
       }
 
-      final cont = Cont.fromRun<String, int>((
-        runtime,
-        observer,
-      ) {
-        buffer.add(() {
-          if (runtime.isCancelled()) return;
-          observer.onTerminate([
-            ContError.capture('error'),
-          ]);
-        });
-      }).elseZipWithEnv((env, errors) {
-        fallbackCalled = true;
-        return Cont.of(42);
-      });
+      final cont =
+          Cont.fromRun<String, int>((runtime, observer) {
+            buffer.add(() {
+              if (runtime.isCancelled()) return;
+              observer.onTerminate([
+                ContError.capture('error'),
+              ]);
+            });
+          }).elseZipWithEnv((env, errors) {
+            fallbackCalled = true;
+            return Cont.of(42);
+          });
 
       final token = cont.run('hello');
 
@@ -148,14 +144,8 @@ void main() {
               (env, _) => Cont.of(env.length),
             );
 
-        cont1.run(
-          'hello',
-          onValue: (val) => value1 = val,
-        );
-        cont2.run(
-          'hello',
-          onValue: (val) => value2 = val,
-        );
+        cont1.run('hello', onValue: (val) => value1 = val);
+        cont2.run('hello', onValue: (val) => value2 = val);
 
         expect(value1, value2);
       },

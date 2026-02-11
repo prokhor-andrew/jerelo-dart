@@ -18,23 +18,23 @@ void main() {
       final order = <int>[];
       List<int>? value;
 
-      Cont.all<(), int>(
-        [
-          Cont.fromRun((runtime, observer) {
-            order.add(1);
-            observer.onValue(1);
-          }),
-          Cont.fromRun((runtime, observer) {
-            order.add(2);
-            observer.onValue(2);
-          }),
-          Cont.fromRun((runtime, observer) {
-            order.add(3);
-            observer.onValue(3);
-          }),
-        ],
-        policy: ContBothPolicy.sequence(),
-      ).run((), onValue: (val) => value = val);
+      Cont.all<(), int>([
+        Cont.fromRun((runtime, observer) {
+          order.add(1);
+          observer.onValue(1);
+        }),
+        Cont.fromRun((runtime, observer) {
+          order.add(2);
+          observer.onValue(2);
+        }),
+        Cont.fromRun((runtime, observer) {
+          order.add(3);
+          observer.onValue(3);
+        }),
+      ], policy: ContBothPolicy.sequence()).run(
+        (),
+        onValue: (val) => value = val,
+      );
 
       expect(order, [1, 2, 3]);
       expect(value, [1, 2, 3]);
@@ -135,15 +135,12 @@ void main() {
   group('Cont.all shared', () {
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont = Cont.all<(), int>(
-        [
-          Cont.fromRun((runtime, observer) {
-            callCount++;
-            observer.onValue(callCount);
-          }),
-        ],
-        policy: ContBothPolicy.sequence(),
-      );
+      final cont = Cont.all<(), int>([
+        Cont.fromRun((runtime, observer) {
+          callCount++;
+          observer.onValue(callCount);
+        }),
+      ], policy: ContBothPolicy.sequence());
 
       List<int>? value1;
       cont.run((), onValue: (val) => value1 = val);

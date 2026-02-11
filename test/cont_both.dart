@@ -160,8 +160,11 @@ void main() {
       ).run((), onValue: (val) => value1 = val);
 
       left
-          .and(right, (a, b) => '$b: $a',
-              policy: ContBothPolicy.sequence())
+          .and(
+            right,
+            (a, b) => '$b: $a',
+            policy: ContBothPolicy.sequence(),
+          )
           .run((), onValue: (val) => value2 = val);
 
       expect(value1, value2);
@@ -176,18 +179,27 @@ void main() {
       final right = Cont.of<(), int>(2);
 
       left
-          .and(right, (a, b) => a + b,
-              policy: ContBothPolicy.sequence())
+          .and(
+            right,
+            (a, b) => a + b,
+            policy: ContBothPolicy.sequence(),
+          )
           .run((), onValue: (val) => seqVal = val);
 
       left
-          .and(right, (a, b) => a + b,
-              policy: ContBothPolicy.mergeWhenAll())
+          .and(
+            right,
+            (a, b) => a + b,
+            policy: ContBothPolicy.mergeWhenAll(),
+          )
           .run((), onValue: (val) => mergeVal = val);
 
       left
-          .and(right, (a, b) => a + b,
-              policy: ContBothPolicy.quitFast())
+          .and(
+            right,
+            (a, b) => a + b,
+            policy: ContBothPolicy.quitFast(),
+          )
           .run((), onValue: (val) => fastVal = val);
 
       expect(seqVal, 3);
@@ -204,8 +216,11 @@ void main() {
       final right = Cont.of<(), int>(2);
 
       left
-          .and<int, int>(right, (a, b) => b,
-              policy: ContBothPolicy.sequence())
+          .and<int, int>(
+            right,
+            (a, b) => b,
+            policy: ContBothPolicy.sequence(),
+          )
           .run((), onTerminate: (e) => errors = e);
 
       expect(errors!.length, 1);

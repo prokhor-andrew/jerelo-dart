@@ -64,9 +64,7 @@ void main() {
       // Source produces int, target uses int as env to produce String
       Cont.of<(), int>(5)
           .injectInto(
-            Cont.ask<int>().map(
-              (n) => 'number is $n',
-            ),
+            Cont.ask<int>().map((n) => 'number is $n'),
           )
           .run((), onValue: (val) => value = val);
 
@@ -123,26 +121,24 @@ void main() {
       expect(value, 'env: 42');
     });
 
-    test(
-      'is equivalent to provider.injectInto(this)',
-      () {
-        String? value1;
-        String? value2;
+    test('is equivalent to provider.injectInto(this)', () {
+      String? value1;
+      String? value2;
 
-        final target =
-            Cont.ask<int>().map((env) => 'env: $env');
-        final provider = Cont.of<(), int>(42);
+      final target = Cont.ask<int>().map(
+        (env) => 'env: $env',
+      );
+      final provider = Cont.of<(), int>(42);
 
-        provider
-            .injectInto(target)
-            .run((), onValue: (val) => value1 = val);
-        target
-            .injectedBy(provider)
-            .run((), onValue: (val) => value2 = val);
+      provider
+          .injectInto(target)
+          .run((), onValue: (val) => value1 = val);
+      target
+          .injectedBy(provider)
+          .run((), onValue: (val) => value2 = val);
 
-        expect(value1, value2);
-      },
-    );
+      expect(value1, value2);
+    });
 
     test('passes through provider termination', () {
       List<ContError>? errors;

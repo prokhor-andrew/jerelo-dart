@@ -78,28 +78,30 @@ void main() {
       expect(errors![0].error, 'acquire error');
     });
 
-    test('combines errors when use and release both fail',
-        () {
-      List<ContError>? errors;
+    test(
+      'combines errors when use and release both fail',
+      () {
+        List<ContError>? errors;
 
-      Cont.bracket<(), String, int>(
-        acquire: Cont.of('resource'),
-        release: (resource) {
-          return Cont.terminate<(), ()>([
-            ContError.capture('release error'),
-          ]);
-        },
-        use: (resource) {
-          return Cont.terminate<(), int>([
-            ContError.capture('use error'),
-          ]);
-        },
-      ).run((), onTerminate: (e) => errors = e);
+        Cont.bracket<(), String, int>(
+          acquire: Cont.of('resource'),
+          release: (resource) {
+            return Cont.terminate<(), ()>([
+              ContError.capture('release error'),
+            ]);
+          },
+          use: (resource) {
+            return Cont.terminate<(), int>([
+              ContError.capture('use error'),
+            ]);
+          },
+        ).run((), onTerminate: (e) => errors = e);
 
-      expect(errors!.length, 2);
-      expect(errors![0].error, 'use error');
-      expect(errors![1].error, 'release error');
-    });
+        expect(errors!.length, 2);
+        expect(errors![0].error, 'use error');
+        expect(errors![1].error, 'release error');
+      },
+    );
 
     test(
       'terminates with release errors when use succeeds but release fails',

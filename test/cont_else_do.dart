@@ -67,10 +67,11 @@ void main() {
     });
 
     test('terminates when fallback builder throws', () {
-      final cont =
-          Cont.terminate<(), int>().elseDo((errors) {
-            throw 'Fallback Builder Error';
-          });
+      final cont = Cont.terminate<(), int>().elseDo((
+        errors,
+      ) {
+        throw 'Fallback Builder Error';
+      });
 
       ContError? error;
       cont.run(

@@ -124,7 +124,6 @@ void main() {
       expect(error!.error, 'Fork Builder Error');
     });
 
-
     test('supports multiple runs', () {
       var forkCount = 0;
       final List<void Function()> buffer = [];
@@ -284,6 +283,5 @@ void main() {
       expect(fork1Called, true);
       expect(fork2Called, true);
     });
-
   });
 }
