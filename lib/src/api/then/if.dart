@@ -30,12 +30,24 @@ extension ContThenIfExtension<E, A> on Cont<E, A> {
     });
   }
 
+  /// Conditionally succeeds based on a zero-argument predicate.
+  ///
+  /// Similar to [thenIf] but the predicate doesn't examine the value.
+  ///
+  /// - [predicate]: Zero-argument function that determines success or termination.
   Cont<E, A> thenIf0(bool Function() predicate) {
     return thenIf((_) {
       return predicate();
     });
   }
 
+  /// Conditionally succeeds with access to both value and environment.
+  ///
+  /// Similar to [thenIf], but the predicate function receives both the
+  /// current value and the environment. This is useful when conditional logic
+  /// needs access to configuration or context information.
+  ///
+  /// - [predicate]: Function that takes the environment and value, and determines success or termination.
   Cont<E, A> thenIfWithEnv(
     bool Function(E env, A value) predicate,
   ) {
@@ -46,6 +58,12 @@ extension ContThenIfExtension<E, A> on Cont<E, A> {
     });
   }
 
+  /// Conditionally succeeds with access to the environment only.
+  ///
+  /// Similar to [thenIfWithEnv], but the predicate only receives the
+  /// environment and ignores the current value.
+  ///
+  /// - [predicate]: Function that takes the environment and determines success or termination.
   Cont<E, A> thenIfWithEnv0(
     bool Function(E env) predicate,
   ) {

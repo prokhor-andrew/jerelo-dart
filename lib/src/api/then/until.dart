@@ -27,12 +27,24 @@ extension ContThenUntilExtension<E, A> on Cont<E, A> {
     });
   }
 
+  /// Repeatedly executes until a zero-argument predicate returns `true`.
+  ///
+  /// Similar to [thenUntil] but the predicate doesn't examine the value.
+  ///
+  /// - [predicate]: Zero-argument function that determines when to stop looping.
   Cont<E, A> thenUntil0(bool Function() predicate) {
     return thenUntil((_) {
       return predicate();
     });
   }
 
+  /// Repeatedly executes with access to both value and environment.
+  ///
+  /// Similar to [thenUntil], but the predicate function receives both the
+  /// current value and the environment. This is useful when loop logic needs
+  /// access to configuration or context information.
+  ///
+  /// - [predicate]: Function that takes the environment and value, and determines when to stop.
   Cont<E, A> thenUntilWithEnv(
     bool Function(E env, A value) predicate,
   ) {
@@ -43,6 +55,12 @@ extension ContThenUntilExtension<E, A> on Cont<E, A> {
     });
   }
 
+  /// Repeatedly executes with access to the environment only.
+  ///
+  /// Similar to [thenUntilWithEnv], but the predicate only receives the
+  /// environment and ignores the current value.
+  ///
+  /// - [predicate]: Function that takes the environment and determines when to stop.
   Cont<E, A> thenUntilWithEnv0(
     bool Function(E env) predicate,
   ) {

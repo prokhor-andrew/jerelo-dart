@@ -30,12 +30,24 @@ extension ContThenWhileExtension<E, A> on Cont<E, A> {
     return _thenWhile(this, predicate);
   }
 
+  /// Repeatedly executes based on a zero-argument predicate.
+  ///
+  /// Similar to [thenWhile] but the predicate doesn't examine the value.
+  ///
+  /// - [predicate]: Zero-argument function that determines whether to continue looping.
   Cont<E, A> thenWhile0(bool Function() predicate) {
     return thenWhile((_) {
       return predicate();
     });
   }
 
+  /// Repeatedly executes with access to both value and environment.
+  ///
+  /// Similar to [thenWhile], but the predicate function receives both the
+  /// current value and the environment. This is useful when loop logic needs
+  /// access to configuration or context information.
+  ///
+  /// - [predicate]: Function that takes the environment and value, and determines whether to continue.
   Cont<E, A> thenWhileWithEnv(
     bool Function(E env, A value) predicate,
   ) {
@@ -46,6 +58,12 @@ extension ContThenWhileExtension<E, A> on Cont<E, A> {
     });
   }
 
+  /// Repeatedly executes with access to the environment only.
+  ///
+  /// Similar to [thenWhileWithEnv], but the predicate only receives the
+  /// environment and ignores the current value.
+  ///
+  /// - [predicate]: Function that takes the environment and determines whether to continue.
   Cont<E, A> thenWhileWithEnv0(
     bool Function(E env) predicate,
   ) {

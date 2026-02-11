@@ -26,6 +26,13 @@ extension ContRecoverExtension<E, A> on Cont<E, A> {
     });
   }
 
+  /// Recovers from termination with access to both errors and environment.
+  ///
+  /// Similar to [recover], but the recovery function receives both the
+  /// termination errors and the environment. This is useful when recovery logic
+  /// needs access to configuration or context information.
+  ///
+  /// - [f]: Function that takes the environment and errors, and returns a recovery value.
   Cont<E, A> recoverWithEnv(
     A Function(E env, List<ContError> errors) f,
   ) {
@@ -36,6 +43,12 @@ extension ContRecoverExtension<E, A> on Cont<E, A> {
     });
   }
 
+  /// Recovers from termination with access to the environment only.
+  ///
+  /// Similar to [recoverWithEnv], but the recovery function only receives
+  /// the environment and ignores the termination errors.
+  ///
+  /// - [f]: Function that takes the environment and returns a recovery value.
   Cont<E, A> recoverWithEnv0(A Function(E env) f) {
     return recoverWithEnv((e, _) {
       return f(e);

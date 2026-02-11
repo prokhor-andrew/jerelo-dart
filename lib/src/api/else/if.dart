@@ -40,12 +40,26 @@ extension ContElseIfExtension<E, A> on Cont<E, A> {
     });
   }
 
+  /// Conditionally recovers based on a zero-argument predicate.
+  ///
+  /// Similar to [elseIf] but the predicate doesn't examine the errors.
+  ///
+  /// - [predicate]: Zero-argument function that determines whether to recover.
+  /// - [value]: The value to recover with when the predicate returns `true`.
   Cont<E, A> elseIf0(bool Function() predicate, A value) {
     return elseIf((_) {
       return predicate();
     }, value);
   }
 
+  /// Conditionally recovers with access to both errors and environment.
+  ///
+  /// Similar to [elseIf], but the predicate function receives both the
+  /// termination errors and the environment. This is useful when recovery logic
+  /// needs access to configuration or context information.
+  ///
+  /// - [predicate]: Function that takes the environment and errors, and determines whether to recover.
+  /// - [value]: The value to recover with when the predicate returns `true`.
   Cont<E, A> elseIfWithEnv(
     bool Function(E env, List<ContError> errors) predicate,
     A value,
@@ -57,6 +71,13 @@ extension ContElseIfExtension<E, A> on Cont<E, A> {
     });
   }
 
+  /// Conditionally recovers with access to the environment only.
+  ///
+  /// Similar to [elseIfWithEnv], but the predicate only receives the
+  /// environment and ignores the errors.
+  ///
+  /// - [predicate]: Function that takes the environment and determines whether to recover.
+  /// - [value]: The value to recover with when the predicate returns `true`.
   Cont<E, A> elseIfWithEnv0(
     bool Function(E env) predicate,
     A value,
