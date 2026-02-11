@@ -1089,6 +1089,45 @@ final class Cont<E, A> {
     });
   }
 
+  /// Conditionally recovers from termination when the predicate is satisfied.
+  ///
+  /// Filters termination based on the predicate. If the predicate returns
+  /// `true`, the continuation recovers with the provided value. If the predicate
+  /// returns `false`, the continuation continues terminating with the original errors.
+  ///
+  /// This is the error-channel counterpart to [thenIf]. While [thenIf] filters
+  /// values on the success channel, [elseIf] filters errors on the termination
+  /// channel and provides conditional recovery.
+  ///
+  /// This is useful for recovering from specific error conditions while letting
+  /// other errors propagate through.
+  ///
+  /// - [predicate]: Function that tests the error list.
+  /// - [value]: The value to recover with when the predicate returns `true`.
+  ///
+  /// Example:
+  /// ```dart
+  /// final cont = Cont.terminate<(), int>([ContError.capture('not found')])
+  ///   .elseIf((errors) => errors.first.error == 'not found', 42);
+  /// // Recovers with 42
+  ///
+  /// final cont2 = Cont.terminate<(), int>([ContError.capture('fatal error')])
+  ///   .elseIf((errors) => errors.first.error == 'not found', 42);
+  /// // Continues terminating with 'fatal error'
+  /// ```
+  Cont<E, A> elseIf(
+    bool Function(List<ContError> errors) predicate,
+    A value,
+  ) {
+    return elseDo((errors) {
+      if (predicate(errors)) {
+        return Cont.of(value);
+      }
+
+      return Cont.terminate<E, A>(errors);
+    });
+  }
+
   /// Repeatedly executes the continuation as long as the predicate returns `true`,
   /// stopping when it returns `false`.
   ///

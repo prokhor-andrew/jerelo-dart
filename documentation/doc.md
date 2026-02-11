@@ -711,6 +711,58 @@ Cont.of(2)
 
 This is useful for early termination of computation chains when certain conditions are not met.
 
+#### Conditional Recovery with elseIf
+
+The `elseIf` operator is the error-channel counterpart to `thenIf`. While `thenIf` filters values on the success channel, `elseIf` filters errors on the termination channel and provides conditional recovery.
+
+If the predicate returns `true`, the computation recovers with the provided value. If the predicate returns `false`, the computation continues terminating with the original errors.
+
+```dart
+Cont.terminate<(), int>([ContError.capture('not found')])
+  .elseIf((errors) => errors.first.error == 'not found', 42)
+  .run(
+    (),
+    onTerminate: (_) => print("terminated"),
+    onValue: (value) => print("success: $value"),
+  ); // prints "success: 42"
+
+Cont.terminate<(), int>([ContError.capture('fatal error')])
+  .elseIf((errors) => errors.first.error == 'not found', 42)
+  .run(
+    (),
+    onTerminate: (errors) => print("terminated: ${errors.first.error}"),
+    onValue: (value) => print("success: $value"),
+  ); // prints "terminated: fatal error"
+```
+
+This is particularly useful for:
+- Recovering from specific error types while propagating others
+- Implementing fallback values based on error conditions
+- Creating error-handling strategies that depend on the error context
+
+**Real-world example: Handling network errors with fallbacks**
+
+```dart
+fetchUserFromNetwork(userId)
+  .elseIf(
+    (errors) => errors.any((e) => e.error.toString().contains('404')),
+    User.guest(), // Use guest user if not found
+  )
+  .elseIf(
+    (errors) => errors.any((e) => e.error.toString().contains('timeout')),
+    User.cached(userId), // Use cached user on timeout
+  )
+  .elseDo((errors) {
+    // All other errors propagate
+    return Cont.terminate(errors);
+  })
+  .run(
+    (),
+    onTerminate: (errors) => print("Failed to get user: $errors"),
+    onValue: (user) => print("Got user: ${user.name}"),
+  );
+```
+
 #### Branching with thenIf-thenDo-elseDo
 
 While `thenIf` is powerful on its own, combining it with `thenDo` and `elseDo` creates an elegant if-then-else pattern that's fully composable. Since `thenIf` terminates when the predicate is false, you can use `elseDo` to recover from that termination and provide an alternative path:
