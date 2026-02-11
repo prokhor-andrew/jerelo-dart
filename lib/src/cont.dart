@@ -1265,17 +1265,20 @@ extension ContRunExtension<E> on Cont<E, Never> {
   ///   print('Terminated with ${errors.length} error(s)');
   /// });
   /// ```
-  void trap(
+  ContCancelToken trap(
     E env, {
     bool Function() isCancelled = _false,
     void Function(ContError error) onPanic = _panic,
     void Function(List<ContError> errors) onTerminate =
         _ignore,
   }) {
+    final ContCancelToken cancelToken = ContCancelToken._();
     _run(
-      ContRuntime._(env, isCancelled, onPanic),
+      ContRuntime._(env, cancelToken.isCancelled, onPanic),
       ContObserver._(onTerminate, (_) {}),
     );
+
+    return cancelToken;
   }
 
   /// Converts a continuation that never produces a value to any desired type.
