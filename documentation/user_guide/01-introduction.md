@@ -192,4 +192,3 @@ final class ContError {
 Now that you understand the core concepts, continue to:
 - **[Fundamentals: Construct & Run](02-fundamentals.md)** - Learn to create and execute computations
 - **[Core Operations](03-core-operations.md)** - Master the essential operations
-- **[API Reference](../api_reference/)** - Quick reference lookup

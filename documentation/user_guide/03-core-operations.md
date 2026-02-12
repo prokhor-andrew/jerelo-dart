@@ -496,5 +496,3 @@ fetchFromApi()
 Now that you understand the core operations, continue to:
 - **[Advanced Operations](04-advanced-operations.md)** - Learn to merge computations and handle concurrency
 - **[Environment Management](05-environment.md)** - Master environment handling
-- **[Complete Examples](07-examples.md)** - See real-world patterns
-- **[API Reference](../api_reference/)** - Quick reference lookup
