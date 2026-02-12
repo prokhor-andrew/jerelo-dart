@@ -33,6 +33,22 @@ getUserData.run(prodConfig, onElse: handleError, onThen: handleSuccess);
 getUserData.run(testConfig, onElse: handleError, onThen: handleSuccess);
 ```
 
+## What is Cont?
+
+```dart
+final class Cont<E, A>
+```
+
+A continuation monad representing a computation that will eventually produce a value of type `A` or terminate with errors.
+
+**Type Parameters:**
+- `E`: The environment type providing context for the continuation execution
+- `A`: The value type that the continuation produces upon success
+
+`Cont` provides a powerful abstraction for managing asynchronous operations, error handling, and composition of effectful computations. It follows the continuation-passing style where computations are represented as functions that take callbacks for success and failure.
+
+---
+
 ## Design Goals
 
 - **Pure Dart** - No platform dependencies
@@ -61,7 +77,6 @@ A comprehensive guide to understanding and using Jerelo:
 
 Complete reference for all public APIs:
 
-- **[API Overview](documentation/api_reference/)** - Quick start and core concepts
 - **[Types](documentation/api_reference/types.md)** - ContError, ContRuntime, ContObserver
 - **[Construction](documentation/api_reference/construction.md)** - Creating continuations with constructors and decorators
 - **[Execution](documentation/api_reference/execution.md)** - Running continuations: ContCancelToken, run, ff
