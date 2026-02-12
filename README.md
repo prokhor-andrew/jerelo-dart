@@ -70,20 +70,6 @@ Complete reference for all public APIs:
 - **[Combining](documentation/api_reference/combining.md)** - Parallel execution: ContBothPolicy, ContEitherPolicy, both, all, either, any
 - **[Environment](documentation/api_reference/env.md)** - Environment management: local, scope, ask, injection
 
-### Getting Started
-
-**New to Jerelo?** Follow this learning path:
-
-1. Start with [Introduction & Core Concepts](documentation/user_guide/01-introduction.md) to understand what Jerelo is and why continuation-passing style matters
-2. Follow [Fundamentals: Construct & Run](documentation/user_guide/02-fundamentals.md) to learn how to create and execute computations
-3. Master [Core Operations](documentation/user_guide/03-core-operations.md) for essential transformation and composition patterns
-4. Reference the [API docs](documentation/api_reference/) as needed for detailed method signatures and behaviors
-
-**Already familiar with continuations?** Jump to:
-- [Complete Examples](documentation/user_guide/07-examples.md) for real-world patterns
-- [API Reference](documentation/api_reference/) for quick lookup
-- [Extending Jerelo](documentation/user_guide/06-extending.md) to build custom operators
-
 ## Full Example
 
 Here's a complete example demonstrating key Jerelo features:
