@@ -322,4 +322,4 @@ Now that you understand advanced operations, continue to:
 - **[Environment Management](05-environment.md)** - Master configuration and dependency injection
 - **[Extending Jerelo](06-extending.md)** - Create custom operators
 - **[Complete Examples](07-examples.md)** - See comprehensive real-world patterns
-- **[API Reference](../api.md)** - Quick reference lookup
+- **[API Reference](../api/)** - Quick reference lookup

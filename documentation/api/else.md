@@ -1,4 +1,4 @@
-[Home](../../README.md) > [Documentation](../README.md) > [API Reference](../api.md)
+[Home](../../README.md) > [Documentation](../README.md) > [API Reference](README.md)
 
 # Else Channel Operations
 

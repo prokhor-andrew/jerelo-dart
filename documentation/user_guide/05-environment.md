@@ -393,4 +393,4 @@ Cont<Services, User> getUser(String userId) {
 Now that you understand environment management, continue to:
 - **[Extending Jerelo](06-extending.md)** - Create custom operators and computations
 - **[Complete Examples](07-examples.md)** - See comprehensive real-world patterns
-- **[API Reference](../api.md)** - Quick reference lookup
+- **[API Reference](../api/)** - Quick reference lookup

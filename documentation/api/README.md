@@ -1,4 +1,4 @@
-[Home](../README.md) > [Documentation](README.md) > API Reference
+[Home](../../README.md) > [Documentation](../README.md) > API Reference
 
 # Jerelo API Documentation
 
@@ -9,15 +9,15 @@ Complete reference for all public types and APIs in the Jerelo continuation libr
 ## Table of Contents
 
 ### Core Concepts
-- **[Types](api/types.md)** - Core types: `ContError`, `ContRuntime`, `ContObserver`
-- **[Construction](api/construction.md)** - Creating continuations with constructors and decorators
-- **[Execution](api/execution.md)** - Running continuations: `ContCancelToken`, `run`, `ff`, and extensions
+- **[Types](types.md)** - Core types: `ContError`, `ContRuntime`, `ContObserver`
+- **[Construction](construction.md)** - Creating continuations with constructors and decorators
+- **[Execution](execution.md)** - Running continuations: `ContCancelToken`, `run`, `ff`, and extensions
 
 ### Operations
-- **[Then Channel](api/then.md)** - Success path operations: mapping, chaining, tapping, zipping, forking, loops, and conditionals
-- **[Else Channel](api/else.md)** - Error path operations: recovery, fallback, error handling
-- **[Combining](api/combining.md)** - Parallel execution: `ContBothPolicy`, `ContEitherPolicy`, `both`, `all`, `either`, `any`
-- **[Environment](api/env.md)** - Environment management: `local`, `scope`, `ask`, injection
+- **[Then Channel](then.md)** - Success path operations: mapping, chaining, tapping, zipping, forking, loops, and conditionals
+- **[Else Channel](else.md)** - Error path operations: recovery, fallback, error handling
+- **[Combining](combining.md)** - Parallel execution: `ContBothPolicy`, `ContEitherPolicy`, `both`, `all`, `either`, `any`
+- **[Environment](env.md)** - Environment management: `local`, `scope`, `ask`, injection
 
 ---
 

@@ -20,7 +20,7 @@ A comprehensive guide to understanding and using Jerelo:
 
 Complete reference for all public APIs:
 
-- **[API Overview](api.md)** - Quick start and core concepts
+- **[API Overview](api/)** - Quick start and core concepts
 - **[Types](api/types.md)** - ContError, ContRuntime, ContObserver
 - **[Construction](api/construction.md)** - Creating continuations with constructors and decorators
 - **[Execution](api/execution.md)** - Running continuations: ContCancelToken, run, ff
@@ -36,11 +36,11 @@ Complete reference for all public APIs:
 1. Start with [Introduction & Core Concepts](user_guide/01-introduction.md) to understand what Jerelo is and why continuation-passing style matters
 2. Follow [Fundamentals: Construct & Run](user_guide/02-fundamentals.md) to learn how to create and execute computations
 3. Master [Core Operations](user_guide/03-core-operations.md) for essential transformation and composition patterns
-4. Reference the [API docs](api.md) as needed for detailed method signatures and behaviors
+4. Reference the [API docs](api/) as needed for detailed method signatures and behaviors
 
 **Already familiar with continuations?** Jump to:
 - [Complete Examples](user_guide/07-examples.md) for real-world patterns
-- [API Reference](api.md) for quick lookup
+- [API Reference](api/) for quick lookup
 - [Extending Jerelo](user_guide/06-extending.md) to build custom operators
 
 ## What is Jerelo?

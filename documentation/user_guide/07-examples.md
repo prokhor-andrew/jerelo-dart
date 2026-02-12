@@ -551,6 +551,6 @@ Cont<E, T> withConnection<E, T>(Cont<Connection, T> operation) {
 
 ## Next Steps
 
-- **[API Reference](../api.md)** - Complete API documentation
+- **[API Reference](../api/)** - Complete API documentation
 - **[Introduction](01-introduction.md)** - Review core concepts
 - **[Extending Jerelo](06-extending.md)** - Build custom operators
