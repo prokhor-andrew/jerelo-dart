@@ -26,49 +26,40 @@ void main() {
       expect(value, 15);
     });
 
-    test(
-      'Cont.fromDeferred onElse error channel used',
-      () {
-        List<ContError>? errors;
-        final cont = Cont.fromDeferred<(), int>(() {
-          return Cont.stop([
-            ContError.capture("deferred error"),
-          ]);
-        });
+    test('Cont.fromDeferred onElse error channel used', () {
+      List<ContError>? errors;
+      final cont = Cont.fromDeferred<(), int>(() {
+        return Cont.stop([
+          ContError.capture("deferred error"),
+        ]);
+      });
 
-        expect(errors, null);
-        cont.run((), onElse: (e) => errors = e);
-        expect(errors![0].error, "deferred error");
-      },
-    );
+      expect(errors, null);
+      cont.run((), onElse: (e) => errors = e);
+      expect(errors![0].error, "deferred error");
+    });
 
-    test(
-      'Cont.fromDeferred onElse empty channel used',
-      () {
-        List<ContError>? errors;
-        final cont = Cont.fromDeferred<(), int>(() {
-          return Cont.stop();
-        });
+    test('Cont.fromDeferred onElse empty channel used', () {
+      List<ContError>? errors;
+      final cont = Cont.fromDeferred<(), int>(() {
+        return Cont.stop();
+      });
 
-        expect(errors, null);
-        cont.run((), onElse: (e) => errors = e);
-        expect(errors, []);
-      },
-    );
+      expect(errors, null);
+      cont.run((), onElse: (e) => errors = e);
+      expect(errors, []);
+    });
 
-    test(
-      'Cont.fromDeferred onElse when thunk throws',
-      () {
-        List<ContError>? errors;
-        final cont = Cont.fromDeferred<(), int>(() {
-          throw "thunk error";
-        });
+    test('Cont.fromDeferred onElse when thunk throws', () {
+      List<ContError>? errors;
+      final cont = Cont.fromDeferred<(), int>(() {
+        throw "thunk error";
+      });
 
-        expect(errors, null);
-        cont.run((), onElse: (e) => errors = e);
-        expect(errors![0].error, "thunk error");
-      },
-    );
+      expect(errors, null);
+      cont.run((), onElse: (e) => errors = e);
+      expect(errors![0].error, "thunk error");
+    });
 
     test('Cont.fromDeferred env passed properly', () {
       var envValue = 0;
@@ -152,9 +143,7 @@ void main() {
         final cont = Cont.fromDeferred<(), int>(() {
           return Cont.fromRun((runtime, observer) {
             buffer.add(() {
-              observer.onElse([
-                ContError.capture("error"),
-              ]);
+              observer.onElse([ContError.capture("error")]);
             });
           });
         });

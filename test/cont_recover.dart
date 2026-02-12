@@ -47,9 +47,7 @@ void main() {
     });
 
     test('terminates when recover function throws', () {
-      final cont = Cont.stop<(), int>().recover((
-        errors,
-      ) {
+      final cont = Cont.stop<(), int>().recover((errors) {
         throw 'Recover Error';
       });
 
@@ -64,9 +62,7 @@ void main() {
 
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont = Cont.stop<(), int>().recover((
-        errors,
-      ) {
+      final cont = Cont.stop<(), int>().recover((errors) {
         callCount++;
         return 99;
       });
@@ -111,12 +107,8 @@ void main() {
       int? value1;
       int? value2;
 
-      final cont1 = Cont.stop<(), int>().recover0(
-        () => 99,
-      );
-      final cont2 = Cont.stop<(), int>().recover(
-        (_) => 99,
-      );
+      final cont1 = Cont.stop<(), int>().recover0(() => 99);
+      final cont2 = Cont.stop<(), int>().recover((_) => 99);
 
       cont1.run((), onThen: (val) => value1 = val);
       cont2.run((), onThen: (val) => value2 = val);
@@ -150,12 +142,8 @@ void main() {
       int? value1;
       int? value2;
 
-      final cont1 = Cont.stop<(), int>().recoverWith(
-        99,
-      );
-      final cont2 = Cont.stop<(), int>().recover0(
-        () => 99,
-      );
+      final cont1 = Cont.stop<(), int>().recoverWith(99);
+      final cont2 = Cont.stop<(), int>().recover0(() => 99);
 
       cont1.run((), onThen: (val) => value1 = val);
       cont2.run((), onThen: (val) => value2 = val);
@@ -164,9 +152,7 @@ void main() {
     });
 
     test('supports multiple runs', () {
-      final cont = Cont.stop<(), int>().recoverWith(
-        42,
-      );
+      final cont = Cont.stop<(), int>().recoverWith(42);
 
       int? value1;
       cont.run((), onThen: (val) => value1 = val);

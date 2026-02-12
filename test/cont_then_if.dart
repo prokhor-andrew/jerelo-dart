@@ -71,12 +71,8 @@ void main() {
           .thenMap((x) => 'even: $x')
           .recover((_) => 'not even');
 
-      processEven(
-        4,
-      ).run((), onThen: (v) => results.add(v));
-      processEven(
-        5,
-      ).run((), onThen: (v) => results.add(v));
+      processEven(4).run((), onThen: (v) => results.add(v));
+      processEven(5).run((), onThen: (v) => results.add(v));
 
       expect(results, ['even: 4', 'not even']);
     });

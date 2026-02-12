@@ -162,7 +162,7 @@ Branching operators allow you to conditionally execute or repeat computations ba
 
 ### Conditional Execution
 
-The `thenIf` operator filters a computation based on a predicate. If the predicate returns `true`, the computation succeeds with the value. If it returns `false`, the computation terminates without errors.
+The `thenIf` operator filters a computation based on a predicate. If the predicate returns `true`, the computation succeeds with the value. If it returns `false`, the computation terminates with optional custom errors.
 
 ```dart
 Cont.of(5)
@@ -180,9 +180,21 @@ Cont.of(2)
     onElse: (_) => print("terminated"),
     onThen: (value) => print("success: $value"),
   ); // prints "terminated"
+
+// With custom termination errors
+Cont.of(2)
+  .thenIf(
+    (value) => value > 3,
+    [ContError.capture('Value must be greater than 3')],
+  )
+  .run(
+    (),
+    onElse: (errors) => print("error: ${errors.first.error}"),
+    onThen: (value) => print("success: $value"),
+  ); // prints "error: Value must be greater than 3"
 ```
 
-This is useful for early termination of computation chains when certain conditions are not met.
+This is useful for early termination of computation chains when certain conditions are not met. The optional `errors` parameter allows you to provide meaningful error context when the predicate fails.
 
 **Variants:** `thenIf0`, `thenIfWithEnv`, `thenIfWithEnv0`
 

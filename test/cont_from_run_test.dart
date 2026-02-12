@@ -504,9 +504,7 @@ void main() {
           observer,
         ) {
           buffer.add(() {
-            observer.onElse([
-              ContError.capture("error"),
-            ]);
+            observer.onElse([ContError.capture("error")]);
           });
         });
 

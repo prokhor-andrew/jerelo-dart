@@ -7,9 +7,7 @@ void main() {
       String? receivedEnv;
       List<ContError>? receivedErrors;
 
-      Cont.stop<String, int>([
-            ContError.capture('err1'),
-          ])
+      Cont.stop<String, int>([ContError.capture('err1')])
           .elseTapWithEnv((env, errors) {
             receivedEnv = env;
             receivedErrors = errors;
@@ -25,9 +23,7 @@ void main() {
     test('recovers when side effect succeeds', () {
       int? value;
 
-      Cont.stop<String, int>([
-            ContError.capture('err'),
-          ])
+      Cont.stop<String, int>([ContError.capture('err')])
           .elseTapWithEnv((env, errors) => Cont.of(42))
           .run('hello', onThen: (val) => value = val);
 
@@ -87,11 +83,13 @@ void main() {
 
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont = Cont.stop<String, int>()
-          .elseTapWithEnv((env, errors) {
-            callCount++;
-            return Cont.stop<String, int>([]);
-          });
+      final cont = Cont.stop<String, int>().elseTapWithEnv((
+        env,
+        errors,
+      ) {
+        callCount++;
+        return Cont.stop<String, int>([]);
+      });
 
       cont.run('hello', onElse: (_) {});
       expect(callCount, 1);

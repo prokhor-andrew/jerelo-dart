@@ -657,17 +657,18 @@ final cont = Cont.of(42)
 ### thenIf
 
 ```dart
-Cont<E, A> thenIf(bool Function(A value) predicate)
+Cont<E, A> thenIf(bool Function(A value) predicate, [List<ContError> errors = const []])
 ```
 
 Conditionally succeeds only when the predicate is satisfied.
 
-Filters the continuation based on the predicate. If the predicate returns `true`, the continuation succeeds with the value. If the predicate returns `false`, the continuation terminates without errors.
+Filters the continuation based on the predicate. If the predicate returns `true`, the continuation succeeds with the value. If the predicate returns `false`, the continuation terminates with the provided errors (or no errors if none are specified).
 
 This is useful for conditional execution where you want to treat a predicate failure as termination rather than an error.
 
 - **Parameters:**
   - `predicate`: Function that tests the value
+  - `errors`: Optional list of errors to use when terminating on predicate failure
 
 **Example:**
 ```dart
@@ -675,11 +676,20 @@ final cont = Cont.of(42).thenIf((n) => n > 0);
 // Succeeds with 42
 
 final cont2 = Cont.of(-5).thenIf((n) => n > 0);
-// Terminates
+// Terminates without errors
+
+final cont3 = Cont.of(-5).thenIf(
+  (n) => n > 0,
+  [ContError.capture('Value must be positive')],
+);
+// Terminates with custom error
 
 // Real-world usage
 final result = fetchUser(userId)
-  .thenIf((user) => user.isActive)
+  .thenIf(
+    (user) => user.isActive,
+    [ContError.capture('User account is not active')],
+  )
   .thenDo((user) => processActiveUser(user));
 ```
 
@@ -688,7 +698,7 @@ final result = fetchUser(userId)
 ### thenIf0
 
 ```dart
-Cont<E, A> thenIf0(bool Function() predicate)
+Cont<E, A> thenIf0(bool Function() predicate, [List<ContError> errors = const []])
 ```
 
 Conditionally succeeds based on a zero-argument predicate.
@@ -697,12 +707,20 @@ Similar to `thenIf` but the predicate doesn't examine the value.
 
 - **Parameters:**
   - `predicate`: Zero-argument function that determines success or termination
+  - `errors`: Optional list of errors to use when terminating on predicate failure
 
 **Example:**
 ```dart
 var shouldProceed = true;
 final cont = Cont.of(42)
   .thenIf0(() => shouldProceed);
+
+// With custom errors
+final cont2 = Cont.of(42)
+  .thenIf0(
+    () => shouldProceed,
+    [ContError.capture('Execution not allowed')],
+  );
 ```
 
 ---
@@ -710,7 +728,7 @@ final cont = Cont.of(42)
 ### thenIfWithEnv
 
 ```dart
-Cont<E, A> thenIfWithEnv(bool Function(E env, A value) predicate)
+Cont<E, A> thenIfWithEnv(bool Function(E env, A value) predicate, [List<ContError> errors = const []])
 ```
 
 Conditionally succeeds with access to both value and environment.
@@ -719,11 +737,19 @@ Similar to `thenIf`, but the predicate function receives both the current value 
 
 - **Parameters:**
   - `predicate`: Function that takes the environment and value, and determines success or termination
+  - `errors`: Optional list of errors to use when terminating on predicate failure
 
 **Example:**
 ```dart
 final cont = fetchUser(userId)
   .thenIfWithEnv((env, user) => user.level >= env.minRequiredLevel);
+
+// With custom errors
+final cont2 = fetchUser(userId)
+  .thenIfWithEnv(
+    (env, user) => user.level >= env.minRequiredLevel,
+    [ContError.capture('User level below minimum requirement')],
+  );
 ```
 
 ---
@@ -731,7 +757,7 @@ final cont = fetchUser(userId)
 ### thenIfWithEnv0
 
 ```dart
-Cont<E, A> thenIfWithEnv0(bool Function(E env) predicate)
+Cont<E, A> thenIfWithEnv0(bool Function(E env) predicate, [List<ContError> errors = const []])
 ```
 
 Conditionally succeeds with access to the environment only.
@@ -740,11 +766,19 @@ Similar to `thenIfWithEnv`, but the predicate only receives the environment and 
 
 - **Parameters:**
   - `predicate`: Function that takes the environment and determines success or termination
+  - `errors`: Optional list of errors to use when terminating on predicate failure
 
 **Example:**
 ```dart
 final cont = processData()
   .thenIfWithEnv0((env) => env.featureEnabled);
+
+// With custom errors
+final cont2 = processData()
+  .thenIfWithEnv0(
+    (env) => env.featureEnabled,
+    [ContError.capture('Feature is disabled')],
+  );
 ```
 
 ---

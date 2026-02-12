@@ -94,19 +94,16 @@ void main() {
       expect(value, 'value: 42');
     });
 
-    test(
-      'Cont.thenDo calls onElse when terminated',
-      () {
-        List<ContError>? errors;
+    test('Cont.thenDo calls onElse when terminated', () {
+      List<ContError>? errors;
 
-        Cont.stop<(), int>()
-            .thenDo((a) => Cont.of(a * 2))
-            .run((), onElse: (e) => errors = e);
+      Cont.stop<(), int>()
+          .thenDo((a) => Cont.of(a * 2))
+          .run((), onElse: (e) => errors = e);
 
-        expect(errors, isNotNull);
-        expect(errors, isEmpty);
-      },
-    );
+      expect(errors, isNotNull);
+      expect(errors, isEmpty);
+    });
 
     test(
       'Cont.thenDo passes through termination errors',
@@ -120,10 +117,7 @@ void main() {
 
         Cont.stop<(), int>(inputErrors)
             .thenDo((val) => Cont.of(val + 5))
-            .run(
-              (),
-              onElse: (e) => receivedErrors = e,
-            );
+            .run((), onElse: (e) => receivedErrors = e);
 
         expect(receivedErrors!.length, 2);
         expect(receivedErrors![0].error, 'err1');
@@ -140,8 +134,7 @@ void main() {
 
         cont.run(
           (),
-          onThen: (_) =>
-              fail('onThen must not be called'),
+          onThen: (_) => fail('onThen must not be called'),
           onElse: (_) {}, // Should be called
         );
       },

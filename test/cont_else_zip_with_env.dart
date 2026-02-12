@@ -6,9 +6,7 @@ void main() {
     test('recovers with env access', () {
       String? value;
 
-      Cont.stop<String, String>([
-            ContError.capture('err'),
-          ])
+      Cont.stop<String, String>([ContError.capture('err')])
           .elseZipWithEnv(
             (env, errors) => Cont.of('$env: recovered'),
           )
@@ -20,9 +18,7 @@ void main() {
     test('combines errors when both fail', () {
       List<ContError>? errors;
 
-      Cont.stop<String, int>([
-            ContError.capture('err1'),
-          ])
+      Cont.stop<String, int>([ContError.capture('err1')])
           .elseZipWithEnv((env, e) {
             return Cont.stop<String, int>([
               ContError.capture('err2-$env'),
@@ -68,11 +64,13 @@ void main() {
 
     test('supports multiple runs with different envs', () {
       var callCount = 0;
-      final cont = Cont.stop<String, int>()
-          .elseZipWithEnv((env, errors) {
-            callCount++;
-            return Cont.of(env.length);
-          });
+      final cont = Cont.stop<String, int>().elseZipWithEnv((
+        env,
+        errors,
+      ) {
+        callCount++;
+        return Cont.of(env.length);
+      });
 
       int? value1;
       cont.run('hi', onThen: (val) => value1 = val);
@@ -100,9 +98,7 @@ void main() {
           Cont.fromRun<String, int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onElse([
-                ContError.capture('error'),
-              ]);
+              observer.onElse([ContError.capture('error')]);
             });
           }).elseZipWithEnv((env, errors) {
             fallbackCalled = true;

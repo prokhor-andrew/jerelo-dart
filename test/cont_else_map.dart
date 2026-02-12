@@ -8,10 +8,7 @@ void main() {
 
       Cont.stop<(), int>([ContError.capture('original')])
           .elseMap(
-            (e) => [
-              ...e,
-              ContError.capture('added'),
-            ],
+            (e) => [...e, ContError.capture('added')],
           )
           .run((), onElse: (e) => errors = e);
 
@@ -27,9 +24,7 @@ void main() {
             ContError.capture('err1'),
             ContError.capture('err2'),
           ])
-          .elseMap(
-            (_) => [ContError.capture('replaced')],
-          )
+          .elseMap((_) => [ContError.capture('replaced')])
           .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
@@ -45,8 +40,9 @@ void main() {
             ContError.capture('keep'),
           ])
           .elseMap(
-            (e) =>
-                e.where((err) => err.error == 'keep').toList(),
+            (e) => e
+                .where((err) => err.error == 'keep')
+                .toList(),
           )
           .run((), onElse: (e) => errors = e);
 
@@ -90,10 +86,7 @@ void main() {
 
       Cont.stop<(), int>([])
           .elseMap(
-            (e) => [
-              ...e,
-              ContError.capture('added'),
-            ],
+            (e) => [...e, ContError.capture('added')],
           )
           .run((), onElse: (e) => errors = e);
 
@@ -148,15 +141,16 @@ void main() {
         buffer.clear();
       }
 
-      final cont = Cont.fromRun<(), int>((runtime, observer) {
-        buffer.add(() {
-          if (runtime.isCancelled()) return;
-          observer.onElse([ContError.capture('err')]);
-        });
-      }).elseMap((errors) {
-        mapCalled = true;
-        return errors;
-      });
+      final cont =
+          Cont.fromRun<(), int>((runtime, observer) {
+            buffer.add(() {
+              if (runtime.isCancelled()) return;
+              observer.onElse([ContError.capture('err')]);
+            });
+          }).elseMap((errors) {
+            mapCalled = true;
+            return errors;
+          });
 
       final token = cont.run((), onElse: (_) {});
 
@@ -172,37 +166,28 @@ void main() {
       List<ContError>? errors;
 
       Cont.stop<(), int>([ContError.capture('original')])
-          .elseMap0(
-            () => [ContError.capture('replaced')],
-          )
+          .elseMap0(() => [ContError.capture('replaced')])
           .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'replaced');
     });
 
-    test(
-      'behaves like elseMap with ignored argument',
-      () {
-        List<ContError>? errors1;
-        List<ContError>? errors2;
+    test('behaves like elseMap with ignored argument', () {
+      List<ContError>? errors1;
+      List<ContError>? errors2;
 
-        Cont.stop<(), int>([ContError.capture('err')])
-            .elseMap0(
-              () => [ContError.capture('replaced')],
-            )
-            .run((), onElse: (e) => errors1 = e);
+      Cont.stop<(), int>([ContError.capture('err')])
+          .elseMap0(() => [ContError.capture('replaced')])
+          .run((), onElse: (e) => errors1 = e);
 
-        Cont.stop<(), int>([ContError.capture('err')])
-            .elseMap(
-              (_) => [ContError.capture('replaced')],
-            )
-            .run((), onElse: (e) => errors2 = e);
+      Cont.stop<(), int>([ContError.capture('err')])
+          .elseMap((_) => [ContError.capture('replaced')])
+          .run((), onElse: (e) => errors2 = e);
 
-        expect(errors1!.length, errors2!.length);
-        expect(errors1![0].error, errors2![0].error);
-      },
-    );
+      expect(errors1!.length, errors2!.length);
+      expect(errors1![0].error, errors2![0].error);
+    });
 
     test('never executes on value path', () {
       bool called = false;
@@ -244,7 +229,9 @@ void main() {
 
       Cont.stop<String, int>([ContError.capture('err')])
           .elseMapWithEnv(
-            (env, e) => [ContError.capture('$env: ${e.first.error}')],
+            (env, e) => [
+              ContError.capture('$env: ${e.first.error}'),
+            ],
           )
           .run('ctx', onElse: (e) => errors = e);
 
@@ -264,26 +251,23 @@ void main() {
       expect(called, false);
     });
 
-    test(
-      'supports multiple runs with different envs',
-      () {
-        List<ContError>? errors1;
-        List<ContError>? errors2;
+    test('supports multiple runs with different envs', () {
+      List<ContError>? errors1;
+      List<ContError>? errors2;
 
-        final cont =
-            Cont.stop<String, int>([
-              ContError.capture('err'),
-            ]).elseMapWithEnv(
-              (env, e) => [ContError.capture('$env')],
-            );
+      final cont =
+          Cont.stop<String, int>([
+            ContError.capture('err'),
+          ]).elseMapWithEnv(
+            (env, e) => [ContError.capture('$env')],
+          );
 
-        cont.run('first', onElse: (e) => errors1 = e);
-        cont.run('second', onElse: (e) => errors2 = e);
+      cont.run('first', onElse: (e) => errors1 = e);
+      cont.run('second', onElse: (e) => errors2 = e);
 
-        expect(errors1![0].error, 'first');
-        expect(errors2![0].error, 'second');
-      },
-    );
+      expect(errors1![0].error, 'first');
+      expect(errors2![0].error, 'second');
+    });
   });
 
   group('Cont.elseMapWithEnv0', () {
@@ -352,9 +336,7 @@ void main() {
     test('replaces errors with fixed list', () {
       List<ContError>? errors;
 
-      Cont.stop<(), int>([
-            ContError.capture('original'),
-          ])
+      Cont.stop<(), int>([ContError.capture('original')])
           .elseMapTo([ContError.capture('fixed')])
           .run((), onElse: (e) => errors = e);
 
@@ -365,9 +347,9 @@ void main() {
     test('replaces with empty list', () {
       List<ContError>? errors;
 
-      Cont.stop<(), int>([ContError.capture('err')])
-          .elseMapTo([])
-          .run((), onElse: (e) => errors = e);
+      Cont.stop<(), int>([
+        ContError.capture('err'),
+      ]).elseMapTo([]).run((), onElse: (e) => errors = e);
 
       expect(errors, isEmpty);
     });

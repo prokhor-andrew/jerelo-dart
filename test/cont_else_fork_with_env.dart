@@ -30,9 +30,7 @@ void main() {
         buffer.clear();
       }
 
-      Cont.stop<String, int>([
-            ContError.capture('err1'),
-          ])
+      Cont.stop<String, int>([ContError.capture('err1')])
           .elseForkWithEnv((env, errors) {
             return Cont.fromRun<String, int>((
               runtime,
@@ -65,9 +63,7 @@ void main() {
         buffer.clear();
       }
 
-      Cont.stop<String, int>([
-            ContError.capture('err'),
-          ])
+      Cont.stop<String, int>([ContError.capture('err')])
           .elseForkWithEnv((env, errors) {
             return Cont.fromRun<String, int>((
               runtime,
@@ -79,10 +75,7 @@ void main() {
               });
             });
           })
-          .run(
-            'hello',
-            onElse: (e) => order.add('main'),
-          );
+          .run('hello', onElse: (e) => order.add('main'));
 
       expect(order, ['main']);
       flush();
@@ -146,18 +139,19 @@ void main() {
         buffer.clear();
       }
 
-      final cont = Cont.stop<String, int>()
-          .elseForkWithEnv((env, errors) {
-            return Cont.fromRun<String, int>((
-              runtime,
-              observer,
-            ) {
-              buffer.add(() {
-                forkCount++;
-                observer.onThen(0);
-              });
+      final cont = Cont.stop<String, int>().elseForkWithEnv(
+        (env, errors) {
+          return Cont.fromRun<String, int>((
+            runtime,
+            observer,
+          ) {
+            buffer.add(() {
+              forkCount++;
+              observer.onThen(0);
             });
           });
+        },
+      );
 
       cont.run('hello', onElse: (_) {});
       expect(forkCount, 0);

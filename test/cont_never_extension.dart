@@ -26,9 +26,7 @@ void main() {
     });
 
     test('never calls onPanic on termination', () {
-      Cont.stop<(), Never>([
-        ContError.capture('err'),
-      ]).trap(
+      Cont.stop<(), Never>([ContError.capture('err')]).trap(
         (),
         onPanic: (_) => fail('Should not be called'),
         onElse: (_) {},
@@ -111,9 +109,7 @@ void main() {
     test('triggers onPanic when onElse throws', () {
       ContError? panic;
 
-      Cont.stop<(), Never>([
-        ContError.capture('err'),
-      ]).trap(
+      Cont.stop<(), Never>([ContError.capture('err')]).trap(
         (),
         onPanic: (error) => panic = error,
         onElse: (errors) {
@@ -127,8 +123,7 @@ void main() {
 
   group('Cont<E, Never>.absurd', () {
     test('transforms Never to any type', () {
-      final cont = Cont.stop<(), Never>()
-          .absurd<int>();
+      final cont = Cont.stop<(), Never>().absurd<int>();
 
       expect(cont, isA<Cont<Object?, int>>());
     });
@@ -136,9 +131,9 @@ void main() {
     test('preserves termination', () {
       List<ContError>? errors;
 
-      Cont.stop<(), Never>([ContError.capture('err')])
-          .absurd<String>()
-          .run((), onElse: (e) => errors = e);
+      Cont.stop<(), Never>(
+        [ContError.capture('err')],
+      ).absurd<String>().run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'err');
@@ -290,8 +285,7 @@ void main() {
       final result = <int?>[];
 
       final cont1 = Cont.of<(), int>(42);
-      final cont2 = Cont.stop<(), Never>()
-          .absurd<int>();
+      final cont2 = Cont.stop<(), Never>().absurd<int>();
 
       cont1.run((), onThen: (v) => result.add(v));
       cont2.run(

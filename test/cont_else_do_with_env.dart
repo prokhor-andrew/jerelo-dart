@@ -6,9 +6,7 @@ void main() {
     test('provides env and errors on termination', () {
       String? value;
 
-      Cont.stop<String, String>([
-            ContError.capture('err'),
-          ])
+      Cont.stop<String, String>([ContError.capture('err')])
           .elseDoWithEnv(
             (env, errors) =>
                 Cont.of('$env: ${errors.first.error}'),
@@ -103,9 +101,7 @@ void main() {
           Cont.fromRun<String, int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onElse([
-                ContError.capture('error'),
-              ]);
+              observer.onElse([ContError.capture('error')]);
             });
           }).elseDoWithEnv((env, errors) {
             fallbackCalled = true;

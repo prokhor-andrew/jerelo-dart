@@ -51,9 +51,7 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
         }
 
         try {
-          observer.onThen(
-            combine(firstValue, secondValue),
-          );
+          observer.onThen(combine(firstValue, secondValue));
         } catch (error, st) {
           observer.onElse([
             ContError.withStackTrace(error, st),

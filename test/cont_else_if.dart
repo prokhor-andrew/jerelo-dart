@@ -22,9 +22,7 @@ void main() {
         List<ContError>? errors;
         int? value;
 
-        Cont.stop<(), int>([
-              ContError.capture('fatal'),
-            ])
+        Cont.stop<(), int>([ContError.capture('fatal')])
             .elseIf(
               (errors) => errors.first.error == 'not found',
               42,
@@ -111,9 +109,7 @@ void main() {
       () {
         List<ContError>? errors;
 
-        Cont.stop<(), int>([
-              ContError.capture('unknown'),
-            ])
+        Cont.stop<(), int>([ContError.capture('unknown')])
             .elseIf(
               (errors) => errors.first.error == 'not found',
               1,
@@ -201,9 +197,7 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onElse([
-                ContError.capture('error'),
-              ]);
+              observer.onElse([ContError.capture('error')]);
             });
           }).elseIf((errors) {
             predicateCalled = true;

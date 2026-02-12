@@ -25,8 +25,7 @@ extension ContRunExtension<E, A> on Cont<E, A> {
   ContCancelToken run(
     E env, {
     void Function(ContError fatal) onPanic = _panic,
-    void Function(List<ContError> errors) onElse =
-        _ignore,
+    void Function(List<ContError> errors) onElse = _ignore,
     void Function(A value) onThen = _ignore,
   }) {
     final cancelToken = ContCancelToken._();

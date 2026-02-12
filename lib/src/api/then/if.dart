@@ -5,12 +5,14 @@ extension ContThenIfExtension<E, A> on Cont<E, A> {
   ///
   /// Filters the continuation based on the predicate. If the predicate returns
   /// `true`, the continuation succeeds with the value. If the predicate returns
-  /// `false`, the continuation terminates without errors.
+  /// `false`, the continuation terminates with the provided errors (or no errors
+  /// if none are specified).
   ///
   /// This is useful for conditional execution where you want to treat a
   /// predicate failure as termination rather than an error.
   ///
   /// - [predicate]: Function that tests the value.
+  /// - [errors]: Optional list of errors to use when terminating on predicate failure.
   ///
   /// Example:
   /// ```dart
@@ -18,15 +20,25 @@ extension ContThenIfExtension<E, A> on Cont<E, A> {
   /// // Succeeds with 42
   ///
   /// final cont2 = Cont.of(-5).thenIf((n) => n > 0);
-  /// // Terminates
+  /// // Terminates without errors
+  ///
+  /// final cont3 = Cont.of(-5).thenIf(
+  ///   (n) => n > 0,
+  ///   [ContError.capture('Value must be positive')],
+  /// );
+  /// // Terminates with custom error
   /// ```
-  Cont<E, A> thenIf(bool Function(A value) predicate) {
+  Cont<E, A> thenIf(
+    bool Function(A value) predicate, [
+    List<ContError> errors = const [],
+  ]) {
+    errors = errors.toList();
     return thenDo((a) {
       if (predicate(a)) {
         return Cont.of(a);
       }
 
-      return Cont.stop<E, A>();
+      return Cont.stop<E, A>(errors);
     });
   }
 
@@ -35,10 +47,14 @@ extension ContThenIfExtension<E, A> on Cont<E, A> {
   /// Similar to [thenIf] but the predicate doesn't examine the value.
   ///
   /// - [predicate]: Zero-argument function that determines success or termination.
-  Cont<E, A> thenIf0(bool Function() predicate) {
+  /// - [errors]: Optional list of errors to use when terminating on predicate failure.
+  Cont<E, A> thenIf0(
+    bool Function() predicate, [
+    List<ContError> errors = const [],
+  ]) {
     return thenIf((_) {
       return predicate();
-    });
+    }, errors);
   }
 
   /// Conditionally succeeds with access to both value and environment.
@@ -48,13 +64,16 @@ extension ContThenIfExtension<E, A> on Cont<E, A> {
   /// needs access to configuration or context information.
   ///
   /// - [predicate]: Function that takes the environment and value, and determines success or termination.
+  /// - [errors]: Optional list of errors to use when terminating on predicate failure.
   Cont<E, A> thenIfWithEnv(
-    bool Function(E env, A value) predicate,
-  ) {
+    bool Function(E env, A value) predicate, [
+    List<ContError> errors = const [],
+  ]) {
+    errors = errors.toList();
     return Cont.ask<E>().thenDo((e) {
       return thenIf((a) {
         return predicate(e, a);
-      });
+      }, errors);
     });
   }
 
@@ -64,11 +83,13 @@ extension ContThenIfExtension<E, A> on Cont<E, A> {
   /// environment and ignores the current value.
   ///
   /// - [predicate]: Function that takes the environment and determines success or termination.
+  /// - [errors]: Optional list of errors to use when terminating on predicate failure.
   Cont<E, A> thenIfWithEnv0(
-    bool Function(E env) predicate,
-  ) {
+    bool Function(E env) predicate, [
+    List<ContError> errors = const [],
+  ]) {
     return thenIfWithEnv((e, _) {
       return predicate(e);
-    });
+    }, errors);
   }
 }

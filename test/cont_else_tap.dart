@@ -25,9 +25,7 @@ void main() {
       () {
         List<ContError>? errors;
 
-        Cont.stop<(), int>([
-              ContError.capture('original'),
-            ])
+        Cont.stop<(), int>([ContError.capture('original')])
             .elseTap((e) => Cont.stop<(), int>([]))
             .run((), onElse: (e) => errors = e);
 
@@ -39,9 +37,7 @@ void main() {
     test('recovers when side effect succeeds', () {
       int? value;
 
-      Cont.stop<(), int>([
-            ContError.capture('original'),
-          ])
+      Cont.stop<(), int>([ContError.capture('original')])
           .elseTap((e) => Cont.of(42))
           .run((), onThen: (val) => value = val);
 
@@ -51,9 +47,7 @@ void main() {
     test('propagates side effect termination', () {
       List<ContError>? errors;
 
-      Cont.stop<(), int>([
-            ContError.capture('original'),
-          ])
+      Cont.stop<(), int>([ContError.capture('original')])
           .elseTap((e) {
             return Cont.stop<(), int>([
               ContError.capture('side effect'),
@@ -99,9 +93,7 @@ void main() {
 
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont = Cont.stop<(), int>().elseTap((
-        errors,
-      ) {
+      final cont = Cont.stop<(), int>().elseTap((errors) {
         callCount++;
         return Cont.stop<(), int>([]);
       });
@@ -151,9 +143,7 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onElse([
-                ContError.capture('error'),
-              ]);
+              observer.onElse([ContError.capture('error')]);
             });
           }).elseTap((errors) {
             sideEffectCalled = true;

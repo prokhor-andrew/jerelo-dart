@@ -20,9 +20,7 @@ void main() {
     });
 
     test('ignores termination', () {
-      Cont.stop<(), int>([
-        ContError.capture('err'),
-      ]).ff(());
+      Cont.stop<(), int>([ContError.capture('err')]).ff(());
     });
 
     test('provides environment', () {

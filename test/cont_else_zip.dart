@@ -30,9 +30,7 @@ void main() {
 
     test('receives original error information', () {
       List<ContError>? receivedErrors;
-      Cont.stop<(), int>([
-            ContError.capture('original'),
-          ])
+      Cont.stop<(), int>([ContError.capture('original')])
           .elseZip((errors) {
             receivedErrors = errors;
             return Cont.of(99);
@@ -62,9 +60,7 @@ void main() {
       int? value;
       List<ContError>? errors;
 
-      Cont.stop<(), int>([
-            ContError.capture('original'),
-          ])
+      Cont.stop<(), int>([ContError.capture('original')])
           .elseZip((e) => Cont.of(100))
           .run(
             (),
@@ -99,9 +95,7 @@ void main() {
     });
 
     test('terminates when fallback builder throws', () {
-      final cont = Cont.stop<(), int>().elseZip((
-        errors,
-      ) {
+      final cont = Cont.stop<(), int>().elseZip((errors) {
         throw 'Fallback Builder Error';
       });
 
@@ -138,9 +132,7 @@ void main() {
 
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont = Cont.stop<(), int>().elseZip((
-        errors,
-      ) {
+      final cont = Cont.stop<(), int>().elseZip((errors) {
         callCount++;
         return Cont.of(10);
       });
@@ -191,9 +183,7 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onElse([
-                ContError.capture('error'),
-              ]);
+              observer.onElse([ContError.capture('error')]);
             });
           }).elseZip((errors) {
             fallbackCalled = true;

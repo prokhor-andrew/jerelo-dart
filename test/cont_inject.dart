@@ -18,9 +18,7 @@ void main() {
     test('passes through source termination', () {
       List<ContError>? errors;
 
-      Cont.stop<(), int>([
-            ContError.capture('source err'),
-          ])
+      Cont.stop<(), int>([ContError.capture('source err')])
           .injectInto(Cont.of<int, String>('result'))
           .run((), onElse: (e) => errors = e);
 
@@ -158,9 +156,7 @@ void main() {
     test('passes through own termination', () {
       List<ContError>? errors;
 
-      Cont.stop<int, String>([
-            ContError.capture('own err'),
-          ])
+      Cont.stop<int, String>([ContError.capture('own err')])
           .injectedBy(Cont.of<(), int>(42))
           .run((), onElse: (e) => errors = e);
 

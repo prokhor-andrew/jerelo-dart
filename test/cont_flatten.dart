@@ -47,10 +47,7 @@ void main() {
         ]),
       );
 
-      nested.flatten().run(
-        (),
-        onElse: (e) => errors = e,
-      );
+      nested.flatten().run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'inner error');
@@ -63,10 +60,7 @@ void main() {
         ContError.capture('outer error'),
       ]);
 
-      nested.flatten().run(
-        (),
-        onElse: (e) => errors = e,
-      );
+      nested.flatten().run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'outer error');

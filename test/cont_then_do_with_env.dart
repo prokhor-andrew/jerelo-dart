@@ -16,9 +16,7 @@ void main() {
     test('passes through termination', () {
       List<ContError>? errors;
 
-      Cont.stop<String, int>([
-            ContError.capture('err'),
-          ])
+      Cont.stop<String, int>([ContError.capture('err')])
           .thenDoWithEnv((env, a) => Cont.of('$env: $a'))
           .run('hello', onElse: (e) => errors = e);
 

@@ -69,10 +69,7 @@ void main() {
               });
             });
           })
-          .run(
-            'hello',
-            onThen: (val) => order.add('main'),
-          );
+          .run('hello', onThen: (val) => order.add('main'));
 
       expect(order, ['main']);
       flush();
@@ -82,9 +79,7 @@ void main() {
     test('passes through termination', () {
       List<ContError>? errors;
 
-      Cont.stop<String, int>([
-            ContError.capture('err'),
-          ])
+      Cont.stop<String, int>([ContError.capture('err')])
           .thenForkWithEnv((env, a) => Cont.of('$env: $a'))
           .run('hello', onElse: (e) => errors = e);
 

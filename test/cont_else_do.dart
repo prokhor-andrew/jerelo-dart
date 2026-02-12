@@ -36,9 +36,7 @@ void main() {
       () {
         List<ContError>? errors;
 
-        Cont.stop<(), int>([
-              ContError.capture('original'),
-            ])
+        Cont.stop<(), int>([ContError.capture('original')])
             .elseDo((e) {
               return Cont.stop<(), int>([
                 ContError.capture('fallback'),
@@ -67,9 +65,7 @@ void main() {
     });
 
     test('terminates when fallback builder throws', () {
-      final cont = Cont.stop<(), int>().elseDo((
-        errors,
-      ) {
+      final cont = Cont.stop<(), int>().elseDo((errors) {
         throw 'Fallback Builder Error';
       });
 
@@ -99,9 +95,7 @@ void main() {
 
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont = Cont.stop<(), int>().elseDo((
-        errors,
-      ) {
+      final cont = Cont.stop<(), int>().elseDo((errors) {
         callCount++;
         return Cont.of(10);
       });
@@ -155,9 +149,7 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onElse([
-                ContError.capture('error'),
-              ]);
+              observer.onElse([ContError.capture('error')]);
             });
           }).elseDo((errors) {
             fallbackCalled = true;

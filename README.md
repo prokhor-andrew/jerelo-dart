@@ -151,8 +151,11 @@ Cont<AppConfig, void> logError(List<ContError> errors) {
 // Build a computation pipeline
 Cont<AppConfig, User> getUserData(String userId) {
   return fetchUserFromApi(userId)
-    // Filter: only proceed if user is active
-    .thenIf((user) => user.isActive)
+    // Filter: only proceed if user is active, with custom error
+    .thenIf(
+      (user) => user.isActive,
+      [ContError.capture('User account is not active')],
+    )
     // Fallback: if API fails or user inactive, try cache
     .elseDoWithEnv((config, errors) {
       return config.enableCache

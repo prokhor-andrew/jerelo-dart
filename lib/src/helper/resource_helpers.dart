@@ -53,9 +53,7 @@ Cont<E, A> _bracket<E, R, A>({
                 switch (useResult) {
                   case _Left<A, List<ContError>>():
                     // Use succeeded but release failed
-                    observer.onElse([
-                      ...releaseErrors,
-                    ]);
+                    observer.onElse([...releaseErrors]);
                   case _Right<A, List<ContError>>(
                     value: final useErrors,
                   ):

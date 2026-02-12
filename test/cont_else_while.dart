@@ -15,7 +15,9 @@ void main() {
             }
             return Cont.of(attempts);
           })
-          .elseWhile((errors) => errors.first.error != 'retry 3')
+          .elseWhile(
+            (errors) => errors.first.error != 'retry 3',
+          )
           .run((), onThen: (_) {});
 
       expect(attempts, 3);
@@ -78,20 +80,23 @@ void main() {
       },
     );
 
-    test('passes through value without executing predicate', () {
-      bool predicateCalled = false;
-      int? value;
+    test(
+      'passes through value without executing predicate',
+      () {
+        bool predicateCalled = false;
+        int? value;
 
-      Cont.of<(), int>(42)
-          .elseWhile((errors) {
-            predicateCalled = true;
-            return true;
-          })
-          .run((), onThen: (val) => value = val);
+        Cont.of<(), int>(42)
+            .elseWhile((errors) {
+              predicateCalled = true;
+              return true;
+            })
+            .run((), onThen: (val) => value = val);
 
-      expect(predicateCalled, false);
-      expect(value, 42);
-    });
+        expect(predicateCalled, false);
+        expect(value, 42);
+      },
+    );
 
     test('terminates when predicate throws', () {
       ContError? error;
@@ -165,7 +170,10 @@ void main() {
         }
       }
 
-      final cont = Cont.fromRun<(), int>((runtime, observer) {
+      final cont = Cont.fromRun<(), int>((
+        runtime,
+        observer,
+      ) {
         buffer.add(() {
           if (cancelled || runtime.isCancelled()) {
             observer.onElse([]);
@@ -193,58 +201,54 @@ void main() {
   });
 
   group('Cont.elseWhile0', () {
-    test('retries while zero-argument predicate is true', () {
-      int attempts = 0;
-      int? value;
-
-      Cont.fromDeferred<(), int>(() {
-            attempts++;
-            if (attempts < 3) {
-              return Cont.stop<(), int>([
-                ContError.capture('error'),
-              ]);
-            }
-            return Cont.of(attempts);
-          })
-          .elseWhile0(() => true)
-          .run((), onThen: (val) => value = val);
-
-      expect(value, 3);
-    });
-
     test(
-      'behaves like elseWhile with ignored errors',
+      'retries while zero-argument predicate is true',
       () {
-        int attempts1 = 0;
-        int attempts2 = 0;
+        int attempts = 0;
+        int? value;
 
         Cont.fromDeferred<(), int>(() {
-              attempts1++;
-              if (attempts1 < 3) {
+              attempts++;
+              if (attempts < 3) {
                 return Cont.stop<(), int>([
                   ContError.capture('error'),
                 ]);
               }
-              return Cont.of(attempts1);
+              return Cont.of(attempts);
             })
             .elseWhile0(() => true)
-            .run((), onThen: (_) {});
+            .run((), onThen: (val) => value = val);
 
-        Cont.fromDeferred<(), int>(() {
-              attempts2++;
-              if (attempts2 < 3) {
-                return Cont.stop<(), int>([
-                  ContError.capture('error'),
-                ]);
-              }
-              return Cont.of(attempts2);
-            })
-            .elseWhile((_) => true)
-            .run((), onThen: (_) {});
-
-        expect(attempts1, attempts2);
+        expect(value, 3);
       },
     );
+
+    test('behaves like elseWhile with ignored errors', () {
+      int attempts1 = 0;
+      int attempts2 = 0;
+
+      Cont.fromDeferred<(), int>(() {
+        attempts1++;
+        if (attempts1 < 3) {
+          return Cont.stop<(), int>([
+            ContError.capture('error'),
+          ]);
+        }
+        return Cont.of(attempts1);
+      }).elseWhile0(() => true).run((), onThen: (_) {});
+
+      Cont.fromDeferred<(), int>(() {
+        attempts2++;
+        if (attempts2 < 3) {
+          return Cont.stop<(), int>([
+            ContError.capture('error'),
+          ]);
+        }
+        return Cont.of(attempts2);
+      }).elseWhile((_) => true).run((), onThen: (_) {});
+
+      expect(attempts1, attempts2);
+    });
 
     test('stops when predicate returns false', () {
       int attempts = 0;
@@ -265,25 +269,22 @@ void main() {
   });
 
   group('Cont.elseWhileWithEnv', () {
-    test(
-      'provides both env and errors to predicate',
-      () {
-        String? receivedEnv;
-        List<ContError>? receivedErrors;
+    test('provides both env and errors to predicate', () {
+      String? receivedEnv;
+      List<ContError>? receivedErrors;
 
-        Cont.stop<String, int>([ContError.capture('err')])
-            .elseWhileWithEnv((env, errors) {
-              receivedEnv = env;
-              receivedErrors = errors;
-              return false; // stop immediately
-            })
-            .run('hello', onElse: (_) {});
+      Cont.stop<String, int>([ContError.capture('err')])
+          .elseWhileWithEnv((env, errors) {
+            receivedEnv = env;
+            receivedErrors = errors;
+            return false; // stop immediately
+          })
+          .run('hello', onElse: (_) {});
 
-        expect(receivedEnv, 'hello');
-        expect(receivedErrors!.length, 1);
-        expect(receivedErrors![0].error, 'err');
-      },
-    );
+      expect(receivedEnv, 'hello');
+      expect(receivedErrors!.length, 1);
+      expect(receivedErrors![0].error, 'err');
+    });
 
     test('retries using env-based condition', () {
       int attempts = 0;
@@ -321,36 +322,34 @@ void main() {
       expect(value, 42);
     });
 
-    test(
-      'supports multiple runs with different envs',
-      () {
-        int attempts = 0;
+    test('supports multiple runs with different envs', () {
+      int attempts = 0;
 
-        final cont = Cont.fromDeferred<int, int>(() {
-          attempts++;
-          if (attempts < 5) {
-            return Cont.stop<int, int>([
-              ContError.capture('error'),
-            ]);
-          }
-          return Cont.of(attempts);
-        }).elseWhileWithEnv(
-          (maxRetries, _) => attempts < maxRetries,
-        );
+      final cont =
+          Cont.fromDeferred<int, int>(() {
+            attempts++;
+            if (attempts < 5) {
+              return Cont.stop<int, int>([
+                ContError.capture('error'),
+              ]);
+            }
+            return Cont.of(attempts);
+          }).elseWhileWithEnv(
+            (maxRetries, _) => attempts < maxRetries,
+          );
 
-        // First run with max 3 retries - will stop with errors
-        List<ContError>? errors;
-        cont.run(3, onElse: (e) => errors = e);
-        expect(attempts, 3);
-        expect(errors, isNotNull);
+      // First run with max 3 retries - will stop with errors
+      List<ContError>? errors;
+      cont.run(3, onElse: (e) => errors = e);
+      expect(attempts, 3);
+      expect(errors, isNotNull);
 
-        // Reset and try with higher limit
-        attempts = 0;
-        int? value;
-        cont.run(10, onThen: (val) => value = val);
-        expect(value, 5);
-      },
-    );
+      // Reset and try with higher limit
+      attempts = 0;
+      int? value;
+      cont.run(10, onThen: (val) => value = val);
+      expect(value, 5);
+    });
   });
 
   group('Cont.elseWhileWithEnv0', () {

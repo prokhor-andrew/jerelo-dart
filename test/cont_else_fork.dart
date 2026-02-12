@@ -6,9 +6,7 @@ void main() {
     test('propagates original termination', () {
       List<ContError>? errors;
 
-      Cont.stop<(), int>([
-            ContError.capture('original'),
-          ])
+      Cont.stop<(), int>([ContError.capture('original')])
           .elseFork((e) => Cont.of(()))
           .run((), onElse: (e) => errors = e);
 
@@ -68,9 +66,7 @@ void main() {
         buffer.clear();
       }
 
-      Cont.stop<(), int>([
-            ContError.capture('original'),
-          ])
+      Cont.stop<(), int>([ContError.capture('original')])
           .elseFork((e) {
             return Cont.fromRun<(), ()>((
               runtime,
@@ -109,9 +105,7 @@ void main() {
     });
 
     test('terminates when fork builder throws', () {
-      final cont = Cont.stop<(), int>().elseFork((
-        errors,
-      ) {
+      final cont = Cont.stop<(), int>().elseFork((errors) {
         throw 'Fork Builder Error';
       });
 
@@ -134,9 +128,7 @@ void main() {
         buffer.clear();
       }
 
-      final cont = Cont.stop<(), int>().elseFork((
-        errors,
-      ) {
+      final cont = Cont.stop<(), int>().elseFork((errors) {
         return Cont.fromRun<(), ()>((runtime, observer) {
           buffer.add(() {
             forkCount++;
@@ -210,9 +202,7 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onElse([
-                ContError.capture('error'),
-              ]);
+              observer.onElse([ContError.capture('error')]);
             });
           }).elseFork((errors) {
             forkCalled = true;

@@ -77,8 +77,7 @@ void main() {
         List<ContError>? errors;
         cont.run(
           (),
-          onThen: (_) =>
-              fail('onThen must not be called'),
+          onThen: (_) => fail('onThen must not be called'),
           onElse: (e) => errors = e,
         );
 

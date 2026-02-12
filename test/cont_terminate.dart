@@ -31,10 +31,7 @@ void main() {
       final error1 = ContError.capture('error 1');
       final error2 = ContError.capture('error 2');
       List<ContError>? errors;
-      final cont = Cont.stop<(), int>([
-        error1,
-        error2,
-      ]);
+      final cont = Cont.stop<(), int>([error1, error2]);
 
       cont.run((), onElse: (e) => errors = e);
       expect(errors, hasLength(2));

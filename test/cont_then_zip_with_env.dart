@@ -35,9 +35,7 @@ void main() {
     test('passes through termination', () {
       List<ContError>? errors;
 
-      Cont.stop<String, int>([
-            ContError.capture('err'),
-          ])
+      Cont.stop<String, int>([ContError.capture('err')])
           .thenZipWithEnv(
             (env, a) => Cont.of(0),
             (a, b) => a + b,

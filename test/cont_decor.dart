@@ -279,10 +279,9 @@ void main() {
           Cont.stop<(), int>([
             ContError.capture('original'),
           ]).decor((run, runtime, observer) {
-            final newObserver = observer
-                .copyUpdateOnElse(
-                  (errors) => observer.onThen(0),
-                );
+            final newObserver = observer.copyUpdateOnElse(
+              (errors) => observer.onThen(0),
+            );
             run(runtime, newObserver);
           });
 

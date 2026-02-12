@@ -13,10 +13,7 @@ Cont<E, A> _fromRun<E, A>(
     }
 
     if (observer is ContObserver<Never>) {
-      observer = ContObserver<A>._(
-        observer.onElse,
-        (_) {},
-      );
+      observer = ContObserver<A>._(observer.onElse, (_) {});
     }
 
     bool isDone = false;
