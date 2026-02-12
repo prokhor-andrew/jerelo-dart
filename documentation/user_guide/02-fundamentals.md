@@ -261,9 +261,7 @@ Conversely, `elseDo` and `elseTap` only process termination signals and can swit
 ```dart
 Cont.stop<(), int>([ContError.withStackTrace("fail", st)])  // Termination channel
   .thenMap((x) => x + 1)    // Skipped (no value to process)
-  .elseDo((errors) {
-    return Cont.of(42);     // Recovers → switches back to value channel
-  })
+  .elseDo((errors) => Cont.of(42))     // Recovers → switches back to value channel
   .thenMap((x) => x * 2)    // Processes value(42) → value(84)
   .run((), onElse: onElse, onThen: onThen)  // onThen(84) called
 ```
@@ -301,7 +299,7 @@ You may have noticed the first parameter to `run` is an environment value (shown
 
 **Why is environment needed?**
 
-When you compose computations using operators like `thenDo`, `map`, and `elseDo`, you create a chain of operations. However, these operations often need access to shared context like:
+When you compose computations using operators like `thenDo`, `thenMap`, and `elseDo`, you create a chain of operations. However, these operations often need access to shared context like:
 - Configuration values (API URLs, timeouts, feature flags)
 - Dependencies (database connections, HTTP clients, loggers)
 - Runtime context (user sessions, request IDs, auth tokens)
