@@ -214,7 +214,7 @@ Understanding how `Cont` executes is crucial for building complex computation ch
 
 **Phase 1: Ascending the Chain**
 
-When `run` is called, execution first traverses "up" the operator chain to find the source computation. This traversal passes through all intermediate operators (`map`, `thenDo`, `elseDo`, etc.) without executing their logic yet—it's simply locating the origin of the computation chain.
+When `run` is called, execution first traverses "up" the operator chain to find the source computation. This traversal passes through all intermediate operators (`thenMap`, `thenDo`, `elseDo`, etc.) without executing their logic yet—it's simply locating the origin of the computation chain.
 
 ```dart
 // This chain: source → thenMap → thenDo → run
@@ -243,10 +243,10 @@ Cont.of(0)                    // Emits: value(0)
 
 Each operator in the chain routes signals through two channels:
 
-- **Value channel**: Carries successful results (type `T`)
-- **Termination channel**: Carries errors (`List<ContError>`)
+- **Then channel**: Carries successful results (type `T`)
+- **Else channel**: Carries errors (`List<ContError>`)
 
-Operators like `thenDo` and `map` only process values from the value channel. If a termination signal arrives, they pass it through unchanged to the next operator:
+Operators like `thenDo` and `thenMap` only process values from the `then` channel. If a termination signal arrives, they pass it through unchanged to the next operator:
 
 ```dart
 Cont.of(0)
@@ -268,15 +268,15 @@ Cont.stop<(), int>([ContError.withStackTrace("fail", st)])  // Termination chann
   .run((), onElse: onElse, onThen: onThen)  // onThen(84) called
 ```
 
-**Pausing for Racing Continuations**
+**Pausing for Racing or Merging Continuations**
 
-When using racing operators (`either`, `any`) or parallel execution policies (e.g., `ContBothPolicy.quitFast()` or `ContEitherPolicy.quitFast()`), multiple continuations execute simultaneously. The execution flow pauses at the racing operator until a decisive result is reached:
+When using racing or merging operators (`either`, `any`, `both`, `all`) with parallel execution policies (`.quitFast()` or `.mergeWhenAll()`), multiple continuations execute simultaneously. The execution flow pauses until a decisive result is reached:
 
 ```dart
 final slow = delay(Duration(seconds: 2), 42);
 final fast = delay(Duration(milliseconds: 100), 10);
 
-Cont.either(slow, fast, ...)  // Both start executing in parallel
+Cont.either(slow, fast, policy: .quitFast())  // Both start executing in parallel
   .thenMap((x) => x * 2)      // Waits for first completion → then processes winner
   .run(...)                   // Receives result from fast: 10 * 2 = 20
 ```
@@ -284,7 +284,7 @@ Cont.either(slow, fast, ...)  // Both start executing in parallel
 During this pause:
 - Multiple computation chains run concurrently
 - The racing operator monitors all channels (both value and termination)
-- As soon as one chain produces a decisive result (first success for `either`, first failure for `all`), others may be cancelled
+- As soon as one chain produces a decisive result (first success for `either`, first failure for `both`), others may be cancelled
 - The winning result continues down the remaining operator chain
 
 **Key Behaviors**
