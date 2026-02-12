@@ -149,7 +149,7 @@ The `ff` method provides a simplified way to execute a continuation when you don
 logAnalytics(userId, action).ff(());
 
 // vs. using run
-logAnalytics(userId, action).run((), onThen: (_) {}, onElse: (_) {});
+logAnalytics(userId, action).run(());
 ```
 
 The `ff` method:
