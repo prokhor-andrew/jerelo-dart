@@ -2,8 +2,8 @@ import 'package:jerelo/jerelo.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('Cont.map', () {
-    test('Cont.map runs on value channel', () {
+  group('Cont.thenMap', () {
+    test('Cont.thenMap runs on value channel', () {
       final cont = Cont.of<(), int>(
         0,
       ).thenMap((val) => val + 5);
@@ -16,7 +16,7 @@ void main() {
       expect(value, 5);
     });
 
-    test('Cont.map throw terminates', () {
+    test('Cont.thenMap throw terminates', () {
       final cont = Cont.of<(), int>(0).thenMap((val) {
         throw 'Thrown Error';
       });
@@ -32,7 +32,7 @@ void main() {
       expect(error!.error, 'Thrown Error');
     });
 
-    test('Cont.map functor identity law', () {
+    test('Cont.thenMap functor identity law', () {
       A id<A>(A a) => a;
 
       final cont1 = Cont.of<(), int>(0);
@@ -51,7 +51,7 @@ void main() {
       expect(value1, value2);
     });
 
-    test('Cont.map passes through termination', () {
+    test('Cont.thenMap passes through termination', () {
       final errors = [
         ContError.capture('err1'),
         ContError.capture('err2'),
@@ -70,7 +70,7 @@ void main() {
     });
 
     test(
-      'Cont.map does not call onThen on termination',
+      'Cont.thenMap does not call onThen on termination',
       () {
         final cont = Cont.stop<(), int>().thenMap(
           (val) => val + 5,
@@ -85,7 +85,7 @@ void main() {
       },
     );
 
-    test('Cont.map transforms type', () {
+    test('Cont.thenMap transforms type', () {
       final cont = Cont.of<(), int>(
         42,
       ).thenMap((val) => 'value: $val');
@@ -96,7 +96,7 @@ void main() {
       expect(value, 'value: 42');
     });
 
-    test('Cont.map can be run multiple times', () {
+    test('Cont.thenMap can be run multiple times', () {
       final cont = Cont.of<(), int>(
         10,
       ).thenMap((val) => val * 3);
@@ -110,7 +110,7 @@ void main() {
       expect(value2, 30);
     });
 
-    test('Cont.map does not call onPanic', () {
+    test('Cont.thenMap does not call onPanic', () {
       final cont = Cont.of<(), int>(
         0,
       ).thenMap((val) => val + 5);
@@ -125,7 +125,7 @@ void main() {
     });
 
     test(
-      'Cont.map cancellation prevents map execution',
+      'Cont.thenMap cancellation prevents map execution',
       () {
         bool mapCalled = false;
 
@@ -162,7 +162,7 @@ void main() {
       },
     );
 
-    test('Cont.map functor composition law', () {
+    test('Cont.thenMap functor composition law', () {
       C Function(A) compose<A, B, C>(
         B Function(A) lf,
         C Function(B) rf,
@@ -192,7 +192,7 @@ void main() {
       expect(value2, value3);
     });
 
-    test('Cont.map0 is map with ignored argument', () {
+    test('Cont.thenMap0 is thenMap with ignored argument', () {
       final cont1 = Cont.of<(), int>(10).thenMap0(() => 20);
 
       final cont2 = Cont.of<(), int>(10).thenMap((_) => 20);
@@ -206,7 +206,7 @@ void main() {
       expect(value2, 20);
     });
 
-    test('Cont.as is map0 with eager evaluation', () {
+    test('Cont.thenMapWith is thenMap0 with eager evaluation', () {
       final cont1 = Cont.of<(), int>(10).thenMap0(() => 20);
 
       final cont2 = Cont.of<(), int>(10).thenMapTo(20);
