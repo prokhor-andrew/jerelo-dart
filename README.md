@@ -61,6 +61,7 @@ A comprehensive guide to understanding and using Jerelo:
 
 Complete reference for all public APIs:
 
+- **[API Overview](documentation/api_reference/)** - Quick start and core concepts
 - **[Types](documentation/api_reference/types.md)** - ContError, ContRuntime, ContObserver
 - **[Construction](documentation/api_reference/construction.md)** - Creating continuations with constructors and decorators
 - **[Execution](documentation/api_reference/execution.md)** - Running continuations: ContCancelToken, run, ff
