@@ -1,4 +1,4 @@
-[Home](../../README.md) > [API Reference](README.md)
+[Home](../../README.md) > API Reference
 
 # Then Channel Operations
 
