@@ -45,8 +45,6 @@ A continuation monad representing a computation that will eventually produce a v
 - `E`: The environment type providing context for the continuation execution
 - `A`: The value type that the continuation produces upon success
 
-`Cont` provides a powerful abstraction for managing asynchronous operations, error handling, and composition of effectful computations. It follows the continuation-passing style where computations are represented as functions that take callbacks for success and failure.
-
 ---
 
 ## Design Goals
