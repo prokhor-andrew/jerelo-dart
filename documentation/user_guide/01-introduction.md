@@ -131,14 +131,6 @@ final program = function1(value)
   });
 ```
 
-### What "Jerelo" Means
-
-**Jerelo** is a Ukrainian word meaning "source" or "spring".
-
-Each `Cont` is a source of results. Like a spring that feeds a stream, a `Cont` produces a flow of data. Streams can branch, merge, filter, and transform what they carry, and Jerelo's API lets you model the same kinds of operations in your workflows.
-
----
-
 ## Getting Started with Cont
 
 `Cont` has two result channels:
