@@ -6,11 +6,11 @@ void main() {
     test('propagates original termination', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([
+      Cont.stop<(), int>([
             ContError.capture('original'),
           ])
           .elseFork((e) => Cont.of(()))
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'original');
@@ -28,7 +28,7 @@ void main() {
         buffer.clear();
       }
 
-      Cont.terminate<(), int>([ContError.capture('err')])
+      Cont.stop<(), int>([ContError.capture('err')])
           .elseFork((e) {
             return Cont.fromRun<(), ()>((
               runtime,
@@ -36,13 +36,13 @@ void main() {
             ) {
               buffer.add(() {
                 order.add('fork');
-                observer.onValue(());
+                observer.onThen(());
               });
             });
           })
           .run(
             (),
-            onTerminate: (e) {
+            onElse: (e) {
               order.add('main');
               errors = e;
             },
@@ -68,7 +68,7 @@ void main() {
         buffer.clear();
       }
 
-      Cont.terminate<(), int>([
+      Cont.stop<(), int>([
             ContError.capture('original'),
           ])
           .elseFork((e) {
@@ -77,13 +77,13 @@ void main() {
               observer,
             ) {
               buffer.add(() {
-                observer.onTerminate([
+                observer.onElse([
                   ContError.capture('fork error'),
                 ]);
               });
             });
           })
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'original');
@@ -102,14 +102,14 @@ void main() {
             forkCalled = true;
             return Cont.of(());
           })
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(forkCalled, false);
       expect(value, 42);
     });
 
     test('terminates when fork builder throws', () {
-      final cont = Cont.terminate<(), int>().elseFork((
+      final cont = Cont.stop<(), int>().elseFork((
         errors,
       ) {
         throw 'Fork Builder Error';
@@ -118,7 +118,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Fork Builder Error');
@@ -134,23 +134,23 @@ void main() {
         buffer.clear();
       }
 
-      final cont = Cont.terminate<(), int>().elseFork((
+      final cont = Cont.stop<(), int>().elseFork((
         errors,
       ) {
         return Cont.fromRun<(), ()>((runtime, observer) {
           buffer.add(() {
             forkCount++;
-            observer.onValue(());
+            observer.onThen(());
           });
         });
       });
 
-      cont.run((), onTerminate: (_) {});
+      cont.run((), onElse: (_) {});
       expect(forkCount, 0);
       flush();
       expect(forkCount, 1);
 
-      cont.run((), onTerminate: (_) {});
+      cont.run((), onElse: (_) {});
       expect(forkCount, 1);
       flush();
       expect(forkCount, 2);
@@ -166,7 +166,7 @@ void main() {
         buffer.clear();
       }
 
-      Cont.terminate<(), int>([])
+      Cont.stop<(), int>([])
           .elseFork((errors) {
             return Cont.fromRun<(), ()>((
               runtime,
@@ -174,11 +174,11 @@ void main() {
             ) {
               buffer.add(() {
                 forkCalled = true;
-                observer.onValue(());
+                observer.onThen(());
               });
             });
           })
-          .run((), onTerminate: (_) {});
+          .run((), onElse: (_) {});
 
       expect(forkCalled, false);
       flush();
@@ -191,7 +191,7 @@ void main() {
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
-            onValue: (_) {},
+            onThen: (_) {},
           );
     });
 
@@ -210,7 +210,7 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onTerminate([
+              observer.onElse([
                 ContError.capture('error'),
               ]);
             });
@@ -219,7 +219,7 @@ void main() {
             return Cont.of(());
           });
 
-      final token = cont.run((), onTerminate: (_) {});
+      final token = cont.run((), onElse: (_) {});
 
       token.cancel();
       flush();
@@ -231,13 +231,13 @@ void main() {
       final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
-      Cont.terminate<(), int>(originalErrors)
+      Cont.stop<(), int>(originalErrors)
           .elseFork((errors) {
             receivedErrors = errors;
             errors.add(ContError.capture('err2'));
             return Cont.of(());
           })
-          .run((), onTerminate: (_) {});
+          .run((), onElse: (_) {});
 
       expect(originalErrors.length, 1);
       expect(receivedErrors!.length, 2);
@@ -255,26 +255,26 @@ void main() {
         buffer.clear();
       }
 
-      final cont1 = Cont.terminate<(), int>().elseFork0(() {
+      final cont1 = Cont.stop<(), int>().elseFork0(() {
         return Cont.fromRun<(), ()>((runtime, observer) {
           buffer.add(() {
             fork1Called = true;
-            observer.onValue(());
+            observer.onThen(());
           });
         });
       });
 
-      final cont2 = Cont.terminate<(), int>().elseFork((_) {
+      final cont2 = Cont.stop<(), int>().elseFork((_) {
         return Cont.fromRun<(), ()>((runtime, observer) {
           buffer.add(() {
             fork2Called = true;
-            observer.onValue(());
+            observer.onThen(());
           });
         });
       });
 
-      cont1.run((), onTerminate: (_) {});
-      cont2.run((), onTerminate: (_) {});
+      cont1.run((), onElse: (_) {});
+      cont2.run((), onElse: (_) {});
 
       expect(fork1Called, false);
       expect(fork2Called, false);

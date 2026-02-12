@@ -8,7 +8,7 @@ void main() {
 
       Cont.fromRun<int, ()>((runtime, observer) {
         receivedEnv = runtime.env();
-        observer.onValue(());
+        observer.onThen(());
       }).local<String>((str) => str.length).run('hello');
 
       expect(receivedEnv, 5);
@@ -19,7 +19,7 @@ void main() {
 
       Cont.of<int, int>(42)
           .local<String>((str) => str.length)
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(value, 42);
     });
@@ -27,9 +27,9 @@ void main() {
     test('preserves termination', () {
       List<ContError>? errors;
 
-      Cont.terminate<int, int>([ContError.capture('err')])
+      Cont.stop<int, int>([ContError.capture('err')])
           .local<String>((str) => str.length)
-          .run('hello', onTerminate: (e) => errors = e);
+          .run('hello', onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'err');
@@ -39,9 +39,9 @@ void main() {
       String? value;
 
       Cont.ask<int>()
-          .map((n) => 'number: $n')
+          .thenMap((n) => 'number: $n')
           .local<String>((str) => str.length)
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(value, 'number: 5');
     });
@@ -56,7 +56,7 @@ void main() {
       ContError? error;
       cont.run(
         'hello',
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Transform Error');
@@ -69,7 +69,7 @@ void main() {
         observer,
       ) {
         callCount++;
-        observer.onValue(());
+        observer.onThen(());
       }).local<String>((str) => str.length);
 
       cont.run('test');
@@ -85,7 +85,7 @@ void main() {
           .run(
             'hello',
             onPanic: (_) => fail('Should not be called'),
-            onValue: (_) {},
+            onThen: (_) {},
           );
     });
 
@@ -107,7 +107,7 @@ void main() {
         buffer.add(() {
           if (runtime.isCancelled()) return;
           executed = true;
-          observer.onValue(10);
+          observer.onThen(10);
         });
       }).local<String>((str) => str.length);
 
@@ -123,7 +123,7 @@ void main() {
 
       Cont.fromRun<int, ()>((runtime, observer) {
         receivedEnv = runtime.env();
-        observer.onValue(());
+        observer.onThen(());
       }).local0<String>(() => 42).run('ignored');
 
       expect(receivedEnv, 42);
@@ -140,7 +140,7 @@ void main() {
           observer,
         ) {
           env1 = runtime.env();
-          observer.onValue(());
+          observer.onThen(());
         }).local0<String>(() => 99);
 
         final cont2 = Cont.fromRun<int, ()>((
@@ -148,7 +148,7 @@ void main() {
           observer,
         ) {
           env2 = runtime.env();
-          observer.onValue(());
+          observer.onThen(());
         }).local<String>((_) => 99);
 
         cont1.run('test');
@@ -164,7 +164,7 @@ void main() {
 
       Cont.fromRun<int, ()>((runtime, observer) {
         receivedEnv = runtime.env();
-        observer.onValue(());
+        observer.onThen(());
       }).scope<String>(100).run('ignored');
 
       expect(receivedEnv, 100);
@@ -179,7 +179,7 @@ void main() {
         observer,
       ) {
         env1 = runtime.env();
-        observer.onValue(());
+        observer.onThen(());
       }).scope<String>(100);
 
       final cont2 = Cont.fromRun<int, ()>((
@@ -187,7 +187,7 @@ void main() {
         observer,
       ) {
         env2 = runtime.env();
-        observer.onValue(());
+        observer.onThen(());
       }).local0<String>(() => 100);
 
       cont1.run('test');
@@ -203,7 +203,7 @@ void main() {
 
       Cont.fromRun<List<int>, ()>((runtime, observer) {
         receivedEnv = runtime.env();
-        observer.onValue(());
+        observer.onThen(());
       }).scope<String>(env).run('ignored');
 
       expect(identical(env, receivedEnv), isTrue);
@@ -217,7 +217,7 @@ void main() {
         observer,
       ) {
         envs.add(runtime.env());
-        observer.onValue(());
+        observer.onThen(());
       });
 
       final outer = inner

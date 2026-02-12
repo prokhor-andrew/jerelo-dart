@@ -12,7 +12,7 @@ void main() {
 
       nested.flatten().run(
         (),
-        onValue: (val) => value = val,
+        onThen: (val) => value = val,
       );
 
       expect(value, 42);
@@ -28,11 +28,11 @@ void main() {
 
       nested.flatten().run(
         (),
-        onValue: (val) => value1 = val,
+        onThen: (val) => value1 = val,
       );
       nested
           .thenDo((cont) => cont)
-          .run((), onValue: (val) => value2 = val);
+          .run((), onThen: (val) => value2 = val);
 
       expect(value1, value2);
       expect(value1, 100);
@@ -42,14 +42,14 @@ void main() {
       List<ContError>? errors;
 
       final nested = Cont.of<(), Cont<(), int>>(
-        Cont.terminate<(), int>([
+        Cont.stop<(), int>([
           ContError.capture('inner error'),
         ]),
       );
 
       nested.flatten().run(
         (),
-        onTerminate: (e) => errors = e,
+        onElse: (e) => errors = e,
       );
 
       expect(errors!.length, 1);
@@ -59,13 +59,13 @@ void main() {
     test('passes through outer termination', () {
       List<ContError>? errors;
 
-      final nested = Cont.terminate<(), Cont<(), int>>([
+      final nested = Cont.stop<(), Cont<(), int>>([
         ContError.capture('outer error'),
       ]);
 
       nested.flatten().run(
         (),
-        onTerminate: (e) => errors = e,
+        onElse: (e) => errors = e,
       );
 
       expect(errors!.length, 1);
@@ -86,7 +86,7 @@ void main() {
       expect(innerExecuted, false);
       nested.flatten().run(
         (),
-        onValue: (val) => value = val,
+        onThen: (val) => value = val,
       );
       expect(innerExecuted, true);
       expect(value, 99);
@@ -95,13 +95,13 @@ void main() {
     test('preserves environment', () {
       String? value;
 
-      final nested = Cont.ask<String>().map(
+      final nested = Cont.ask<String>().thenMap(
         (env) => Cont.of<String, String>('env: $env'),
       );
 
       nested.flatten().run(
         'test',
-        onValue: (val) => value = val,
+        onThen: (val) => value = val,
       );
 
       expect(value, 'env: test');
@@ -112,14 +112,14 @@ void main() {
       final nested = Cont.of<(), Cont<(), int>>(
         Cont.fromRun((runtime, observer) {
           callCount++;
-          observer.onValue(10);
+          observer.onThen(10);
         }),
       );
 
       int? value1;
       nested.flatten().run(
         (),
-        onValue: (val) => value1 = val,
+        onThen: (val) => value1 = val,
       );
       expect(value1, 10);
       expect(callCount, 1);
@@ -127,7 +127,7 @@ void main() {
       int? value2;
       nested.flatten().run(
         (),
-        onValue: (val) => value2 = val,
+        onThen: (val) => value2 = val,
       );
       expect(value2, 10);
       expect(callCount, 2);
@@ -141,7 +141,7 @@ void main() {
       nested.flatten().run(
         (),
         onPanic: (_) => fail('Should not be called'),
-        onValue: (_) {},
+        onThen: (_) {},
       );
     });
 
@@ -162,10 +162,10 @@ void main() {
       ) {
         buffer.add(() {
           if (runtime.isCancelled()) return;
-          observer.onValue(
+          observer.onThen(
             Cont.fromRun((runtime, observer) {
               innerExecuted = true;
-              observer.onValue(42);
+              observer.onThen(42);
             }),
           );
         });
@@ -174,7 +174,7 @@ void main() {
       int? value;
       final token = nested.flatten().run(
         (),
-        onValue: (val) => value = val,
+        onThen: (val) => value = val,
       );
 
       token.cancel();
@@ -188,9 +188,9 @@ void main() {
       int? value;
 
       Cont.of<(), int>(5)
-          .map((n) => Cont.of<(), int>(n * 2))
+          .thenMap((n) => Cont.of<(), int>(n * 2))
           .flatten()
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 10);
     });
@@ -203,10 +203,10 @@ void main() {
 
         final cont = Cont.of<(), int>(42);
 
-        cont.run((), onValue: (val) => value1 = val);
+        cont.run((), onThen: (val) => value1 = val);
         Cont.of<(), Cont<(), int>>(
           cont,
-        ).flatten().run((), onValue: (val) => value2 = val);
+        ).flatten().run((), onThen: (val) => value2 = val);
 
         expect(value1, value2);
       },
@@ -223,13 +223,13 @@ void main() {
 
       tripleNested.flatten().flatten().run(
         (),
-        onValue: (val) => value1 = val,
+        onThen: (val) => value1 = val,
       );
 
       tripleNested
-          .map((nested) => nested.flatten())
+          .thenMap((nested) => nested.flatten())
           .flatten()
-          .run((), onValue: (val) => value2 = val);
+          .run((), onThen: (val) => value2 = val);
 
       expect(value1, value2);
     });

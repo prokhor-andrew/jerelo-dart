@@ -8,7 +8,7 @@ void main() {
 
       Cont.of<String, int>(42)
           .thenDoWithEnv((env, a) => Cont.of('$env: $a'))
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(value, 'hello: 42');
     });
@@ -16,11 +16,11 @@ void main() {
     test('passes through termination', () {
       List<ContError>? errors;
 
-      Cont.terminate<String, int>([
+      Cont.stop<String, int>([
             ContError.capture('err'),
           ])
           .thenDoWithEnv((env, a) => Cont.of('$env: $a'))
-          .run('hello', onTerminate: (e) => errors = e);
+          .run('hello', onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'err');
@@ -37,7 +37,7 @@ void main() {
       ContError? error;
       cont.run(
         'hello',
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Error');
@@ -54,12 +54,12 @@ void main() {
       });
 
       String? value1;
-      cont.run('hello', onValue: (val) => value1 = val);
+      cont.run('hello', onThen: (val) => value1 = val);
       expect(value1, 'hello: 42');
       expect(callCount, 1);
 
       String? value2;
-      cont.run('world', onValue: (val) => value2 = val);
+      cont.run('world', onThen: (val) => value2 = val);
       expect(value2, 'world: 42');
       expect(callCount, 2);
     });
@@ -67,12 +67,12 @@ void main() {
     test('never executes on termination', () {
       bool called = false;
 
-      Cont.terminate<String, int>()
+      Cont.stop<String, int>()
           .thenDoWithEnv((env, a) {
             called = true;
             return Cont.of('result');
           })
-          .run('hello', onTerminate: (_) {});
+          .run('hello', onElse: (_) {});
 
       expect(called, false);
     });
@@ -84,7 +84,7 @@ void main() {
 
       Cont.of<String, int>(42)
           .thenDoWithEnv0((env) => Cont.of('env: $env'))
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(value, 'env: hello');
     });
@@ -102,8 +102,8 @@ void main() {
           42,
         ).thenDoWithEnv((env, _) => Cont.of('env: $env'));
 
-        cont1.run('hello', onValue: (val) => value1 = val);
-        cont2.run('hello', onValue: (val) => value2 = val);
+        cont1.run('hello', onThen: (val) => value1 = val);
+        cont2.run('hello', onThen: (val) => value2 = val);
 
         expect(value1, value2);
       },

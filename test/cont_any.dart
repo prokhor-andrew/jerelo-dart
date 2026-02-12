@@ -8,12 +8,12 @@ void main() {
 
       Cont.any<(), int>(
         [
-          Cont.terminate([ContError.capture('err')]),
+          Cont.stop([ContError.capture('err')]),
           Cont.of(20),
           Cont.of(30),
         ],
         policy: ContEitherPolicy.sequence(),
-      ).run((), onValue: (val) => value = val);
+      ).run((), onThen: (val) => value = val);
 
       expect(value, 20);
     });
@@ -22,11 +22,11 @@ void main() {
       bool thirdCalled = false;
 
       Cont.any<(), int>([
-        Cont.terminate([ContError.capture('err')]),
+        Cont.stop([ContError.capture('err')]),
         Cont.of(20),
         Cont.fromRun((runtime, observer) {
           thirdCalled = true;
-          observer.onValue(30);
+          observer.onThen(30);
         }),
       ], policy: ContEitherPolicy.sequence()).run(());
 
@@ -38,12 +38,12 @@ void main() {
 
       Cont.any<(), int>(
         [
-          Cont.terminate([ContError.capture('err1')]),
-          Cont.terminate([ContError.capture('err2')]),
-          Cont.terminate([ContError.capture('err3')]),
+          Cont.stop([ContError.capture('err1')]),
+          Cont.stop([ContError.capture('err2')]),
+          Cont.stop([ContError.capture('err3')]),
         ],
         policy: ContEitherPolicy.sequence(),
-      ).run((), onTerminate: (e) => errors = e);
+      ).run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 3);
       expect(errors![0].error, 'err1');
@@ -57,7 +57,7 @@ void main() {
       Cont.any<(), int>(
         [],
         policy: ContEitherPolicy.sequence(),
-      ).run((), onTerminate: (e) => errors = e);
+      ).run((), onElse: (e) => errors = e);
 
       expect(errors, isNotNull);
       expect(errors, isEmpty);
@@ -73,7 +73,7 @@ void main() {
         policy: ContEitherPolicy.mergeWhenAll(
           (a, b) => a + b,
         ),
-      ).run((), onValue: (val) => value = val);
+      ).run((), onThen: (val) => value = val);
 
       expect(value, 60);
     });
@@ -83,14 +83,14 @@ void main() {
 
       Cont.any<(), int>(
         [
-          Cont.terminate([ContError.capture('err1')]),
+          Cont.stop([ContError.capture('err1')]),
           Cont.of(20),
-          Cont.terminate([ContError.capture('err3')]),
+          Cont.stop([ContError.capture('err3')]),
         ],
         policy: ContEitherPolicy.mergeWhenAll(
           (a, b) => a + b,
         ),
-      ).run((), onValue: (val) => value = val);
+      ).run((), onThen: (val) => value = val);
 
       expect(value, 20);
     });
@@ -100,13 +100,13 @@ void main() {
 
       Cont.any<(), int>(
         [
-          Cont.terminate([ContError.capture('err1')]),
-          Cont.terminate([ContError.capture('err2')]),
+          Cont.stop([ContError.capture('err1')]),
+          Cont.stop([ContError.capture('err2')]),
         ],
         policy: ContEitherPolicy.mergeWhenAll(
           (a, b) => a + b,
         ),
-      ).run((), onTerminate: (e) => errors = e);
+      ).run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 2);
       expect(errors![0].error, 'err1');
@@ -121,7 +121,7 @@ void main() {
       Cont.any<(), int>(
         [Cont.of(10), Cont.of(20)],
         policy: ContEitherPolicy.quitFast(),
-      ).run((), onValue: (val) => value = val);
+      ).run((), onThen: (val) => value = val);
 
       expect(value, 10);
     });
@@ -131,11 +131,11 @@ void main() {
 
       Cont.any<(), int>(
         [
-          Cont.terminate([ContError.capture('err1')]),
-          Cont.terminate([ContError.capture('err2')]),
+          Cont.stop([ContError.capture('err1')]),
+          Cont.stop([ContError.capture('err2')]),
         ],
         policy: ContEitherPolicy.quitFast(),
-      ).run((), onTerminate: (e) => errors = e);
+      ).run((), onElse: (e) => errors = e);
 
       expect(errors, isNotNull);
     });
@@ -147,17 +147,17 @@ void main() {
       final cont = Cont.any<(), int>([
         Cont.fromRun((runtime, observer) {
           callCount++;
-          observer.onValue(callCount);
+          observer.onThen(callCount);
         }),
       ], policy: ContEitherPolicy.sequence());
 
       int? value1;
-      cont.run((), onValue: (val) => value1 = val);
+      cont.run((), onThen: (val) => value1 = val);
       expect(value1, 1);
       expect(callCount, 1);
 
       int? value2;
-      cont.run((), onValue: (val) => value2 = val);
+      cont.run((), onThen: (val) => value2 = val);
       expect(value2, 2);
       expect(callCount, 2);
     });
@@ -172,7 +172,7 @@ void main() {
       list.add(Cont.of(3));
 
       int? value;
-      cont.run((), onValue: (val) => value = val);
+      cont.run((), onThen: (val) => value = val);
 
       expect(value, 1);
     });

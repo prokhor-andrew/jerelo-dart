@@ -7,7 +7,7 @@ void main() {
       int? value;
       Cont.of<(), int>(42)
           .thenTap((a) => Cont.of('side effect'))
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 42);
     });
@@ -16,7 +16,7 @@ void main() {
       var sideEffectValue = 0;
       Cont.of<(), int>(10)
           .thenTap(
-            (a) => Cont.of<(), ()>(()).map((_) {
+            (a) => Cont.of<(), ()>(()).thenMap((_) {
               sideEffectValue = a * 2;
               return ();
             }),
@@ -30,9 +30,9 @@ void main() {
       final errors = [ContError.capture('err1')];
       List<ContError>? received;
 
-      Cont.terminate<(), int>(errors)
+      Cont.stop<(), int>(errors)
           .thenTap((a) => Cont.of('side effect'))
-          .run((), onTerminate: (e) => received = e);
+          .run((), onElse: (e) => received = e);
 
       expect(received!.length, 1);
       expect(received![0].error, 'err1');
@@ -40,7 +40,7 @@ void main() {
 
     test('terminates when side effect terminates', () {
       final cont = Cont.of<(), int>(42).thenTap(
-        (a) => Cont.terminate<(), String>([
+        (a) => Cont.stop<(), String>([
           ContError.capture('side effect error'),
         ]),
       );
@@ -48,8 +48,8 @@ void main() {
       List<ContError>? errors;
       cont.run(
         (),
-        onValue: (_) => fail('onValue must not be called'),
-        onTerminate: (e) => errors = e,
+        onThen: (_) => fail('onThen must not be called'),
+        onElse: (e) => errors = e,
       );
 
       expect(errors!.length, 1);
@@ -60,7 +60,7 @@ void main() {
       String? value;
       Cont.of<(), String>('original')
           .thenTap((a) => Cont.of(999))
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 'original');
     });
@@ -73,7 +73,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Thrown Error');
@@ -82,19 +82,19 @@ void main() {
     test('supports multiple runs', () {
       var callCount = 0;
       final cont = Cont.of<(), int>(10).thenTap(
-        (a) => Cont.of<(), ()>(()).map((_) {
+        (a) => Cont.of<(), ()>(()).thenMap((_) {
           callCount++;
           return ();
         }),
       );
 
       int? value1;
-      cont.run((), onValue: (val) => value1 = val);
+      cont.run((), onThen: (val) => value1 = val);
       expect(value1, 10);
       expect(callCount, 1);
 
       int? value2;
-      cont.run((), onValue: (val) => value2 = val);
+      cont.run((), onThen: (val) => value2 = val);
       expect(value2, 10);
       expect(callCount, 2);
     });
@@ -105,7 +105,7 @@ void main() {
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
-            onValue: (_) {},
+            onThen: (_) {},
           );
     });
 
@@ -124,7 +124,7 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onValue(10);
+              observer.onThen(10);
             });
           }).thenTap((val) {
             sideEffectCalled = true;
@@ -134,7 +134,7 @@ void main() {
       int? value;
       final token = cont.run(
         (),
-        onValue: (val) => value = val,
+        onThen: (val) => value = val,
       );
 
       token.cancel();
@@ -148,7 +148,7 @@ void main() {
       List<ContError>? errors;
       final cont = Cont.of<(), int>(42).thenTap(
         (a) => Cont.fromRun<(), Never>((runtime, observer) {
-          observer.onTerminate([
+          observer.onElse([
             ContError.capture("never error"),
           ]);
         }),
@@ -156,8 +156,8 @@ void main() {
 
       cont.run(
         (),
-        onTerminate: (e) => errors = e,
-        onValue: (v) {
+        onElse: (e) => errors = e,
+        onThen: (v) {
           fail('Should not be called');
         },
       );
@@ -172,20 +172,20 @@ void main() {
       var count2 = 0;
 
       final cont1 = Cont.of<(), int>(10).thenTap0(
-        () => Cont.of<(), ()>(()).map((_) {
+        () => Cont.of<(), ()>(()).thenMap((_) {
           count1++;
           return ();
         }),
       );
       final cont2 = Cont.of<(), int>(10).thenTap(
-        (_) => Cont.of<(), ()>(()).map((_) {
+        (_) => Cont.of<(), ()>(()).thenMap((_) {
           count2++;
           return ();
         }),
       );
 
-      cont1.run((), onValue: (val) => value1 = val);
-      cont2.run((), onValue: (val) => value2 = val);
+      cont1.run((), onThen: (val) => value1 = val);
+      cont2.run((), onThen: (val) => value2 = val);
 
       expect(value1, value2);
       expect(count1, 1);
@@ -201,13 +201,13 @@ void main() {
             order.add('side-effect: $val');
             return Cont.of(());
           })
-          .map((val) {
+          .thenMap((val) {
             order.add('main-value: $val');
             return val;
           })
           .run(
             (),
-            onValue: (val) {
+            onThen: (val) {
               order.add('final: $val');
               result = val;
             },
@@ -239,7 +239,7 @@ void main() {
               order.add('then');
               return Cont.of(val);
             })
-            .run((), onValue: (_) => order.add('value'));
+            .run((), onThen: (_) => order.add('value'));
 
         expect(order, ['tap1', 'tap2', 'then', 'value']);
       },
@@ -256,13 +256,13 @@ void main() {
               return Cont.of(());
             });
           })
-          .map((val) {
+          .thenMap((val) {
             order.add('map');
             return val * 2;
           })
           .run(
             (),
-            onValue: (val) {
+            onThen: (val) {
               order.add('value: $val');
               result = val;
             },

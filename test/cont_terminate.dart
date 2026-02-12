@@ -4,24 +4,24 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.terminate', () {
     test(
-      'Cont.terminate calls onTerminate with empty errors by default',
+      'Cont.terminate calls onElse with empty errors by default',
       () {
         List<ContError>? errors;
-        final cont = Cont.terminate<(), int>();
+        final cont = Cont.stop<(), int>();
 
-        cont.run((), onTerminate: (e) => errors = e);
+        cont.run((), onElse: (e) => errors = e);
         expect(errors, []);
       },
     );
 
     test(
-      'Cont.terminate calls onTerminate with provided errors',
+      'Cont.terminate calls onElse with provided errors',
       () {
         final error = ContError.capture('test error');
         List<ContError>? errors;
-        final cont = Cont.terminate<(), int>([error]);
+        final cont = Cont.stop<(), int>([error]);
 
-        cont.run((), onTerminate: (e) => errors = e);
+        cont.run((), onElse: (e) => errors = e);
         expect(errors, hasLength(1));
         expect(errors![0].error, 'test error');
       },
@@ -31,30 +31,30 @@ void main() {
       final error1 = ContError.capture('error 1');
       final error2 = ContError.capture('error 2');
       List<ContError>? errors;
-      final cont = Cont.terminate<(), int>([
+      final cont = Cont.stop<(), int>([
         error1,
         error2,
       ]);
 
-      cont.run((), onTerminate: (e) => errors = e);
+      cont.run((), onElse: (e) => errors = e);
       expect(errors, hasLength(2));
       expect(errors![0].error, 'error 1');
       expect(errors![1].error, 'error 2');
     });
 
-    test('Cont.terminate does not call onValue', () {
-      final cont = Cont.terminate<(), int>();
+    test('Cont.terminate does not call onThen', () {
+      final cont = Cont.stop<(), int>();
 
       cont.run(
         (),
-        onValue: (_) {
+        onThen: (_) {
           fail('Should not be called');
         },
       );
     });
 
     test('Cont.terminate does not call onPanic', () {
-      final cont = Cont.terminate<(), int>();
+      final cont = Cont.stop<(), int>();
 
       cont.run(
         (),
@@ -66,10 +66,10 @@ void main() {
 
     test('Cont.terminate can be run multiple times', () {
       var callCount = 0;
-      final cont = Cont.terminate<(), int>();
+      final cont = Cont.stop<(), int>();
 
-      cont.run((), onTerminate: (_) => callCount++);
-      cont.run((), onTerminate: (_) => callCount++);
+      cont.run((), onElse: (_) => callCount++);
+      cont.run((), onElse: (_) => callCount++);
 
       expect(callCount, 2);
     });
@@ -80,14 +80,14 @@ void main() {
         final errors = <ContError>[
           ContError.capture('original'),
         ];
-        final cont = Cont.terminate<(), int>(errors);
+        final cont = Cont.stop<(), int>(errors);
 
         errors.add(
           ContError.capture('added after creation'),
         );
 
         List<ContError>? received;
-        cont.run((), onTerminate: (e) => received = e);
+        cont.run((), onElse: (e) => received = e);
 
         expect(received, hasLength(1));
         expect(received![0].error, 'original');
@@ -97,7 +97,7 @@ void main() {
     test(
       'Cont.terminate defensively copies errors on each run',
       () {
-        final cont = Cont.terminate<(), int>([
+        final cont = Cont.stop<(), int>([
           ContError.capture('error'),
         ]);
 
@@ -106,13 +106,13 @@ void main() {
 
         cont.run(
           (),
-          onTerminate: (e) {
+          onElse: (e) {
             firstRun = e;
             e.add(ContError.capture('mutated'));
           },
         );
 
-        cont.run((), onTerminate: (e) => secondRun = e);
+        cont.run((), onElse: (e) => secondRun = e);
 
         expect(firstRun, hasLength(2));
         expect(secondRun, hasLength(1));
@@ -122,12 +122,12 @@ void main() {
 
     test('Cont.terminate works with Never value type', () {
       List<ContError>? errors;
-      final cont = Cont.terminate<(), Never>();
+      final cont = Cont.stop<(), Never>();
 
       cont.run(
         (),
-        onTerminate: (e) => errors = e,
-        onValue: (_) {
+        onElse: (e) => errors = e,
+        onThen: (_) {
           fail('Should not be called');
         },
       );
@@ -140,13 +140,13 @@ void main() {
         List<ContError>? errorsNoArg;
         List<ContError>? errorsEmptyList;
 
-        Cont.terminate<(), int>().run(
+        Cont.stop<(), int>().run(
           (),
-          onTerminate: (e) => errorsNoArg = e,
+          onElse: (e) => errorsNoArg = e,
         );
-        Cont.terminate<(), int>(
+        Cont.stop<(), int>(
           [],
-        ).run((), onTerminate: (e) => errorsEmptyList = e);
+        ).run((), onElse: (e) => errorsEmptyList = e);
 
         expect(errorsNoArg, []);
         expect(errorsEmptyList, []);

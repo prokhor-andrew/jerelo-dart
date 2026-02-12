@@ -10,7 +10,7 @@ void main() {
             (a) => Cont.of('value'),
             (a, b) => '$b: $a',
           )
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 'value: 10');
     });
@@ -21,17 +21,17 @@ void main() {
 
       Cont.fromRun<(), int>((runtime, observer) {
             order.add('first');
-            observer.onValue(1);
+            observer.onThen(1);
           })
           .thenZip(
             (a) =>
                 Cont.fromRun<(), int>((runtime, observer) {
                   order.add('second');
-                  observer.onValue(2);
+                  observer.onThen(2);
                 }),
             (a, b) => a + b,
           )
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(order, ['first', 'second']);
       expect(value, 3);
@@ -53,12 +53,12 @@ void main() {
       final errors = [ContError.capture('err1')];
       List<ContError>? received;
 
-      Cont.terminate<(), int>(errors)
+      Cont.stop<(), int>(errors)
           .thenZip(
             (a) => Cont.of('value'),
             (a, b) => '$a $b',
           )
-          .run((), onTerminate: (e) => received = e);
+          .run((), onElse: (e) => received = e);
 
       expect(received!.length, 1);
       expect(received![0].error, 'err1');
@@ -68,7 +68,7 @@ void main() {
       'terminates when second continuation terminates',
       () {
         final cont = Cont.of<(), int>(42).thenZip(
-          (a) => Cont.terminate<(), String>([
+          (a) => Cont.stop<(), String>([
             ContError.capture('second error'),
           ]),
           (a, b) => '$b: $a',
@@ -77,9 +77,9 @@ void main() {
         List<ContError>? errors;
         cont.run(
           (),
-          onValue: (_) =>
-              fail('onValue must not be called'),
-          onTerminate: (e) => errors = e,
+          onThen: (_) =>
+              fail('onThen must not be called'),
+          onElse: (e) => errors = e,
         );
 
         expect(errors!.length, 1);
@@ -95,7 +95,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Thrown Error');
@@ -112,7 +112,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Combine Error');
@@ -120,12 +120,12 @@ void main() {
 
     test('never executes second on first termination', () {
       bool secondCalled = false;
-      Cont.terminate<(), int>()
+      Cont.stop<(), int>()
           .thenZip((a) {
             secondCalled = true;
             return Cont.of('value');
           }, (a, b) => '$a $b')
-          .run((), onTerminate: (_) {});
+          .run((), onElse: (_) {});
 
       expect(secondCalled, false);
     });
@@ -138,7 +138,7 @@ void main() {
             (n) => Cont.of(n.toString()),
             (num, str) => 'number: $num, string: $str',
           )
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 'number: 42, string: 42');
     });
@@ -149,11 +149,11 @@ void main() {
       ).thenZip((a) => Cont.of(a * 3), (a, b) => a + b);
 
       int? value1;
-      cont.run((), onValue: (val) => value1 = val);
+      cont.run((), onThen: (val) => value1 = val);
       expect(value1, 20); // 5 + 15
 
       int? value2;
-      cont.run((), onValue: (val) => value2 = val);
+      cont.run((), onThen: (val) => value2 = val);
       expect(value2, 20);
     });
 
@@ -163,7 +163,7 @@ void main() {
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
-            onValue: (_) {},
+            onThen: (_) {},
           );
     });
 
@@ -184,7 +184,7 @@ void main() {
             Cont.fromRun<(), int>((runtime, observer) {
               buffer.add(() {
                 if (runtime.isCancelled()) return;
-                observer.onValue(10);
+                observer.onThen(10);
               });
             }).thenZip((val) {
               secondCalled = true;
@@ -194,7 +194,7 @@ void main() {
         int? value;
         final token = cont.run(
           (),
-          onValue: (val) => value = val,
+          onThen: (val) => value = val,
         );
 
         token.cancel();
@@ -209,7 +209,7 @@ void main() {
       List<ContError>? errors;
       final cont = Cont.of<(), int>(42).thenZip(
         (a) => Cont.fromRun<(), Never>((runtime, observer) {
-          observer.onTerminate([
+          observer.onElse([
             ContError.capture("never error"),
           ]);
         }),
@@ -218,8 +218,8 @@ void main() {
 
       cont.run(
         (),
-        onTerminate: (e) => errors = e,
-        onValue: (v) {
+        onElse: (e) => errors = e,
+        onThen: (v) {
           fail('Should not be called');
         },
       );
@@ -238,8 +238,8 @@ void main() {
         10,
       ).thenZip((_) => Cont.of('test'), (a, b) => '$b: $a');
 
-      cont1.run((), onValue: (val) => value1 = val);
-      cont2.run((), onValue: (val) => value2 = val);
+      cont1.run((), onThen: (val) => value1 = val);
+      cont2.run((), onThen: (val) => value2 = val);
 
       expect(value1, value2);
       expect(value1, 'test: 10');

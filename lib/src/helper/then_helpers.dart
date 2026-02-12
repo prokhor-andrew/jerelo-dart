@@ -7,7 +7,7 @@ Cont<E, A> _thenFork<E, A, A2>(
   return Cont.fromRun((runtime, observer) {
     cont._run(
       runtime,
-      observer.copyUpdateOnValue((a) {
+      observer.copyUpdateOnThen((a) {
         if (runtime.isCancelled()) {
           return;
         }
@@ -29,7 +29,7 @@ Cont<E, A> _thenFork<E, A, A2>(
           // a concern of the thenFork
         }
 
-        observer.onValue(a);
+        observer.onThen(a);
       }),
     );
   });
@@ -42,7 +42,7 @@ Cont<E, A2> _thenDo<E, A, A2>(
   return Cont.fromRun((runtime, observer) {
     cont._run(
       runtime,
-      observer.copyUpdateOnValue((a) {
+      observer.copyUpdateOnThen((a) {
         if (runtime.isCancelled()) {
           return;
         }
@@ -53,7 +53,7 @@ Cont<E, A2> _thenDo<E, A, A2>(
           }
           contA2._run(runtime, observer);
         } catch (error, st) {
-          observer.onTerminate([
+          observer.onElse([
             ContError.withStackTrace(error, st),
           ]);
         }

@@ -10,15 +10,15 @@ void main() {
         runtime,
         observer,
       ) {
-        observer.onTerminate();
+        observer.onElse();
       });
 
       cont.run(
         (),
-        onTerminate: (errors) {
+        onElse: (errors) {
           expect(errors, []);
         },
-        onValue: (_) {
+        onThen: (_) {
           fail('Should not be called');
         },
       );
@@ -38,59 +38,59 @@ void main() {
       expect(isRun, true);
     });
 
-    test('Cont.fromRun onValue channel used', () {
+    test('Cont.fromRun onThen channel used', () {
       var value = 15;
       final cont = Cont.fromRun<(), int>((
         runtime,
         observer,
       ) {
-        observer.onValue(0);
+        observer.onThen(0);
       });
 
       expect(value, 15);
-      cont.run((), onValue: (v) => value = v);
+      cont.run((), onThen: (v) => value = v);
       expect(value, 0);
     });
 
     test(
-      'Cont.fromRun onTerminate empty channel used manually',
+      'Cont.fromRun onElse empty channel used manually',
       () {
         List<ContError>? errors = null;
         final cont = Cont.fromRun<(), int>((
           runtime,
           observer,
         ) {
-          observer.onTerminate([]);
+          observer.onElse([]);
         });
 
         expect(errors, null);
-        cont.run((), onTerminate: (e) => errors = e);
+        cont.run((), onElse: (e) => errors = e);
         expect(errors, []);
       },
     );
 
     test(
-      'Cont.fromRun onTerminate error channel used manually',
+      'Cont.fromRun onElse error channel used manually',
       () {
         List<ContError>? errors = null;
         final cont = Cont.fromRun<(), int>((
           runtime,
           observer,
         ) {
-          observer.onTerminate([
+          observer.onElse([
             ContError.capture("random error"),
           ]);
         });
 
         expect(errors, null);
-        cont.run((), onTerminate: (e) => errors = e);
+        cont.run((), onElse: (e) => errors = e);
 
         expect(errors![0].error, "random error");
       },
     );
 
     test(
-      'Cont.fromRun onTerminate error channel used when throws',
+      'Cont.fromRun onElse error channel used when throws',
       () {
         List<ContError>? errors = null;
         final cont = Cont.fromRun<(), int>((
@@ -101,49 +101,49 @@ void main() {
         });
 
         expect(errors, null);
-        cont.run((), onTerminate: (e) => errors = e);
+        cont.run((), onElse: (e) => errors = e);
 
         expect(errors![0].error, "random error");
       },
     );
 
-    test('Cont.fromRun onValue idempotent', () {
+    test('Cont.fromRun onThen idempotent', () {
       var value = 0;
       final cont = Cont.fromRun<(), int>((
         runtime,
         observer,
       ) {
-        observer.onValue(15);
-        observer.onValue(20);
+        observer.onThen(15);
+        observer.onThen(20);
       });
 
       expect(value, 0);
-      cont.run((), onValue: (v) => value = v);
+      cont.run((), onThen: (v) => value = v);
       expect(value, 15);
     });
 
-    test('Cont.fromRun onTerminate idempotent', () {
+    test('Cont.fromRun onElse idempotent', () {
       List<ContError>? errors = null;
       final cont = Cont.fromRun<(), int>((
         runtime,
         observer,
       ) {
-        observer.onTerminate([
+        observer.onElse([
           ContError.capture("random error"),
         ]);
-        observer.onTerminate([
+        observer.onElse([
           ContError.capture("random error2"),
         ]);
       });
 
       expect(errors, null);
-      cont.run((), onTerminate: (e) => errors = e);
+      cont.run((), onElse: (e) => errors = e);
 
       expect(errors![0].error, 'random error');
     });
 
     test(
-      'Cont.fromRun onValue and onTerminate share idempotency',
+      'Cont.fromRun onThen and onElse share idempotency',
       () {
         var value = 0;
         List<ContError>? errors = null;
@@ -151,8 +151,8 @@ void main() {
           runtime,
           observer,
         ) {
-          observer.onValue(15);
-          observer.onTerminate([
+          observer.onThen(15);
+          observer.onElse([
             ContError.capture("random error"),
           ]);
         });
@@ -162,8 +162,8 @@ void main() {
 
         cont.run(
           (),
-          onTerminate: (e) => errors = e,
-          onValue: (v) => value = v,
+          onElse: (e) => errors = e,
+          onThen: (v) => value = v,
         );
 
         expect(errors, null);
@@ -172,7 +172,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun onTerminate and onValue share idempotency',
+      'Cont.fromRun onElse and onThen share idempotency',
       () {
         var value = 0;
         List<ContError>? errors = null;
@@ -180,10 +180,10 @@ void main() {
           runtime,
           observer,
         ) {
-          observer.onTerminate([
+          observer.onElse([
             ContError.capture("random error"),
           ]);
-          observer.onValue(15);
+          observer.onThen(15);
         });
 
         expect(errors, null);
@@ -191,8 +191,8 @@ void main() {
 
         cont.run(
           (),
-          onTerminate: (e) => errors = e,
-          onValue: (v) => value = v,
+          onElse: (e) => errors = e,
+          onThen: (v) => value = v,
         );
 
         expect(value, 0);
@@ -224,7 +224,7 @@ void main() {
         runtime,
         observer,
       ) {
-        observer.onTerminate(errors0);
+        observer.onElse(errors0);
       });
 
       expect(errors0.map((error) => error.error).toList(), [
@@ -237,7 +237,7 @@ void main() {
 
       cont.run(
         (),
-        onTerminate: (errors) {
+        onElse: (errors) {
           errors.add(ContError.capture(4));
           errors1 = errors;
         },
@@ -274,14 +274,14 @@ void main() {
           if (runtime.isCancelled()) {
             return;
           }
-          observer.onValue(10);
+          observer.onThen(10);
         });
       });
 
       expect(value, 0);
       final token = cont.run(
         (),
-        onValue: (val) => value = val,
+        onThen: (val) => value = val,
       );
       expect(value, 0);
       token.cancel();
@@ -290,7 +290,7 @@ void main() {
     });
 
     test(
-      'Cont.fromRun onPanic when onValue callback throws',
+      'Cont.fromRun onPanic when onThen callback throws',
       () {
         ContError? panic;
 
@@ -298,13 +298,13 @@ void main() {
           runtime,
           observer,
         ) {
-          observer.onValue(10);
+          observer.onThen(10);
         });
 
         cont.run(
           (),
           onPanic: (error) => panic = error,
-          onValue: (v) {
+          onThen: (v) {
             throw 'value callback error';
           },
         );
@@ -314,7 +314,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun onPanic when onTerminate callback throws',
+      'Cont.fromRun onPanic when onElse callback throws',
       () {
         ContError? panic;
 
@@ -322,13 +322,13 @@ void main() {
           runtime,
           observer,
         ) {
-          observer.onTerminate([]);
+          observer.onElse([]);
         });
 
         cont.run(
           (),
           onPanic: (error) => panic = error,
-          onTerminate: (errors) {
+          onElse: (errors) {
             throw 'terminate callback error';
           },
         );
@@ -338,7 +338,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun fallback panic when onPanic throws via onValue',
+      'Cont.fromRun fallback panic when onPanic throws via onThen',
       () async {
         Object? caughtError;
 
@@ -348,7 +348,7 @@ void main() {
               runtime,
               observer,
             ) {
-              observer.onValue(10);
+              observer.onThen(10);
             });
 
             cont.run(
@@ -356,7 +356,7 @@ void main() {
               onPanic: (error) {
                 throw 'onPanic also fails';
               },
-              onValue: (v) {
+              onThen: (v) {
                 throw 'value callback error';
               },
             );
@@ -372,7 +372,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun fallback panic when onPanic throws via onTerminate',
+      'Cont.fromRun fallback panic when onPanic throws via onElse',
       () async {
         Object? caughtError;
 
@@ -382,7 +382,7 @@ void main() {
               runtime,
               observer,
             ) {
-              observer.onTerminate([]);
+              observer.onElse([]);
             });
 
             cont.run(
@@ -390,7 +390,7 @@ void main() {
               onPanic: (error) {
                 throw 'onPanic also fails';
               },
-              onTerminate: (errors) {
+              onElse: (errors) {
                 throw 'terminate callback error';
               },
             );
@@ -406,7 +406,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun throw after onValue is idempotent',
+      'Cont.fromRun throw after onThen is idempotent',
       () {
         var value = 0;
         List<ContError>? errors;
@@ -415,14 +415,14 @@ void main() {
           runtime,
           observer,
         ) {
-          observer.onValue(15);
+          observer.onThen(15);
           throw 'error after value';
         });
 
         cont.run(
           (),
-          onValue: (v) => value = v,
-          onTerminate: (e) => errors = e,
+          onThen: (v) => value = v,
+          onElse: (e) => errors = e,
         );
 
         expect(value, 15);
@@ -431,7 +431,7 @@ void main() {
     );
 
     test(
-      'Cont.fromRun throw after onTerminate is idempotent',
+      'Cont.fromRun throw after onElse is idempotent',
       () {
         List<ContError>? errors;
 
@@ -439,13 +439,13 @@ void main() {
           runtime,
           observer,
         ) {
-          observer.onTerminate([
+          observer.onElse([
             ContError.capture("first error"),
           ]);
           throw 'error after terminate';
         });
 
-        cont.run((), onTerminate: (e) => errors = e);
+        cont.run((), onElse: (e) => errors = e);
 
         expect(errors!.length, 1);
         expect(errors![0].error, 'first error');
@@ -470,14 +470,14 @@ void main() {
           observer,
         ) {
           buffer.add(() {
-            observer.onValue(10);
+            observer.onThen(10);
           });
         });
 
         expect(value, 0);
         final token = cont.run(
           (),
-          onValue: (val) => value = val,
+          onThen: (val) => value = val,
         );
         expect(value, 0);
         token.cancel();
@@ -504,7 +504,7 @@ void main() {
           observer,
         ) {
           buffer.add(() {
-            observer.onTerminate([
+            observer.onElse([
               ContError.capture("error"),
             ]);
           });
@@ -513,7 +513,7 @@ void main() {
         expect(errors, null);
         final token = cont.run(
           (),
-          onTerminate: (e) => errors = e,
+          onElse: (e) => errors = e,
         );
         expect(errors, null);
         token.cancel();

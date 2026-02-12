@@ -11,4 +11,7 @@ pubspec.lock
 .idea/
 *.iml
 
+# macOS
+.DS_Store
+
 build/

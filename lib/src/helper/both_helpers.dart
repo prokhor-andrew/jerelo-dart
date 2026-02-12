@@ -31,7 +31,7 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
       }
 
       if (isOneFailed) {
-        observer.onTerminate(leftErrors + rightErrors);
+        observer.onElse(leftErrors + rightErrors);
         return;
       }
 
@@ -42,9 +42,9 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
 
       try {
         final c = combine(outerA1 as A1, outerA2 as A2);
-        observer.onValue(c);
+        observer.onThen(c);
       } catch (error, st) {
-        observer.onTerminate([
+        observer.onElse([
           ContError.withStackTrace(error, st),
         ]);
       }
@@ -65,7 +65,7 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
           rightErrors.addAll(errors);
         }
 
-        observer.onTerminate(leftErrors + rightErrors);
+        observer.onElse(leftErrors + rightErrors);
         return;
       }
 
@@ -88,7 +88,7 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
           secondErrors = leftErrors;
         }
 
-        observer.onTerminate(firstErrors + secondErrors);
+        observer.onElse(firstErrors + secondErrors);
         return;
       }
 
@@ -170,9 +170,9 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
       isDone = true;
       try {
         final c = combine(outerA1 as A1, outerA2 as A2);
-        observer.onValue(c);
+        observer.onThen(c);
       } catch (error, st) {
-        observer.onTerminate([
+        observer.onElse([
           ContError.withStackTrace(error, st),
         ]);
       }
@@ -181,7 +181,7 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
     void handleTerminate(void Function() codeToUpdate) {
       isDone = true;
       codeToUpdate();
-      observer.onTerminate(resultErrors);
+      observer.onElse(resultErrors);
     }
 
     try {

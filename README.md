@@ -29,8 +29,8 @@ final getUserData = Cont.of(userId)
   .thenTap((user) => logAccess(user));
 
 // Execute it multiple times with different configs
-getUserData.run(prodConfig, onTerminate: handleError, onValue: handleSuccess);
-getUserData.run(testConfig, onTerminate: handleError, onValue: handleSuccess);
+getUserData.run(prodConfig, onElse: handleError, onThen: handleSuccess);
+getUserData.run(testConfig, onElse: handleError, onThen: handleSuccess);
 ```
 
 ## Design Goals
@@ -45,8 +45,9 @@ getUserData.run(testConfig, onTerminate: handleError, onValue: handleSuccess);
 
 ## Documentation
 
-- **[User Guide](documentation/doc.md)** - Comprehensive guide with examples and patterns
-- **[API Reference](documentation/api.md)** - Complete API documentation for all types and methods
+- **[Documentation Home](documentation/README.md)** - Complete documentation hub
+- **[User Guide](documentation/user_guide/01-introduction.md)** - Start learning Jerelo
+- **[API Reference](documentation/api/)** - Complete API documentation for all types and methods
 
 ## Full Example
 
@@ -83,7 +84,7 @@ Cont<AppConfig, User> fetchUserFromApi(String userId) {
         if (runtime.isCancelled()) return;
 
         // Simulate successful response
-        observer.onValue(User(userId, 'John Doe', true));
+        observer.onThen(User(userId, 'John Doe', true));
       });
     });
   });
@@ -98,7 +99,7 @@ Cont<AppConfig, User> loadUserFromCache(String userId) {
 Cont<AppConfig, void> logAccess(User user) {
   return Cont.fromRun((runtime, observer) {
     print('[LOG] User accessed: ${user.name}');
-    observer.onValue(null);
+    observer.onThen(null);
   });
 }
 
@@ -109,7 +110,7 @@ Cont<AppConfig, void> logError(List<ContError> errors) {
     for (final e in errors) {
       print('  - ${e.error}');
     }
-    observer.onValue(null);
+    observer.onThen(null);
   });
 }
 
@@ -122,7 +123,7 @@ Cont<AppConfig, User> getUserData(String userId) {
     .elseDoWithEnv((config, errors) {
       return config.enableCache
         ? loadUserFromCache(userId)
-        : Cont.terminate(errors);
+        : Cont.stop(errors);
     })
     // Side effect: log access without blocking
     .thenTap((user) => logAccess(user))
@@ -163,15 +164,15 @@ void main() {
   // Execute with production config — run returns a ContCancelToken
   final token1 = singleUserFlow.run(
     prodConfig,
-    onTerminate: (errors) => print('Production failed: ${errors.length} error(s)'),
-    onValue: (user) => print('Production success: ${user.name}'),
+    onElse: (errors) => print('Production failed: ${errors.length} error(s)'),
+    onThen: (user) => print('Production success: ${user.name}'),
   );
 
   // Execute the same computation with test config
   final token2 = singleUserFlow.run(
     testConfig,
-    onTerminate: (errors) => print('Test failed: ${errors.length} error(s)'),
-    onValue: (user) => print('Test success: ${user.name}'),
+    onElse: (errors) => print('Test failed: ${errors.length} error(s)'),
+    onThen: (user) => print('Test success: ${user.name}'),
   );
 
   print('\n=== Multiple Users Example ===');
@@ -181,8 +182,8 @@ void main() {
 
   multiUserFlow.run(
     prodConfig,
-    onTerminate: (errors) => print('Failed to fetch users'),
-    onValue: (users) => print('Fetched ${users.length} users: ${users.map((u) => u.name).join(', ')}'),
+    onElse: (errors) => print('Failed to fetch users'),
+    onThen: (users) => print('Fetched ${users.length} users: ${users.map((u) => u.name).join(', ')}'),
   );
 
   print('\n=== Advanced: Racing API vs Cache ===');
@@ -196,8 +197,8 @@ void main() {
 
   racingFlow.run(
     prodConfig,
-    onTerminate: (errors) => print('Both sources failed'),
-    onValue: (user) => print('Got user from fastest source: ${user.name}'),
+    onElse: (errors) => print('Both sources failed'),
+    onThen: (user) => print('Got user from fastest source: ${user.name}'),
   );
 
   // Cancel any running computation when needed
@@ -222,8 +223,10 @@ The example above showcases:
 
 ## Learn More
 
-- Explore the [User Guide](documentation/doc.md) for in-depth explanations and patterns
-- Check the [API Reference](documentation/api.md) for complete method documentation
+- Explore the [Documentation](documentation/README.md) for comprehensive guides and references
+- Start with the [User Guide](documentation/user_guide/01-introduction.md) for in-depth explanations and patterns
+- Check the [API Reference](documentation/api/) for complete method documentation
+- See [Real-World Examples](documentation/user_guide/07-examples.md) for practical patterns
 
 ## License
 

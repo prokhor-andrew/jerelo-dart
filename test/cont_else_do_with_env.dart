@@ -6,14 +6,14 @@ void main() {
     test('provides env and errors on termination', () {
       String? value;
 
-      Cont.terminate<String, String>([
+      Cont.stop<String, String>([
             ContError.capture('err'),
           ])
           .elseDoWithEnv(
             (env, errors) =>
                 Cont.of('$env: ${errors.first.error}'),
           )
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(value, 'hello: err');
     });
@@ -27,7 +27,7 @@ void main() {
             called = true;
             return Cont.of('fallback');
           })
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(called, false);
       expect(value, 'original');
@@ -38,15 +38,15 @@ void main() {
       () {
         List<ContError>? errors;
 
-        Cont.terminate<String, int>([
+        Cont.stop<String, int>([
               ContError.capture('original'),
             ])
             .elseDoWithEnv((env, e) {
-              return Cont.terminate<String, int>([
+              return Cont.stop<String, int>([
                 ContError.capture('fallback-$env'),
               ]);
             })
-            .run('cfg', onTerminate: (e) => errors = e);
+            .run('cfg', onElse: (e) => errors = e);
 
         expect(errors!.length, 1);
         expect(errors![0].error, 'fallback-cfg');
@@ -57,7 +57,7 @@ void main() {
       final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
-      Cont.terminate<String, int>(originalErrors)
+      Cont.stop<String, int>(originalErrors)
           .elseDoWithEnv((env, errors) {
             receivedErrors = errors;
             errors.add(ContError.capture('err2'));
@@ -71,19 +71,19 @@ void main() {
 
     test('supports multiple runs with different envs', () {
       var callCount = 0;
-      final cont = Cont.terminate<String, String>()
+      final cont = Cont.stop<String, String>()
           .elseDoWithEnv((env, errors) {
             callCount++;
             return Cont.of('recovered: $env');
           });
 
       String? value1;
-      cont.run('first', onValue: (val) => value1 = val);
+      cont.run('first', onThen: (val) => value1 = val);
       expect(value1, 'recovered: first');
       expect(callCount, 1);
 
       String? value2;
-      cont.run('second', onValue: (val) => value2 = val);
+      cont.run('second', onThen: (val) => value2 = val);
       expect(value2, 'recovered: second');
       expect(callCount, 2);
     });
@@ -103,7 +103,7 @@ void main() {
           Cont.fromRun<String, int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onTerminate([
+              observer.onElse([
                 ContError.capture('error'),
               ]);
             });
@@ -125,11 +125,11 @@ void main() {
     test('provides env only', () {
       String? value;
 
-      Cont.terminate<String, String>()
+      Cont.stop<String, String>()
           .elseDoWithEnv0(
             (env) => Cont.of('recovered: $env'),
           )
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(value, 'recovered: hello');
     });
@@ -140,17 +140,17 @@ void main() {
         String? value1;
         String? value2;
 
-        final cont1 = Cont.terminate<String, String>()
+        final cont1 = Cont.stop<String, String>()
             .elseDoWithEnv0(
               (env) => Cont.of('recovered: $env'),
             );
-        final cont2 = Cont.terminate<String, String>()
+        final cont2 = Cont.stop<String, String>()
             .elseDoWithEnv(
               (env, _) => Cont.of('recovered: $env'),
             );
 
-        cont1.run('hello', onValue: (val) => value1 = val);
-        cont2.run('hello', onValue: (val) => value2 = val);
+        cont1.run('hello', onThen: (val) => value1 = val);
+        cont2.run('hello', onThen: (val) => value2 = val);
 
         expect(value1, value2);
       },

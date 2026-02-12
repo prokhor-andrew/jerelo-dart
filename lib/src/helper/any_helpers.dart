@@ -89,12 +89,12 @@ Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
               case _Left<List<ContError>, A>(
                 value: final errors,
               ):
-                observer.onTerminate([...errors]);
+                observer.onElse([...errors]);
                 return;
               case _Right<List<ContError>, A>(
                 value: final a,
               ):
-                observer.onValue(a);
+                observer.onThen(a);
                 return;
             }
         }
@@ -112,7 +112,7 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
     final safeCopy = List<Cont<E, A>>.from(list);
 
     if (safeCopy.isEmpty) {
-      observer.onTerminate();
+      observer.onElse();
       return;
     }
 
@@ -126,18 +126,18 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
               if (runtime.isCancelled()) {
                 return;
               }
-              observer.onTerminate([...errors]);
+              observer.onElse([...errors]);
             },
             (a) {
               if (runtime.isCancelled()) {
                 return;
               }
-              observer.onValue(a);
+              observer.onThen(a);
             },
           ),
         );
       } catch (error, st) {
-        observer.onTerminate([
+        observer.onElse([
           ContError.withStackTrace(error, st),
         ]);
       }
@@ -160,14 +160,14 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
       final seedCopy = seed;
       if (seedCopy != null) {
         if (i >= safeCopy.length) {
-          observer.onValue(seedCopy);
+          observer.onThen(seedCopy);
         }
         return;
       }
 
       errors.addAll(terminateErrors);
       if (i >= safeCopy.length) {
-        observer.onTerminate(errors);
+        observer.onElse(errors);
       }
     }
 
@@ -184,14 +184,14 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
               final seedCopy = seed;
               if (seedCopy != null) {
                 if (i >= safeCopy.length) {
-                  observer.onValue(seedCopy);
+                  observer.onThen(seedCopy);
                 }
                 return;
               }
 
               errors.addAll(terminateErrors);
               if (i >= safeCopy.length) {
-                observer.onTerminate(errors);
+                observer.onElse(errors);
               }
             },
             (a) {
@@ -223,7 +223,7 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
               }
 
               if (i >= safeCopy.length) {
-                observer.onValue(seedCopy2);
+                observer.onThen(seedCopy2);
                 return;
               }
             },
@@ -235,7 +235,7 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
         final seedCopy = seed;
         if (seedCopy != null) {
           if (i >= safeCopy.length) {
-            observer.onValue(seedCopy);
+            observer.onThen(seedCopy);
           }
           return;
         }
@@ -243,7 +243,7 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
         errors.add(ContError.withStackTrace(error, st));
 
         if (i >= safeCopy.length) {
-          observer.onTerminate(errors);
+          observer.onElse(errors);
           return;
         }
       }
@@ -255,7 +255,7 @@ Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
   return Cont.fromRun((runtime, observer) {
     final safeCopy = List<Cont<E, A>>.from(list);
     if (safeCopy.isEmpty) {
-      observer.onTerminate();
+      observer.onElse();
       return;
     }
 
@@ -291,7 +291,7 @@ Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
         return list;
       }).toList();
 
-      observer.onTerminate(flattened);
+      observer.onElse(flattened);
     }
 
     for (int i = 0; i < safeCopy.length; i++) {
@@ -313,7 +313,7 @@ Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
                 return;
               }
               isWinnerFound = true;
-              observer.onValue(a);
+              observer.onThen(a);
             },
           ),
         );

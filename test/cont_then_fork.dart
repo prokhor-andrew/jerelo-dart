@@ -7,7 +7,7 @@ void main() {
       int? value;
       Cont.of<(), int>(42)
           .thenFork((a) => Cont.of('side effect'))
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 42);
     });
@@ -32,13 +32,13 @@ void main() {
             ) {
               buffer.add(() {
                 order.add('fork');
-                observer.onValue(());
+                observer.onThen(());
               });
             });
           })
           .run(
             (),
-            onValue: (val) {
+            onThen: (val) {
               order.add('main');
               value = val;
             },
@@ -71,13 +71,13 @@ void main() {
               observer,
             ) {
               buffer.add(() {
-                observer.onTerminate([
+                observer.onElse([
                   ContError.capture('fork error'),
                 ]);
               });
             });
           })
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 42);
       flush(); // fork executes but error is ignored
@@ -88,9 +88,9 @@ void main() {
       final errors = [ContError.capture('err1')];
       List<ContError>? received;
 
-      Cont.terminate<(), int>(errors)
+      Cont.stop<(), int>(errors)
           .thenFork((a) => Cont.of('side effect'))
-          .run((), onTerminate: (e) => received = e);
+          .run((), onElse: (e) => received = e);
 
       expect(received!.length, 1);
       expect(received![0].error, 'err1');
@@ -98,12 +98,12 @@ void main() {
 
     test('never executes on termination', () {
       bool forkCalled = false;
-      Cont.terminate<(), int>()
+      Cont.stop<(), int>()
           .thenFork((a) {
             forkCalled = true;
             return Cont.of(());
           })
-          .run((), onTerminate: (_) {});
+          .run((), onElse: (_) {});
 
       expect(forkCalled, false);
     });
@@ -116,7 +116,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Fork Builder Error');
@@ -136,7 +136,7 @@ void main() {
         return Cont.fromRun<(), ()>((runtime, observer) {
           buffer.add(() {
             forkCount++;
-            observer.onValue(());
+            observer.onThen(());
           });
         });
       });
@@ -158,7 +158,7 @@ void main() {
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
-            onValue: (_) {},
+            onThen: (_) {},
           );
     });
 
@@ -177,7 +177,7 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onValue(10);
+              observer.onThen(10);
             });
           }).thenFork((val) {
             forkCalled = true;
@@ -187,7 +187,7 @@ void main() {
       int? value;
       final token = cont.run(
         (),
-        onValue: (val) => value = val,
+        onThen: (val) => value = val,
       );
 
       token.cancel();
@@ -215,7 +215,7 @@ void main() {
         return Cont.fromRun<(), ()>((runtime, observer) {
           buffer.add(() {
             fork1Called = true;
-            observer.onValue(());
+            observer.onThen(());
           });
         });
       });
@@ -224,13 +224,13 @@ void main() {
         return Cont.fromRun<(), ()>((runtime, observer) {
           buffer.add(() {
             fork2Called = true;
-            observer.onValue(());
+            observer.onThen(());
           });
         });
       });
 
-      cont1.run((), onValue: (val) => value1 = val);
-      cont2.run((), onValue: (val) => value2 = val);
+      cont1.run((), onThen: (val) => value1 = val);
+      cont2.run((), onThen: (val) => value2 = val);
 
       expect(value1, value2);
       expect(fork1Called, false);

@@ -1,4 +1,4 @@
-part of 'cont.dart';
+part of '../cont.dart';
 
 /// Provides runtime context for continuation execution.
 ///
@@ -17,7 +17,7 @@ final class ContRuntime<E> {
   /// Callback invoked when a fatal, unrecoverable error occurs during
   /// continuation execution.
   ///
-  /// Unlike [ContObserver.onTerminate], which handles expected termination
+  /// Unlike [ContObserver.onElse], which handles expected termination
   /// errors within the normal control flow, [onPanic] is reserved for
   /// situations that violate internal invariants (e.g. an observer callback
   /// throwing an exception). The default implementation re-throws the error

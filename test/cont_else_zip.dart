@@ -5,9 +5,9 @@ void main() {
   group('Cont.elseZip', () {
     test('recovers from termination', () {
       int? value;
-      Cont.terminate<(), int>()
+      Cont.stop<(), int>()
           .elseZip((errors) => Cont.of(42))
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(value, 42);
     });
@@ -15,13 +15,13 @@ void main() {
     test('combines errors when both fail', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([ContError.capture('err1')])
+      Cont.stop<(), int>([ContError.capture('err1')])
           .elseZip((e) {
-            return Cont.terminate<(), int>([
+            return Cont.stop<(), int>([
               ContError.capture('err2'),
             ]);
           })
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 2);
       expect(errors![0].error, 'err1');
@@ -30,7 +30,7 @@ void main() {
 
     test('receives original error information', () {
       List<ContError>? receivedErrors;
-      Cont.terminate<(), int>([
+      Cont.stop<(), int>([
             ContError.capture('original'),
           ])
           .elseZip((errors) {
@@ -52,7 +52,7 @@ void main() {
             elseCalled = true;
             return Cont.of(0);
           })
-          .run((), onValue: (val) => value = val);
+          .run((), onThen: (val) => value = val);
 
       expect(elseCalled, false);
       expect(value, 42);
@@ -62,14 +62,14 @@ void main() {
       int? value;
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([
+      Cont.stop<(), int>([
             ContError.capture('original'),
           ])
           .elseZip((e) => Cont.of(100))
           .run(
             (),
-            onValue: (val) => value = val,
-            onTerminate: (e) => errors = e,
+            onThen: (val) => value = val,
+            onElse: (e) => errors = e,
           );
 
       expect(value, 100);
@@ -79,17 +79,17 @@ void main() {
     test('accumulates multiple failures', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([
+      Cont.stop<(), int>([
             ContError.capture('err1'),
             ContError.capture('err2'),
           ])
           .elseZip((e) {
-            return Cont.terminate<(), int>([
+            return Cont.stop<(), int>([
               ContError.capture('err3'),
               ContError.capture('err4'),
             ]);
           })
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 4);
       expect(errors![0].error, 'err1');
@@ -99,7 +99,7 @@ void main() {
     });
 
     test('terminates when fallback builder throws', () {
-      final cont = Cont.terminate<(), int>().elseZip((
+      final cont = Cont.stop<(), int>().elseZip((
         errors,
       ) {
         throw 'Fallback Builder Error';
@@ -108,7 +108,7 @@ void main() {
       ContError? error;
       cont.run(
         (),
-        onTerminate: (errors) => error = errors.first,
+        onElse: (errors) => error = errors.first,
       );
 
       expect(error!.error, 'Fallback Builder Error');
@@ -117,18 +117,18 @@ void main() {
     test('accumulates errors in chained failures', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([ContError.capture('err1')])
+      Cont.stop<(), int>([ContError.capture('err1')])
           .elseZip(
-            (e) => Cont.terminate<(), int>([
+            (e) => Cont.stop<(), int>([
               ContError.capture('err2'),
             ]),
           )
           .elseZip(
-            (e) => Cont.terminate<(), int>([
+            (e) => Cont.stop<(), int>([
               ContError.capture('err3'),
             ]),
           )
-          .run((), onTerminate: (e) => errors = e);
+          .run((), onElse: (e) => errors = e);
 
       expect(errors!.length, 3);
       expect(errors![0].error, 'err1');
@@ -138,7 +138,7 @@ void main() {
 
     test('supports multiple runs', () {
       var callCount = 0;
-      final cont = Cont.terminate<(), int>().elseZip((
+      final cont = Cont.stop<(), int>().elseZip((
         errors,
       ) {
         callCount++;
@@ -146,12 +146,12 @@ void main() {
       });
 
       int? value1;
-      cont.run((), onValue: (val) => value1 = val);
+      cont.run((), onThen: (val) => value1 = val);
       expect(value1, 10);
       expect(callCount, 1);
 
       int? value2;
-      cont.run((), onValue: (val) => value2 = val);
+      cont.run((), onThen: (val) => value2 = val);
       expect(value2, 10);
       expect(callCount, 2);
     });
@@ -159,9 +159,9 @@ void main() {
     test('supports empty error lists', () {
       List<ContError>? errors;
 
-      Cont.terminate<(), int>([])
-          .elseZip((e) => Cont.terminate<(), int>([]))
-          .run((), onTerminate: (e) => errors = e);
+      Cont.stop<(), int>([])
+          .elseZip((e) => Cont.stop<(), int>([]))
+          .run((), onElse: (e) => errors = e);
 
       expect(errors, isEmpty);
     });
@@ -172,7 +172,7 @@ void main() {
           .run(
             (),
             onPanic: (_) => fail('Should not be called'),
-            onValue: (_) {},
+            onThen: (_) {},
           );
     });
 
@@ -191,7 +191,7 @@ void main() {
           Cont.fromRun<(), int>((runtime, observer) {
             buffer.add(() {
               if (runtime.isCancelled()) return;
-              observer.onTerminate([
+              observer.onElse([
                 ContError.capture('error'),
               ]);
             });
@@ -203,7 +203,7 @@ void main() {
       int? value;
       final token = cont.run(
         (),
-        onValue: (val) => value = val,
+        onThen: (val) => value = val,
       );
 
       token.cancel();
@@ -217,7 +217,7 @@ void main() {
       final originalErrors = [ContError.capture('err1')];
       List<ContError>? receivedErrors;
 
-      Cont.terminate<(), int>(originalErrors)
+      Cont.stop<(), int>(originalErrors)
           .elseZip((errors) {
             receivedErrors = errors;
             errors.add(ContError.capture('err2'));
@@ -234,25 +234,25 @@ void main() {
       List<ContError>? errors2;
 
       final cont1 =
-          Cont.terminate<(), int>([
+          Cont.stop<(), int>([
             ContError.capture('err1'),
           ]).elseZip0(
-            () => Cont.terminate<(), int>([
+            () => Cont.stop<(), int>([
               ContError.capture('err2'),
             ]),
           );
 
       final cont2 =
-          Cont.terminate<(), int>([
+          Cont.stop<(), int>([
             ContError.capture('err1'),
           ]).elseZip(
-            (_) => Cont.terminate<(), int>([
+            (_) => Cont.stop<(), int>([
               ContError.capture('err2'),
             ]),
           );
 
-      cont1.run((), onTerminate: (e) => errors1 = e);
-      cont2.run((), onTerminate: (e) => errors2 = e);
+      cont1.run((), onElse: (e) => errors1 = e);
+      cont2.run((), onElse: (e) => errors2 = e);
 
       expect(errors1!.length, errors2!.length);
       expect(errors1!.length, 2);

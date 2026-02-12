@@ -15,49 +15,49 @@ void main() {
       expect(isRun, true);
     });
 
-    test('Cont.fromDeferred onValue channel used', () {
+    test('Cont.fromDeferred onThen channel used', () {
       var value = 0;
       final cont = Cont.fromDeferred<(), int>(() {
         return Cont.of(15);
       });
 
       expect(value, 0);
-      cont.run((), onValue: (v) => value = v);
+      cont.run((), onThen: (v) => value = v);
       expect(value, 15);
     });
 
     test(
-      'Cont.fromDeferred onTerminate error channel used',
+      'Cont.fromDeferred onElse error channel used',
       () {
         List<ContError>? errors;
         final cont = Cont.fromDeferred<(), int>(() {
-          return Cont.terminate([
+          return Cont.stop([
             ContError.capture("deferred error"),
           ]);
         });
 
         expect(errors, null);
-        cont.run((), onTerminate: (e) => errors = e);
+        cont.run((), onElse: (e) => errors = e);
         expect(errors![0].error, "deferred error");
       },
     );
 
     test(
-      'Cont.fromDeferred onTerminate empty channel used',
+      'Cont.fromDeferred onElse empty channel used',
       () {
         List<ContError>? errors;
         final cont = Cont.fromDeferred<(), int>(() {
-          return Cont.terminate();
+          return Cont.stop();
         });
 
         expect(errors, null);
-        cont.run((), onTerminate: (e) => errors = e);
+        cont.run((), onElse: (e) => errors = e);
         expect(errors, []);
       },
     );
 
     test(
-      'Cont.fromDeferred onTerminate when thunk throws',
+      'Cont.fromDeferred onElse when thunk throws',
       () {
         List<ContError>? errors;
         final cont = Cont.fromDeferred<(), int>(() {
@@ -65,7 +65,7 @@ void main() {
         });
 
         expect(errors, null);
-        cont.run((), onTerminate: (e) => errors = e);
+        cont.run((), onElse: (e) => errors = e);
         expect(errors![0].error, "thunk error");
       },
     );
@@ -75,7 +75,7 @@ void main() {
       final cont = Cont.fromDeferred<int, ()>(() {
         return Cont.fromRun((runtime, observer) {
           envValue = runtime.env();
-          observer.onValue(());
+          observer.onThen(());
         });
       });
 
@@ -96,8 +96,8 @@ void main() {
         var value1 = 0;
         var value2 = 0;
 
-        cont.run((), onValue: (v) => value1 = v);
-        cont.run((), onValue: (v) => value2 = v);
+        cont.run((), onThen: (v) => value1 = v);
+        cont.run((), onThen: (v) => value2 = v);
 
         expect(callCount, 2);
         expect(value1, 1);
@@ -106,7 +106,7 @@ void main() {
     );
 
     test(
-      'Cont.fromDeferred cancellation blocks inner onValue',
+      'Cont.fromDeferred cancellation blocks inner onThen',
       () {
         var value = 0;
         final List<void Function()> buffer = [];
@@ -120,7 +120,7 @@ void main() {
         final cont = Cont.fromDeferred<(), int>(() {
           return Cont.fromRun((runtime, observer) {
             buffer.add(() {
-              observer.onValue(10);
+              observer.onThen(10);
             });
           });
         });
@@ -128,7 +128,7 @@ void main() {
         expect(value, 0);
         final token = cont.run(
           (),
-          onValue: (val) => value = val,
+          onThen: (val) => value = val,
         );
         expect(value, 0);
         token.cancel();
@@ -138,7 +138,7 @@ void main() {
     );
 
     test(
-      'Cont.fromDeferred cancellation blocks inner onTerminate',
+      'Cont.fromDeferred cancellation blocks inner onElse',
       () {
         List<ContError>? errors;
         final List<void Function()> buffer = [];
@@ -152,7 +152,7 @@ void main() {
         final cont = Cont.fromDeferred<(), int>(() {
           return Cont.fromRun((runtime, observer) {
             buffer.add(() {
-              observer.onTerminate([
+              observer.onElse([
                 ContError.capture("error"),
               ]);
             });
@@ -162,7 +162,7 @@ void main() {
         expect(errors, null);
         final token = cont.run(
           (),
-          onTerminate: (e) => errors = e,
+          onElse: (e) => errors = e,
         );
         expect(errors, null);
         token.cancel();
@@ -180,7 +180,7 @@ void main() {
             runtime,
             observer,
           ) {
-            observer.onTerminate([
+            observer.onElse([
               ContError.capture("never error"),
             ]);
           });
@@ -188,8 +188,8 @@ void main() {
 
         cont.run(
           (),
-          onTerminate: (e) => errors = e,
-          onValue: (v) {
+          onElse: (e) => errors = e,
+          onThen: (v) {
             fail('Should not be called');
           },
         );

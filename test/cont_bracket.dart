@@ -10,7 +10,7 @@ void main() {
       Cont.bracket<(), String, String>(
         acquire: Cont.fromRun((runtime, observer) {
           order.add('acquire');
-          observer.onValue('resource');
+          observer.onThen('resource');
         }),
         release: (resource) {
           order.add('release: $resource');
@@ -20,7 +20,7 @@ void main() {
           order.add('use: $resource');
           return Cont.of('result from $resource');
         },
-      ).run((), onValue: (val) => value = val);
+      ).run((), onThen: (val) => value = val);
 
       expect(order, [
         'acquire',
@@ -42,11 +42,11 @@ void main() {
         },
         use: (resource) {
           order.add('use');
-          return Cont.terminate<(), int>([
+          return Cont.stop<(), int>([
             ContError.capture('use error'),
           ]);
         },
-      ).run((), onTerminate: (e) => errors = e);
+      ).run((), onElse: (e) => errors = e);
 
       expect(order, ['use', 'release']);
       expect(errors!.length, 1);
@@ -59,7 +59,7 @@ void main() {
       List<ContError>? errors;
 
       Cont.bracket<(), String, int>(
-        acquire: Cont.terminate([
+        acquire: Cont.stop([
           ContError.capture('acquire error'),
         ]),
         release: (resource) {
@@ -70,7 +70,7 @@ void main() {
           useCalled = true;
           return Cont.of(42);
         },
-      ).run((), onTerminate: (e) => errors = e);
+      ).run((), onElse: (e) => errors = e);
 
       expect(useCalled, false);
       expect(releaseCalled, false);
@@ -86,16 +86,16 @@ void main() {
         Cont.bracket<(), String, int>(
           acquire: Cont.of('resource'),
           release: (resource) {
-            return Cont.terminate<(), ()>([
+            return Cont.stop<(), ()>([
               ContError.capture('release error'),
             ]);
           },
           use: (resource) {
-            return Cont.terminate<(), int>([
+            return Cont.stop<(), int>([
               ContError.capture('use error'),
             ]);
           },
-        ).run((), onTerminate: (e) => errors = e);
+        ).run((), onElse: (e) => errors = e);
 
         expect(errors!.length, 2);
         expect(errors![0].error, 'use error');
@@ -111,14 +111,14 @@ void main() {
         Cont.bracket<(), String, int>(
           acquire: Cont.of('resource'),
           release: (resource) {
-            return Cont.terminate<(), ()>([
+            return Cont.stop<(), ()>([
               ContError.capture('release error'),
             ]);
           },
           use: (resource) {
             return Cont.of(42);
           },
-        ).run((), onTerminate: (e) => errors = e);
+        ).run((), onElse: (e) => errors = e);
 
         expect(errors!.length, 1);
         expect(errors![0].error, 'release error');
@@ -133,7 +133,7 @@ void main() {
       final cont = Cont.bracket<(), String, int>(
         acquire: Cont.fromRun((runtime, observer) {
           acquireCount++;
-          observer.onValue('resource');
+          observer.onThen('resource');
         }),
         release: (resource) {
           releaseCount++;

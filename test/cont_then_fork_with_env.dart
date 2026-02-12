@@ -8,7 +8,7 @@ void main() {
 
       Cont.of<String, int>(42)
           .thenForkWithEnv((env, a) => Cont.of('$env: $a'))
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(value, 42);
     });
@@ -34,7 +34,7 @@ void main() {
               buffer.add(() {
                 receivedEnv = env;
                 receivedValue = a;
-                observer.onValue(());
+                observer.onThen(());
               });
             });
           })
@@ -65,13 +65,13 @@ void main() {
             ) {
               buffer.add(() {
                 order.add('fork');
-                observer.onValue(());
+                observer.onThen(());
               });
             });
           })
           .run(
             'hello',
-            onValue: (val) => order.add('main'),
+            onThen: (val) => order.add('main'),
           );
 
       expect(order, ['main']);
@@ -82,11 +82,11 @@ void main() {
     test('passes through termination', () {
       List<ContError>? errors;
 
-      Cont.terminate<String, int>([
+      Cont.stop<String, int>([
             ContError.capture('err'),
           ])
           .thenForkWithEnv((env, a) => Cont.of('$env: $a'))
-          .run('hello', onTerminate: (e) => errors = e);
+          .run('hello', onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'err');
@@ -95,12 +95,12 @@ void main() {
     test('never executes on termination', () {
       bool called = false;
 
-      Cont.terminate<String, int>()
+      Cont.stop<String, int>()
           .thenForkWithEnv((env, a) {
             called = true;
             return Cont.of(());
           })
-          .run('hello', onTerminate: (_) {});
+          .run('hello', onElse: (_) {});
 
       expect(called, false);
     });
@@ -126,7 +126,7 @@ void main() {
             ) {
               buffer.add(() {
                 receivedEnv = env;
-                observer.onValue(());
+                observer.onThen(());
               });
             });
           })
@@ -141,7 +141,7 @@ void main() {
 
       Cont.of<String, int>(42)
           .thenForkWithEnv0((env) => Cont.of('side: $env'))
-          .run('hello', onValue: (val) => value = val);
+          .run('hello', onThen: (val) => value = val);
 
       expect(value, 42);
     });
@@ -160,8 +160,8 @@ void main() {
               (env, _) => Cont.of('side: $env'),
             );
 
-        cont1.run('hello', onValue: (val) => value1 = val);
-        cont2.run('hello', onValue: (val) => value2 = val);
+        cont1.run('hello', onThen: (val) => value1 = val);
+        cont2.run('hello', onThen: (val) => value2 = val);
 
         expect(value1, value2);
       },
