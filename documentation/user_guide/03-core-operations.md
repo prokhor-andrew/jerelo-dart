@@ -492,5 +492,5 @@ fetchFromApi()
 ## Next Steps
 
 Now that you understand the core operations, continue to:
-- **[Advanced Operations](04-advanced-operations.md)** - Learn to merge computations and handle concurrency
+- **[Racing and Merging](04-racing-and-merging.md)** - Learn to merge computations and handle concurrency
 - **[Environment Management](05-environment.md)** - Master environment handling
