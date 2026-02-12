@@ -8,7 +8,7 @@ This guide covers how to manage configuration, dependencies, and context in your
 
 Environment allows threading configuration, dependencies, or context through continuation chains without explicitly passing them through every function.
 
-When you compose computations using operators like `thenDo`, `map`, and `elseDo`, you create a chain of operations. However, these operations often need access to shared context like:
+When you compose computations using operators like `thenDo`, `thenMap`, and `elseDo`, you create a chain of operations. However, these operations often need access to shared context like:
 - Configuration values (API URLs, timeouts, feature flags)
 - Dependencies (database connections, HTTP clients, loggers)
 - Runtime context (user sessions, request IDs, auth tokens)
@@ -101,14 +101,40 @@ Cont.of(42).thenDoWithEnv((env, value) {
 ```
 
 Available variants:
+
+**Chaining:**
 - `thenDoWithEnv`, `thenDoWithEnv0`
-- `thenTapWithEnv`, `thenTapWithEnv0`
-- `thenZipWithEnv`, `thenZipWithEnv0`
-- `thenForkWithEnv`, `thenForkWithEnv0`
 - `elseDoWithEnv`, `elseDoWithEnv0`
+
+**Transformations:**
+- `thenMapWithEnv`, `thenMapWithEnv0`
+- `elseMapWithEnv`, `elseMapWithEnv0`
+
+**Side effects:**
+- `thenTapWithEnv`, `thenTapWithEnv0`
 - `elseTapWithEnv`, `elseTapWithEnv0`
+
+**Combining:**
+- `thenZipWithEnv`, `thenZipWithEnv0`
 - `elseZipWithEnv`, `elseZipWithEnv0`
+
+**Fire-and-forget:**
+- `thenForkWithEnv`, `thenForkWithEnv0`
 - `elseForkWithEnv`, `elseForkWithEnv0`
+
+**Conditions:**
+- `thenIfWithEnv`, `thenIfWithEnv0`
+- `elseIfWithEnv`, `elseIfWithEnv0`
+
+**Loops:**
+- `thenWhileWithEnv`, `thenWhileWithEnv0`
+- `thenUntilWithEnv`, `thenUntilWithEnv0`
+- `elseWhileWithEnv`, `elseWhileWithEnv0`
+- `elseUntilWithEnv`, `elseUntilWithEnv0`
+
+**Termination and recovery:**
+- `abortWithEnv`, `abortWithEnv0`
+- `recoverWithEnv`, `recoverWithEnv0`
 
 ### Example: Using WithEnv for Configuration
 
