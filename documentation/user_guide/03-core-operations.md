@@ -23,7 +23,7 @@ Cont.of(0).thenMap((zero) {
 - `thenMapWithEnv0(f)` - Transform with access to environment only
 - `thenMapTo(value)` - Replace value with a constant
 
-### Hoisting
+### Decorating
 
 Sometimes you need to intercept or modify how a continuation executes, without changing the value it produces. The `decor` operator lets you wrap the underlying run function with custom behavior.
 
@@ -90,8 +90,6 @@ final program = function1(value)
     // the rest of the program
   });
 ```
-
-This is a dramatic improvement over the nested callback style!
 
 ### Error Chaining
 
