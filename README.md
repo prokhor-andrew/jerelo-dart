@@ -77,7 +77,7 @@ class User {
 
 // Simulated API call
 Cont<AppConfig, User> fetchUserFromApi(String userId) {
-  return Cont.ask<AppConfig>().thenDoWithEnv((config, _) {
+  return Cont.ask<AppConfig>().thenDo((config) {
     return Cont.fromRun((runtime, observer) {
       // Simulate async API call
       Future.delayed(config.timeout, () {
