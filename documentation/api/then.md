@@ -7,9 +7,11 @@ Success path operations for transforming, chaining, and controlling flow.
 ## Table of Contents
 
 - [Basic Transformations](#basic-transformations)
-  - [map](#map)
-  - [map0](#map0)
-  - [as](#as)
+  - [thenMap](#thenmap)
+  - [thenMap0](#thenmap0)
+  - [thenMapWithEnv](#thenmapwithenv)
+  - [thenMapWithEnv0](#thenmapwithenv0)
+  - [thenMapTo](#thenmapto)
 - [Chaining](#chaining)
   - [thenDo](#thendo)
   - [thenDo0](#thendo0)
@@ -30,21 +32,36 @@ Success path operations for transforming, chaining, and controlling flow.
   - [thenFork0](#thenfork0)
   - [thenForkWithEnv](#thenforkwithenv)
   - [thenForkWithEnv0](#thenforkwithenv0)
+- [Termination](#termination)
+  - [abort](#abort)
+  - [abort0](#abort0)
+  - [abortWithEnv](#abortwithenv)
+  - [abortWithEnv0](#abortwithenv0)
+  - [abortWith](#abortwith)
 - [Conditionals](#conditionals)
   - [thenIf](#thenif)
+  - [thenIf0](#thenif0)
+  - [thenIfWithEnv](#thenifwithenv)
+  - [thenIfWithEnv0](#thenifwithenv0)
 - [Loops](#loops)
-  - [asLongAs](#aslongas)
-  - [until](#until)
+  - [thenWhile](#thenwhile)
+  - [thenWhile0](#thenwhile0)
+  - [thenWhileWithEnv](#thenwhilewithenv)
+  - [thenWhileWithEnv0](#thenwhilewithenv0)
+  - [thenUntil](#thenuntil)
+  - [thenUntil0](#thenuntil0)
+  - [thenUntilWithEnv](#thenuntilwithenv)
+  - [thenUntilWithEnv0](#thenuntilwithenv0)
   - [forever](#forever)
 
 ---
 
 ## Basic Transformations
 
-### map
+### thenMap
 
 ```dart
-Cont<E, A2> map<A2>(A2 Function(A value) f)
+Cont<E, A2> thenMap<A2>(A2 Function(A value) f)
 ```
 
 Transforms the value inside a `Cont` using a pure function.
@@ -56,37 +73,79 @@ Applies a function to the successful value of the continuation without affecting
 
 **Example:**
 ```dart
-final cont = Cont.of(42).map((n) => n * 2);
+final cont = Cont.of(42).thenMap((n) => n * 2);
 cont.run((), onThen: print); // prints: 84
 ```
 
 ---
 
-### map0
+### thenMap0
 
 ```dart
-Cont<E, A2> map0<A2>(A2 Function() f)
+Cont<E, A2> thenMap0<A2>(A2 Function() f)
 ```
 
 Transforms the value inside a `Cont` using a zero-argument function.
 
-Similar to `map` but ignores the current value and computes a new one.
+Similar to `thenMap` but ignores the current value and computes a new one.
 
 - **Parameters:**
   - `f`: Zero-argument transformation function
 
 **Example:**
 ```dart
-final cont = Cont.of(42).map0(() => 'done');
+final cont = Cont.of(42).thenMap0(() => 'done');
 cont.run((), onThen: print); // prints: done
 ```
 
 ---
 
-### as
+### thenMapWithEnv
 
 ```dart
-Cont<E, A2> as<A2>(A2 value)
+Cont<E, A2> thenMapWithEnv<A2>(A2 Function(E env, A value) f)
+```
+
+Transforms the value with access to both the value and environment.
+
+Similar to `thenMap`, but the transformation function receives both the current value and the environment. This is useful when the transformation needs access to configuration or context information.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and value, and returns a new value
+
+**Example:**
+```dart
+final cont = Cont.of(42)
+  .thenMapWithEnv((env, n) => n * env.multiplier);
+```
+
+---
+
+### thenMapWithEnv0
+
+```dart
+Cont<E, A2> thenMapWithEnv0<A2>(A2 Function(E env) f)
+```
+
+Transforms the value with access to the environment only.
+
+Similar to `thenMapWithEnv`, but the transformation function only receives the environment and ignores the current value.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a new value
+
+**Example:**
+```dart
+final cont = validateInput()
+  .thenMapWithEnv0((env) => env.config.defaultValue);
+```
+
+---
+
+### thenMapTo
+
+```dart
+Cont<E, A2> thenMapTo<A2>(A2 value)
 ```
 
 Replaces the value inside a `Cont` with a constant.
@@ -98,7 +157,7 @@ Discards the current value and replaces it with a fixed value.
 
 **Example:**
 ```dart
-final cont = fetchUser().as('User fetched');
+final cont = fetchUser().thenMapTo('User fetched');
 cont.run(env, onThen: print); // prints: User fetched
 ```
 
@@ -470,6 +529,127 @@ final result = processRequest()
 
 ---
 
+## Termination
+
+### abort
+
+```dart
+Cont<E, A> abort(List<ContError> Function(A value) f)
+```
+
+Unconditionally terminates the continuation with computed errors.
+
+Takes a successful value and converts it into a termination with errors. This is useful for implementing validation logic where certain values should cause termination, or for custom error handling flows.
+
+- **Parameters:**
+  - `f`: Function that computes the error list from the value
+
+**Example:**
+```dart
+final cont = Cont.of(42)
+  .abort((n) => [ContError.capture('Value too large: $n')]);
+// Terminates with error
+
+final validated = fetchUser()
+  .abort((user) => user.age < 18
+    ? [ContError.capture('User must be 18+')]
+    : []);
+```
+
+---
+
+### abort0
+
+```dart
+Cont<E, A> abort0(List<ContError> Function() f)
+```
+
+Unconditionally terminates with errors computed from a zero-argument function.
+
+Similar to `abort` but the error computation doesn't depend on the value.
+
+- **Parameters:**
+  - `f`: Zero-argument function that computes the error list
+
+**Example:**
+```dart
+final cont = Cont.of(42)
+  .abort0(() => [ContError.capture('Operation cancelled')]);
+```
+
+---
+
+### abortWithEnv
+
+```dart
+Cont<E, A> abortWithEnv(List<ContError> Function(E env, A value) f)
+```
+
+Unconditionally terminates with errors computed from both value and environment.
+
+Similar to `abort`, but the error computation function receives both the current value and the environment. This is useful when error creation needs access to configuration or context information.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and value, and computes the error list
+
+**Example:**
+```dart
+final validated = fetchValue()
+  .abortWithEnv((env, value) {
+    return value > env.maxAllowed
+      ? [ContError.capture('Exceeds limit: ${env.maxAllowed}')]
+      : [];
+  });
+```
+
+---
+
+### abortWithEnv0
+
+```dart
+Cont<E, A> abortWithEnv0(List<ContError> Function(E env) f)
+```
+
+Unconditionally terminates with errors computed from the environment only.
+
+Similar to `abortWithEnv`, but the error computation function only receives the environment and ignores the current value.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and computes the error list
+
+**Example:**
+```dart
+final cont = processData()
+  .abortWithEnv0((env) {
+    return env.isMaintenanceMode
+      ? [ContError.capture('System in maintenance')]
+      : [];
+  });
+```
+
+---
+
+### abortWith
+
+```dart
+Cont<E, A> abortWith(List<ContError> errors)
+```
+
+Unconditionally terminates with a fixed list of errors.
+
+Replaces any successful value with a termination containing the provided errors. This is the simplest form of forced termination.
+
+- **Parameters:**
+  - `errors`: The error list to terminate with
+
+**Example:**
+```dart
+final cont = Cont.of(42)
+  .abortWith([ContError.capture('Forced termination')]);
+```
+
+---
+
 ## Conditionals
 
 ### thenIf
@@ -503,12 +683,76 @@ final result = fetchUser(userId)
 
 ---
 
-## Loops
-
-### asLongAs
+### thenIf0
 
 ```dart
-Cont<E, A> asLongAs(bool Function(A value) predicate)
+Cont<E, A> thenIf0(bool Function() predicate)
+```
+
+Conditionally succeeds based on a zero-argument predicate.
+
+Similar to `thenIf` but the predicate doesn't examine the value.
+
+- **Parameters:**
+  - `predicate`: Zero-argument function that determines success or termination
+
+**Example:**
+```dart
+var shouldProceed = true;
+final cont = Cont.of(42)
+  .thenIf0(() => shouldProceed);
+```
+
+---
+
+### thenIfWithEnv
+
+```dart
+Cont<E, A> thenIfWithEnv(bool Function(E env, A value) predicate)
+```
+
+Conditionally succeeds with access to both value and environment.
+
+Similar to `thenIf`, but the predicate function receives both the current value and the environment. This is useful when conditional logic needs access to configuration or context information.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and value, and determines success or termination
+
+**Example:**
+```dart
+final cont = fetchUser(userId)
+  .thenIfWithEnv((env, user) => user.level >= env.minRequiredLevel);
+```
+
+---
+
+### thenIfWithEnv0
+
+```dart
+Cont<E, A> thenIfWithEnv0(bool Function(E env) predicate)
+```
+
+Conditionally succeeds with access to the environment only.
+
+Similar to `thenIfWithEnv`, but the predicate only receives the environment and ignores the current value.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and determines success or termination
+
+**Example:**
+```dart
+final cont = processData()
+  .thenIfWithEnv0((env) => env.featureEnabled);
+```
+
+---
+
+## Loops
+
+### thenWhile
+
+```dart
+Cont<E, A> thenWhile(bool Function(A value) predicate)
 ```
 
 Repeatedly executes the continuation as long as the predicate returns `true`, stopping when it returns `false`.
@@ -525,34 +769,89 @@ This is useful for retry logic, polling, or repeating an operation while a condi
 **Example:**
 ```dart
 // Poll an API while data is not ready
-final result = fetchData().asLongAs((response) => !response.isReady);
+final result = fetchData().thenWhile((response) => !response.isReady);
 
 // Retry while value is below threshold
-final value = computation().asLongAs((n) => n < 100);
-
-// Retry with exponential backoff
-var delay = 100;
-final result = attemptOperation()
-  .thenTap0(() => Cont.fromDeferred(() {
-    delay *= 2;
-    return Future.delayed(Duration(milliseconds: delay));
-  }))
-  .asLongAs((success) => !success && delay < 10000);
+final value = computation().thenWhile((n) => n < 100);
 ```
 
 ---
 
-### until
+### thenWhile0
 
 ```dart
-Cont<E, A> until(bool Function(A value) predicate)
+Cont<E, A> thenWhile0(bool Function() predicate)
+```
+
+Repeatedly executes based on a zero-argument predicate.
+
+Similar to `thenWhile` but the predicate doesn't examine the value.
+
+- **Parameters:**
+  - `predicate`: Zero-argument function that determines whether to continue looping
+
+**Example:**
+```dart
+var shouldContinue = true;
+final result = operation()
+  .thenWhile0(() => shouldContinue);
+```
+
+---
+
+### thenWhileWithEnv
+
+```dart
+Cont<E, A> thenWhileWithEnv(bool Function(E env, A value) predicate)
+```
+
+Repeatedly executes with access to both value and environment.
+
+Similar to `thenWhile`, but the predicate function receives both the current value and the environment. This is useful when loop logic needs access to configuration or context information.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and value, and determines whether to continue looping
+
+**Example:**
+```dart
+final result = fetchData()
+  .thenWhileWithEnv((env, data) => data.size < env.maxSize);
+```
+
+---
+
+### thenWhileWithEnv0
+
+```dart
+Cont<E, A> thenWhileWithEnv0(bool Function(E env) predicate)
+```
+
+Repeatedly executes with access to the environment only.
+
+Similar to `thenWhileWithEnv`, but the predicate only receives the environment and ignores the current value.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and determines whether to continue looping
+
+**Example:**
+```dart
+final result = processData()
+  .thenWhileWithEnv0((env) => !env.shutdownRequested);
+```
+
+---
+
+### thenUntil
+
+```dart
+Cont<E, A> thenUntil(bool Function(A value) predicate)
 ```
 
 Repeatedly executes the continuation until the predicate returns `true`.
 
 Runs the continuation in a loop, testing each result with the predicate. The loop continues while the predicate returns `false`, and stops successfully when the predicate returns `true`.
 
-This is the inverse of `asLongAs` - implemented as `asLongAs((a) => !predicate(a))`. Use this when you want to retry until a condition is met.
+This is the inverse of `thenWhile` - implemented as `thenWhile((a) => !predicate(a))`. Use this when you want to retry until a condition is met.
 
 - **Parameters:**
   - `predicate`: Function that tests the value. Returns `true` to stop the loop and succeed, or `false` to continue looping
@@ -560,10 +859,74 @@ This is the inverse of `asLongAs` - implemented as `asLongAs((a) => !predicate(a
 **Example:**
 ```dart
 // Retry until a condition is met
-final result = fetchStatus().until((status) => status == 'complete');
+final result = fetchStatus().thenUntil((status) => status == 'complete');
 
 // Poll until a threshold is reached
-final value = checkProgress().until((progress) => progress >= 100);
+final value = checkProgress().thenUntil((progress) => progress >= 100);
+```
+
+---
+
+### thenUntil0
+
+```dart
+Cont<E, A> thenUntil0(bool Function() predicate)
+```
+
+Repeatedly executes until a zero-argument predicate returns `true`.
+
+Similar to `thenUntil` but the predicate doesn't examine the value.
+
+- **Parameters:**
+  - `predicate`: Zero-argument function that determines when to stop looping
+
+**Example:**
+```dart
+var targetReached = false;
+final result = operation()
+  .thenUntil0(() => targetReached);
+```
+
+---
+
+### thenUntilWithEnv
+
+```dart
+Cont<E, A> thenUntilWithEnv(bool Function(E env, A value) predicate)
+```
+
+Repeatedly executes with access to both value and environment.
+
+Similar to `thenUntil`, but the predicate function receives both the current value and the environment. This is useful when loop logic needs access to configuration or context information.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and value, and determines when to stop
+
+**Example:**
+```dart
+final result = fetchData()
+  .thenUntilWithEnv((env, data) => data.quality >= env.minQuality);
+```
+
+---
+
+### thenUntilWithEnv0
+
+```dart
+Cont<E, A> thenUntilWithEnv0(bool Function(E env) predicate)
+```
+
+Repeatedly executes with access to the environment only.
+
+Similar to `thenUntilWithEnv`, but the predicate only receives the environment and ignores the current value.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and determines when to stop
+
+**Example:**
+```dart
+final result = pollService()
+  .thenUntilWithEnv0((env) => env.serviceReady);
 ```
 
 ---

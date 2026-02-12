@@ -9,7 +9,9 @@ Error path operations for recovery and error handling.
 - [Simple Recovery](#simple-recovery)
   - [recover](#recover)
   - [recover0](#recover0)
-  - [fallback](#fallback)
+  - [recoverWithEnv](#recoverwithenv)
+  - [recoverWithEnv0](#recoverwithenv0)
+  - [recoverWith](#recoverwith)
 - [Chaining](#chaining)
   - [elseDo](#elsedo)
   - [elseDo0](#elsedo0)
@@ -30,8 +32,26 @@ Error path operations for recovery and error handling.
   - [elseFork0](#elsefork0)
   - [elseForkWithEnv](#elseforkwithenv)
   - [elseForkWithEnv0](#elseforkwithenv0)
+- [Error Transformation](#error-transformation)
+  - [elseMap](#elsemap)
+  - [elseMap0](#elsemap0)
+  - [elseMapWithEnv](#elsemapwithenv)
+  - [elseMapWithEnv0](#elsemapwithenv0)
+  - [elseMapTo](#elsemapto)
 - [Conditionals](#conditionals)
   - [elseIf](#elseif)
+  - [elseIf0](#elseif0)
+  - [elseIfWithEnv](#elseifwithenv)
+  - [elseIfWithEnv0](#elseifwithenv0)
+- [Retry Loops](#retry-loops)
+  - [elseWhile](#elsewhile)
+  - [elseWhile0](#elsewhile0)
+  - [elseWhileWithEnv](#elsewhilewithenv)
+  - [elseWhileWithEnv0](#elsewhilewithenv0)
+  - [elseUntil](#elseuntil)
+  - [elseUntil0](#elseuntil0)
+  - [elseUntilWithEnv](#elseuntilwithenv)
+  - [elseUntilWithEnv0](#elseuntilwithenv0)
 
 ---
 
@@ -85,10 +105,52 @@ final data = fetchData()
 
 ---
 
-### fallback
+### recoverWithEnv
 
 ```dart
-Cont<E, A> fallback(A value)
+Cont<E, A> recoverWithEnv(A Function(E env, List<ContError> errors) f)
+```
+
+Recovers from termination with access to both errors and environment.
+
+Similar to `recover`, but the recovery function receives both the termination errors and the environment. This is useful when recovery logic needs access to configuration or context information.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and errors, and returns a recovery value
+
+**Example:**
+```dart
+final data = fetchData()
+  .recoverWithEnv((env, errors) => env.defaultData);
+```
+
+---
+
+### recoverWithEnv0
+
+```dart
+Cont<E, A> recoverWithEnv0(A Function(E env) f)
+```
+
+Recovers from termination with access to the environment only.
+
+Similar to `recoverWithEnv`, but the recovery function only receives the environment and ignores the termination errors.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a recovery value
+
+**Example:**
+```dart
+final value = fetchValue()
+  .recoverWithEnv0((env) => env.config.defaultValue);
+```
+
+---
+
+### recoverWith
+
+```dart
+Cont<E, A> recoverWith(A value)
 ```
 
 Recovers from termination with a constant fallback value.
@@ -100,14 +162,14 @@ If the continuation terminates, succeeds with `value` instead. This is the simpl
 
 **Example:**
 ```dart
-final cont = Cont.terminate<(), int>([ContError.capture('error')])
-  .fallback(0);
+final cont = Cont.stop<(), int>([ContError.capture('error')])
+  .recoverWith(0);
 
 cont.run((), onThen: print); // prints: 0
 
 // Real-world usage
 final count = fetchCount()
-  .fallback(0);
+  .recoverWith(0);
 ```
 
 ---
@@ -510,6 +572,119 @@ final result = operation()
 
 ---
 
+## Error Transformation
+
+### elseMap
+
+```dart
+Cont<E, A> elseMap(List<ContError> Function(List<ContError> errors) f)
+```
+
+Transforms termination errors using a pure function.
+
+If the continuation terminates, applies the transformation function to the error list and terminates with the transformed errors. This is useful for enriching, filtering, or transforming error information.
+
+- **Parameters:**
+  - `f`: Function that transforms the error list
+
+**Example:**
+```dart
+final cont = fetchData()
+  .elseMap((errors) => errors.map((e) =>
+    ContError.capture('Enriched: ${e.error}')
+  ).toList());
+```
+
+---
+
+### elseMap0
+
+```dart
+Cont<E, A> elseMap0(List<ContError> Function() f)
+```
+
+Transforms termination errors using a zero-argument function.
+
+Similar to `elseMap` but replaces errors without examining the original error list.
+
+- **Parameters:**
+  - `f`: Zero-argument function that produces new errors
+
+**Example:**
+```dart
+final cont = operation()
+  .elseMap0(() => [ContError.capture('Operation failed')]);
+```
+
+---
+
+### elseMapWithEnv
+
+```dart
+Cont<E, A> elseMapWithEnv(List<ContError> Function(E env, List<ContError> errors) f)
+```
+
+Transforms termination errors with access to both errors and environment.
+
+Similar to `elseMap`, but the transformation function receives both the error list and the environment. This is useful when error transformation needs access to configuration or context information.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and errors, and produces transformed errors
+
+**Example:**
+```dart
+final cont = fetchData()
+  .elseMapWithEnv((env, errors) =>
+    [ContError.capture('${env.serviceName}: ${errors.first.error}')]
+  );
+```
+
+---
+
+### elseMapWithEnv0
+
+```dart
+Cont<E, A> elseMapWithEnv0(List<ContError> Function(E env) f)
+```
+
+Transforms termination errors with access to the environment only.
+
+Similar to `elseMapWithEnv`, but the transformation function only receives the environment and ignores the original errors.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and produces new errors
+
+**Example:**
+```dart
+final cont = operation()
+  .elseMapWithEnv0((env) =>
+    [ContError.capture('Error in ${env.context}')]
+  );
+```
+
+---
+
+### elseMapTo
+
+```dart
+Cont<E, A> elseMapTo(List<ContError> errors)
+```
+
+Replaces termination errors with a fixed error list.
+
+If the continuation terminates, replaces the errors with the provided list. This is the simplest form of error transformation.
+
+- **Parameters:**
+  - `errors`: The error list to replace with
+
+**Example:**
+```dart
+final cont = operation()
+  .elseMapTo([ContError.capture('Generic error')]);
+```
+
+---
+
 ## Conditionals
 
 ### elseIf
@@ -546,4 +721,273 @@ final user = fetchUser(userId)
     (errors) => errors.any((e) => e.error is UserNotFoundException),
     User.guest(),
   );
+```
+
+---
+
+### elseIf0
+
+```dart
+Cont<E, A> elseIf0(bool Function() predicate, A value)
+```
+
+Conditionally recovers based on a zero-argument predicate.
+
+Similar to `elseIf` but the predicate doesn't examine the errors.
+
+- **Parameters:**
+  - `predicate`: Zero-argument function that determines whether to recover
+  - `value`: The value to recover with when the predicate returns `true`
+
+**Example:**
+```dart
+var shouldRecover = true;
+final cont = operation()
+  .elseIf0(() => shouldRecover, defaultValue);
+```
+
+---
+
+### elseIfWithEnv
+
+```dart
+Cont<E, A> elseIfWithEnv(bool Function(E env, List<ContError> errors) predicate, A value)
+```
+
+Conditionally recovers with access to both errors and environment.
+
+Similar to `elseIf`, but the predicate function receives both the termination errors and the environment. This is useful when recovery logic needs access to configuration or context information.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and errors, and determines whether to recover
+  - `value`: The value to recover with when the predicate returns `true`
+
+**Example:**
+```dart
+final result = fetchData()
+  .elseIfWithEnv(
+    (env, errors) => env.allowRecovery && errors.length < 3,
+    defaultData,
+  );
+```
+
+---
+
+### elseIfWithEnv0
+
+```dart
+Cont<E, A> elseIfWithEnv0(bool Function(E env) predicate, A value)
+```
+
+Conditionally recovers with access to the environment only.
+
+Similar to `elseIfWithEnv`, but the predicate only receives the environment and ignores the errors.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and determines whether to recover
+  - `value`: The value to recover with when the predicate returns `true`
+
+**Example:**
+```dart
+final result = operation()
+  .elseIfWithEnv0(
+    (env) => env.gracefulDegradation,
+    fallbackValue,
+  );
+```
+
+---
+
+## Retry Loops
+
+### elseWhile
+
+```dart
+Cont<E, A> elseWhile(bool Function(List<ContError> errors) predicate)
+```
+
+Repeatedly retries the continuation while the predicate returns `true` on termination errors.
+
+If the continuation terminates, tests the errors with the predicate. The loop continues retrying as long as the predicate returns `true`, and stops when the predicate returns `false` (propagating the termination) or when the continuation succeeds.
+
+This is useful for retry logic with error-based conditions, such as retrying while specific transient errors occur.
+
+- **Parameters:**
+  - `predicate`: Function that tests the termination errors. Returns `true` to retry, or `false` to stop and propagate the termination
+
+**Example:**
+```dart
+// Retry while getting transient errors
+final result = apiCall()
+  .elseWhile((errors) => errors.first.error is TransientError);
+
+// Retry while rate-limited
+final data = fetchData()
+  .elseWhile((errors) =>
+    errors.any((e) => e.error == 'rate_limit')
+  );
+```
+
+---
+
+### elseWhile0
+
+```dart
+Cont<E, A> elseWhile0(bool Function() predicate)
+```
+
+Repeatedly retries while a zero-argument predicate returns `true`.
+
+Similar to `elseWhile` but the predicate doesn't examine the errors.
+
+- **Parameters:**
+  - `predicate`: Zero-argument function that determines whether to retry
+
+**Example:**
+```dart
+var shouldRetry = true;
+final result = operation()
+  .elseWhile0(() => shouldRetry);
+```
+
+---
+
+### elseWhileWithEnv
+
+```dart
+Cont<E, A> elseWhileWithEnv(bool Function(E env, List<ContError> errors) predicate)
+```
+
+Repeatedly retries with access to both errors and environment.
+
+Similar to `elseWhile`, but the predicate function receives both the termination errors and the environment. This is useful when retry logic needs access to configuration or context information.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and errors, and determines whether to retry
+
+**Example:**
+```dart
+final result = apiCall()
+  .elseWhileWithEnv((env, errors) =>
+    errors.first.error is TransientError &&
+    env.retryCount < env.maxRetries
+  );
+```
+
+---
+
+### elseWhileWithEnv0
+
+```dart
+Cont<E, A> elseWhileWithEnv0(bool Function(E env) predicate)
+```
+
+Repeatedly retries with access to the environment only.
+
+Similar to `elseWhileWithEnv`, but the predicate only receives the environment and ignores the errors.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and determines whether to retry
+
+**Example:**
+```dart
+final result = operation()
+  .elseWhileWithEnv0((env) => !env.shutdownRequested);
+```
+
+---
+
+### elseUntil
+
+```dart
+Cont<E, A> elseUntil(bool Function(List<ContError> errors) predicate)
+```
+
+Repeatedly retries the continuation until the predicate returns `true` on termination errors.
+
+If the continuation terminates, tests the errors with the predicate. The loop continues retrying while the predicate returns `false`, and stops when the predicate returns `true` (propagating the termination) or when the continuation succeeds.
+
+This is the inverse of `elseWhile` - implemented as `elseWhile((errors) => !predicate(errors))`. Use this when you want to retry until a specific error condition is met.
+
+- **Parameters:**
+  - `predicate`: Function that tests the termination errors. Returns `true` to stop and propagate the termination, or `false` to continue retrying
+
+**Example:**
+```dart
+// Retry until a fatal error occurs
+final result = apiCall()
+  .elseUntil((errors) => errors.first.error is FatalError);
+
+// Retry until max attempts reached
+var attempts = 0;
+final data = operation()
+  .elseTap0(() => Cont.of(attempts++))
+  .elseUntil((errors) => attempts >= 5);
+```
+
+---
+
+### elseUntil0
+
+```dart
+Cont<E, A> elseUntil0(bool Function() predicate)
+```
+
+Repeatedly retries until a zero-argument predicate returns `true`.
+
+Similar to `elseUntil` but the predicate doesn't examine the errors.
+
+- **Parameters:**
+  - `predicate`: Zero-argument function that determines when to stop retrying
+
+**Example:**
+```dart
+var maxAttemptsReached = false;
+final result = operation()
+  .elseUntil0(() => maxAttemptsReached);
+```
+
+---
+
+### elseUntilWithEnv
+
+```dart
+Cont<E, A> elseUntilWithEnv(bool Function(E env, List<ContError> errors) predicate)
+```
+
+Repeatedly retries with access to both errors and environment.
+
+Similar to `elseUntil`, but the predicate function receives both the termination errors and the environment. This is useful when retry logic needs access to configuration or context information.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and errors, and determines when to stop
+
+**Example:**
+```dart
+final result = apiCall()
+  .elseUntilWithEnv((env, errors) =>
+    errors.first.error is FatalError ||
+    env.currentTime.isAfter(env.deadline)
+  );
+```
+
+---
+
+### elseUntilWithEnv0
+
+```dart
+Cont<E, A> elseUntilWithEnv0(bool Function(E env) predicate)
+```
+
+Repeatedly retries with access to the environment only.
+
+Similar to `elseUntilWithEnv`, but the predicate only receives the environment and ignores the errors.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and determines when to stop
+
+**Example:**
+```dart
+final result = operation()
+  .elseUntilWithEnv0((env) => env.timeoutReached);
 ```

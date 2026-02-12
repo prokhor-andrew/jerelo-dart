@@ -10,11 +10,11 @@ Creating and transforming continuations.
   - [Cont.fromRun](#contfromrun)
   - [Cont.fromDeferred](#contfromdeferred)
   - [Cont.of](#contof)
-  - [Cont.terminate](#contterminate)
+  - [Cont.stop](#contstop)
   - [Cont.ask](#contask)
   - [Cont.bracket](#contbracket)
 - [Transformation](#transformation)
-  - [hoist](#hoist)
+  - [decor](#decor)
 
 ---
 
@@ -100,10 +100,10 @@ cont.run((), onThen: print); // prints: 42
 
 ---
 
-### Cont.terminate
+### Cont.stop
 
 ```dart
-static Cont<E, A> terminate<E, A>([List<ContError> errors = const []])
+static Cont<E, A> stop<E, A>([List<ContError> errors = const []])
 ```
 
 Creates a `Cont` that immediately terminates with optional errors.
@@ -115,7 +115,7 @@ Creates a continuation that terminates without producing a value. Used to repres
 
 **Example:**
 ```dart
-final cont = Cont.terminate<(), int>([
+final cont = Cont.stop<(), int>([
   ContError.capture('Not found'),
 ]);
 
@@ -204,10 +204,10 @@ final result = Cont.bracket(
 
 ## Transformation
 
-### hoist
+### decor
 
 ```dart
-Cont<E, A> hoist(void Function(void Function(ContRuntime<E>, ContObserver<A>) run, ContRuntime<E> runtime, ContObserver<A> observer) f)
+Cont<E, A> decor(void Function(void Function(ContRuntime<E>, ContObserver<A>) run, ContRuntime<E> runtime, ContObserver<A> observer) f)
 ```
 
 Transforms the execution of the continuation using a natural transformation.
@@ -222,14 +222,14 @@ The transformation function receives both the original run function and the obse
 **Example:**
 ```dart
 // Add logging around execution
-final logged = cont.hoist((run, runtime, observer) {
+final logged = cont.decor((run, runtime, observer) {
   print('Starting execution');
   run(runtime, observer);
   print('Execution initiated');
 });
 
 // Add timing
-final timed = cont.hoist((run, runtime, observer) {
+final timed = cont.decor((run, runtime, observer) {
   final start = DateTime.now();
   run(runtime, ContObserver(
     onThen: (value) {
