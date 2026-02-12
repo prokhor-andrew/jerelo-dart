@@ -129,14 +129,8 @@ final Cont<(), String> program = getValueFromDatabase()
 // running the program with both handlers
 final token = program.run(
   (), // env
-  onElse: (errors) {
-    // handle errors
-    print("TERMINATED with errors=$errors");
-  },
-  onThen: (value) {
-    // handle computed result
-    print("SUCCEEDED with value=$value");
-  },
+  onElse: (errors) => print("stopped with errors=$errors"),
+  onThen: (value) => print("succeeded with value=$value"),
 );
 
 // or subscribe only to the value channel
