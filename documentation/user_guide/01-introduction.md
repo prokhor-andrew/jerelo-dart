@@ -1,4 +1,4 @@
-[Home](../../README.md) > [Documentation](../README.md) > User Guide
+[Home](../../README.md) > User Guide
 
 # Introduction & Core Concepts
 
@@ -200,4 +200,4 @@ final class ContError {
 Now that you understand the core concepts, continue to:
 - **[Fundamentals: Construct & Run](02-fundamentals.md)** - Learn to create and execute computations
 - **[Core Operations](03-core-operations.md)** - Master the essential operations
-- **[API Reference](../api/)** - Quick reference lookup
+- **[API Reference](../api_reference/)** - Quick reference lookup

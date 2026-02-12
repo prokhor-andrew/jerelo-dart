@@ -45,9 +45,44 @@ getUserData.run(testConfig, onElse: handleError, onThen: handleSuccess);
 
 ## Documentation
 
-- **[Documentation Home](documentation/README.md)** - Complete documentation hub
-- **[User Guide](documentation/user_guide/01-introduction.md)** - Start learning Jerelo
-- **[API Reference](documentation/api/)** - Complete API documentation for all types and methods
+### User Guide
+
+A comprehensive guide to understanding and using Jerelo:
+
+1. [Introduction & Core Concepts](documentation/user_guide/01-introduction.md) - Understanding computations and continuation-passing style
+2. [Fundamentals: Construct & Run](documentation/user_guide/02-fundamentals.md) - Learn to create and execute computations
+3. [Core Operations](documentation/user_guide/03-core-operations.md) - Master mapping, chaining, branching, and error handling
+4. [Advanced Operations](documentation/user_guide/04-advanced-operations.md) - Parallel execution, racing, and complex workflows
+5. [Environment Management](documentation/user_guide/05-environment.md) - Configuration and dependency injection patterns
+6. [Extending Jerelo](documentation/user_guide/06-extending.md) - Create custom operators and computations
+7. [Complete Examples](documentation/user_guide/07-examples.md) - Real-world patterns and use cases
+
+### API Reference
+
+Complete reference for all public APIs:
+
+- **[API Overview](documentation/api_reference/)** - Quick start and core concepts
+- **[Types](documentation/api_reference/types.md)** - ContError, ContRuntime, ContObserver
+- **[Construction](documentation/api_reference/construction.md)** - Creating continuations with constructors and decorators
+- **[Execution](documentation/api_reference/execution.md)** - Running continuations: ContCancelToken, run, ff
+- **[Then Channel](documentation/api_reference/then.md)** - Success path operations: mapping, chaining, tapping, zipping, forking, loops, conditionals
+- **[Else Channel](documentation/api_reference/else.md)** - Error path operations: recovery, fallback, error handling
+- **[Combining](documentation/api_reference/combining.md)** - Parallel execution: ContBothPolicy, ContEitherPolicy, both, all, either, any
+- **[Environment](documentation/api_reference/env.md)** - Environment management: local, scope, ask, injection
+
+### Getting Started
+
+**New to Jerelo?** Follow this learning path:
+
+1. Start with [Introduction & Core Concepts](documentation/user_guide/01-introduction.md) to understand what Jerelo is and why continuation-passing style matters
+2. Follow [Fundamentals: Construct & Run](documentation/user_guide/02-fundamentals.md) to learn how to create and execute computations
+3. Master [Core Operations](documentation/user_guide/03-core-operations.md) for essential transformation and composition patterns
+4. Reference the [API docs](documentation/api_reference/) as needed for detailed method signatures and behaviors
+
+**Already familiar with continuations?** Jump to:
+- [Complete Examples](documentation/user_guide/07-examples.md) for real-world patterns
+- [API Reference](documentation/api_reference/) for quick lookup
+- [Extending Jerelo](documentation/user_guide/06-extending.md) to build custom operators
 
 ## Full Example
 
@@ -220,13 +255,6 @@ The example above showcases:
 - **Racing**: Competing computations with `Cont.either` and `ContEitherPolicy`
 - **Reusability**: Same computation executed with different configurations
 - **Cancellation**: Cooperative cancellation via `ContCancelToken` returned by `run`
-
-## Learn More
-
-- Explore the [Documentation](documentation/README.md) for comprehensive guides and references
-- Start with the [User Guide](documentation/user_guide/01-introduction.md) for in-depth explanations and patterns
-- Check the [API Reference](documentation/api/) for complete method documentation
-- See [Real-World Examples](documentation/user_guide/07-examples.md) for practical patterns
 
 ## License
 

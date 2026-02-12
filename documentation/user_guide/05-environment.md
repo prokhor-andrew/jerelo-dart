@@ -1,4 +1,4 @@
-[Home](../../README.md) > [Documentation](../README.md) > User Guide
+[Home](../../README.md) > User Guide
 
 # Environment Management
 
@@ -393,4 +393,4 @@ Cont<Services, User> getUser(String userId) {
 Now that you understand environment management, continue to:
 - **[Extending Jerelo](06-extending.md)** - Create custom operators and computations
 - **[Complete Examples](07-examples.md)** - See comprehensive real-world patterns
-- **[API Reference](../api/)** - Quick reference lookup
+- **[API Reference](../api_reference/)** - Quick reference lookup

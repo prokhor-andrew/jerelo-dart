@@ -1,4 +1,4 @@
-[Home](../../README.md) > [Documentation](../README.md) > User Guide
+[Home](../../README.md) > User Guide
 
 # Extending Jerelo
 
@@ -477,5 +477,5 @@ fetchUserData(userId)
 
 Now that you understand how to extend Jerelo, see:
 - **[Complete Examples](07-examples.md)** - Real-world patterns and use cases
-- **[API Reference](../api/)** - Full API documentation
+- **[API Reference](../api_reference/)** - Full API documentation
 - **[Core Operations](03-core-operations.md)** - Review built-in operators for composition ideas

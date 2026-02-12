@@ -1,4 +1,4 @@
-[Home](../../README.md) > [Documentation](../README.md) > User Guide
+[Home](../../README.md) > User Guide
 
 # Fundamentals: Construct & Run
 
@@ -355,4 +355,4 @@ For detailed environment operations including `scope`, `WithEnv` variants, and a
 Now that you understand how to construct and run computations, continue to:
 - **[Core Operations](03-core-operations.md)** - Learn to transform, chain, and branch computations
 - **[Environment Management](05-environment.md)** - Deep dive into environment handling
-- **[API Reference](../api/)** - Quick reference lookup
+- **[API Reference](../api_reference/)** - Quick reference lookup
