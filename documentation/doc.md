@@ -206,14 +206,14 @@ Each `Cont` is a source of results. Like a spring that feeds a stream, a `Cont` 
 The termination channel is used when a computation crashes or when you manually terminate it.
 
 ```dart
-final program = getUserAge(userId).map((age) {
+final program = getUserAge(userId).thenMap((age) {
   throw "Armageddon!"; // <- throws here
 });
 
 // or
 
 final program = getUserAge(userId).thenDo((age) {
-  return Cont.terminate([ContError.capture("Armageddon!")]);
+  return Cont.stop([ContError.capture("Armageddon!")]);
 });
 
 // ignore `()` for now
@@ -305,7 +305,7 @@ Cont<E, User> getUser<E>(String userId) {
 To represent terminated computation:
 
 ```dart
-Cont.terminate([
+Cont.stop([
   ContError.capture("payload"),
 ]);
 ```
@@ -393,6 +393,35 @@ final token = program.run((), onThen: print);
 token.cancel();
 ```
 
+### Fire-and-Forget Execution with ff
+
+The `ff` method provides a simplified way to execute a continuation when you don't care about the result:
+
+```dart
+// Just run it and forget about it
+logAnalytics(userId, action).ff(());
+
+// vs. using run
+logAnalytics(userId, action).run((), onThen: (_) {}, onElse: (_) {});
+```
+
+The `ff` method:
+- Does not provide success or error callbacks
+- Only accepts `onPanic` for fatal errors
+- Useful for side-effect-only operations like logging, metrics, or fire-and-forget notifications
+- More concise than `run` when you don't need to handle results
+
+**Signature:**
+```dart
+void ff(E env, {void Function(ContError error) onPanic})
+```
+
+**Use cases:**
+- Fire-and-forget logging
+- Background analytics
+- Non-critical notifications
+- Metrics collection
+
 ### Key Properties of Cont
 
 Any object of type `Cont` is:
@@ -441,9 +470,9 @@ Understanding how `Cont` executes is crucial for building complex computation ch
 When `run` is called, execution first traverses "up" the operator chain to find the source computation. This traversal passes through all intermediate operators (`map`, `thenDo`, `elseDo`, etc.) without executing their logic yet—it's simply locating the origin of the computation chain.
 
 ```dart
-// This chain: source → map → thenDo → run
+// This chain: source → thenMap → thenDo → run
 Cont.of(0)              // source (reached first)
-  .map((x) => x + 1)    // operator 2 (traversed)
+  .thenMap((x) => x + 1)  // operator 2 (traversed)
   .thenDo((x) => ...)   // operator 3 (traversed)
   .run(...)             // starting point
 ```
@@ -458,7 +487,7 @@ Once the source computation completes and emits a value or termination, executio
 
 ```dart
 Cont.of(0)                    // Emits: value(0)
-  .map((x) => x + 1)          // Processes: value(0) → value(1)
+  .thenMap((x) => x + 1)      // Processes: value(0) → value(1)
   .thenDo((x) => Cont.of(x * 2))  // Processes: value(1) → runs new Cont → value(2)
   .run((), onElse: onElse, onThen: onThen)  // Receives: value(2)
 ```
@@ -474,21 +503,21 @@ Operators like `thenDo` and `map` only process values from the value channel. If
 
 ```dart
 Cont.of(0)
-  .map((x) => x + 1)        // Only processes values
+  .thenMap((x) => x + 1)    // Only processes values
   .thenDo((x) => throw "Error!")  // Throws → switches to termination channel
-  .map((x) => x * 2)        // Skipped! (termination channel active)
+  .thenMap((x) => x * 2)    // Skipped! (termination channel active)
   .run((), onElse: onElse, onThen: onThen)  // onElse called
 ```
 
 Conversely, `elseDo` and `elseTap` only process termination signals and can switch back to the value channel:
 
 ```dart
-Cont.terminate<int>([ContError.withStackTrace("fail", st)])  // Termination channel
-  .map((x) => x + 1)        // Skipped (no value to process)
+Cont.stop<int>([ContError.withStackTrace("fail", st)])  // Termination channel
+  .thenMap((x) => x + 1)    // Skipped (no value to process)
   .elseDo((errors) {
     return Cont.of(42);     // Recovers → switches back to value channel
   })
-  .map((x) => x * 2)        // Processes value(42) → value(84)
+  .thenMap((x) => x * 2)    // Processes value(42) → value(84)
   .run((), onElse: onElse, onThen: onThen)  // onThen(84) called
 ```
 
@@ -501,7 +530,7 @@ final slow = delay(Duration(seconds: 2), 42);
 final fast = delay(Duration(milliseconds: 100), 10);
 
 Cont.either(slow, fast, ...)  // Both start executing in parallel
-  .map((x) => x * 2)          // Waits for first completion → then processes winner
+  .thenMap((x) => x * 2)      // Waits for first completion → then processes winner
   .run(...)                   // Receives result from fast: 10 * 2 = 20
 ```
 
@@ -572,17 +601,26 @@ For detailed environment operations including `scope`, `WithEnv` variants, and a
 
 ### Mapping
 
-To transform a value inside `Cont`, use `map`:
+To transform a value inside `Cont`, use `thenMap`:
 
 ```dart
-Cont.of(0).map((zero) {
+Cont.of(0).thenMap((zero) {
   return zero + 1;
 }).run((), onThen: print); // prints 1
 ```
 
+**Variants:**
+- `thenMap(f)` - Transform value with function
+- `thenMap0(f)` - Transform with zero-argument function (ignores current value)
+- `thenMapWithEnv(f)` - Transform with access to environment and value
+- `thenMapWithEnv0(f)` - Transform with access to environment only
+- `thenMapTo(value)` - Replace value with a constant
+
 ### Hoisting
 
-Sometimes you need to intercept or modify how a continuation executes, without changing the value it produces. The `hoist` operator lets you wrap the underlying run function with custom behavior.
+Sometimes you need to intercept or modify how a continuation executes, without changing the value it produces. The `decor` operator lets you wrap the underlying run function with custom behavior.
+
+Sometimes you need to intercept or modify how a continuation executes, without changing the value it produces. The `decor` operator lets you wrap the underlying run function with custom behavior.
 
 This is useful for:
 - Logging when execution starts
@@ -596,7 +634,7 @@ This is useful for:
 final cont = Cont.of(42).delay(Duration(milliseconds: 2));
 
 // Add logging around execution
-final logged = cont.hoist((run, runtime, observer) {
+final logged = cont.decor((run, runtime, observer) {
   print('Execution starting...');
   run(runtime, observer);
   print('Execution initiated');
@@ -608,6 +646,8 @@ logged.run((), onThen: print);
 // Execution initiated
 // 42
 ```
+
+**Note:** `decor` is a natural transformation that gives you full control over the execution mechanics, making it the most powerful operator for creating custom behaviors.
 
 ---
 
@@ -632,7 +672,9 @@ Cont.of(0).thenDo((zero) {
 Other success operators include:
 - `thenTap`: Execute side effects while passing the original value through
 - `thenZip`: Combine the original value with a new computation's result
-- `thenFork`: Run a computation in the background without blocking the chain
+- `thenFork`: Run a computation in the background without blocking the chain (fire-and-forget)
+
+**Variants:** All success operators have `0`, `WithEnv`, and `WithEnv0` variants (e.g., `thenDo0`, `thenDoWithEnv`, `thenDoWithEnv0`)
 
 Here's how chaining makes composition clean:
 
@@ -651,7 +693,7 @@ This is a dramatic improvement over the nested callback style!
 Use `elseDo` to recover from termination by providing a fallback:
 
 ```dart
-Cont.terminate<int>([ContError.capture("fail")])
+Cont.stop<int>([ContError.capture("fail")])
   .elseDo((errors) {
     print("Caught: ${errors[0].error}");
     return Cont.of(42); // recover with default value
@@ -659,13 +701,41 @@ Cont.terminate<int>([ContError.capture("fail")])
   .run((), onThen: print); // prints: Caught: fail, then: 42
 ```
 
-Other error operators include:
-- `elseTap`: Execute side effects on termination (e.g., logging) while allowing the error to continue or recovering
-- `elseZip`: Combine error information with additional context
-- `elseFork`: Handle errors in the background without blocking
-- `recover`: Compute a replacement value from the errors (convenience over `elseDo`)
+**Variants:** `elseDo0`, `elseDoWithEnv`, `elseDoWithEnv0`
+
+### Error Transformation with elseMap
+
+The `elseMap` operator transforms the error list on the termination channel without changing the channel (stays on termination). This is useful for adding context, filtering errors, or wrapping errors in a different format.
+
+```dart
+Cont.stop<int>([ContError.capture("connection timeout")])
+  .elseMap((errors) {
+    return errors.map((e) =>
+      ContError.capture("Network error: ${e.error}")
+    ).toList();
+  })
+  .run(
+    (),
+    onElse: (errors) => print(errors.first.error),
+  ); // prints "Network error: connection timeout"
+```
+
+**Difference from `elseDo`:**
+- `elseMap`: Transforms errors and stays on termination channel (returns `List<ContError>`)
+- `elseDo`: Can recover to success channel (returns `Cont<E, A>`)
+
+**Variants:** `elseMap0`, `elseMapWithEnv`, `elseMapWithEnv0`, `elseMapTo`
+
+### Other Error Operators
+
+- `elseTap`: Execute side effects on termination (e.g., logging) while preserving the original errors
+- `elseZip`: Runs fallback and combines errors from both attempts
+- `elseFork`: Handle errors in the background without blocking (fire-and-forget)
+- `recover`: Compute a replacement value from the errors (convenience shorthand for `elseDo`)
 - `recover0`: Compute a replacement value ignoring the errors
-- `fallback`: Provide a constant fallback value on termination
+- `recoverWith`: Provide a constant fallback value on termination
+
+**Variants:** All error operators have `0`, `WithEnv`, and `WithEnv0` variants
 
 ### Environment Variants
 
@@ -711,6 +781,8 @@ Cont.of(2)
 
 This is useful for early termination of computation chains when certain conditions are not met.
 
+**Variants:** `thenIf0`, `thenIfWithEnv`, `thenIfWithEnv0`
+
 #### Conditional Recovery with elseIf
 
 The `elseIf` operator is the error-channel counterpart to `thenIf`. While `thenIf` filters values on the success channel, `elseIf` filters errors on the termination channel and provides conditional recovery.
@@ -718,7 +790,7 @@ The `elseIf` operator is the error-channel counterpart to `thenIf`. While `thenI
 If the predicate returns `true`, the computation recovers with the provided value. If the predicate returns `false`, the computation continues terminating with the original errors.
 
 ```dart
-Cont.terminate<(), int>([ContError.capture('not found')])
+Cont.stop<(), int>([ContError.capture('not found')])
   .elseIf((errors) => errors.first.error == 'not found', 42)
   .run(
     (),
@@ -726,7 +798,7 @@ Cont.terminate<(), int>([ContError.capture('not found')])
     onThen: (value) => print("success: $value"),
   ); // prints "success: 42"
 
-Cont.terminate<(), int>([ContError.capture('fatal error')])
+Cont.stop<(), int>([ContError.capture('fatal error')])
   .elseIf((errors) => errors.first.error == 'not found', 42)
   .run(
     (),
@@ -734,6 +806,8 @@ Cont.terminate<(), int>([ContError.capture('fatal error')])
     onThen: (value) => print("success: $value"),
   ); // prints "terminated: fatal error"
 ```
+
+**Variants:** `elseIf0`, `elseIfWithEnv`, `elseIfWithEnv0`
 
 This is particularly useful for:
 - Recovering from specific error types while propagating others
@@ -754,7 +828,7 @@ fetchUserFromNetwork(userId)
   )
   .elseDo((errors) {
     // All other errors propagate
-    return Cont.terminate(errors);
+    return Cont.stop(errors);
   })
   .run(
     (),
@@ -813,15 +887,61 @@ getUserAge(userId)
   );
 ```
 
-### Looping with asLongAs
+### Forced Termination with abort
 
-The `asLongAs` operator repeatedly executes a computation as long as the predicate returns `true`. The loop stops when the predicate returns `false`, and the computation succeeds with that final value.
+The `abort` operator unconditionally switches to the termination channel with computed errors, regardless of whether the computation succeeded or failed. This is useful when you need to forcefully terminate based on the result value.
+
+```dart
+Cont.of(42)
+  .abort((value) => [ContError.capture("Value $value is not allowed")])
+  .run(
+    (),
+    onElse: (errors) => print("Terminated: ${errors.first.error}"),
+    onThen: (value) => print("Success: $value"),
+  ); // prints "Terminated: Value 42 is not allowed"
+```
+
+The key difference from `thenIf` is that `abort` computes the error list dynamically from the value, while `thenIf` simply filters without producing custom errors.
+
+**Variants:**
+- `abort(f)` - Compute errors from value
+- `abort0(f)` - Compute errors without examining value
+- `abortWithEnv(f)` - Compute errors with environment access
+- `abortWithEnv0(f)` - Compute errors from environment only
+- `abortWith(errors)` - Unconditionally terminate with fixed error list
+
+**Example: Validation with custom error messages**
+
+```dart
+getUserInput()
+  .abortWith([ContError.capture("Input required")])
+    .thenIf((input) => input.isNotEmpty)
+  .abort((input) {
+    if (input.length < 3) {
+      return [ContError.capture("Input too short: minimum 3 characters")];
+    }
+    if (!RegExp(r'^[a-zA-Z]+$').hasMatch(input)) {
+      return [ContError.capture("Input must contain only letters")];
+    }
+    return []; // Won't actually abort if empty list
+  })
+  .thenDo((validInput) => processInput(validInput))
+  .run(
+    (),
+    onElse: (errors) => print("Validation failed: ${errors.first.error}"),
+    onThen: (result) => print("Processed: $result"),
+  );
+```
+
+### Looping with thenWhile
+
+The `thenWhile` operator repeatedly executes a computation as long as the predicate returns `true`. The loop stops when the predicate returns `false`, and the computation succeeds with that final value.
 
 ```dart
 // Retry getting a value until it's greater than 5
 Cont.of(0)
-  .map((n) => Random().nextInt(10)) // generate random 0..9
-  .asLongAs((value) => value <= 5)
+  .thenMap((n) => Random().nextInt(10)) // generate random 0..9
+  .thenWhile((value) => value <= 5)
   .run((), onThen: (value) {
     print("Got value > 5: $value");
   });
@@ -834,19 +954,135 @@ Ideal for:
 - Polling until a state changes
 - Repeating operations while a condition holds
 
-### Looping with until
+**Variants:** `thenWhile0`, `thenWhileWithEnv`, `thenWhileWithEnv0`
 
-If you want to loop until a condition is met (inverted logic), use `until`:
+### Looping with thenUntil
+
+If you want to loop until a condition is met (inverted logic), use `thenUntil`:
 
 ```dart
 // Retry getting a value until it's greater than 5
 Cont.of(0)
-  .map((n) => Random().nextInt(10)) // generate random 0..9
-  .until((value) => value > 5) // inverted condition
+  .thenMap((n) => Random().nextInt(10)) // generate random 0..9
+  .thenUntil((value) => value > 5) // inverted condition
   .run((), onThen: (value) {
     print("Got value > 5: $value");
   });
 ```
+
+**Variants:** `thenUntil0`, `thenUntilWithEnv`, `thenUntilWithEnv0`
+
+### Looping forever
+
+Use `forever` to create an infinite loop that never terminates normally:
+
+```dart
+Cont.of(())
+  .thenTap((_) => checkForMessages())
+  .thenTap((_) => delay(Duration(seconds: 1)))
+  .forever()
+  .run((), onElse: (errors) {
+    print("Loop terminated: $errors");
+  });
+```
+
+The `forever` operator returns `Cont<E, Never>`, indicating it never produces a value on the success channel. It can only terminate through errors or cancellation.
+
+### Working with Never-Producing Continuations
+
+Some operations produce `Cont<E, Never>`, meaning they can only terminate through errors, never through success. Jerelo provides special extensions for working with these:
+
+#### trap: Execute Termination-Only Continuation
+
+The `trap` method executes a `Cont<E, Never>` when you only care about errors:
+
+```dart
+final neverSucceeds = Cont.of(())
+  .thenDo((_) => Cont.stop([ContError.capture("always fails")]))
+  .forever();
+
+// Only provide error handler - no onThen needed
+final token = neverSucceeds.trap(
+  (),
+  onElse: (errors) => print("Terminated: ${errors.first.error}"),
+);
+```
+
+Since `Cont<E, Never>` can never succeed, `trap` doesn't require an `onThen` callback, making your intent clearer.
+
+#### absurd: Convert Never to Any Type
+
+The `absurd` method converts a `Cont<E, Never>` to any result type. This is safe because the continuation can never actually produce a value:
+
+```dart
+final Cont<(), Never> neverProduces = loopForever();
+
+// Convert to any type you need
+final Cont<(), String> asString = neverProduces.absurd<String>();
+final Cont<(), int> asInt = neverProduces.absurd<int>();
+
+// This is safe because if neverProduces actually terminates,
+// it will be through the error channel, not by producing a value
+```
+
+**Use cases for Never-producing continuations:**
+- Long-running services that should never exit normally
+- Event loops that only terminate on errors
+- Infinite retry mechanisms
+- Daemon processes
+- WebSocket listeners
+
+### Error Retry Loops with elseWhile and elseUntil
+
+Just as `thenWhile` and `thenUntil` loop on the success channel, `elseWhile` and `elseUntil` provide retry logic on the error channel.
+
+#### elseWhile: Retry while predicate is true
+
+The `elseWhile` operator retries a computation as long as the error predicate returns `true`:
+
+```dart
+// Retry while getting network timeouts, up to 3 times
+int attempts = 0;
+fetchFromApi()
+  .elseWhile((errors) {
+    attempts++;
+    final isTimeout = errors.any((e) => e.error.toString().contains('timeout'));
+    return isTimeout && attempts < 3;
+  })
+  .run(
+    (),
+    onElse: (errors) => print("Failed after retries: ${errors.first.error}"),
+    onThen: (data) => print("Success: $data"),
+  );
+```
+
+**Variants:** `elseWhile0`, `elseWhileWithEnv`, `elseWhileWithEnv0`
+
+#### elseUntil: Retry until predicate is true
+
+The `elseUntil` operator retries until the error predicate returns `true` (inverted logic):
+
+```dart
+// Retry until we get a non-retryable error or succeed
+fetchFromApi()
+  .elseUntil((errors) {
+    // Stop retrying if error is not retryable
+    return errors.any((e) => e.error.toString().contains('unauthorized'));
+  })
+  .run(
+    (),
+    onElse: (errors) => print("Stopped retrying: ${errors.first.error}"),
+    onThen: (data) => print("Success: $data"),
+  );
+```
+
+**Variants:** `elseUntil0`, `elseUntilWithEnv`, `elseUntilWithEnv0`
+
+**Common use cases:**
+- Retry with exponential backoff (combine with `delay`)
+- Retry on transient errors (network timeouts, rate limits)
+- Circuit breaker patterns
+- Polling until success or non-retryable error
 
 ---
 
@@ -970,6 +1206,19 @@ Cont.both(
 ).run((), onThen: print); // prints: 30
 ```
 
+You can also use the instance method `and` as a more fluent alternative:
+
+```dart
+final left = Cont.of(10);
+final right = Cont.of(20);
+
+left.and(
+  right,
+  (a, b) => a + b,
+  policy: ContBothPolicy.quitFast(),
+).run((), onThen: print); // prints: 30
+```
+
 ### Running Many Computations
 
 Use `all` to run multiple computations and collect all results:
@@ -1002,6 +1251,33 @@ Cont.either(
 ).run((), onThen: print); // prints: 10 (fast wins)
 ```
 
+You can also use the instance method `or` as a more fluent alternative:
+
+```dart
+final slow = delayedCont(Duration(seconds: 2), 42);
+final fast = delayedCont(Duration(milliseconds: 100), 10);
+
+slow.or(
+  fast,
+  policy: ContEitherPolicy.quitFast(),
+).run((), onThen: print); // prints: 10 (fast wins)
+```
+
+Use `any` to race multiple computations:
+
+```dart
+final computations = [
+  delayedCont(Duration(seconds: 2), 1),
+  delayedCont(Duration(milliseconds: 100), 2),
+  delayedCont(Duration(seconds: 1), 3),
+];
+
+Cont.any(
+  computations,
+  policy: ContEitherPolicy.quitFast(),
+).run((), onThen: print); // prints: 2 (fastest)
+```
+
 ---
 
 ## Environment Management
@@ -1028,7 +1304,7 @@ program.run(
 Use `scope` to provide an environment value:
 
 ```dart
-final cont = Cont.ask<String>().map((s) => s.toUpperCase());
+final cont = Cont.ask<String>().thenMap((s) => s.toUpperCase());
 
 final program = cont.scope("hello");
 
@@ -1037,6 +1313,49 @@ program.run(
   onThen: print,
 ); // prints: HELLO
 ```
+
+### Transforming Environment with local
+
+The `local` operator lets you transform the environment before passing it to a continuation. This is useful when you need to adapt the environment type or modify its contents:
+
+```dart
+class DatabaseConfig {
+  final String host;
+  final int port;
+  DatabaseConfig(this.host, this.port);
+}
+
+class AppConfig {
+  final DatabaseConfig dbConfig;
+  final String apiKey;
+  AppConfig(this.dbConfig, this.apiKey);
+}
+
+// Operation that needs DatabaseConfig
+final dbOperation = Cont.ask<DatabaseConfig>().thenDo((config) {
+  return connectToDb(config.host, config.port);
+});
+
+// Run with AppConfig by extracting DatabaseConfig
+final program = dbOperation.local<AppConfig>((appConfig) => appConfig.dbConfig);
+
+program.run(
+  AppConfig(DatabaseConfig('localhost', 5432), 'key123'),
+  onThen: print,
+);
+```
+
+**Difference from `scope`:**
+- `scope(value)`: Replaces environment with a fixed value
+- `local(f)`: Transforms the outer environment before passing it down
+- `local0(f)`: Provides environment from zero-argument function
+
+**Variants:** `local0`
+
+**Use cases:**
+- Adapting environment types (extracting sub-configurations)
+- Adding context to environment (timestamps, request IDs)
+- Environment middleware patterns
 
 ### WithEnv Variants
 
@@ -1291,7 +1610,7 @@ Cont<E, String> readFile<E>(String path) {
 
 ### Custom Operators
 
-You can create custom operators by combining existing Jerelo operators or by using `hoist` for lower-level control.
+You can create custom operators by combining existing Jerelo operators or by using `decor` for lower-level control.
 
 **Approach 1: Compose existing operators**
 
@@ -1306,7 +1625,7 @@ extension MyContExtensions<E, T> on Cont<E, T> {
     return this.elseDo((errors) {
       return retry(maxAttempts - 1).elseDo((_) {
         // If all retries fail, return original errors
-        return Cont.terminate(errors);
+        return Cont.stop(errors);
       });
     });
   }
@@ -1339,15 +1658,15 @@ getUserData(userId)
   .run((), onThen: print);
 ```
 
-**Approach 2: Use `hoist` for low-level control**
+**Approach 2: Use `decor` for low-level control**
 
-When you need to intercept or modify the execution flow itself, use `hoist`:
+When you need to intercept or modify the execution flow itself, use `decor`:
 
 ```dart
 extension TimingExtension<E, T> on Cont<E, T> {
   // Measure execution time
   Cont<E, (T, Duration)> timed() {
-    return this.hoist((run, runtime, observer) {
+    return this.decor((run, runtime, observer) {
       final stopwatch = Stopwatch()..start();
 
       run(
@@ -1394,7 +1713,7 @@ extension AdvancedExtensions<E, T> on Cont<E, T> {
             attemptsLeft - 1,
             currentDelay * 2,
           ))
-          .elseDo((_) => Cont.terminate<T>(errors));
+          .elseDo((_) => Cont.stop<T>(errors));
       });
     }
 
@@ -1636,7 +1955,7 @@ Cont<AppConfig, Report> processUsers(List<String> userIds) {
       return getUsers(userIds)
         .thenDo((users) => processInDb(db, users))
         .thenDo((results) => generateReport(results))
-        .asLongAs((report) => !report.isComplete)
+        .thenWhile((report) => !report.isComplete)
         .thenTapWithEnv((env, report) {
           return notifyComplete(env.apiUrl, report);
         });
@@ -1672,10 +1991,10 @@ This example demonstrates:
 - Environment management (AppConfig)
 - Error handling with fallbacks (elseDo)
 - Side effects (thenTap, elseFork)
-- Conditional execution (when)
+- Conditional execution (thenIf)
 - Parallel execution with policies (Cont.all with ContBothPolicy.quitFast)
 - Resource management (bracket)
-- Looping (asLongAs)
+- Looping (thenWhile)
 - WithEnv variants for accessing config
 - Cancellation via `ContCancelToken` returned by `run`
 
@@ -1683,4 +2002,321 @@ This example demonstrates:
 
 ## API Reference
 
-For a complete reference of all available operators, constructors, and advanced features, see the [Complete API Documentation](api.md).
+This section provides a complete reference of all public APIs in Jerelo, organized by category.
+
+### Constructors and Factory Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `fromRun` | `Cont<E, A> fromRun(void Function(ContRuntime<E>, ContObserver<A>) run)` | Create a continuation from a run function |
+| `of` | `Cont<E, A> of(A value)` | Create a continuation that immediately succeeds with a value |
+| `stop` | `Cont<E, A> stop([List<ContError> errors])` | Create a continuation that immediately terminates with optional errors |
+| `ask` | `Cont<E, E> ask<E>()` | Retrieve the current environment value |
+| `fromDeferred` | `Cont<E, A> fromDeferred(Cont<E, A> Function() thunk)` | Lazily evaluate a continuation-returning function |
+| `bracket` | `Cont<E, A> bracket({...})` | Manage resource lifecycle with guaranteed cleanup |
+
+### Transform Operators
+
+Transform values on the success channel using pure functions.
+
+| Method | Description |
+|--------|-------------|
+| `thenMap(f)` | Transform value with function `A → A2` |
+| `thenMap0(f)` | Transform with zero-argument function `() → A2` |
+| `thenMapWithEnv(f)` | Transform with `(E, A) → A2` |
+| `thenMapWithEnv0(f)` | Transform with `E → A2` |
+| `thenMapTo(value)` | Replace value with constant |
+
+### Chain Operators (Do)
+
+Chain continuations based on the previous result (monadic bind).
+
+| Method | Description |
+|--------|-------------|
+| `thenDo(f)` | Chain with `A → Cont<E, A2>` |
+| `thenDo0(f)` | Chain with `() → Cont<E, A2>` |
+| `thenDoWithEnv(f)` | Chain with `(E, A) → Cont<E, A2>` |
+| `thenDoWithEnv0(f)` | Chain with `E → Cont<E, A2>` |
+
+### Tap Operators
+
+Execute side effects while preserving the original value.
+
+| Method | Description |
+|--------|-------------|
+| `thenTap(f)` | Side effect with `A → Cont<E, _>`, returns original `A` |
+| `thenTap0(f)` | Side effect with `() → Cont<E, _>` |
+| `thenTapWithEnv(f)` | Side effect with `(E, A) → Cont<E, _>` |
+| `thenTapWithEnv0(f)` | Side effect with `E → Cont<E, _>` |
+
+### Zip Operators
+
+Run and combine results from two continuations.
+
+| Method | Description |
+|--------|-------------|
+| `thenZip(f, combine)` | Chain `A → Cont<E, A2>` and combine with `(A, A2) → A3` |
+| `thenZip0(f, combine)` | Chain `() → Cont<E, A2>` and combine results |
+| `thenZipWithEnv(f, combine)` | Chain `(E, A) → Cont<E, A2>` and combine |
+| `thenZipWithEnv0(f, combine)` | Chain `E → Cont<E, A2>` and combine |
+
+### Fork Operators
+
+Fire-and-forget side effects (don't wait for completion).
+
+| Method | Description |
+|--------|-------------|
+| `thenFork(f)` | Fire-and-forget with `A → Cont<E, _>` |
+| `thenFork0(f)` | Fire-and-forget with `() → Cont<E, _>` |
+| `thenForkWithEnv(f)` | Fire-and-forget with `(E, A) → Cont<E, _>` |
+| `thenForkWithEnv0(f)` | Fire-and-forget with `E → Cont<E, _>` |
+
+### Conditional Operators (If)
+
+Filter or validate values based on predicates.
+
+| Method | Description |
+|--------|-------------|
+| `thenIf(predicate)` | Succeed only if `A → bool` is true, else terminate |
+| `thenIf0(predicate)` | Succeed only if `() → bool` is true |
+| `thenIfWithEnv(predicate)` | Succeed only if `(E, A) → bool` is true |
+| `thenIfWithEnv0(predicate)` | Succeed only if `E → bool` is true |
+
+### Loop Operators (While/Until)
+
+Repeatedly execute a continuation based on predicates.
+
+| Method | Description |
+|--------|-------------|
+| `thenWhile(predicate)` | Loop while `A → bool` is true |
+| `thenWhile0(predicate)` | Loop while `() → bool` is true |
+| `thenWhileWithEnv(predicate)` | Loop while `(E, A) → bool` is true |
+| `thenWhileWithEnv0(predicate)` | Loop while `E → bool` is true |
+| `thenUntil(predicate)` | Loop until `A → bool` is true (inverse of while) |
+| `thenUntil0(predicate)` | Loop until `() → bool` is true |
+| `thenUntilWithEnv(predicate)` | Loop until `(E, A) → bool` is true |
+| `thenUntilWithEnv0(predicate)` | Loop until `E → bool` is true |
+| `forever()` | Loop indefinitely, returns `Cont<E, Never>` |
+
+### Abort Operators
+
+Force termination with computed errors.
+
+| Method | Description |
+|--------|-------------|
+| `abort(f)` | Terminate with `A → List<ContError>` |
+| `abort0(f)` | Terminate with `() → List<ContError>` |
+| `abortWithEnv(f)` | Terminate with `(E, A) → List<ContError>` |
+| `abortWithEnv0(f)` | Terminate with `E → List<ContError>` |
+| `abortWith(errors)` | Terminate with fixed error list |
+
+### Error Operators (elseDo)
+
+Recover from termination by providing fallback continuations.
+
+| Method | Description |
+|--------|-------------|
+| `elseDo(f)` | Recover with `List<ContError> → Cont<E, A>` |
+| `elseDo0(f)` | Recover with `() → Cont<E, A>` |
+| `elseDoWithEnv(f)` | Recover with `(E, List<ContError>) → Cont<E, A>` |
+| `elseDoWithEnv0(f)` | Recover with `E → Cont<E, A>` |
+
+### Error Map Operators
+
+Transform errors while staying on the termination channel.
+
+| Method | Description |
+|--------|-------------|
+| `elseMap(f)` | Transform errors with `List<ContError> → List<ContError>` |
+| `elseMap0(f)` | Replace errors with `() → List<ContError>` |
+| `elseMapWithEnv(f)` | Transform errors with `(E, List<ContError>) → List<ContError>` |
+| `elseMapWithEnv0(f)` | Replace errors with `E → List<ContError>` |
+| `elseMapTo(errors)` | Replace errors with fixed list |
+
+### Error Tap Operators
+
+Execute side effects on termination while preserving errors.
+
+| Method | Description |
+|--------|-------------|
+| `elseTap(f)` | Side effect with `List<ContError> → Cont<E, _>` |
+| `elseTap0(f)` | Side effect with `() → Cont<E, _>` |
+| `elseTapWithEnv(f)` | Side effect with `(E, List<ContError>) → Cont<E, _>` |
+| `elseTapWithEnv0(f)` | Side effect with `E → Cont<E, _>` |
+
+### Error Zip Operators
+
+Run fallback and combine errors from both attempts.
+
+| Method | Description |
+|--------|-------------|
+| `elseZip(f)` | Run `List<ContError> → Cont<E, A>` and merge errors if both fail |
+| `elseZip0(f)` | Run `() → Cont<E, A>` and merge errors if both fail |
+| `elseZipWithEnv(f)` | Run `(E, List<ContError>) → Cont<E, A>` and merge errors |
+| `elseZipWithEnv0(f)` | Run `E → Cont<E, A>` and merge errors |
+
+### Error Fork Operators
+
+Fire-and-forget error handlers.
+
+| Method | Description |
+|--------|-------------|
+| `elseFork(f)` | Fire-and-forget with `List<ContError> → Cont<E, _>` |
+| `elseFork0(f)` | Fire-and-forget with `() → Cont<E, _>` |
+| `elseForkWithEnv(f)` | Fire-and-forget with `(E, List<ContError>) → Cont<E, _>` |
+| `elseForkWithEnv0(f)` | Fire-and-forget with `E → Cont<E, _>` |
+
+### Error Conditional Operators
+
+Conditionally recover based on error predicates.
+
+| Method | Description |
+|--------|-------------|
+| `elseIf(predicate, value)` | Recover with `value` if `List<ContError> → bool` is true |
+| `elseIf0(predicate, value)` | Recover with `value` if `() → bool` is true |
+| `elseIfWithEnv(predicate, value)` | Recover with `value` if `(E, List<ContError>) → bool` is true |
+| `elseIfWithEnv0(predicate, value)` | Recover with `value` if `E → bool` is true |
+
+### Error Loop Operators
+
+Retry on termination based on error predicates.
+
+| Method | Description |
+|--------|-------------|
+| `elseWhile(predicate)` | Retry while `List<ContError> → bool` is true |
+| `elseWhile0(predicate)` | Retry while `() → bool` is true |
+| `elseWhileWithEnv(predicate)` | Retry while `(E, List<ContError>) → bool` is true |
+| `elseWhileWithEnv0(predicate)` | Retry while `E → bool` is true |
+| `elseUntil(predicate)` | Retry until `List<ContError> → bool` is true |
+| `elseUntil0(predicate)` | Retry until `() → bool` is true |
+| `elseUntilWithEnv(predicate)` | Retry until `(E, List<ContError>) → bool` is true |
+| `elseUntilWithEnv0(predicate)` | Retry until `E → bool` is true |
+
+### Recovery Operators
+
+Convenience operators for error recovery.
+
+| Method | Description |
+|--------|-------------|
+| `recover(f)` | Recover with `List<ContError> → A` |
+| `recover0(f)` | Recover with `() → A` |
+| `recoverWithEnv(f)` | Recover with `(E, List<ContError>) → A` |
+| `recoverWithEnv0(f)` | Recover with `E → A` |
+| `recoverWith(value)` | Recover with constant value |
+
+### Merge Operators
+
+Run multiple continuations and combine their results.
+
+| Method | Description |
+|--------|-------------|
+| `Cont.both(left, right, combine, policy)` | Run two continuations and combine results |
+| `and(right, combine, policy)` | Instance method for `both` |
+| `Cont.all(list, policy)` | Run list of continuations and collect results |
+
+**Policies for both/all:**
+- `ContBothPolicy.sequence()` - Run sequentially, stop on first failure
+- `ContBothPolicy.mergeWhenAll()` - Run in parallel, wait for all, combine all errors
+- `ContBothPolicy.quitFast()` - Run in parallel, quit on first failure
+
+### Race Operators
+
+Race multiple continuations for first success.
+
+| Method | Description |
+|--------|-------------|
+| `Cont.either(left, right, policy)` | Race two continuations, return first success |
+| `or(right, policy)` | Instance method for `either` |
+| `Cont.any(list, policy)` | Race list of continuations, return first success |
+
+**Policies for either/any:**
+- `ContEitherPolicy.sequence()` - Try sequentially until one succeeds
+- `ContEitherPolicy.mergeWhenAll(combine)` - Run in parallel, combine multiple successes
+- `ContEitherPolicy.quitFast()` - Run in parallel, quit on first success
+
+### Environment Operators
+
+Manage environment threading and transformation.
+
+| Method | Description |
+|--------|-------------|
+| `local(f)` | Transform environment with `E2 → E` before passing down |
+| `local0(f)` | Provide environment from `() → E` |
+| `scope(value)` | Replace environment with fixed value |
+| `injectInto(cont)` | Inject value as environment for another continuation |
+| `injectedBy(cont)` | Receive environment from another continuation's value |
+
+### Execution Methods
+
+Execute continuations and handle results.
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `run(env, {onPanic, onElse, onThen})` | `ContCancelToken` | Execute with callbacks for success/error, returns cancellation token |
+| `ff(env, {onPanic})` | `void` | Fire-and-forget execution (no result callbacks, no cancellation) |
+| `trap(env, {isCancelled, onPanic, onElse})` | `ContCancelToken` | Execute `Cont<E, Never>` with only error handler |
+
+### Decorator Operator
+
+Transform execution behavior.
+
+| Method | Description |
+|--------|-------------|
+| `decor(f)` | Natural transformation over the run function |
+
+### Extension Methods
+
+Special operations on specific continuation types.
+
+| Method | Applies To | Description |
+|--------|-----------|-------------|
+| `flatten()` | `Cont<E, Cont<E, A>>` | Flatten nested continuation structure |
+| `absurd<A>()` | `Cont<E, Never>` | Convert never-producing continuation to any type |
+| `trap(env, ...)` | `Cont<E, Never>` | Execute with only error handler |
+
+### Supporting Types
+
+#### ContError
+
+| Method | Description |
+|--------|-------------|
+| `ContError.withStackTrace(error, st)` | Create with existing stack trace |
+| `ContError.withNoStackTrace(error)` | Create with empty stack trace |
+| `ContError.capture(error)` | Create and capture current stack trace |
+
+#### ContCancelToken
+
+| Method | Description |
+|--------|-------------|
+| `cancel()` | Request cancellation |
+| `isCancelled()` | Check if cancelled |
+
+#### ContObserver
+
+| Method | Description |
+|--------|-------------|
+| `onThen(value)` | Emit success value (idempotent, call once) |
+| `onElse(errors)` | Emit termination errors (idempotent, call once) |
+
+#### ContRuntime
+
+| Method | Description |
+|--------|-------------|
+| `env()` | Access current environment |
+| `isCancelled()` | Check if execution was cancelled |
+| `onPanic` | Access panic handler |
+
+### Variant Patterns
+
+Most operators follow consistent naming patterns for variants:
+
+- **Base form**: `thenDo(f)` - Takes value parameter
+- **0 form**: `thenDo0(f)` - Ignores value, zero-argument function
+- **WithEnv form**: `thenDoWithEnv(f)` - Takes environment and value
+- **WithEnv0 form**: `thenDoWithEnv0(f)` - Takes only environment
+
+This pattern applies to:
+- All `then*` operators (Do, Tap, Zip, Fork, If, While, Until, Map)
+- All `else*` operators (Do, Map, Tap, Zip, Fork, If, While, Until)
+- `abort*` operators
+- `recover*` operators
