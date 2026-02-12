@@ -1,3 +1,5 @@
+[Home](../../README.md) > [Documentation](../README.md) > [API Reference](../api.md)
+
 # Types
 
 Core types used throughout the Jerelo continuation library.
@@ -117,6 +119,8 @@ final class ContObserver<A>
 An observer that handles both success and termination cases of a continuation.
 
 `ContObserver` provides the callback mechanism for receiving results from a `Cont` execution. It encapsulates handlers for both successful values and termination (failure) scenarios.
+
+`ContObserver` has a private constructor. Instances cannot be created directly. Instead, new observers are derived from existing ones using the `copyUpdateOnElse` and `copyUpdateOnThen` methods. The initial observer is provided by the runtime when a continuation is executed (e.g., inside `Cont.fromRun` or `decor`).
 
 **Methods:**
 

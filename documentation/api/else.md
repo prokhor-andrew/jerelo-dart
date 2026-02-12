@@ -1,3 +1,5 @@
+[Home](../../README.md) > [Documentation](../README.md) > [API Reference](../api.md)
+
 # Else Channel Operations
 
 Error path operations for recovery and error handling.
@@ -72,7 +74,7 @@ If the continuation terminates, applies `f` to the error list and succeeds with 
 
 **Example:**
 ```dart
-final cont = Cont.terminate<(), int>([ContError.capture('not found')])
+final cont = Cont.stop<(), int>([ContError.capture('not found')])
   .recover((errors) => -1);
 
 cont.run((), onThen: print); // prints: -1
@@ -202,7 +204,7 @@ final user = fetchUser(userId)
     if (errors.any((e) => e.error == 'not_found')) {
       return createUser(userId);
     }
-    return Cont.terminate(errors);
+    return Cont.stop(errors);
   });
 ```
 
@@ -707,11 +709,11 @@ This is useful for recovering from specific error conditions while letting other
 
 **Example:**
 ```dart
-final cont = Cont.terminate<(), int>([ContError.capture('not found')])
+final cont = Cont.stop<(), int>([ContError.capture('not found')])
   .elseIf((errors) => errors.first.error == 'not found', 42);
 // Recovers with 42
 
-final cont2 = Cont.terminate<(), int>([ContError.capture('fatal error')])
+final cont2 = Cont.stop<(), int>([ContError.capture('fatal error')])
   .elseIf((errors) => errors.first.error == 'not found', 42);
 // Continues terminating with 'fatal error'
 

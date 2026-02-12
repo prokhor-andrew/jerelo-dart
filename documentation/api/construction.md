@@ -1,3 +1,5 @@
+[Home](../../README.md) > [Documentation](../README.md) > [API Reference](../api.md)
+
 # Construction & Decorating
 
 Creating and transforming continuations.
@@ -231,13 +233,13 @@ final logged = cont.decor((run, runtime, observer) {
 // Add timing
 final timed = cont.decor((run, runtime, observer) {
   final start = DateTime.now();
-  run(runtime, ContObserver(
-    onThen: (value) {
+  run(
+    runtime,
+    observer.copyUpdateOnThen((value) {
       final duration = DateTime.now().difference(start);
       print('Took $duration');
       observer.onThen(value);
-    },
-    onElse: observer.onElse,
-  ));
+    }),
+  );
 });
 ```

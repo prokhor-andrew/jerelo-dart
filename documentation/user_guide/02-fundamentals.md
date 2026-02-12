@@ -1,3 +1,5 @@
+[Home](../../README.md) > [Documentation](../README.md) > User Guide
+
 # Fundamentals: Construct & Run
 
 This guide covers the basics of creating and executing computations with Jerelo.
@@ -263,7 +265,7 @@ Cont.of(0)
 Conversely, `elseDo` and `elseTap` only process termination signals and can switch back to the value channel:
 
 ```dart
-Cont.stop<int>([ContError.withStackTrace("fail", st)])  // Termination channel
+Cont.stop<(), int>([ContError.withStackTrace("fail", st)])  // Termination channel
   .thenMap((x) => x + 1)    // Skipped (no value to process)
   .elseDo((errors) {
     return Cont.of(42);     // Recovers → switches back to value channel
@@ -353,4 +355,4 @@ For detailed environment operations including `scope`, `WithEnv` variants, and a
 Now that you understand how to construct and run computations, continue to:
 - **[Core Operations](03-core-operations.md)** - Learn to transform, chain, and branch computations
 - **[Environment Management](05-environment.md)** - Deep dive into environment handling
-- **[API Reference](api-reference.md)** - Quick reference lookup
+- **[API Reference](../api.md)** - Quick reference lookup

@@ -1,3 +1,5 @@
+[Home](../../README.md) > [Documentation](../README.md) > User Guide
+
 # Environment Management
 
 This guide covers how to manage configuration, dependencies, and context in your computations.
@@ -391,4 +393,4 @@ Cont<Services, User> getUser(String userId) {
 Now that you understand environment management, continue to:
 - **[Extending Jerelo](06-extending.md)** - Create custom operators and computations
 - **[Complete Examples](07-examples.md)** - See comprehensive real-world patterns
-- **[API Reference](api-reference.md)** - Quick reference lookup
+- **[API Reference](../api.md)** - Quick reference lookup

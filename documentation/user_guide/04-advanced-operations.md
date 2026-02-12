@@ -1,3 +1,5 @@
+[Home](../../README.md) > [Documentation](../README.md) > User Guide
+
 # Advanced Operations: Merge & Execution Policies
 
 This guide covers parallel execution, racing computations, and execution policies.
@@ -320,4 +322,4 @@ Now that you understand advanced operations, continue to:
 - **[Environment Management](05-environment.md)** - Master configuration and dependency injection
 - **[Extending Jerelo](06-extending.md)** - Create custom operators
 - **[Complete Examples](07-examples.md)** - See comprehensive real-world patterns
-- **[API Reference](api-reference.md)** - Quick reference lookup
+- **[API Reference](../api.md)** - Quick reference lookup

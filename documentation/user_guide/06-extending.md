@@ -1,3 +1,5 @@
+[Home](../../README.md) > [Documentation](../README.md) > User Guide
+
 # Extending Jerelo
 
 This guide shows you how to create custom computations, operators, and extensions that integrate seamlessly with Jerelo's composition model.
@@ -120,27 +122,36 @@ getUserData(userId)
 
 ### Approach 2: Use `decor` for Low-Level Control
 
-When you need to intercept or modify the execution flow itself, use `decor`:
+The `decor` method is a natural transformation that wraps the execution of a continuation without changing its type. It gives you access to three things:
+
+- **`run`** - The original run function (normally private and inaccessible)
+- **`runtime`** - The runtime context (environment, cancellation, panic handler)
+- **`observer`** - The observer receiving success/termination callbacks
+
+You can intercept execution by modifying the runtime or observer before passing them to `run`. Since `ContObserver` has a private constructor, new observers are created from the existing one using `copyUpdateOnThen` and `copyUpdateOnElse`.
+
+`decor` preserves the continuation's type signature (`Cont<E, A>` -> `Cont<E, A>`). It is not meant for type-changing transformations - use `thenMap`, `thenDo`, etc. for those.
+
+**Example: Execution timing**
 
 ```dart
 extension TimingExtension<E, T> on Cont<E, T> {
-  // Measure execution time
-  Cont<E, (T, Duration)> timed() {
-    return this.decor((run, runtime, observer) {
+  Cont<E, T> timed(void Function(Duration elapsed) onDuration) {
+    return decor((run, runtime, observer) {
       final stopwatch = Stopwatch()..start();
 
       run(
         runtime,
-        ContObserver(
-          onThen: (value) {
+        observer
+          .copyUpdateOnThen((value) {
             stopwatch.stop();
-            observer.onThen((value, stopwatch.elapsed));
-          },
-          onElse: (errors) {
+            onDuration(stopwatch.elapsed);
+            observer.onThen(value);
+          })
+          .copyUpdateOnElse((errors) {
             stopwatch.stop();
             observer.onElse(errors);
-          },
-        ),
+          }),
       );
     });
   }
@@ -148,11 +159,53 @@ extension TimingExtension<E, T> on Cont<E, T> {
 
 // Usage
 fetchData()
-  .timed()
-  .run((), onThen: (result) {
-    final (data, duration) = result;
-    print("Fetched in ${duration.inMilliseconds}ms: $data");
-  });
+  .timed((d) => print("Took ${d.inMilliseconds}ms"))
+  .run((), onThen: print);
+```
+
+**Example: Conditional execution**
+
+```dart
+extension ConditionalExtension<E, T> on Cont<E, T> {
+  Cont<E, T> onlyWhen(bool Function(E env) predicate) {
+    return decor((run, runtime, observer) {
+      if (predicate(runtime.env())) {
+        run(runtime, observer);
+      } else {
+        observer.onElse();
+      }
+    });
+  }
+}
+
+// Usage: only run in production
+fetchAnalytics()
+  .onlyWhen((env) => env.isProduction)
+  .run(config, onThen: print);
+```
+
+**Example: Logging middleware**
+
+```dart
+extension LoggingExtension<E, T> on Cont<E, T> {
+  Cont<E, T> logged(String label) {
+    return decor((run, runtime, observer) {
+      print('[$label] Starting');
+      run(
+        runtime,
+        observer
+          .copyUpdateOnThen((value) {
+            print('[$label] Success: $value');
+            observer.onThen(value);
+          })
+          .copyUpdateOnElse((errors) {
+            print('[$label] Failed: ${errors.length} error(s)');
+            observer.onElse(errors);
+          }),
+      );
+    });
+  }
+}
 ```
 
 ### Approach 3: Combine Both Approaches
@@ -173,7 +226,7 @@ extension AdvancedExtensions<E, T> on Cont<E, T> {
             attemptsLeft - 1,
             currentDelay * 2,
           ))
-          .elseDo((_) => Cont.stop<T>(errors));
+          .elseDo((_) => Cont.stop<E, T>(errors));
       });
     }
 
@@ -375,36 +428,34 @@ Here's a comprehensive example combining multiple concepts:
 
 ```dart
 extension RobustOperations<E, T> on Cont<E, T> {
-  /// Retry with exponential backoff, timeout, and progress logging
+  /// Retry with exponential backoff and logging
   Cont<E, T> robustFetch({
     int maxRetries = 3,
     Duration initialBackoff = const Duration(milliseconds: 100),
-    Duration timeout = const Duration(seconds: 30),
-    void Function(int attempt, Duration nextWait)? onRetry,
   }) {
     return this
-      .timed() // Add timing
-      .timeout(timeout, throw TimeoutException())
       .retryWithBackoff(
         maxAttempts: maxRetries,
         initialDelay: initialBackoff,
       )
       .decor((run, runtime, observer) {
-        // Add logging
+        // Add logging and timing via decor
         print('[robustFetch] Starting operation...');
+        final stopwatch = Stopwatch()..start();
 
         run(
           runtime,
-          ContObserver(
-            onThen: (result) {
-              print('[robustFetch] Completed successfully');
+          observer
+            .copyUpdateOnThen((result) {
+              stopwatch.stop();
+              print('[robustFetch] Completed in ${stopwatch.elapsedMilliseconds}ms');
               observer.onThen(result);
-            },
-            onElse: (errors) {
-              print('[robustFetch] Failed: ${errors.length} error(s)');
+            })
+            .copyUpdateOnElse((errors) {
+              stopwatch.stop();
+              print('[robustFetch] Failed after ${stopwatch.elapsedMilliseconds}ms: ${errors.length} error(s)');
               observer.onElse(errors);
-            },
-          ),
+            }),
         );
       });
   }
@@ -412,10 +463,7 @@ extension RobustOperations<E, T> on Cont<E, T> {
 
 // Usage
 fetchUserData(userId)
-  .robustFetch(
-    maxRetries: 5,
-    timeout: Duration(seconds: 10),
-  )
+  .robustFetch(maxRetries: 5)
   .run(
     config,
     onThen: (user) => print('Success: $user'),
@@ -429,5 +477,5 @@ fetchUserData(userId)
 
 Now that you understand how to extend Jerelo, see:
 - **[Complete Examples](07-examples.md)** - Real-world patterns and use cases
-- **[API Reference](api-reference.md)** - Full API documentation
+- **[API Reference](../api.md)** - Full API documentation
 - **[Core Operations](03-core-operations.md)** - Review built-in operators for composition ideas

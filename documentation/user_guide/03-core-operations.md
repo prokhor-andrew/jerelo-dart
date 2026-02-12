@@ -1,3 +1,5 @@
+[Home](../../README.md) > [Documentation](../README.md) > User Guide
+
 # Core Operations: Transform, Chain & Branch
 
 This guide covers the essential operations for building computation workflows.
@@ -96,7 +98,7 @@ This is a dramatic improvement over the nested callback style!
 Use `elseDo` to recover from termination by providing a fallback:
 
 ```dart
-Cont.stop<int>([ContError.capture("fail")])
+Cont.stop<(), int>([ContError.capture("fail")])
   .elseDo((errors) {
     print("Caught: ${errors[0].error}");
     return Cont.of(42); // recover with default value
@@ -111,7 +113,7 @@ Cont.stop<int>([ContError.capture("fail")])
 The `elseMap` operator transforms the error list on the termination channel without changing the channel (stays on termination). This is useful for adding context, filtering errors, or wrapping errors in a different format.
 
 ```dart
-Cont.stop<int>([ContError.capture("connection timeout")])
+Cont.stop<(), int>([ContError.capture("connection timeout")])
   .elseMap((errors) {
     return errors.map((e) =>
       ContError.capture("Network error: ${e.error}")
@@ -495,4 +497,4 @@ Now that you understand the core operations, continue to:
 - **[Advanced Operations](04-advanced-operations.md)** - Learn to merge computations and handle concurrency
 - **[Environment Management](05-environment.md)** - Master environment handling
 - **[Complete Examples](07-examples.md)** - See real-world patterns
-- **[API Reference](api-reference.md)** - Quick reference lookup
+- **[API Reference](../api.md)** - Quick reference lookup

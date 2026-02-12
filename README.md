@@ -45,7 +45,8 @@ getUserData.run(testConfig, onElse: handleError, onThen: handleSuccess);
 
 ## Documentation
 
-- **[User Guide](documentation/doc.md)** - Comprehensive guide with examples and patterns
+- **[Documentation Home](documentation/README.md)** - Complete documentation hub
+- **[User Guide](documentation/user_guide/01-introduction.md)** - Start learning Jerelo
 - **[API Reference](documentation/api.md)** - Complete API documentation for all types and methods
 
 ## Full Example
@@ -122,7 +123,7 @@ Cont<AppConfig, User> getUserData(String userId) {
     .elseDoWithEnv((config, errors) {
       return config.enableCache
         ? loadUserFromCache(userId)
-        : Cont.terminate(errors);
+        : Cont.stop(errors);
     })
     // Side effect: log access without blocking
     .thenTap((user) => logAccess(user))
@@ -222,8 +223,10 @@ The example above showcases:
 
 ## Learn More
 
-- Explore the [User Guide](documentation/doc.md) for in-depth explanations and patterns
+- Explore the [Documentation](documentation/README.md) for comprehensive guides and references
+- Start with the [User Guide](documentation/user_guide/01-introduction.md) for in-depth explanations and patterns
 - Check the [API Reference](documentation/api.md) for complete method documentation
+- See [Real-World Examples](documentation/user_guide/07-examples.md) for practical patterns
 
 ## License
 

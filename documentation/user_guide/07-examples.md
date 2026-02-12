@@ -1,3 +1,5 @@
+[Home](../../README.md) > [Documentation](../README.md) > User Guide
+
 # Complete Examples & Patterns
 
 This guide provides comprehensive real-world examples that demonstrate Jerelo's capabilities.
@@ -214,7 +216,7 @@ Cont<E, T> validate<E, T>(
 
     return errors.isEmpty
       ? Cont.of<E, T>(val)
-      : Cont.stop<T>(errors);
+      : Cont.stop<E, T>(errors);
   });
 }
 
@@ -549,6 +551,6 @@ Cont<E, T> withConnection<E, T>(Cont<Connection, T> operation) {
 
 ## Next Steps
 
-- **[API Reference](api-reference.md)** - Complete API documentation
+- **[API Reference](../api.md)** - Complete API documentation
 - **[Introduction](01-introduction.md)** - Review core concepts
 - **[Extending Jerelo](06-extending.md)** - Build custom operators

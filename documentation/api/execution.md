@@ -1,3 +1,5 @@
+[Home](../../README.md) > [Documentation](../README.md) > [API Reference](../api.md)
+
 # Execution & Extensions
 
 Running continuations and specialized extensions.
@@ -191,7 +193,7 @@ Executes the continuation expecting only termination. This is a convenience meth
 
 **Example:**
 ```dart
-final cont = Cont.terminate<MyEnv, Never>([ContError.capture(Exception('Failed'))]);
+final cont = Cont.stop<MyEnv, Never>([ContError.capture(Exception('Failed'))]);
 final token = cont.trap(myEnv, onElse: (errors) {
   print('Terminated with ${errors.length} error(s)');
 });
