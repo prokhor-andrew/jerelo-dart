@@ -3,3 +3,4 @@
 - Renamed `forever` into `thenForever`
 - Added `elseForever` method
 - Added `Cont.askThen` static method
+- Added example
