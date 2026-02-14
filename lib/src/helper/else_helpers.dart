@@ -1,5 +1,10 @@
 part of '../cont.dart';
 
+/// Implementation of monadic bind (flatMap) on the termination path.
+///
+/// Runs [cont], and on termination passes the errors to [f] to produce a
+/// fallback continuation. If the fallback also terminates, only its errors
+/// are propagated (the original errors are discarded).
 Cont<E, A> _elseDo<E, A>(
   Cont<E, A> cont,
   Cont<E, A> Function(List<ContError> errors) f,
@@ -38,6 +43,12 @@ Cont<E, A> _elseDo<E, A>(
   });
 }
 
+/// Implementation of side-effect execution on the termination path.
+///
+/// Runs [cont], and on termination executes the side-effect continuation
+/// produced by [f]. If the side-effect terminates, the original errors are
+/// propagated. If the side-effect succeeds, recovery occurs with the
+/// side-effect's value.
 Cont<E, A> _elseTap<E, A>(
   Cont<E, A> cont,
   Cont<E, A> Function(List<ContError> errors) f,
@@ -79,6 +90,11 @@ Cont<E, A> _elseTap<E, A>(
   });
 }
 
+/// Implementation of fallback with error accumulation on the termination path.
+///
+/// Runs [cont], and on termination executes the fallback produced by [f].
+/// If the fallback also terminates, errors from both attempts are
+/// concatenated before being propagated.
 Cont<E, A> _elseZip<E, A>(
   Cont<E, A> cont,
   Cont<E, A> Function(List<ContError>) f,
@@ -122,6 +138,12 @@ Cont<E, A> _elseZip<E, A>(
   });
 }
 
+/// Implementation of the fire-and-forget fork on the termination path.
+///
+/// Runs [cont], and on termination starts the side-effect continuation
+/// produced by [f] without waiting for it. The original termination errors
+/// are forwarded to the observer immediately. Errors from the side-effect
+/// are silently ignored.
 Cont<E, A> _elseFork<E, A, A2>(
   Cont<E, A> cont,
   Cont<E, A2> Function(List<ContError> errors) f,

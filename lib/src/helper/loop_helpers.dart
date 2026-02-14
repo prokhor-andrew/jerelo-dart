@@ -1,5 +1,12 @@
 part of '../cont.dart';
 
+/// Implementation of the success-path looping operator.
+///
+/// Repeatedly runs [cont] as long as [predicate] returns `true` for the
+/// produced value. Stops and succeeds when the predicate returns `false`,
+/// or terminates if the continuation itself terminates. Uses
+/// [_stackSafeLoop] for stack safety across both synchronous and
+/// asynchronous iterations.
 Cont<E, A> _thenWhile<E, A>(
   Cont<E, A> cont,
   bool Function(A value) predicate,
@@ -103,6 +110,13 @@ Cont<E, A> _thenWhile<E, A>(
   });
 }
 
+/// Implementation of the termination-path retry loop.
+///
+/// Repeatedly runs [cont] while it terminates and [predicate] returns
+/// `true` for the termination errors. Stops retrying and propagates the
+/// termination when the predicate returns `false`, or succeeds if the
+/// continuation eventually succeeds. Uses [_stackSafeLoop] for stack
+/// safety across both synchronous and asynchronous iterations.
 Cont<E, A> _elseWhile<E, A>(
   Cont<E, A> cont,
   bool Function(List<ContError> errors) predicate,

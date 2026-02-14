@@ -1,5 +1,10 @@
 part of '../cont.dart';
 
+/// Implementation of the fire-and-forget fork on the success path.
+///
+/// Runs [cont], and on success starts the side-effect continuation produced
+/// by [f] without waiting for it. The original value is forwarded to the
+/// observer immediately. Errors from the side-effect are silently ignored.
 Cont<E, A> _thenFork<E, A, A2>(
   Cont<E, A> cont,
   Cont<E, A2> Function(A a) f,
@@ -35,6 +40,11 @@ Cont<E, A> _thenFork<E, A, A2>(
   });
 }
 
+/// Implementation of monadic bind (flatMap) on the success path.
+///
+/// Runs [cont], and on success passes the value to [f] to produce the next
+/// continuation, which is then run with the same runtime and observer.
+/// If [f] throws, the error is caught and forwarded as a termination.
 Cont<E, A2> _thenDo<E, A, A2>(
   Cont<E, A> cont,
   Cont<E, A2> Function(A value) f,

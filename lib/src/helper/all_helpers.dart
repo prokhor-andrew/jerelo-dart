@@ -1,5 +1,10 @@
 part of '../cont.dart';
 
+/// Implementation of `all` with the sequence policy.
+///
+/// Runs each continuation in [list] one after another using a stack-safe
+/// loop. Accumulates results into a list. Stops at the first termination
+/// and propagates its errors.
 Cont<E, List<A>> _allSequence<E, A>(List<Cont<E, A>> list) {
   return Cont.fromRun((runtime, observer) {
     list = list.toList(); // defensive copy
@@ -87,6 +92,11 @@ Cont<E, List<A>> _allSequence<E, A>(List<Cont<E, A>> list) {
   });
 }
 
+/// Implementation of `all` with the merge-when-all policy.
+///
+/// Runs all continuations in [list] in parallel and waits for every one to
+/// complete. If all succeed, collects their values into a list. If any
+/// terminate, merges all termination errors and propagates them.
 Cont<E, List<A>> _allMergeWhenAll<E, A>(
   List<Cont<E, A>> list,
 ) {
@@ -200,6 +210,12 @@ Cont<E, List<A>> _allMergeWhenAll<E, A>(
   });
 }
 
+/// Implementation of `all` with the quit-fast policy.
+///
+/// Runs all continuations in [list] in parallel with a shared runtime that
+/// reports cancellation as soon as any continuation terminates. If all
+/// succeed, collects values preserving order. If any terminates, the others
+/// are effectively cancelled and the errors are propagated immediately.
 Cont<E, List<A>> _allQuitFast<E, A>(List<Cont<E, A>> list) {
   return Cont.fromRun((runtime, observer) {
     list = list.toList();

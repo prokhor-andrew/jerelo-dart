@@ -1,5 +1,10 @@
 part of '../cont.dart';
 
+/// Implementation of `any` with the sequence policy.
+///
+/// Tries each continuation in [list] one after another using a stack-safe
+/// loop. Returns the first successful value. If all terminate, accumulates
+/// errors from every attempt and propagates them.
 Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
   return Cont.fromRun((runtime, observer) {
     final safeCopy = List<Cont<E, A>>.from(list);
@@ -104,6 +109,12 @@ Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
   });
 }
 
+/// Implementation of `any` with the merge-when-all policy.
+///
+/// Runs all continuations in [list] in parallel and waits for every one to
+/// complete. If at least one succeeds, merges all successful values using
+/// [combine] (first-succeeded value as accumulator). If all terminate,
+/// accumulates all errors and propagates them.
 Cont<E, A> _anyMergeWhenAll<E, A>(
   List<Cont<E, A>> list,
   A Function(A acc, A value) combine,
@@ -251,6 +262,12 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
   });
 }
 
+/// Implementation of `any` with the quit-fast policy.
+///
+/// Runs all continuations in [list] in parallel with a shared runtime that
+/// reports cancellation as soon as one succeeds. Returns the first successful
+/// value immediately. If all terminate, collects all errors (preserving
+/// order) and propagates them.
 Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
   return Cont.fromRun((runtime, observer) {
     final safeCopy = List<Cont<E, A>>.from(list);

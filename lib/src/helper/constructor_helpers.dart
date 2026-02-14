@@ -1,5 +1,14 @@
 part of '../cont.dart';
 
+/// Creates a [Cont] from a raw run function with safety guarantees.
+///
+/// Wraps the user-supplied [run] function with:
+/// - Cancellation checks before execution and in each callback.
+/// - Idempotence guards ensuring callbacks fire at most once.
+/// - Exception catching around [run] itself (converts thrown errors to
+///   termination).
+/// - Panic handling when observer callbacks throw.
+/// - Special handling for [ContObserver]<[Never]> observers.
 Cont<E, A> _fromRun<E, A>(
   void Function(
     ContRuntime<E> runtime,

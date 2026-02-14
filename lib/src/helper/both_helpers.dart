@@ -1,5 +1,11 @@
 part of '../cont.dart';
 
+/// Implementation of `both` with the merge-when-all policy.
+///
+/// Runs [left] and [right] in parallel and waits for both to complete.
+/// If both succeed, their values are combined using [combine]. If either
+/// or both terminate, errors are merged (preserving the order of the
+/// first failure) and propagated as a single termination.
 Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
   Cont<E, A1> left,
   Cont<E, A2> right,
@@ -140,6 +146,12 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
   });
 }
 
+/// Implementation of `both` with the quit-fast policy.
+///
+/// Runs [left] and [right] in parallel with a shared runtime that reports
+/// cancellation as soon as either side terminates. If both succeed, their
+/// values are combined using [combine]. If either terminates first, the
+/// other is effectively cancelled and the errors are propagated immediately.
 Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
   Cont<E, A1> left,
   Cont<E, A2> right,

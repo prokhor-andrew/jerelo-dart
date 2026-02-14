@@ -1,5 +1,12 @@
 part of '../cont.dart';
 
+/// Implementation of `either` with the merge-when-all policy.
+///
+/// Runs [left] and [right] in parallel and waits for both to complete.
+/// If one succeeds and the other terminates, the successful value is returned.
+/// If both succeed, their values are merged using [combine] (first-succeeded
+/// value is passed as the accumulator). If both terminate, their errors are
+/// concatenated.
 Cont<E, A> _eitherMergeWhenAll<E, A>(
   Cont<E, A> left,
   Cont<E, A> right,
@@ -147,6 +154,12 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
   });
 }
 
+/// Implementation of `either` with the quit-fast policy.
+///
+/// Runs [left] and [right] in parallel with a shared runtime that reports
+/// cancellation as soon as one side succeeds. If either succeeds first, the
+/// other is effectively cancelled and the value is returned. If both
+/// terminate, their errors are concatenated.
 Cont<E, A> _eitherQuitFast<E, A>(
   Cont<E, A> left,
   Cont<E, A> right,

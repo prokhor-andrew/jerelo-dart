@@ -143,7 +143,6 @@ final class Cont<E, A> {
     });
   }
 
-
   /// Retrieves the environment and chains a computation that depends on it.
   ///
   /// Convenience method equivalent to `Cont.ask<E>().thenDo(f)`. Reads the
@@ -155,7 +154,9 @@ final class Cont<E, A> {
   /// separately.
   ///
   /// - [f]: Function that takes the environment and returns a continuation.
-  static Cont<E, A> askThen<E, A>(Cont<E, A> Function(E env) f) {
+  static Cont<E, A> askThen<E, A>(
+    Cont<E, A> Function(E env) f,
+  ) {
     return Cont.ask<E>().thenDo(f);
   }
 

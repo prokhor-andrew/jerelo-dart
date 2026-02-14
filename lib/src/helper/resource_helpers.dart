@@ -1,5 +1,17 @@
 part of '../cont.dart';
 
+/// Implementation of the bracket (acquire / use / release) pattern.
+///
+/// Acquires a resource via [acquire], passes it to [use], and guarantees
+/// that [release] runs afterwards regardless of whether [use] succeeds,
+/// terminates, or is cancelled. The release phase runs on a
+/// non-cancellable runtime to ensure cleanup always completes.
+///
+/// Error handling:
+/// - If both [use] and [release] succeed, returns the value from [use].
+/// - If [use] succeeds but [release] terminates, propagates release errors.
+/// - If [use] terminates but [release] succeeds, propagates use errors.
+/// - If both terminate, concatenates both error lists.
 Cont<E, A> _bracket<E, R, A>({
   required Cont<E, R> acquire,
   required Cont<E, ()> Function(R resource) release,
