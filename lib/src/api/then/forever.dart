@@ -21,12 +21,12 @@ extension ContThenForeverExtension<E, A> on Cont<E, A> {
   /// // A server that handles requests forever
   /// final server = acceptConnection()
   ///     .then((conn) => handleConnection(conn))
-  ///     .forever();
+  ///     .thenForever();
   ///
   /// // Run with only a termination handler (using trap extension)
   /// server.trap(env, (errors) => print('Server stopped: $errors'));
   /// ```
-  Cont<E, Never> forever() {
+  Cont<E, Never> thenForever() {
     return thenUntil((_) {
       return false;
     }).thenMap((value) {

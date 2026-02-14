@@ -14,6 +14,7 @@ Creating and transforming continuations.
   - [Cont.of](#contof)
   - [Cont.stop](#contstop)
   - [Cont.ask](#contask)
+  - [Cont.askThen](#contaskthen)
   - [Cont.bracket](#contbracket)
 - [Transformation](#transformation)
   - [decor](#decor)
@@ -143,6 +144,35 @@ Returns a continuation that succeeds with the environment value.
 **Example:**
 ```dart
 final cont = Cont.ask<DatabaseConfig>().thenDo((config) {
+  return queryDatabase(config.connectionString);
+});
+```
+
+---
+
+### Cont.askThen
+
+```dart
+static Cont<E, A> askThen<E, A>(Cont<E, A> Function(E env) f)
+```
+
+Retrieves the environment and chains a computation that depends on it.
+
+Convenience method equivalent to `Cont.ask<E>().thenDo(f)`. Reads the environment of type `E` and immediately passes it to `f`, which returns a continuation to execute next.
+
+This is the most common pattern when building computations that depend on the environment, avoiding the need to manually call `ask` and `thenDo` separately.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a continuation
+
+**Example:**
+```dart
+final cont = Cont.askThen<DatabaseConfig, List<User>>((config) {
+  return queryDatabase(config.connectionString);
+});
+
+// Equivalent to:
+final cont2 = Cont.ask<DatabaseConfig>().thenDo((config) {
   return queryDatabase(config.connectionString);
 });
 ```

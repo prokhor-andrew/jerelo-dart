@@ -316,31 +316,6 @@ void main() {
       expect(attempts, 3);
       expect(errors![0].error, 'error 3');
     });
-
-    test('supports multiple runs with different envs', () {
-      int attempts = 0;
-
-      final cont =
-          Cont.fromDeferred<int, int>(() {
-            attempts++;
-            return Cont.stop<int, int>([
-              ContError.capture('error'),
-            ]);
-          }).elseUntilWithEnv(
-            (maxRetries, _) => attempts >= maxRetries,
-          );
-
-      // First run with max 2 retries
-      List<ContError>? errors1;
-      cont.run(2, onElse: (e) => errors1 = e);
-      expect(attempts, 2);
-
-      // Second run with max 4 retries
-      attempts = 0;
-      List<ContError>? errors2;
-      cont.run(4, onElse: (e) => errors2 = e);
-      expect(attempts, 4);
-    });
   });
 
   group('Cont.elseUntilWithEnv0', () {

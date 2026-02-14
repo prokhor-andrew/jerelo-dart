@@ -192,32 +192,44 @@ void main() {
       expect(value2, value3);
     });
 
-    test('Cont.thenMap0 is thenMap with ignored argument', () {
-      final cont1 = Cont.of<(), int>(10).thenMap0(() => 20);
+    test(
+      'Cont.thenMap0 is thenMap with ignored argument',
+      () {
+        final cont1 = Cont.of<(), int>(
+          10,
+        ).thenMap0(() => 20);
 
-      final cont2 = Cont.of<(), int>(10).thenMap((_) => 20);
+        final cont2 = Cont.of<(), int>(
+          10,
+        ).thenMap((_) => 20);
 
-      int? value1;
-      int? value2;
-      cont1.run((), onThen: (val) => value1 = val);
-      cont2.run((), onThen: (val) => value2 = val);
+        int? value1;
+        int? value2;
+        cont1.run((), onThen: (val) => value1 = val);
+        cont2.run((), onThen: (val) => value2 = val);
 
-      expect(value1, 20);
-      expect(value2, 20);
-    });
+        expect(value1, 20);
+        expect(value2, 20);
+      },
+    );
 
-    test('Cont.thenMapWith is thenMap0 with eager evaluation', () {
-      final cont1 = Cont.of<(), int>(10).thenMap0(() => 20);
+    test(
+      'Cont.thenMapWith is thenMap0 with eager evaluation',
+      () {
+        final cont1 = Cont.of<(), int>(
+          10,
+        ).thenMap0(() => 20);
 
-      final cont2 = Cont.of<(), int>(10).thenMapTo(20);
+        final cont2 = Cont.of<(), int>(10).thenMapTo(20);
 
-      int? value1;
-      int? value2;
-      cont1.run((), onThen: (val) => value1 = val);
-      cont2.run((), onThen: (val) => value2 = val);
+        int? value1;
+        int? value2;
+        cont1.run((), onThen: (val) => value1 = val);
+        cont2.run((), onThen: (val) => value2 = val);
 
-      expect(value1, 20);
-      expect(value2, 20);
-    });
+        expect(value1, 20);
+        expect(value2, 20);
+      },
+    );
   });
 }

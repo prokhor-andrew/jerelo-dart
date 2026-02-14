@@ -10,6 +10,7 @@ Managing contextual information and dependencies through continuations.
 
 - [Reading Environment](#reading-environment)
   - [Cont.ask](#contask)
+  - [Cont.askThen](#contaskthen)
 - [Transforming Environment](#transforming-environment)
   - [local](#local)
   - [local0](#local0)
@@ -42,6 +43,36 @@ final cont = Cont.ask<DatabaseConfig>().thenDo((config) {
 
 // Use in computations
 final fetchUser = Cont.ask<AppEnv>().thenDo((env) {
+  return http.get('${env.apiUrl}/users/$userId');
+});
+```
+
+---
+
+### Cont.askThen
+
+```dart
+static Cont<E, A> askThen<E, A>(Cont<E, A> Function(E env) f)
+```
+
+Retrieves the environment and chains a computation that depends on it.
+
+Convenience method equivalent to `Cont.ask<E>().thenDo(f)`. Reads the environment of type `E` and immediately passes it to `f`, which returns a continuation to execute next.
+
+This is the most common pattern when building computations that depend on the environment, avoiding the need to manually call `ask` and `thenDo` separately.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a continuation
+
+**Example:**
+```dart
+// Concise environment access
+final fetchUser = Cont.askThen<AppEnv, User>((env) {
+  return http.get('${env.apiUrl}/users/$userId');
+});
+
+// Equivalent to:
+final fetchUser2 = Cont.ask<AppEnv>().thenDo((env) {
   return http.get('${env.apiUrl}/users/$userId');
 });
 ```

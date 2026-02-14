@@ -1,3 +1,5 @@
-## 1.0.0
+## 1.0.1
 
-- Initial version.
+- Renamed `forever` into `thenForever`
+- Added `elseForever` method
+- Added `Cont.askThen` static method

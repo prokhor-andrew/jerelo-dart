@@ -284,9 +284,9 @@ void main() {
     });
   });
 
-  group('Cont.forever', () {
+  group('Cont.thenForever', () {
     test('has Never return type', () {
-      final cont = Cont.of<(), int>(42).forever();
+      final cont = Cont.of<(), int>(42).thenForever();
 
       // Type check: cont should be Cont<(), Never>
       expect(cont, isA<Cont<Object?, Never>>());
@@ -304,7 +304,7 @@ void main() {
           ]);
         }
         return Cont.of(iterations);
-      }).forever().trap((), onElse: (e) => errors = e);
+      }).thenForever().trap((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'stop');
@@ -320,7 +320,7 @@ void main() {
           return Cont.stop<(), int>();
         }
         return Cont.of(iterations);
-      }).forever().trap(());
+      }).thenForever().trap(());
 
       expect(iterations, 3);
     });
@@ -328,7 +328,7 @@ void main() {
     test('supports conversion with absurd', () {
       final cont = Cont.of<(), int>(
         42,
-      ).forever().absurd<String>();
+      ).thenForever().absurd<String>();
 
       expect(cont, isA<Cont<Object?, String>>());
     });
@@ -358,7 +358,7 @@ void main() {
           iterations++;
           observer.onThen(iterations);
         });
-      }).forever();
+      }).thenForever();
 
       cont.trap((), onElse: (_) {});
 

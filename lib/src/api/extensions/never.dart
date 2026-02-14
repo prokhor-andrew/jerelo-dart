@@ -58,7 +58,7 @@ extension ContNeverExtension<E> on Cont<E, Never> {
   /// any desired value type.
   ///
   /// This is particularly useful when:
-  /// - Working with continuations that run forever (e.g., from [forever])
+  /// - Working with continuations that run forever (e.g., from [thenForever])
   /// - Matching types with other continuations in composition
   /// - Converting terminating-only continuations to typed continuations
   ///
@@ -71,7 +71,7 @@ extension ContNeverExtension<E> on Cont<E, Never> {
   /// Example:
   /// ```dart
   /// // A server that runs forever has type Cont<Env, Never>
-  /// final server = handleRequests().forever();
+  /// final server = handleRequests().thenForever();
   ///
   /// // Convert to Cont<Env, String> to match other continuation types
   /// final serverAsString = server.absurd<String>();

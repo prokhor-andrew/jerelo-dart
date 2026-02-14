@@ -18,15 +18,18 @@ void main() {
       expect(counter, 5);
     });
 
-    test('succeeds with first value when predicate is false', () {
-      int? value;
+    test(
+      'succeeds with first value when predicate is false',
+      () {
+        int? value;
 
-      Cont.of<(), int>(42)
-          .thenWhile((n) => false)
-          .run((), onThen: (val) => value = val);
+        Cont.of<(), int>(42)
+            .thenWhile((n) => false)
+            .run((), onThen: (val) => value = val);
 
-      expect(value, 42);
-    });
+        expect(value, 42);
+      },
+    );
 
     test('continues looping until predicate is false', () {
       int counter = 0;
@@ -173,34 +176,41 @@ void main() {
   });
 
   group('Cont.thenWhile0', () {
-    test('loops while zero-argument predicate returns true', () {
-      int counter = 0;
-      int? value;
+    test(
+      'loops while zero-argument predicate returns true',
+      () {
+        int counter = 0;
+        int? value;
 
-      Cont.fromDeferred<(), int>(() {
-            counter++;
-            return Cont.of(counter);
-          })
-          .thenWhile0(() => counter < 4)
-          .run((), onThen: (val) => value = val);
+        Cont.fromDeferred<(), int>(() {
+              counter++;
+              return Cont.of(counter);
+            })
+            .thenWhile0(() => counter < 4)
+            .run((), onThen: (val) => value = val);
 
-      expect(value, 4);
-      expect(counter, 4);
-    });
+        expect(value, 4);
+        expect(counter, 4);
+      },
+    );
 
     test('behaves like thenWhile with ignored value', () {
       int counter1 = 0;
       int counter2 = 0;
 
       Cont.fromDeferred<(), int>(() {
-        counter1++;
-        return Cont.of(counter1);
-      }).thenWhile0(() => counter1 < 3).run((), onThen: (_) {});
+            counter1++;
+            return Cont.of(counter1);
+          })
+          .thenWhile0(() => counter1 < 3)
+          .run((), onThen: (_) {});
 
       Cont.fromDeferred<(), int>(() {
-        counter2++;
-        return Cont.of(counter2);
-      }).thenWhile((_) => counter2 < 3).run((), onThen: (_) {});
+            counter2++;
+            return Cont.of(counter2);
+          })
+          .thenWhile((_) => counter2 < 3)
+          .run((), onThen: (_) {});
 
       expect(counter1, counter2);
     });
@@ -261,9 +271,7 @@ void main() {
             counter++;
             return Cont.of(counter);
           })
-          .thenWhileWithEnv(
-            (maxCount, n) => n < maxCount,
-          )
+          .thenWhileWithEnv((maxCount, n) => n < maxCount)
           .run(5, onThen: (val) => value = val);
 
       expect(value, 5);
@@ -291,9 +299,7 @@ void main() {
       final cont = Cont.fromDeferred<int, int>(() {
         counter++;
         return Cont.of(counter);
-      }).thenWhileWithEnv(
-        (maxCount, n) => n < maxCount,
-      );
+      }).thenWhileWithEnv((maxCount, n) => n < maxCount);
 
       // First run with max 3
       int? value1;
@@ -324,26 +330,29 @@ void main() {
       expect(receivedEnv, 'hello');
     });
 
-    test('behaves like thenWhileWithEnv with ignored value', () {
-      int counter1 = 0;
-      int counter2 = 0;
+    test(
+      'behaves like thenWhileWithEnv with ignored value',
+      () {
+        int counter1 = 0;
+        int counter2 = 0;
 
-      Cont.fromDeferred<String, int>(() {
-            counter1++;
-            return Cont.of(counter1);
-          })
-          .thenWhileWithEnv0((_) => counter1 < 3)
-          .run('hello', onThen: (_) {});
+        Cont.fromDeferred<String, int>(() {
+              counter1++;
+              return Cont.of(counter1);
+            })
+            .thenWhileWithEnv0((_) => counter1 < 3)
+            .run('hello', onThen: (_) {});
 
-      Cont.fromDeferred<String, int>(() {
-            counter2++;
-            return Cont.of(counter2);
-          })
-          .thenWhileWithEnv((_, __) => counter2 < 3)
-          .run('hello', onThen: (_) {});
+        Cont.fromDeferred<String, int>(() {
+              counter2++;
+              return Cont.of(counter2);
+            })
+            .thenWhileWithEnv((_, __) => counter2 < 3)
+            .run('hello', onThen: (_) {});
 
-      expect(counter1, counter2);
-    });
+        expect(counter1, counter2);
+      },
+    );
 
     test('passes through error path', () {
       bool called = false;

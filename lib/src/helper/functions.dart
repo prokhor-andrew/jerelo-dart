@@ -1,6 +1,6 @@
 part of '../cont.dart';
 
-void _ignore(val) {}
+void _ignore(Object? val) {}
 
 bool _false() => false;
 

@@ -389,19 +389,19 @@ Cont.of(0)
 
 ### Looping forever
 
-Use `forever` to create an infinite loop that never terminates normally:
+Use `thenForever` to create an infinite loop that never terminates normally:
 
 ```dart
 Cont.of(())
   .thenTap((_) => checkForMessages())
   .thenTap((_) => delay(Duration(seconds: 1)))
-  .forever()
+  .thenForever()
   .run((), onElse: (errors) {
     print("Loop terminated: $errors");
   });
 ```
 
-The `forever` operator returns `Cont<E, Never>`, indicating it never produces a value on the success channel. It can only terminate through errors or cancellation.
+The `thenForever` operator returns `Cont<E, Never>`, indicating it never produces a value on the success channel. It can only terminate through errors or cancellation.
 
 ### Working with Never-Producing Continuations
 
@@ -414,7 +414,7 @@ The `trap` method executes a `Cont<E, Never>` when you only care about errors:
 ```dart
 final neverSucceeds = Cont.of(())
   .thenDo((_) => Cont.stop([ContError.capture("always fails")]))
-  .forever();
+  .thenForever();
 
 // Only provide error handler - no onThen needed
 final token = neverSucceeds.trap(
@@ -498,6 +498,23 @@ fetchFromApi()
 - Retry on transient errors (network timeouts, rate limits)
 - Circuit breaker patterns
 - Polling until success or non-retryable error
+
+#### elseForever: Retry indefinitely
+
+Use `elseForever` to retry a computation on termination indefinitely, never giving up:
+
+```dart
+// A connection that automatically reconnects forever
+final connection = connectToServer()
+    .elseForever();
+
+// A resilient worker that logs errors and always retries
+final worker = processJob()
+    .elseTap((errors) => logError(errors))
+    .elseForever();
+```
+
+The `elseForever` operator is the error-channel counterpart to `thenForever`. While `thenForever` loops the success path indefinitely, `elseForever` retries on termination indefinitely. The loop only terminates if the continuation succeeds.
 
 ---
 

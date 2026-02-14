@@ -33,7 +33,7 @@ void main() {
       );
     });
 
-    test('works with forever continuation', () {
+    test('works with thenForever continuation', () {
       List<ContError>? errors;
       int iterations = 0;
 
@@ -45,7 +45,7 @@ void main() {
           ]);
         }
         return Cont.of(iterations);
-      }).forever().trap((), onElse: (e) => errors = e);
+      }).thenForever().trap((), onElse: (e) => errors = e);
 
       expect(errors!.length, 1);
       expect(errors![0].error, 'stop');
@@ -161,7 +161,7 @@ void main() {
       expect(asList, isA<Cont<Object?, List<double>>>());
     });
 
-    test('works with forever', () {
+    test('works with thenForever', () {
       int iterations = 0;
       List<ContError>? errors;
 
@@ -173,7 +173,7 @@ void main() {
           ]);
         }
         return Cont.of(iterations);
-      }).forever().absurd<String>().run(
+      }).thenForever().absurd<String>().run(
         (),
         onElse: (e) => errors = e,
       );

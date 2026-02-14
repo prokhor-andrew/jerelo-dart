@@ -54,7 +54,7 @@ Success path operations for transforming, chaining, and controlling flow.
   - [thenUntil0](#thenuntil0)
   - [thenUntilWithEnv](#thenuntilwithenv)
   - [thenUntilWithEnv0](#thenuntilwithenv0)
-  - [forever](#forever)
+  - [thenForever](#thenforever)
 
 ---
 
@@ -967,10 +967,10 @@ final result = pollService()
 
 ---
 
-### forever
+### thenForever
 
 ```dart
-Cont<E, Never> forever()
+Cont<E, Never> thenForever()
 ```
 
 Repeatedly executes the continuation indefinitely.
@@ -990,7 +990,7 @@ This is useful for:
 // A server that handles requests forever
 final server = acceptConnection()
     .thenDo((conn) => handleConnection(conn))
-    .forever();
+    .thenForever();
 
 // Run with only a termination handler (using trap extension)
 final token = server.trap(env, onElse: (errors) => print('Server stopped: $errors'));
@@ -1001,5 +1001,5 @@ final token = server.trap(env, onElse: (errors) => print('Server stopped: $error
 // Event loop
 final eventLoop = pollEvents()
     .thenDo((event) => handleEvent(event))
-    .forever();
+    .thenForever();
 ```

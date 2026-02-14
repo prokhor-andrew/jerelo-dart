@@ -16,6 +16,7 @@ part 'api/else/tap.dart';
 part 'api/else/until.dart';
 part 'api/else/while.dart';
 part 'api/else/zip.dart';
+part 'api/then/forever.dart';
 part 'api/env/env.dart';
 part 'api/extensions/flatten.dart';
 part 'api/extensions/never.dart';
@@ -24,7 +25,7 @@ part 'api/run/ff.dart';
 part 'api/run/run.dart';
 part 'api/then/abort.dart';
 part 'api/then/do.dart';
-part 'api/then/forever.dart';
+part 'api/else/forever.dart';
 part 'api/then/fork.dart';
 part 'api/then/if.dart';
 part 'api/then/map.dart';
@@ -140,6 +141,22 @@ final class Cont<E, A> {
     return Cont.fromRun((runtime, observer) {
       observer.onThen(runtime.env());
     });
+  }
+
+
+  /// Retrieves the environment and chains a computation that depends on it.
+  ///
+  /// Convenience method equivalent to `Cont.ask<E>().thenDo(f)`. Reads the
+  /// environment of type [E] and immediately passes it to [f], which returns
+  /// a continuation to execute next.
+  ///
+  /// This is the most common pattern when building computations that depend
+  /// on the environment, avoiding the need to manually call `ask` and `thenDo`
+  /// separately.
+  ///
+  /// - [f]: Function that takes the environment and returns a continuation.
+  static Cont<E, A> askThen<E, A>(Cont<E, A> Function(E env) f) {
+    return Cont.ask<E>().thenDo(f);
   }
 
   /// Runs two continuations and combines their results according to the specified policy.

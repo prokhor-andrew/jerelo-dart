@@ -32,6 +32,27 @@ program.run(
 );
 ```
 
+### Shorthand: askThen
+
+`Cont.askThen` combines `Cont.ask` and `thenDo` into a single call. Since accessing the environment and immediately chaining a computation is so common, this shorthand avoids the extra step:
+
+```dart
+// Using askThen (recommended for conciseness)
+final program = Cont.askThen<Config, Response>((config) {
+  return fetchFromApi(config.apiUrl);
+});
+
+// Equivalent long form
+final program2 = Cont.ask<Config>().thenDo((config) {
+  return fetchFromApi(config.apiUrl);
+});
+
+program.run(
+  Config(apiUrl: "https://api.example.com"),
+  onThen: print,
+);
+```
+
 ### Scoping Environment
 
 Use `scope` to provide an environment value:

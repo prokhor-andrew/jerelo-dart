@@ -14,18 +14,15 @@ void main() {
       },
     );
 
-    test(
-      'Cont.stop calls onElse with provided errors',
-      () {
-        final error = ContError.capture('test error');
-        List<ContError>? errors;
-        final cont = Cont.stop<(), int>([error]);
+    test('Cont.stop calls onElse with provided errors', () {
+      final error = ContError.capture('test error');
+      List<ContError>? errors;
+      final cont = Cont.stop<(), int>([error]);
 
-        cont.run((), onElse: (e) => errors = e);
-        expect(errors, hasLength(1));
-        expect(errors![0].error, 'test error');
-      },
-    );
+      cont.run((), onElse: (e) => errors = e);
+      expect(errors, hasLength(1));
+      expect(errors![0].error, 'test error');
+    });
 
     test('Cont.stop with multiple errors', () {
       final error1 = ContError.capture('error 1');

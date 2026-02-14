@@ -228,7 +228,7 @@ The `absurd` method implements the principle of "ex falso quodlibet" (from false
 Since `Never` is an uninhabited type with no possible values, the mapping function `(Never never) => never` can never actually execute. However, the type system accepts this transformation as valid, enabling type-safe conversion from a continuation that cannot produce a value to one with any desired value type.
 
 This is particularly useful when:
-- Working with continuations that run forever (e.g., from `forever`)
+- Working with continuations that run forever (e.g., from `thenForever`)
 - Matching types with other continuations in composition
 - Converting terminating-only continuations to typed continuations
 
@@ -240,7 +240,7 @@ This is particularly useful when:
 **Example:**
 ```dart
 // A server that runs forever has type Cont<Env, Never>
-final server = handleRequests().forever();
+final server = handleRequests().thenForever();
 
 // Convert to Cont<Env, String> to match other continuation types
 final serverAsString = server.absurd<String>();
