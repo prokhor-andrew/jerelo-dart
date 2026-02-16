@@ -1,3 +1,7 @@
+## 1.0.2
+
+- Reduced published package size (excluded `test/` and extra documentation from release bundle).
+
 ## 1.0.1
 
 - Renamed `forever` into `thenForever`
