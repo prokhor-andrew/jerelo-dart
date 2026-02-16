@@ -15,9 +15,6 @@ extension ContNeverExtension<E> on Cont<E, Never> {
   /// subscribe only to the channels they care about.
   ///
   /// - [env]: The environment value to provide as context during execution.
-  /// - [isCancelled]: Function polled by the runtime to check whether
-  ///   execution should be cooperatively cancelled. Defaults to always
-  ///   returning `false` (never cancelled).
   /// - [onPanic]: Callback invoked when a fatal, unrecoverable error occurs.
   ///   Defaults to re-throwing inside a microtask.
   /// - [onElse]: Callback invoked when the continuation terminates with
@@ -32,7 +29,6 @@ extension ContNeverExtension<E> on Cont<E, Never> {
   /// ```
   ContCancelToken trap(
     E env, {
-    bool Function() isCancelled = _false,
     void Function(ContError error) onPanic = _panic,
     void Function(List<ContError> errors) onElse = _ignore,
   }) {
