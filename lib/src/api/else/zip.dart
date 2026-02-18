@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContElseZipExtension<E, A> on Cont<E, A> {
+extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
   /// Attempts a fallback continuation and combines errors from both attempts.
   ///
   /// If the continuation terminates, executes the fallback. If the fallback also
@@ -10,8 +10,8 @@ extension ContElseZipExtension<E, A> on Cont<E, A> {
   /// accumulates and combines errors from both attempts.
   ///
   /// - [f]: Function that receives original errors and produces a fallback continuation.
-  Cont<E, A> elseZip(
-    Cont<E, A> Function(List<ContError>) f,
+  Cont<E, F, A> elseZip(
+    Cont<E, F, A> Function(List<ContError<F>>) f,
   ) {
     return _elseZip(this, f);
   }
@@ -22,7 +22,7 @@ extension ContElseZipExtension<E, A> on Cont<E, A> {
   /// when producing the fallback continuation.
   ///
   /// - [f]: Zero-argument function that produces a fallback continuation.
-  Cont<E, A> elseZip0(Cont<E, A> Function() f) {
+  Cont<E, F, A> elseZip0(Cont<E, F, A> Function() f) {
     return elseZip((_) {
       return f();
     });
@@ -36,10 +36,10 @@ extension ContElseZipExtension<E, A> on Cont<E, A> {
   /// need access to configuration or context.
   ///
   /// - [f]: Function that takes the environment and errors, and produces a fallback continuation.
-  Cont<E, A> elseZipWithEnv(
-    Cont<E, A> Function(E env, List<ContError>) f,
+  Cont<E, F, A> elseZipWithEnv(
+    Cont<E, F, A> Function(E env, List<ContError<F>>) f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return elseZip((errors) {
         return f(e, [...errors]);
       });
@@ -52,7 +52,8 @@ extension ContElseZipExtension<E, A> on Cont<E, A> {
   /// environment and ignores the original error information.
   ///
   /// - [f]: Function that takes the environment and produces a fallback continuation.
-  Cont<E, A> elseZipWithEnv0(Cont<E, A> Function(E env) f) {
+  Cont<E, F, A> elseZipWithEnv0(
+      Cont<E, F, A> Function(E env) f) {
     return elseZipWithEnv((e, _) {
       return f(e);
     });

@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContOrExtension<E, A> on Cont<E, A> {
+extension ContOrExtension<E, F, A> on Cont<E, F, A> {
   /// Instance method for racing this continuation with another.
   ///
   /// Convenient instance method wrapper for [Cont.either]. Races this continuation
@@ -8,8 +8,8 @@ extension ContOrExtension<E, A> on Cont<E, A> {
   ///
   /// - [right]: The other continuation to race with.
   /// - [policy]: Execution policy determining how continuations are run.
-  Cont<E, A> or(
-    Cont<E, A> right, {
+  Cont<E, F, A> or(
+    Cont<E, F, A> right, {
     required ContEitherPolicy<A> policy,
     //
   }) {

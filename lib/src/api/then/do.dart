@@ -1,13 +1,14 @@
 part of '../../cont.dart';
 
-extension ContThenDoExtension<E, A> on Cont<E, A> {
+extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
   /// Chains a [Cont]-returning function to create dependent computations.
   ///
   /// Monadic bind operation. Sequences continuations where the second depends
   /// on the result of the first.
   ///
   /// - [f]: Function that takes a value and returns a continuation.
-  Cont<E, A2> thenDo<A2>(Cont<E, A2> Function(A value) f) {
+  Cont<E, F, A2> thenDo<A2>(
+      Cont<E, F, A2> Function(A value) f) {
     return _thenDo(this, f);
   }
 
@@ -16,7 +17,7 @@ extension ContThenDoExtension<E, A> on Cont<E, A> {
   /// Similar to [thenDo] but ignores the current value.
   ///
   /// - [f]: Zero-argument function that returns a continuation.
-  Cont<E, A2> thenDo0<A2>(Cont<E, A2> Function() f) {
+  Cont<E, F, A2> thenDo0<A2>(Cont<E, F, A2> Function() f) {
     return thenDo((_) {
       return f();
     });
@@ -29,10 +30,10 @@ extension ContThenDoExtension<E, A> on Cont<E, A> {
   /// configuration or context from the environment.
   ///
   /// - [f]: Function that takes the environment and value, and returns a continuation.
-  Cont<E, A2> thenDoWithEnv<A2>(
-    Cont<E, A2> Function(E env, A a) f,
+  Cont<E, F, A2> thenDoWithEnv<A2>(
+    Cont<E, F, A2> Function(E env, A a) f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return thenDo((a) {
         return f(e, a);
       });
@@ -46,8 +47,8 @@ extension ContThenDoExtension<E, A> on Cont<E, A> {
   /// access to configuration or context but doesn't depend on the previous value.
   ///
   /// - [f]: Function that takes the environment and returns a continuation.
-  Cont<E, A2> thenDoWithEnv0<A2>(
-    Cont<E, A2> Function(E env) f,
+  Cont<E, F, A2> thenDoWithEnv0<A2>(
+    Cont<E, F, A2> Function(E env) f,
   ) {
     return thenDoWithEnv((e, _) {
       return f(e);

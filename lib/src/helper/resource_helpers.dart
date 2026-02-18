@@ -12,13 +12,13 @@ part of '../cont.dart';
 /// - If [use] succeeds but [release] terminates, propagates release errors.
 /// - If [use] terminates but [release] succeeds, propagates use errors.
 /// - If both terminate, concatenates both error lists.
-Cont<E, A> _bracket<E, R, A>({
-  required Cont<E, R> acquire,
-  required Cont<E, ()> Function(R resource) release,
-  required Cont<E, A> Function(R resource) use,
+Cont<E, F, A> _bracket<E, F, R, A>({
+  required Cont<E, F, R> acquire,
+  required Cont<E, F, ()> Function(R resource) release,
+  required Cont<E, F, A> Function(R resource) use,
   //
 }) {
-  if (acquire is Cont<E, Never>) {
+  if (acquire is Cont<E, F, Never>) {
     acquire = acquire.absurd<R>();
   }
 
@@ -37,19 +37,19 @@ Cont<E, A> _bracket<E, R, A>({
       // Helper to safely call release and handle its result
       // Uses _Either to distinguish between success (value) and failure (errors)
       void doRelease(
-        _Either<A, List<ContError>> useResult,
+        _Either<A, List<ContError<F>>> useResult,
       ) {
         // Create helper to get release continuation safely
-        Cont<E, ()> getReleaseCont() {
+        Cont<E, F, ()> getReleaseCont() {
           try {
             final cont = release(resource);
-            if (cont is Cont<E, Never>) {
+            if (cont is Cont<E, F, Never>) {
               return cont.absurd<()>();
             }
             return cont;
           } catch (error, st) {
-            return Cont.stop<E, ()>([
-              ContError.withStackTrace(error, st),
+            return Cont.stop<E, F, ()>([
+              ThrownError(error, st),
             ]);
           }
         }
@@ -63,12 +63,12 @@ Cont<E, A> _bracket<E, R, A>({
               // Release terminated - combine with use errors if any
               (releaseErrors) {
                 switch (useResult) {
-                  case _Left<A, List<ContError>>():
+                  case _Left<A, List<ContError<F>>>():
                     // Use succeeded but release failed
                     observer.onElse([...releaseErrors]);
-                  case _Right<A, List<ContError>>(
-                    value: final useErrors,
-                  ):
+                  case _Right<A, List<ContError<F>>>(
+                      value: final useErrors,
+                    ):
                     // Both use and release failed - combine errors
                     final combinedErrors = [
                       ...useErrors,
@@ -80,14 +80,14 @@ Cont<E, A> _bracket<E, R, A>({
               // Release succeeded
               (_) {
                 switch (useResult) {
-                  case _Left<A, List<ContError>>(
-                    value: final value,
-                  ):
+                  case _Left<A, List<ContError<F>>>(
+                      value: final value,
+                    ):
                     // Both use and release succeeded - return the value
                     observer.onThen(value);
-                  case _Right<A, List<ContError>>(
-                    value: final useErrors,
-                  ):
+                  case _Right<A, List<ContError<F>>>(
+                      value: final useErrors,
+                    ):
                     // Use failed but release succeeded - propagate use errors
                     observer.onElse(useErrors);
                 }
@@ -97,18 +97,18 @@ Cont<E, A> _bracket<E, R, A>({
         } catch (error, st) {
           // Exception while setting up release
           switch (useResult) {
-            case _Left<A, List<ContError>>():
+            case _Left<A, List<ContError<F>>>():
               // Use succeeded but release setup failed
               observer.onElse([
-                ContError.withStackTrace(error, st),
+                ThrownError(error, st),
               ]);
-            case _Right<A, List<ContError>>(
-              value: final useErrors,
-            ):
+            case _Right<A, List<ContError<F>>>(
+                value: final useErrors,
+              ):
               // Both use and release setup failed
               final combinedErrors = [
                 ...useErrors,
-                ContError.withStackTrace(error, st),
+                ThrownError<F>(error, st),
               ];
               observer.onElse(combinedErrors);
           }
@@ -124,8 +124,8 @@ Cont<E, A> _bracket<E, R, A>({
 
       // Execute the use phase
       try {
-        Cont<E, A> useCont = use(resource);
-        if (useCont is Cont<E, Never>) {
+        Cont<E, F, A> useCont = use(resource);
+        if (useCont is Cont<E, F, Never>) {
           useCont = useCont.absurd<A>();
         }
 
@@ -147,7 +147,7 @@ Cont<E, A> _bracket<E, R, A>({
       } catch (error, st) {
         // Exception while setting up use phase - still release
         doRelease(
-          _Right([ContError.withStackTrace(error, st)]),
+          _Right([ThrownError(error, st)]),
         );
       }
     });

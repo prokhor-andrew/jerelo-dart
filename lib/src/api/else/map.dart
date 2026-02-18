@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContElseMapExtension<E, A> on Cont<E, A> {
+extension ContElseMapExtension<E, F, A> on Cont<E, F, A> {
   /// Transforms termination errors using a pure function.
   ///
   /// If the continuation terminates, applies the transformation function to
@@ -8,11 +8,12 @@ extension ContElseMapExtension<E, A> on Cont<E, A> {
   /// for enriching, filtering, or transforming error information.
   ///
   /// - [f]: Function that transforms the error list.
-  Cont<E, A> elseMap(
-    List<ContError> Function(List<ContError> errors) f,
+  Cont<E, F, A> elseMap(
+    List<ContError<F>> Function(List<ContError<F>> errors)
+        f,
   ) {
     return elseDo((errors) {
-      return Cont.stop<E, A>(f(errors));
+      return Cont.stop<E, F, A>(f(errors));
     });
   }
 
@@ -22,7 +23,7 @@ extension ContElseMapExtension<E, A> on Cont<E, A> {
   /// error list.
   ///
   /// - [f]: Zero-argument function that produces new errors.
-  Cont<E, A> elseMap0(List<ContError> Function() f) {
+  Cont<E, F, A> elseMap0(List<ContError<F>> Function() f) {
     return elseMap((_) {
       return f();
     });
@@ -35,11 +36,12 @@ extension ContElseMapExtension<E, A> on Cont<E, A> {
   /// needs access to configuration or context information.
   ///
   /// - [f]: Function that takes the environment and errors, and produces transformed errors.
-  Cont<E, A> elseMapWithEnv(
-    List<ContError> Function(E env, List<ContError> errors)
-    f,
+  Cont<E, F, A> elseMapWithEnv(
+    List<ContError<F>> Function(
+            E env, List<ContError<F>> errors)
+        f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return elseMap((errors) {
         return f(e, errors);
       });
@@ -52,8 +54,8 @@ extension ContElseMapExtension<E, A> on Cont<E, A> {
   /// the environment and ignores the original errors.
   ///
   /// - [f]: Function that takes the environment and produces new errors.
-  Cont<E, A> elseMapWithEnv0(
-    List<ContError> Function(E env) f,
+  Cont<E, F, A> elseMapWithEnv0(
+    List<ContError<F>> Function(E env) f,
   ) {
     return elseMapWithEnv((e, _) {
       return f(e);
@@ -66,7 +68,7 @@ extension ContElseMapExtension<E, A> on Cont<E, A> {
   /// This is the simplest form of error transformation.
   ///
   /// - [errors]: The error list to replace with.
-  Cont<E, A> elseMapTo(List<ContError> errors) {
+  Cont<E, F, A> elseMapTo(List<ContError<F>> errors) {
     errors = errors.toList(); // defensive copy
     return elseMap0(() {
       return errors;

@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContElseWhileExtension<E, A> on Cont<E, A> {
+extension ContElseWhileExtension<E, F, A> on Cont<E, F, A> {
   /// Repeatedly retries the continuation while the predicate returns `true` on termination errors.
   ///
   /// If the continuation terminates, tests the errors with the predicate. The loop
@@ -19,8 +19,8 @@ extension ContElseWhileExtension<E, A> on Cont<E, A> {
   /// // Retry while getting transient errors
   /// final result = apiCall().elseWhile((errors) => errors.first.error is TransientError);
   /// ```
-  Cont<E, A> elseWhile(
-    bool Function(List<ContError> errors) predicate,
+  Cont<E, F, A> elseWhile(
+    bool Function(List<ContError<F>> errors) predicate,
   ) {
     return _elseWhile(this, predicate);
   }
@@ -30,7 +30,7 @@ extension ContElseWhileExtension<E, A> on Cont<E, A> {
   /// Similar to [elseWhile] but the predicate doesn't examine the errors.
   ///
   /// - [predicate]: Zero-argument function that determines whether to retry.
-  Cont<E, A> elseWhile0(bool Function() predicate) {
+  Cont<E, F, A> elseWhile0(bool Function() predicate) {
     return elseWhile((_) {
       return predicate();
     });
@@ -43,10 +43,11 @@ extension ContElseWhileExtension<E, A> on Cont<E, A> {
   /// needs access to configuration or context information.
   ///
   /// - [predicate]: Function that takes the environment and errors, and determines whether to retry.
-  Cont<E, A> elseWhileWithEnv(
-    bool Function(E env, List<ContError> errors) predicate,
+  Cont<E, F, A> elseWhileWithEnv(
+    bool Function(E env, List<ContError<F>> errors)
+        predicate,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return elseWhile((errors) {
         return predicate(e, errors);
       });
@@ -59,7 +60,7 @@ extension ContElseWhileExtension<E, A> on Cont<E, A> {
   /// environment and ignores the errors.
   ///
   /// - [predicate]: Function that takes the environment and determines whether to retry.
-  Cont<E, A> elseWhileWithEnv0(
+  Cont<E, F, A> elseWhileWithEnv0(
     bool Function(E env) predicate,
   ) {
     return elseWhileWithEnv((e, _) {

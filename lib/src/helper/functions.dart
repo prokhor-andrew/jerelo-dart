@@ -6,7 +6,7 @@ void _ignore(Object? val) {}
 
 /// Default panic handler that re-throws the error inside a microtask so it
 /// surfaces as an unhandled exception.
-void _panic(ContError error) {
+void _panic(ThrownError error) {
   scheduleMicrotask(() {
     Error.throwWithStackTrace(
       error.error,

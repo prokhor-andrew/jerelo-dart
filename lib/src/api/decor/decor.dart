@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContDecorExtension<E, A> on Cont<E, A> {
+extension ContDecorExtension<E, F, A> on Cont<E, F, A> {
   /// Transforms the execution of the continuation using a natural transformation.
   ///
   /// Applies a function that wraps or modifies the underlying run behavior.
@@ -23,14 +23,13 @@ extension ContDecorExtension<E, A> on Cont<E, A> {
   ///   print('Execution initiated');
   /// });
   /// ```
-  Cont<E, A> decor(
+  Cont<E, F, A> decor(
     void Function(
-      void Function(ContRuntime<E>, ContObserver<A>) run,
+      void Function(ContRuntime<E>, ContObserver<F, A>) run,
       ContRuntime<E> runtime,
-      ContObserver<A> observer,
+      ContObserver<F, A> observer,
       //
-    )
-    f,
+    ) f,
   ) {
     return Cont.fromRun((runtime, observer) {
       f(_run, runtime, observer);

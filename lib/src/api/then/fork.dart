@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContThenForkExtension<E, A> on Cont<E, A> {
+extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   /// Executes a side-effect continuation in a fire-and-forget manner.
   ///
   /// Unlike [thenTap], this method does not wait for the side-effect to complete.
@@ -8,7 +8,8 @@ extension ContThenForkExtension<E, A> on Cont<E, A> {
   /// is returned without delay. Any errors from the side-effect are silently ignored.
   ///
   /// - [f]: Function that takes the current value and returns a side-effect continuation.
-  Cont<E, A> thenFork<A2>(Cont<E, A2> Function(A a) f) {
+  Cont<E, F, A> thenFork<A2>(
+      Cont<E, F, A2> Function(A a) f) {
     return _thenFork(this, f);
   }
 
@@ -17,7 +18,7 @@ extension ContThenForkExtension<E, A> on Cont<E, A> {
   /// Similar to [thenFork] but ignores the current value.
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
-  Cont<E, A> thenFork0<A2>(Cont<E, A2> Function() f) {
+  Cont<E, F, A> thenFork0<A2>(Cont<E, F, A2> Function() f) {
     return thenFork((_) {
       return f();
     });
@@ -30,10 +31,10 @@ extension ContThenForkExtension<E, A> on Cont<E, A> {
   /// and any errors are silently ignored.
   ///
   /// - [f]: Function that takes the environment and value, and returns a side-effect continuation.
-  Cont<E, A> thenForkWithEnv<A2>(
-    Cont<E, A2> Function(E env, A a) f,
+  Cont<E, F, A> thenForkWithEnv<A2>(
+    Cont<E, F, A2> Function(E env, A a) f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return thenFork((a) {
         return f(e, a);
       });
@@ -46,8 +47,8 @@ extension ContThenForkExtension<E, A> on Cont<E, A> {
   /// the environment and ignores the current value.
   ///
   /// - [f]: Function that takes the environment and returns a side-effect continuation.
-  Cont<E, A> thenForkWithEnv0<A2>(
-    Cont<E, A2> Function(E env) f,
+  Cont<E, F, A> thenForkWithEnv0<A2>(
+    Cont<E, F, A2> Function(E env) f,
   ) {
     return thenForkWithEnv((e, _) {
       return f(e);

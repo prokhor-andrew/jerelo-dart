@@ -7,16 +7,16 @@ part of '../cont.dart';
 /// or terminates if the continuation itself terminates. Uses
 /// [_stackSafeLoop] for stack safety across both synchronous and
 /// asynchronous iterations.
-Cont<E, A> _thenWhile<E, A>(
-  Cont<E, A> cont,
+Cont<E, F, A> _thenWhile<E, F, A>(
+  Cont<E, F, A> cont,
   bool Function(A value) predicate,
 ) {
   return Cont.fromRun((runtime, observer) {
     _stackSafeLoop<
-      _Either<(), _Either<(), _Either<A, List<ContError>>>>,
-      (),
-      _Either<(), _Either<A, List<ContError>>>
-    >(
+        _Either<(),
+            _Either<(), _Either<A, List<ContError<F>>>>>,
+        (),
+        _Either<(), _Either<A, List<ContError<F>>>>>(
       seed: _Left(()),
       keepRunningIf: (state) {
         switch (state) {
@@ -64,7 +64,7 @@ Cont<E, A> _thenWhile<E, A>(
                     _Right(
                       _Right(
                         _Right([
-                          ContError.withStackTrace(
+                          ThrownError(
                             error,
                             st,
                           ),
@@ -81,7 +81,7 @@ Cont<E, A> _thenWhile<E, A>(
             _Right(
               _Right(
                 _Right([
-                  ContError.withStackTrace(error, st),
+                  ThrownError(error, st),
                 ]),
               ),
             ),
@@ -90,12 +90,12 @@ Cont<E, A> _thenWhile<E, A>(
       },
       escape: (result) {
         switch (result) {
-          case _Left<(), _Either<A, List<ContError>>>():
+          case _Left<(), _Either<A, List<ContError<F>>>>():
             // cancellation
             return;
-          case _Right<(), _Either<A, List<ContError>>>(
-            value: final result,
-          ):
+          case _Right<(), _Either<A, List<ContError<F>>>>(
+              value: final result,
+            ):
             switch (result) {
               case _Left(value: final a):
                 observer.onThen(a);
@@ -117,16 +117,16 @@ Cont<E, A> _thenWhile<E, A>(
 /// termination when the predicate returns `false`, or succeeds if the
 /// continuation eventually succeeds. Uses [_stackSafeLoop] for stack
 /// safety across both synchronous and asynchronous iterations.
-Cont<E, A> _elseWhile<E, A>(
-  Cont<E, A> cont,
-  bool Function(List<ContError> errors) predicate,
+Cont<E, F, A> _elseWhile<E, F, A>(
+  Cont<E, F, A> cont,
+  bool Function(List<ContError<F>> errors) predicate,
 ) {
   return Cont.fromRun((runtime, observer) {
     _stackSafeLoop<
-      _Either<(), _Either<(), _Either<A, List<ContError>>>>,
-      (),
-      _Either<(), _Either<A, List<ContError>>>
-    >(
+        _Either<(),
+            _Either<(), _Either<A, List<ContError<F>>>>>,
+        (),
+        _Either<(), _Either<A, List<ContError<F>>>>>(
       seed: _Left(()),
       keepRunningIf: (state) {
         switch (state) {
@@ -166,7 +166,7 @@ Cont<E, A> _elseWhile<E, A>(
                     _Right(
                       _Right(
                         _Right([
-                          ContError.withStackTrace(
+                          ThrownError(
                             error,
                             st,
                           ),
@@ -191,7 +191,7 @@ Cont<E, A> _elseWhile<E, A>(
             _Right(
               _Right(
                 _Right([
-                  ContError.withStackTrace(error, st),
+                  ThrownError(error, st),
                 ]),
               ),
             ),
@@ -200,12 +200,12 @@ Cont<E, A> _elseWhile<E, A>(
       },
       escape: (result) {
         switch (result) {
-          case _Left<(), _Either<A, List<ContError>>>():
+          case _Left<(), _Either<A, List<ContError<F>>>>():
             // cancellation
             return;
-          case _Right<(), _Either<A, List<ContError>>>(
-            value: final result,
-          ):
+          case _Right<(), _Either<A, List<ContError<F>>>>(
+              value: final result,
+            ):
             switch (result) {
               case _Left(value: final a):
                 observer.onThen(a);

@@ -42,7 +42,7 @@ final class _StackSafeLoopPolicyStop<A, B>
 void _stackSafeLoop<A, B, C>({
   required A seed,
   required _StackSafeLoopPolicy<B, C> Function(A)
-  keepRunningIf,
+      keepRunningIf,
   required void Function(B, void Function(A)) computation,
   required void Function(C) escape,
   //
@@ -54,8 +54,8 @@ void _stackSafeLoop<A, B, C>({
 
     switch (policy) {
       case _StackSafeLoopPolicyStop<B, C>(
-        value: final value,
-      ):
+          value: final value,
+        ):
         escape(value);
         return;
       case _StackSafeLoopPolicyKeepRunning<B, C>():

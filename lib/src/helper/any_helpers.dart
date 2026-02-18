@@ -5,15 +5,15 @@ part of '../cont.dart';
 /// Tries each continuation in [list] one after another using a stack-safe
 /// loop. Returns the first successful value. If all terminate, accumulates
 /// errors from every attempt and propagates them.
-Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
+Cont<E, F, A> _anySequence<E, F, A>(
+    List<Cont<E, F, A>> list) {
   return Cont.fromRun((runtime, observer) {
-    final safeCopy = List<Cont<E, A>>.from(list);
+    final safeCopy = List<Cont<E, F, A>>.from(list);
 
     _stackSafeLoop<
-      _Either<(int, List<ContError>), _Either<(), A>>,
-      (int, List<ContError>),
-      _Either<(), _Either<List<ContError>, A>>
-    >(
+        _Either<(int, List<ContError<F>>), _Either<(), A>>,
+        (int, List<ContError<F>>),
+        _Either<(), _Either<List<ContError<F>>, A>>>(
       seed: _Left((0, [])),
       keepRunningIf: (either) {
         switch (either) {
@@ -41,8 +41,8 @@ Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
       },
       computation: (tuple, callback) {
         final (index, errors) = tuple;
-        Cont<E, A> cont = safeCopy[index];
-        if (cont is Cont<E, Never>) {
+        Cont<E, F, A> cont = safeCopy[index];
+        if (cont is Cont<E, F, Never>) {
           cont = cont.absurd<A>();
         }
 
@@ -78,7 +78,7 @@ Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
               index + 1,
               [
                 ...errors,
-                ContError.withStackTrace(error, st),
+                ThrownError(error, st),
               ],
             )),
           );
@@ -91,14 +91,14 @@ Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
             return;
           case _Right(value: final either):
             switch (either) {
-              case _Left<List<ContError>, A>(
-                value: final errors,
-              ):
+              case _Left<List<ContError<F>>, A>(
+                  value: final errors,
+                ):
                 observer.onElse([...errors]);
                 return;
-              case _Right<List<ContError>, A>(
-                value: final a,
-              ):
+              case _Right<List<ContError<F>>, A>(
+                  value: final a,
+                ):
                 observer.onThen(a);
                 return;
             }
@@ -115,12 +115,12 @@ Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
 /// complete. If at least one succeeds, merges all successful values using
 /// [combine] (first-succeeded value as accumulator). If all terminate,
 /// accumulates all errors and propagates them.
-Cont<E, A> _anyMergeWhenAll<E, A>(
-  List<Cont<E, A>> list,
+Cont<E, F, A> _anyMergeWhenAll<E, F, A>(
+  List<Cont<E, F, A>> list,
   A Function(A acc, A value) combine,
 ) {
   return Cont.fromRun((runtime, observer) {
-    final safeCopy = List<Cont<E, A>>.from(list);
+    final safeCopy = List<Cont<E, F, A>>.from(list);
 
     if (safeCopy.isEmpty) {
       observer.onElse();
@@ -149,7 +149,7 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
         );
       } catch (error, st) {
         observer.onElse([
-          ContError.withStackTrace(error, st),
+          ThrownError(error, st),
         ]);
       }
       return;
@@ -157,12 +157,12 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
 
     A? seed;
 
-    final List<ContError> errors = [];
+    final List<ContError<F>> errors = [];
 
     var i = 0;
 
     void handleTermination(
-      List<ContError> terminateErrors,
+      List<ContError<F>> terminateErrors,
     ) {
       if (runtime.isCancelled()) {
         return;
@@ -227,7 +227,7 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
                   i -=
                       1; // we have to remove 1 step, as we gonna increment it again below
                   handleTermination([
-                    ContError.withStackTrace(error, st),
+                    ThrownError(error, st),
                   ]);
                   return;
                 }
@@ -251,7 +251,7 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
           return;
         }
 
-        errors.add(ContError.withStackTrace(error, st));
+        errors.add(ThrownError(error, st));
 
         if (i >= safeCopy.length) {
           observer.onElse(errors);
@@ -268,18 +268,19 @@ Cont<E, A> _anyMergeWhenAll<E, A>(
 /// reports cancellation as soon as one succeeds. Returns the first successful
 /// value immediately. If all terminate, collects all errors (preserving
 /// order) and propagates them.
-Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
+Cont<E, F, A> _anyQuitFast<E, F, A>(
+    List<Cont<E, F, A>> list) {
   return Cont.fromRun((runtime, observer) {
-    final safeCopy = List<Cont<E, A>>.from(list);
+    final safeCopy = List<Cont<E, F, A>>.from(list);
     if (safeCopy.isEmpty) {
       observer.onElse();
       return;
     }
 
-    final List<List<ContError>> resultOfErrors =
+    final List<List<ContError<F>>> resultOfErrors =
         List.generate(safeCopy.length, (_) {
-          return [];
-        });
+      return [];
+    });
 
     bool isWinnerFound = false;
     int numberOfFinished = 0;
@@ -294,7 +295,7 @@ Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
 
     void handleTerminate(
       int index,
-      List<ContError> errors,
+      List<ContError<F>> errors,
     ) {
       numberOfFinished += 1;
 
@@ -336,7 +337,7 @@ Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
         );
       } catch (error, st) {
         handleTerminate(i, [
-          ContError.withStackTrace(error, st),
+          ThrownError(error, st),
         ]);
       }
     }

@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContElseTapExtension<E, A> on Cont<E, A> {
+extension ContElseTapExtension<E, F, A> on Cont<E, F, A> {
   /// Executes a side-effect continuation on termination.
   ///
   /// If the continuation terminates, executes the side-effect continuation for its effects.
@@ -15,8 +15,8 @@ extension ContElseTapExtension<E, A> on Cont<E, A> {
   /// outcome, use [elseFork] instead.
   ///
   /// - [f]: Function that receives the original errors and returns a side-effect continuation.
-  Cont<E, A> elseTap(
-    Cont<E, A> Function(List<ContError> errors) f,
+  Cont<E, F, A> elseTap(
+    Cont<E, F, A> Function(List<ContError<F>> errors) f,
   ) {
     return _elseTap(this, f);
   }
@@ -26,7 +26,7 @@ extension ContElseTapExtension<E, A> on Cont<E, A> {
   /// Similar to [elseTap] but ignores the error information.
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
-  Cont<E, A> elseTap0(Cont<E, A> Function() f) {
+  Cont<E, F, A> elseTap0(Cont<E, F, A> Function() f) {
     return elseTap((_) {
       return f();
     });
@@ -39,10 +39,11 @@ extension ContElseTapExtension<E, A> on Cont<E, A> {
   /// reporting) to access configuration or context information.
   ///
   /// - [f]: Function that takes the environment and errors, and returns a side-effect continuation.
-  Cont<E, A> elseTapWithEnv(
-    Cont<E, A> Function(E env, List<ContError> errors) f,
+  Cont<E, F, A> elseTapWithEnv(
+    Cont<E, F, A> Function(E env, List<ContError<F>> errors)
+        f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return elseTap((errors) {
         return f(e, [...errors]);
       });
@@ -55,7 +56,8 @@ extension ContElseTapExtension<E, A> on Cont<E, A> {
   /// the environment and ignores the error information.
   ///
   /// - [f]: Function that takes the environment and returns a side-effect continuation.
-  Cont<E, A> elseTapWithEnv0(Cont<E, A> Function(E env) f) {
+  Cont<E, F, A> elseTapWithEnv0(
+      Cont<E, F, A> Function(E env) f) {
     return elseTapWithEnv((e, _) {
       return f(e);
     });

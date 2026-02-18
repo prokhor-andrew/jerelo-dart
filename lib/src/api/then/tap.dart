@@ -1,15 +1,16 @@
 part of '../../cont.dart';
 
-extension ContThenTapExtension<E, A> on Cont<E, A> {
+extension ContThenTapExtension<E, F, A> on Cont<E, F, A> {
   /// Chains a side-effect continuation while preserving the original value.
   ///
   /// Executes a continuation for its side effects, then returns the original value.
   ///
   /// - [f]: Side-effect function that returns a continuation.
-  Cont<E, A> thenTap<A2>(Cont<E, A2> Function(A value) f) {
+  Cont<E, F, A> thenTap<A2>(
+      Cont<E, F, A2> Function(A value) f) {
     return thenDo((a) {
-      Cont<E, A2> contA2 = f(a);
-      if (contA2 is Cont<E, Never>) {
+      Cont<E, F, A2> contA2 = f(a);
+      if (contA2 is Cont<E, F, Never>) {
         contA2 = contA2.absurd<A2>();
       }
       return contA2.thenMapTo(a);
@@ -21,7 +22,7 @@ extension ContThenTapExtension<E, A> on Cont<E, A> {
   /// Similar to [thenTap] but with a zero-argument function.
   ///
   /// - [f]: Zero-argument side-effect function.
-  Cont<E, A> thenTap0<A2>(Cont<E, A2> Function() f) {
+  Cont<E, F, A> thenTap0<A2>(Cont<E, F, A2> Function() f) {
     return thenTap((_) {
       return f();
     });
@@ -35,10 +36,10 @@ extension ContThenTapExtension<E, A> on Cont<E, A> {
   /// access to both the value and configuration context.
   ///
   /// - [f]: Function that takes the environment and value, and returns a side-effect continuation.
-  Cont<E, A> thenTapWithEnv<A2>(
-    Cont<E, A2> Function(E env, A a) f,
+  Cont<E, F, A> thenTapWithEnv<A2>(
+    Cont<E, F, A2> Function(E env, A a) f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return thenTap((a) {
         return f(e, a);
       });
@@ -52,8 +53,8 @@ extension ContThenTapExtension<E, A> on Cont<E, A> {
   /// returns the original value.
   ///
   /// - [f]: Function that takes the environment and returns a side-effect continuation.
-  Cont<E, A> thenTapWithEnv0<A2>(
-    Cont<E, A2> Function(E env) f,
+  Cont<E, F, A> thenTapWithEnv0<A2>(
+    Cont<E, F, A2> Function(E env) f,
   ) {
     return thenTapWithEnv((e, _) {
       return f(e);

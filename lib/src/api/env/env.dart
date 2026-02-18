@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContEnvExtension<E, A> on Cont<E, A> {
+extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   /// Runs this continuation with a transformed environment.
   ///
   /// Transforms the environment from [E2] to [E] using the provided function,
@@ -9,7 +9,7 @@ extension ContEnvExtension<E, A> on Cont<E, A> {
   /// different environment type.
   ///
   /// - [f]: Function that transforms the outer environment to the inner environment.
-  Cont<E2, A> local<E2>(E Function(E2) f) {
+  Cont<E2, F, A> local<E2>(E Function(E2) f) {
     return Cont.fromRun((runtime, observer) {
       final env = f(runtime.env());
 
@@ -23,7 +23,7 @@ extension ContEnvExtension<E, A> on Cont<E, A> {
   /// instead of transforming the existing environment.
   ///
   /// - [f]: Zero-argument function that provides the new environment.
-  Cont<E2, A> local0<E2>(E Function() f) {
+  Cont<E2, F, A> local0<E2>(E Function() f) {
     return local((_) {
       return f();
     });
@@ -36,7 +36,7 @@ extension ContEnvExtension<E, A> on Cont<E, A> {
   /// configuration, dependencies, or context to a continuation.
   ///
   /// - [value]: The environment value to use.
-  Cont<E2, A> scope<E2>(E value) {
+  Cont<E2, F, A> scope<E2>(E value) {
     return local0(() {
       return value;
     });
@@ -79,10 +79,10 @@ extension ContEnvExtension<E, A> on Cont<E, A> {
   /// final result = configCont.injectInto(queryOp);
   /// // Type: Cont<(), List<User>>
   /// ```
-  Cont<E, A2> injectInto<A2>(Cont<A, A2> cont) {
+  Cont<E, F, A2> injectInto<A2>(Cont<A, F, A2> cont) {
     return thenDo((a) {
-      Cont<A, A2> contA2 = cont;
-      if (contA2 is Cont<A, Never>) {
+      Cont<A, F, A2> contA2 = cont;
+      if (contA2 is Cont<A, F, Never>) {
         contA2 = contA2.absurd<A2>();
       }
       return contA2.scope(a);
@@ -125,7 +125,7 @@ extension ContEnvExtension<E, A> on Cont<E, A> {
   /// final result = queryOp.injectedBy(configProvider);
   /// // Type: Cont<(), List<User>>
   /// ```
-  Cont<E0, A> injectedBy<E0>(Cont<E0, E> cont) {
+  Cont<E0, F, A> injectedBy<E0>(Cont<E0, F, E> cont) {
     return cont.injectInto(this);
   }
 }

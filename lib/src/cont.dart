@@ -57,12 +57,11 @@ part 'helper/then_helpers.dart';
 /// Type parameters:
 /// - [E]: The environment type providing context for the continuation execution.
 /// - [A]: The value type that the continuation produces upon success.
-final class Cont<E, A> {
+final class Cont<E, F, A> {
   final void Function(
     ContRuntime<E> runtime,
-    ContObserver<A> observer,
-  )
-  _run;
+    ContObserver<F, A> observer,
+  ) _run;
 
   const Cont._(this._run);
 
@@ -74,12 +73,11 @@ final class Cont<E, A> {
   /// or saved to be called later.
   ///
   /// - [run]: Function that executes the continuation and calls observer callbacks.
-  static Cont<E, A> fromRun<E, A>(
+  static Cont<E, F, A> fromRun<E, F, A>(
     void Function(
       ContRuntime<E> runtime,
-      ContObserver<A> observer,
-    )
-    run,
+      ContObserver<F, A> observer,
+    ) run,
   ) {
     return _fromRun(run);
   }
@@ -90,12 +88,12 @@ final class Cont<E, A> {
   /// not created until the outer one is executed.
   ///
   /// - [thunk]: Function that returns a [Cont] when called.
-  static Cont<E, A> fromDeferred<E, A>(
-    Cont<E, A> Function() thunk,
+  static Cont<E, F, A> fromDeferred<E, F, A>(
+    Cont<E, F, A> Function() thunk,
   ) {
     return Cont.fromRun((runtime, observer) {
-      Cont<E, A> contA = thunk();
-      if (contA is Cont<E, Never>) {
+      Cont<E, F, A> contA = thunk();
+      if (contA is Cont<E, F, Never>) {
         contA = contA.absurd<A>();
       }
       contA._run(runtime, observer);
@@ -107,7 +105,7 @@ final class Cont<E, A> {
   /// Identity operation that wraps a pure value in a continuation context.
   ///
   /// - [value]: The value to wrap.
-  static Cont<E, A> of<E, A>(A value) {
+  static Cont<E, F, A> of<E, F, A>(A value) {
     return Cont.fromRun((runtime, observer) {
       observer.onThen(value);
     });
@@ -119,8 +117,8 @@ final class Cont<E, A> {
   /// Used to represent failure states.
   ///
   /// - [errors]: List of errors to terminate with. Defaults to an empty list.
-  static Cont<E, A> stop<E, A>([
-    List<ContError> errors = const [],
+  static Cont<E, F, A> stop<E, F, A>([
+    List<ContError<F>> errors = const [],
   ]) {
     errors = errors.toList();
     return Cont.fromRun((runtime, observer) {
@@ -137,7 +135,7 @@ final class Cont<E, A> {
   /// information that flows through the continuation execution.
   ///
   /// Returns a continuation that succeeds with the environment value.
-  static Cont<E, E> ask<E>() {
+  static Cont<E, F, E> ask<E, F>() {
     return Cont.fromRun((runtime, observer) {
       observer.onThen(runtime.env());
     });
@@ -154,10 +152,10 @@ final class Cont<E, A> {
   /// separately.
   ///
   /// - [f]: Function that takes the environment and returns a continuation.
-  static Cont<E, A> askThen<E, A>(
-    Cont<E, A> Function(E env) f,
+  static Cont<E, F, A> askThen<E, F, A>(
+    Cont<E, F, A> Function(E env) f,
   ) {
-    return Cont.ask<E>().thenDo(f);
+    return Cont.ask<E, F>().thenDo(f);
   }
 
   /// Runs two continuations and combines their results according to the specified policy.
@@ -177,18 +175,18 @@ final class Cont<E, A> {
   /// - [right]: Second continuation to execute.
   /// - [combine]: Function to combine both successful values.
   /// - [policy]: Execution policy determining how continuations are run and errors are handled.
-  static Cont<E, A3> both<E, A1, A2, A3>(
-    Cont<E, A1> left,
-    Cont<E, A2> right,
+  static Cont<E, F, A3> both<E, F, A1, A2, A3>(
+    Cont<E, F, A1> left,
+    Cont<E, F, A2> right,
     A3 Function(A1 a, A2 a2) combine, {
     required ContBothPolicy policy,
     //
   }) {
-    if (left is Cont<E, Never>) {
+    if (left is Cont<E, F, Never>) {
       left = left.absurd<A1>();
     }
 
-    if (right is Cont<E, Never>) {
+    if (right is Cont<E, F, Never>) {
       right = right.absurd<A2>();
     }
 
@@ -218,8 +216,8 @@ final class Cont<E, A> {
   ///
   /// - [list]: List of continuations to execute.
   /// - [policy]: Execution policy determining how continuations are run and errors are handled.
-  static Cont<E, List<A>> all<E, A>(
-    List<Cont<E, A>> list, {
+  static Cont<E, F, List<A>> all<E, F, A>(
+    List<Cont<E, F, A>> list, {
     required ContBothPolicy policy,
     //
   }) {
@@ -248,17 +246,17 @@ final class Cont<E, A> {
   /// - [left]: First continuation to try.
   /// - [right]: Second continuation to try.
   /// - [policy]: Execution policy determining how continuations are run.
-  static Cont<E, A> either<E, A>(
-    Cont<E, A> left,
-    Cont<E, A> right, {
+  static Cont<E, F, A> either<E, F, A>(
+    Cont<E, F, A> left,
+    Cont<E, F, A> right, {
     required ContEitherPolicy<A> policy,
     //
   }) {
-    if (left is Cont<E, Never>) {
+    if (left is Cont<E, F, Never>) {
       left = left.absurd<A>();
     }
 
-    if (right is Cont<E, Never>) {
+    if (right is Cont<E, F, Never>) {
       right = right.absurd<A>();
     }
 
@@ -270,8 +268,8 @@ final class Cont<E, A> {
           });
         });
       case EitherMergeWhenAllPolicy<A>(
-        combine: final combine,
-      ):
+          combine: final combine,
+        ):
         return _eitherMergeWhenAll(left, right, combine);
       case EitherQuitFastPolicy<A>():
         return _eitherQuitFast(left, right);
@@ -291,20 +289,20 @@ final class Cont<E, A> {
   ///
   /// - [list]: List of continuations to race.
   /// - [policy]: Execution policy determining how continuations are run.
-  static Cont<E, A> any<E, A>(
-    List<Cont<E, A>> list, {
+  static Cont<E, F, A> any<E, F, A>(
+    List<Cont<E, F, A>> list, {
     required ContEitherPolicy<A> policy,
     //
   }) {
-    final List<Cont<E, A>> safeCopy0 =
-        List<Cont<E, A>>.from(list);
+    final List<Cont<E, F, A>> safeCopy0 =
+        List<Cont<E, F, A>>.from(list);
 
     switch (policy) {
       case EitherSequencePolicy<A>():
         return _anySequence(safeCopy0);
       case EitherMergeWhenAllPolicy<A>(
-        combine: final combine,
-      ):
+          combine: final combine,
+        ):
         return _anyMergeWhenAll(safeCopy0, combine);
       case EitherQuitFastPolicy<A>():
         return _anyQuitFast(safeCopy0);
@@ -341,10 +339,10 @@ final class Cont<E, A> {
   ///   use: (file) => readContents(file),   // use
   /// );
   /// ```
-  static Cont<E, A> bracket<E, R, A>({
-    required Cont<E, R> acquire,
-    required Cont<E, ()> Function(R resource) release,
-    required Cont<E, A> Function(R resource) use,
+  static Cont<E, F, A> bracket<E, F, R, A>({
+    required Cont<E, F, R> acquire,
+    required Cont<E, F, ()> Function(R resource) release,
+    required Cont<E, F, A> Function(R resource) use,
     //
   }) {
     return _bracket(

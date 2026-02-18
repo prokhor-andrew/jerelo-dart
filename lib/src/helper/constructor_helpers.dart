@@ -9,25 +9,25 @@ part of '../cont.dart';
 ///   termination).
 /// - Panic handling when observer callbacks throw.
 /// - Special handling for [ContObserver]<[Never]> observers.
-Cont<E, A> _fromRun<E, A>(
+Cont<E, F, A> _fromRun<E, F, A>(
   void Function(
     ContRuntime<E> runtime,
-    ContObserver<A> observer,
-  )
-  run,
+    ContObserver<F, A> observer,
+  ) run,
 ) {
   return Cont._((runtime, observer) {
     if (runtime.isCancelled()) {
       return;
     }
 
-    if (observer is ContObserver<Never>) {
-      observer = ContObserver<A>._(observer.onElse, (_) {});
+    if (observer is ContObserver<F, Never>) {
+      observer =
+          ContObserver<F, A>._(observer.onElse, (_) {});
     }
 
     bool isDone = false;
 
-    void guardedTerminate(List<ContError> errors) {
+    void guardedTerminate(List<ContError<F>> errors) {
       errors = errors.toList(); // defensive copy
       if (runtime.isCancelled()) {
         return;
@@ -42,10 +42,10 @@ Cont<E, A> _fromRun<E, A>(
       } catch (error, st) {
         try {
           runtime.onPanic(
-            ContError.withStackTrace(error, st),
+            ThrownError(error, st),
           );
         } catch (error, st) {
-          _panic(ContError.withStackTrace(error, st));
+          _panic(ThrownError(error, st));
         }
       }
     }
@@ -64,10 +64,12 @@ Cont<E, A> _fromRun<E, A>(
       } catch (error, st) {
         try {
           runtime.onPanic(
-            ContError.withStackTrace(error, st),
+            ThrownError(error, st),
           );
         } catch (error, st) {
-          _panic(ContError.withStackTrace(error, st));
+          _panic(
+            ThrownError(error, st),
+          );
         }
       }
     }
@@ -79,7 +81,7 @@ Cont<E, A> _fromRun<E, A>(
       );
     } catch (error, st) {
       guardedTerminate([
-        ContError.withStackTrace(error, st),
+        ThrownError<F>(error, st),
       ]);
     }
   });

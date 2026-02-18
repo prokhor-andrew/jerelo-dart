@@ -4,43 +4,7 @@ part of '../../cont.dart';
 ///
 /// This extension provides specialized methods for [Cont]<[E], [Never]> where only
 /// termination is expected, simplifying the API by removing the unused value callback.
-extension ContNeverExtension<E> on Cont<E, Never> {
-  /// Executes the continuation expecting only termination.
-  ///
-  /// This is a convenience method for [Cont]<[E], [Never]> that executes the
-  /// continuation with only a termination handler, since a value callback
-  /// would never be called for a [Cont]<[E], [Never]>.
-  ///
-  /// All callbacks are optional and default to no-op, allowing callers to
-  /// subscribe only to the channels they care about.
-  ///
-  /// - [env]: The environment value to provide as context during execution.
-  /// - [onPanic]: Callback invoked when a fatal, unrecoverable error occurs.
-  ///   Defaults to re-throwing inside a microtask.
-  /// - [onElse]: Callback invoked when the continuation terminates with
-  ///   errors. Defaults to ignoring the errors.
-  ///
-  /// Example:
-  /// ```dart
-  /// final cont = Cont.terminate<MyEnv, Never>([ContError(Exception('Failed'), StackTrace.current)]);
-  /// cont.trap(myEnv, onElse: (errors) {
-  ///   print('Terminated with ${errors.length} error(s)');
-  /// });
-  /// ```
-  ContCancelToken trap(
-    E env, {
-    void Function(ContError error) onPanic = _panic,
-    void Function(List<ContError> errors) onElse = _ignore,
-  }) {
-    final ContCancelToken cancelToken = ContCancelToken._();
-    _run(
-      ContRuntime._(env, cancelToken.isCancelled, onPanic),
-      ContObserver._(onElse, (_) {}),
-    );
-
-    return cancelToken;
-  }
-
+extension ContNeverExtension<E, F> on Cont<E, F, Never> {
   /// Converts a continuation that never produces a value to any desired type.
   ///
   /// The absurd method implements the principle of "ex falso quodlibet" (from
@@ -72,10 +36,10 @@ extension ContNeverExtension<E> on Cont<E, Never> {
   /// // Convert to Cont<Env, String> to match other continuation types
   /// final serverAsString = server.absurd<String>();
   /// ```
-  Cont<E, A> absurd<A>() {
+  Cont<E, F, A> absurd<A>() {
     return thenMap<A>((
       Never // gonna give you up
-      never, // gonna let you down
+          never, // gonna let you down
     ) {
       return never; // gonna run around and desert you
     });

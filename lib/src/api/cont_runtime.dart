@@ -22,7 +22,7 @@ final class ContRuntime<E> {
   /// situations that violate internal invariants (e.g. an observer callback
   /// throwing an exception). The default implementation re-throws the error
   /// inside a microtask so it surfaces as an unhandled exception.
-  final void Function(ContError fatal) onPanic;
+  final void Function(ThrownError fatal) onPanic;
 
   const ContRuntime._(
     this._env,

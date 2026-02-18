@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContAbortExtension<E, A> on Cont<E, A> {
+extension ContAbortExtension<E, F, A> on Cont<E, F, A> {
   /// Unconditionally terminates the continuation with computed errors.
   ///
   /// Takes a successful value and converts it into a termination with errors.
@@ -8,10 +8,11 @@ extension ContAbortExtension<E, A> on Cont<E, A> {
   /// should cause termination, or for custom error handling flows.
   ///
   /// - [f]: Function that computes the error list from the value.
-  Cont<E, A> abort(List<ContError> Function(A value) f) {
+  Cont<E, F, A> abort(
+      List<ContError<F>> Function(A value) f) {
     return thenDo((a) {
       final errors = f(a);
-      return Cont.stop<E, A>(errors);
+      return Cont.stop<E, F, A>(errors);
     });
   }
 
@@ -20,7 +21,7 @@ extension ContAbortExtension<E, A> on Cont<E, A> {
   /// Similar to [abort] but the error computation doesn't depend on the value.
   ///
   /// - [f]: Zero-argument function that computes the error list.
-  Cont<E, A> abort0(List<ContError> Function() f) {
+  Cont<E, F, A> abort0(List<ContError<F>> Function() f) {
     return abort((_) {
       return f();
     });
@@ -33,10 +34,10 @@ extension ContAbortExtension<E, A> on Cont<E, A> {
   /// access to configuration or context information.
   ///
   /// - [f]: Function that takes the environment and value, and computes the error list.
-  Cont<E, A> abortWithEnv(
-    List<ContError> Function(E env, A value) f,
+  Cont<E, F, A> abortWithEnv(
+    List<ContError<F>> Function(E env, A value) f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return abort((a) {
         return f(e, a);
       });
@@ -49,8 +50,8 @@ extension ContAbortExtension<E, A> on Cont<E, A> {
   /// the environment and ignores the current value.
   ///
   /// - [f]: Function that takes the environment and computes the error list.
-  Cont<E, A> abortWithEnv0(
-    List<ContError> Function(E env) f,
+  Cont<E, F, A> abortWithEnv0(
+    List<ContError<F>> Function(E env) f,
   ) {
     return abortWithEnv((e, _) {
       return f(e);
@@ -63,7 +64,7 @@ extension ContAbortExtension<E, A> on Cont<E, A> {
   /// provided errors. This is the simplest form of forced termination.
   ///
   /// - [errors]: The error list to terminate with.
-  Cont<E, A> abortWith(List<ContError> errors) {
+  Cont<E, F, A> abortWith(List<ContError<F>> errors) {
     errors = errors.toList(); // defensive copy
     return abort0(() {
       return errors;

@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContElseDoExtension<E, A> on Cont<E, A> {
+extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
   /// Provides a fallback continuation in case of termination.
   ///
   /// If the continuation terminates, executes the fallback. If the fallback
@@ -10,8 +10,8 @@ extension ContElseDoExtension<E, A> on Cont<E, A> {
   /// To accumulate errors from both attempts, use [elseZip] instead.
   ///
   /// - [f]: Function that receives errors and produces a fallback continuation.
-  Cont<E, A> elseDo(
-    Cont<E, A> Function(List<ContError> errors) f,
+  Cont<E, F, A> elseDo(
+    Cont<E, F, A> Function(List<ContError<F>> errors) f,
   ) {
     return _elseDo(this, f);
   }
@@ -21,7 +21,7 @@ extension ContElseDoExtension<E, A> on Cont<E, A> {
   /// Similar to [elseDo] but doesn't use the error information.
   ///
   /// - [f]: Zero-argument function that produces a fallback continuation.
-  Cont<E, A> elseDo0(Cont<E, A> Function() f) {
+  Cont<E, F, A> elseDo0(Cont<E, F, A> Function() f) {
     return elseDo((_) {
       return f();
     });
@@ -34,10 +34,11 @@ extension ContElseDoExtension<E, A> on Cont<E, A> {
   /// configuration or context from the environment.
   ///
   /// - [f]: Function that takes the environment and errors, and returns a fallback continuation.
-  Cont<E, A> elseDoWithEnv(
-    Cont<E, A> Function(E env, List<ContError> errors) f,
+  Cont<E, F, A> elseDoWithEnv(
+    Cont<E, F, A> Function(E env, List<ContError<F>> errors)
+        f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return elseDo((errors) {
         return f(e, [...errors]);
       });
@@ -51,7 +52,8 @@ extension ContElseDoExtension<E, A> on Cont<E, A> {
   /// recovery needs access to configuration but doesn't need to inspect the errors.
   ///
   /// - [f]: Function that takes the environment and produces a fallback continuation.
-  Cont<E, A> elseDoWithEnv0(Cont<E, A> Function(E env) f) {
+  Cont<E, F, A> elseDoWithEnv0(
+      Cont<E, F, A> Function(E env) f) {
     return elseDoWithEnv((e, _) {
       return f(e);
     });

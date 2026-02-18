@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContRecoverExtension<E, A> on Cont<E, A> {
+extension ContRecoverExtension<E, F, A> on Cont<E, F, A> {
   /// Recovers from termination by computing a replacement value from the errors.
   ///
   /// If the continuation terminates, applies [f] to the error list and succeeds
@@ -8,7 +8,8 @@ extension ContRecoverExtension<E, A> on Cont<E, A> {
   /// where the recovery logic is a pure function rather than a full continuation.
   ///
   /// - [f]: Function that receives the termination errors and returns a recovery value.
-  Cont<E, A> recover(A Function(List<ContError> errors) f) {
+  Cont<E, F, A> recover(
+      A Function(List<ContError<F>> errors) f) {
     return elseDo((errors) {
       final a = f(errors);
       return Cont.of(a);
@@ -20,7 +21,7 @@ extension ContRecoverExtension<E, A> on Cont<E, A> {
   /// Similar to [recover] but the recovery function takes no arguments.
   ///
   /// - [f]: Zero-argument function that returns a recovery value.
-  Cont<E, A> recover0(A Function() f) {
+  Cont<E, F, A> recover0(A Function() f) {
     return recover((_) {
       return f();
     });
@@ -33,10 +34,10 @@ extension ContRecoverExtension<E, A> on Cont<E, A> {
   /// needs access to configuration or context information.
   ///
   /// - [f]: Function that takes the environment and errors, and returns a recovery value.
-  Cont<E, A> recoverWithEnv(
-    A Function(E env, List<ContError> errors) f,
+  Cont<E, F, A> recoverWithEnv(
+    A Function(E env, List<ContError<F>> errors) f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return recover((errors) {
         return f(e, errors);
       });
@@ -49,7 +50,7 @@ extension ContRecoverExtension<E, A> on Cont<E, A> {
   /// the environment and ignores the termination errors.
   ///
   /// - [f]: Function that takes the environment and returns a recovery value.
-  Cont<E, A> recoverWithEnv0(A Function(E env) f) {
+  Cont<E, F, A> recoverWithEnv0(A Function(E env) f) {
     return recoverWithEnv((e, _) {
       return f(e);
     });
@@ -61,7 +62,7 @@ extension ContRecoverExtension<E, A> on Cont<E, A> {
   /// This is the simplest form of error recovery.
   ///
   /// - [value]: The value to use when the continuation terminates.
-  Cont<E, A> recoverWith(A value) {
+  Cont<E, F, A> recoverWith(A value) {
     return recover0(() {
       return value;
     });

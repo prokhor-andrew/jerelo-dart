@@ -1,6 +1,7 @@
 part of '../../cont.dart';
 
-extension ContElseForeverExtension<E, A> on Cont<E, A> {
+extension ContElseForeverExtension<E, F, A>
+    on Cont<E, F, A> {
   /// Repeatedly retries the continuation on termination indefinitely.
   ///
   /// If the continuation terminates, retries it in an infinite loop that never
@@ -27,7 +28,7 @@ extension ContElseForeverExtension<E, A> on Cont<E, A> {
   ///     .elseTap((errors) => logError(errors))
   ///     .elseForever();
   /// ```
-  Cont<E, A> elseForever() {
+  Cont<E, F, A> elseForever() {
     return elseUntil((_) {
       return false;
     });

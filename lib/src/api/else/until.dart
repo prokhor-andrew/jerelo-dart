@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContElseUntilExtension<E, A> on Cont<E, A> {
+extension ContElseUntilExtension<E, F, A> on Cont<E, F, A> {
   /// Repeatedly retries the continuation until the predicate returns `true` on termination errors.
   ///
   /// If the continuation terminates, tests the errors with the predicate. The loop
@@ -19,8 +19,8 @@ extension ContElseUntilExtension<E, A> on Cont<E, A> {
   /// // Retry until a fatal error occurs
   /// final result = apiCall().elseUntil((errors) => errors.first.error is FatalError);
   /// ```
-  Cont<E, A> elseUntil(
-    bool Function(List<ContError> errors) predicate,
+  Cont<E, F, A> elseUntil(
+    bool Function(List<ContError<F>> errors) predicate,
   ) {
     return elseWhile((errors) {
       return !predicate(errors);
@@ -32,7 +32,7 @@ extension ContElseUntilExtension<E, A> on Cont<E, A> {
   /// Similar to [elseUntil] but the predicate doesn't examine the errors.
   ///
   /// - [predicate]: Zero-argument function that determines when to stop retrying.
-  Cont<E, A> elseUntil0(bool Function() predicate) {
+  Cont<E, F, A> elseUntil0(bool Function() predicate) {
     return elseUntil((_) {
       return predicate();
     });
@@ -45,10 +45,11 @@ extension ContElseUntilExtension<E, A> on Cont<E, A> {
   /// needs access to configuration or context information.
   ///
   /// - [predicate]: Function that takes the environment and errors, and determines when to stop.
-  Cont<E, A> elseUntilWithEnv(
-    bool Function(E env, List<ContError> errors) predicate,
+  Cont<E, F, A> elseUntilWithEnv(
+    bool Function(E env, List<ContError<F>> errors)
+        predicate,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return elseUntil((errors) {
         return predicate(e, errors);
       });
@@ -61,7 +62,7 @@ extension ContElseUntilExtension<E, A> on Cont<E, A> {
   /// environment and ignores the errors.
   ///
   /// - [predicate]: Function that takes the environment and determines when to stop.
-  Cont<E, A> elseUntilWithEnv0(
+  Cont<E, F, A> elseUntilWithEnv0(
     bool Function(E env) predicate,
   ) {
     return elseUntilWithEnv((e, _) {

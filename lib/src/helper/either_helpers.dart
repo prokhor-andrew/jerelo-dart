@@ -7,9 +7,9 @@ part of '../cont.dart';
 /// If both succeed, their values are merged using [combine] (first-succeeded
 /// value is passed as the accumulator). If both terminate, their errors are
 /// concatenated.
-Cont<E, A> _eitherMergeWhenAll<E, A>(
-  Cont<E, A> left,
-  Cont<E, A> right,
+Cont<E, F, A> _eitherMergeWhenAll<E, F, A>(
+  Cont<E, F, A> left,
+  Cont<E, F, A> right,
   A Function(A acc, A value) combine,
   //
 ) {
@@ -19,8 +19,8 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
 
     bool isLeftSucceededFirst = false;
 
-    List<ContError>? outerLeft;
-    List<ContError>? outerRight;
+    List<ContError<F>>? outerLeft;
+    List<ContError<F>>? outerRight;
 
     A? leftVal;
     A? rightVal;
@@ -61,7 +61,7 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
           observer.onThen(combine(firstValue, secondValue));
         } catch (error, st) {
           observer.onElse([
-            ContError.withStackTrace(error, st),
+            ThrownError(error, st),
           ]);
         }
         return;
@@ -97,7 +97,7 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
         observer.onElse(result);
       } catch (error, st) {
         observer.onElse([
-          ContError.withStackTrace(error, st),
+          ThrownError(error, st),
         ]);
       }
     }
@@ -123,7 +123,7 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
         ),
       );
     } catch (error, st) {
-      outerLeft = [ContError.withStackTrace(error, st)];
+      outerLeft = [ThrownError(error, st)];
       handleTerminate(true);
     }
 
@@ -148,7 +148,7 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
         ),
       );
     } catch (error, st) {
-      outerRight = [ContError.withStackTrace(error, st)];
+      outerRight = [ThrownError(error, st)];
       handleTerminate(false);
     }
   });
@@ -160,13 +160,13 @@ Cont<E, A> _eitherMergeWhenAll<E, A>(
 /// cancellation as soon as one side succeeds. If either succeeds first, the
 /// other is effectively cancelled and the value is returned. If both
 /// terminate, their errors are concatenated.
-Cont<E, A> _eitherQuitFast<E, A>(
-  Cont<E, A> left,
-  Cont<E, A> right,
+Cont<E, F, A> _eitherQuitFast<E, F, A>(
+  Cont<E, F, A> left,
+  Cont<E, F, A> right,
 ) {
   return Cont.fromRun((runtime, observer) {
     bool isOneFailed = false;
-    final List<ContError> resultErrors = [];
+    final List<ContError<F>> resultErrors = [];
     bool isDone = false;
 
     final ContRuntime<E> sharedContRuntime = ContRuntime._(
@@ -191,9 +191,9 @@ Cont<E, A> _eitherQuitFast<E, A>(
       codeToUpdateState();
     }
 
-    ContObserver<A> makeObserver(
-      void Function(List<ContError> errors)
-      codeToUpdateState,
+    ContObserver<F, A> makeObserver(
+      void Function(List<ContError<F>> errors)
+          codeToUpdateState,
     ) {
       return ContObserver._(
         (errors) {
@@ -227,7 +227,7 @@ Cont<E, A> _eitherQuitFast<E, A>(
       handleTerminate(() {
         resultErrors.insert(
           0,
-          ContError.withStackTrace(error, st),
+          ThrownError(error, st),
         );
       });
     }
@@ -242,7 +242,7 @@ Cont<E, A> _eitherQuitFast<E, A>(
     } catch (error, st) {
       handleTerminate(() {
         resultErrors.add(
-          ContError.withStackTrace(error, st),
+          ThrownError(error, st),
         );
       });
     }

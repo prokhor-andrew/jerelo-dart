@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContElseForkExtension<E, A> on Cont<E, A> {
+extension ContElseForkExtension<E, F, A> on Cont<E, F, A> {
   /// Executes a side-effect continuation on termination in a fire-and-forget manner.
   ///
   /// If the continuation terminates, starts the side-effect continuation without waiting
@@ -9,8 +9,8 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   /// silently ignored.
   ///
   /// - [f]: Function that returns a side-effect continuation.
-  Cont<E, A> elseFork<A2>(
-    Cont<E, A2> Function(List<ContError> errors) f,
+  Cont<E, F, A> elseFork<A2>(
+    Cont<E, F, A2> Function(List<ContError<F>> errors) f,
   ) {
     return _elseFork(this, f);
   }
@@ -20,7 +20,7 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   /// Similar to [elseFork] but ignores the error information.
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
-  Cont<E, A> elseFork0<A2>(Cont<E, A2> Function() f) {
+  Cont<E, F, A> elseFork0<A2>(Cont<E, F, A2> Function() f) {
     return elseFork((_) {
       return f();
     });
@@ -33,10 +33,11 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   /// and any errors from the side-effect are silently ignored.
   ///
   /// - [f]: Function that takes the environment and errors, and returns a side-effect continuation.
-  Cont<E, A> elseForkWithEnv(
-    Cont<E, A> Function(E env, List<ContError> errors) f,
+  Cont<E, F, A> elseForkWithEnv(
+    Cont<E, F, A> Function(E env, List<ContError<F>> errors)
+        f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return elseFork((errors) {
         return f(e, [...errors]);
       });
@@ -49,8 +50,8 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   /// the environment and ignores the error information.
   ///
   /// - [f]: Function that takes the environment and returns a side-effect continuation.
-  Cont<E, A> elseForkWithEnv0(
-    Cont<E, A> Function(E env) f,
+  Cont<E, F, A> elseForkWithEnv0(
+    Cont<E, F, A> Function(E env) f,
   ) {
     return elseForkWithEnv((e, _) {
       return f(e);

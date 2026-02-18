@@ -6,9 +6,9 @@ part of '../cont.dart';
 /// If both succeed, their values are combined using [combine]. If either
 /// or both terminate, errors are merged (preserving the order of the
 /// first failure) and propagated as a single termination.
-Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
-  Cont<E, A1> left,
-  Cont<E, A2> right,
+Cont<E, F, A3> _bothMergeWhenAll<E, F, A1, A2, A3>(
+  Cont<E, F, A1> left,
+  Cont<E, F, A2> right,
   A3 Function(A1 a, A2 a2) combine,
   //
 ) {
@@ -21,8 +21,8 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
     A1? outerA1;
     A2? outerA2;
 
-    final List<ContError> leftErrors = [];
-    final List<ContError> rightErrors = [];
+    final List<ContError<F>> leftErrors = [];
+    final List<ContError<F>> rightErrors = [];
 
     void handleValue(_Either<A1, A2> either) {
       if (runtime.isCancelled()) {
@@ -51,14 +51,14 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
         observer.onThen(c);
       } catch (error, st) {
         observer.onElse([
-          ContError.withStackTrace(error, st),
+          ThrownError(error, st),
         ]);
       }
     }
 
     void handleTerminate(
       bool isLeft,
-      List<ContError> errors,
+      List<ContError<F>> errors,
     ) {
       if (runtime.isCancelled()) {
         return;
@@ -83,8 +83,8 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
           rightErrors.addAll(errors);
         }
 
-        final List<ContError> firstErrors;
-        final List<ContError> secondErrors;
+        final List<ContError<F>> firstErrors;
+        final List<ContError<F>> secondErrors;
 
         if (isLeftFailedFirst) {
           firstErrors = leftErrors;
@@ -122,7 +122,7 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
       );
     } catch (error, st) {
       handleTerminate(true, [
-        ContError.withStackTrace(error, st),
+        ThrownError(error, st),
       ]);
     }
 
@@ -140,7 +140,7 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
       );
     } catch (error, st) {
       handleTerminate(false, [
-        ContError.withStackTrace(error, st),
+        ThrownError(error, st),
       ]);
     }
   });
@@ -152,9 +152,9 @@ Cont<E, A3> _bothMergeWhenAll<E, A1, A2, A3>(
 /// cancellation as soon as either side terminates. If both succeed, their
 /// values are combined using [combine]. If either terminates first, the
 /// other is effectively cancelled and the errors are propagated immediately.
-Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
-  Cont<E, A1> left,
-  Cont<E, A2> right,
+Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
+  Cont<E, F, A1> left,
+  Cont<E, F, A2> right,
   A3 Function(A1 a1, A2 a2) combine,
 ) {
   return Cont.fromRun((runtime, observer) {
@@ -163,7 +163,7 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
 
     A1? outerA1;
     A2? outerA2;
-    final List<ContError> resultErrors = [];
+    final List<ContError<F>> resultErrors = [];
 
     final ContRuntime<E> sharedContRuntime = ContRuntime._(
       runtime.env(),
@@ -185,7 +185,7 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
         observer.onThen(c);
       } catch (error, st) {
         observer.onElse([
-          ContError.withStackTrace(error, st),
+          ThrownError(error, st),
         ]);
       }
     }
@@ -222,7 +222,7 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
       handleTerminate(() {
         resultErrors.insert(
           0,
-          ContError.withStackTrace(error, st),
+          ThrownError(error, st),
         );
       });
     }
@@ -252,7 +252,7 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
     } catch (error, st) {
       handleTerminate(() {
         resultErrors.add(
-          ContError.withStackTrace(error, st),
+          ThrownError(error, st),
         );
       });
     }

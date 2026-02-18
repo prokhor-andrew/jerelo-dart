@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContElseIfExtension<E, A> on Cont<E, A> {
+extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
   /// Conditionally recovers from termination when the predicate is satisfied.
   ///
   /// Filters termination based on the predicate. If the predicate returns
@@ -27,8 +27,8 @@ extension ContElseIfExtension<E, A> on Cont<E, A> {
   ///   .elseIf((errors) => errors.first.error == 'not found', 42);
   /// // Continues terminating with 'fatal error'
   /// ```
-  Cont<E, A> elseIf(
-    bool Function(List<ContError> errors) predicate,
+  Cont<E, F, A> elseIf(
+    bool Function(List<ContError<F>> errors) predicate,
     A value,
   ) {
     return elseDo((errors) {
@@ -36,7 +36,7 @@ extension ContElseIfExtension<E, A> on Cont<E, A> {
         return Cont.of(value);
       }
 
-      return Cont.stop<E, A>(errors);
+      return Cont.stop<E, F, A>(errors);
     });
   }
 
@@ -46,7 +46,8 @@ extension ContElseIfExtension<E, A> on Cont<E, A> {
   ///
   /// - [predicate]: Zero-argument function that determines whether to recover.
   /// - [value]: The value to recover with when the predicate returns `true`.
-  Cont<E, A> elseIf0(bool Function() predicate, A value) {
+  Cont<E, F, A> elseIf0(
+      bool Function() predicate, A value) {
     return elseIf((_) {
       return predicate();
     }, value);
@@ -60,11 +61,12 @@ extension ContElseIfExtension<E, A> on Cont<E, A> {
   ///
   /// - [predicate]: Function that takes the environment and errors, and determines whether to recover.
   /// - [value]: The value to recover with when the predicate returns `true`.
-  Cont<E, A> elseIfWithEnv(
-    bool Function(E env, List<ContError> errors) predicate,
+  Cont<E, F, A> elseIfWithEnv(
+    bool Function(E env, List<ContError<F>> errors)
+        predicate,
     A value,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return elseIf((errors) {
         return predicate(e, errors);
       }, value);
@@ -78,7 +80,7 @@ extension ContElseIfExtension<E, A> on Cont<E, A> {
   ///
   /// - [predicate]: Function that takes the environment and determines whether to recover.
   /// - [value]: The value to recover with when the predicate returns `true`.
-  Cont<E, A> elseIfWithEnv0(
+  Cont<E, F, A> elseIfWithEnv0(
     bool Function(E env) predicate,
     A value,
   ) {

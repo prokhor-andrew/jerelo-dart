@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContFfExtension<E, A> on Cont<E, A> {
+extension ContFfExtension<E, F, A> on Cont<E, F, A> {
   /// Executes the continuation in a fire-and-forget manner.
   ///
   /// Runs the continuation without waiting for the result. Both success and
@@ -12,7 +12,7 @@ extension ContFfExtension<E, A> on Cont<E, A> {
   ///   Defaults to re-throwing inside a microtask.
   void ff(
     E env, {
-    void Function(ContError error) onPanic = _panic,
+    void Function(ThrownError error) onPanic = _panic,
   }) {
     _run(
       ContRuntime._(env, () {

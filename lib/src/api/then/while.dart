@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContThenWhileExtension<E, A> on Cont<E, A> {
+extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
   /// Repeatedly executes the continuation as long as the predicate returns `true`,
   /// stopping when it returns `false`.
   ///
@@ -26,7 +26,8 @@ extension ContThenWhileExtension<E, A> on Cont<E, A> {
   /// // Retry while value is below threshold
   /// final value = computation().thenWhile((n) => n < 100);
   /// ```
-  Cont<E, A> thenWhile(bool Function(A value) predicate) {
+  Cont<E, F, A> thenWhile(
+      bool Function(A value) predicate) {
     return _thenWhile(this, predicate);
   }
 
@@ -35,7 +36,7 @@ extension ContThenWhileExtension<E, A> on Cont<E, A> {
   /// Similar to [thenWhile] but the predicate doesn't examine the value.
   ///
   /// - [predicate]: Zero-argument function that determines whether to continue looping.
-  Cont<E, A> thenWhile0(bool Function() predicate) {
+  Cont<E, F, A> thenWhile0(bool Function() predicate) {
     return thenWhile((_) {
       return predicate();
     });
@@ -48,10 +49,10 @@ extension ContThenWhileExtension<E, A> on Cont<E, A> {
   /// access to configuration or context information.
   ///
   /// - [predicate]: Function that takes the environment and value, and determines whether to continue.
-  Cont<E, A> thenWhileWithEnv(
+  Cont<E, F, A> thenWhileWithEnv(
     bool Function(E env, A value) predicate,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.ask<E, F>().thenDo((e) {
       return thenWhile((a) {
         return predicate(e, a);
       });
@@ -64,7 +65,7 @@ extension ContThenWhileExtension<E, A> on Cont<E, A> {
   /// environment and ignores the current value.
   ///
   /// - [predicate]: Function that takes the environment and determines whether to continue.
-  Cont<E, A> thenWhileWithEnv0(
+  Cont<E, F, A> thenWhileWithEnv0(
     bool Function(E env) predicate,
   ) {
     return thenWhileWithEnv((e, _) {

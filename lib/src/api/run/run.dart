@@ -1,6 +1,6 @@
 part of '../../cont.dart';
 
-extension ContRunExtension<E, A> on Cont<E, A> {
+extension ContRunExtension<E, F, A> on Cont<E, F, A> {
   /// Executes the continuation with separate callbacks for termination and value.
   ///
   /// Initiates execution of the continuation with separate handlers for success
@@ -24,8 +24,9 @@ extension ContRunExtension<E, A> on Cont<E, A> {
   ///   value. Defaults to ignoring the value.
   ContCancelToken run(
     E env, {
-    void Function(ContError fatal) onPanic = _panic,
-    void Function(List<ContError> errors) onElse = _ignore,
+    void Function(ThrownError fatal) onPanic = _panic,
+    void Function(List<ContError<F>> errors) onElse =
+        _ignore,
     void Function(A value) onThen = _ignore,
   }) {
     final cancelToken = ContCancelToken._();

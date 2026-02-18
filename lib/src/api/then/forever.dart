@@ -1,6 +1,7 @@
 part of '../../cont.dart';
 
-extension ContThenForeverExtension<E, A> on Cont<E, A> {
+extension ContThenForeverExtension<E, F, A>
+    on Cont<E, F, A> {
   /// Repeatedly executes the continuation indefinitely.
   ///
   /// Runs the continuation in an infinite loop that never stops on its own.
@@ -26,7 +27,7 @@ extension ContThenForeverExtension<E, A> on Cont<E, A> {
   /// // Run with only a termination handler (using trap extension)
   /// server.trap(env, (errors) => print('Server stopped: $errors'));
   /// ```
-  Cont<E, Never> thenForever() {
+  Cont<E, F, Never> thenForever() {
     return thenUntil((_) {
       return false;
     }).thenMap((value) {

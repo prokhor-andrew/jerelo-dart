@@ -5,9 +5,9 @@ part of '../cont.dart';
 /// Runs [cont], and on termination passes the errors to [f] to produce a
 /// fallback continuation. If the fallback also terminates, only its errors
 /// are propagated (the original errors are discarded).
-Cont<E, A> _elseDo<E, A>(
-  Cont<E, A> cont,
-  Cont<E, A> Function(List<ContError> errors) f,
+Cont<E, F, A> _elseDo<E, F, A>(
+  Cont<E, F, A> cont,
+  Cont<E, F, A> Function(List<ContError<F>> errors) f,
 ) {
   return Cont.fromRun((runtime, observer) {
     cont._run(
@@ -18,9 +18,9 @@ Cont<E, A> _elseDo<E, A>(
         }
         errors = errors.toList(); // defensive copy
         try {
-          Cont<E, A> contA = f(errors);
+          Cont<E, F, A> contA = f(errors);
 
-          if (contA is Cont<E, Never>) {
+          if (contA is Cont<E, F, Never>) {
             contA = contA.absurd<A>();
           }
 
@@ -35,7 +35,7 @@ Cont<E, A> _elseDo<E, A>(
           );
         } catch (error, st) {
           observer.onElse([
-            ContError.withStackTrace(error, st),
+            ThrownError(error, st),
           ]); // we return latest error
         }
       }),
@@ -49,9 +49,9 @@ Cont<E, A> _elseDo<E, A>(
 /// produced by [f]. If the side-effect terminates, the original errors are
 /// propagated. If the side-effect succeeds, recovery occurs with the
 /// side-effect's value.
-Cont<E, A> _elseTap<E, A>(
-  Cont<E, A> cont,
-  Cont<E, A> Function(List<ContError> errors) f,
+Cont<E, F, A> _elseTap<E, F, A>(
+  Cont<E, F, A> cont,
+  Cont<E, F, A> Function(List<ContError<F>> errors) f,
 ) {
   return Cont.fromRun((runtime, observer) {
     cont._run(
@@ -66,9 +66,9 @@ Cont<E, A> _elseTap<E, A>(
           // we need it in case somebody mutates errors inside "f"
           // and then crashes it. In that case we'd go to catch block below,
           // and "errors" there would be different now, which should not happen
-          Cont<E, A> contA = f(errors.toList());
+          Cont<E, F, A> contA = f(errors.toList());
 
-          if (contA is Cont<E, Never>) {
+          if (contA is Cont<E, F, Never>) {
             contA = contA.absurd<A>();
           }
 
@@ -95,9 +95,9 @@ Cont<E, A> _elseTap<E, A>(
 /// Runs [cont], and on termination executes the fallback produced by [f].
 /// If the fallback also terminates, errors from both attempts are
 /// concatenated before being propagated.
-Cont<E, A> _elseZip<E, A>(
-  Cont<E, A> cont,
-  Cont<E, A> Function(List<ContError>) f,
+Cont<E, F, A> _elseZip<E, F, A>(
+  Cont<E, F, A> cont,
+  Cont<E, F, A> Function(List<ContError<F>>) f,
 ) {
   return Cont.fromRun((runtime, observer) {
     cont._run(
@@ -112,8 +112,8 @@ Cont<E, A> _elseZip<E, A>(
           // we need it in case somebody mutates errors inside "f"
           // and then crashes it. In that case we'd go to catch block below,
           // and "errors" there would be different now, which should not happen
-          Cont<E, A> contA = f(errors.toList());
-          if (contA is Cont<E, Never>) {
+          Cont<E, F, A> contA = f(errors.toList());
+          if (contA is Cont<E, F, Never>) {
             contA = contA.absurd<A>();
           }
           contA._run(
@@ -129,8 +129,7 @@ Cont<E, A> _elseZip<E, A>(
           );
         } catch (error, st) {
           final combinedErrors =
-              errors +
-              [ContError.withStackTrace(error, st)];
+              errors + [ThrownError(error, st)];
           observer.onElse(combinedErrors);
         }
       }),
@@ -144,9 +143,9 @@ Cont<E, A> _elseZip<E, A>(
 /// produced by [f] without waiting for it. The original termination errors
 /// are forwarded to the observer immediately. Errors from the side-effect
 /// are silently ignored.
-Cont<E, A> _elseFork<E, A, A2>(
-  Cont<E, A> cont,
-  Cont<E, A2> Function(List<ContError> errors) f,
+Cont<E, F, A> _elseFork<E, F, A, A2>(
+  Cont<E, F, A> cont,
+  Cont<E, F, A2> Function(List<ContError<F>> errors) f,
 ) {
   return Cont.fromRun((runtime, observer) {
     cont._run(
@@ -156,8 +155,8 @@ Cont<E, A> _elseFork<E, A, A2>(
           return;
         }
         // if this crashes, it should crash the computation
-        Cont<E, A2> contA2 = f([...errors]);
-        if (contA2 is Cont<E, Never>) {
+        Cont<E, F, A2> contA2 = f([...errors]);
+        if (contA2 is Cont<E, F, Never>) {
           contA2 = contA2.absurd<A2>();
         }
         try {
