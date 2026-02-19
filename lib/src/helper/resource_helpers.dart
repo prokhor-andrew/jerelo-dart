@@ -9,14 +9,14 @@ part of '../cont.dart';
 ///
 /// Error handling:
 /// - If both [use] and [release] succeed, returns the value from [use].
-/// - If [use] succeeds but [release] terminates, propagates release errors.
-/// - If [use] terminates but [release] succeeds, propagates use errors.
-/// - If both terminate, concatenates both error lists.
+/// - If [use] succeeds but [release] terminates, propagates release error.
+/// - If [use] terminates but [release] succeeds, propagates use error.
+/// - If both terminate, merges errors using [combine].
 Cont<E, F, A> _bracket<E, F, R, A>({
   required Cont<E, F, R> acquire,
   required Cont<E, F, ()> Function(R resource) release,
   required Cont<E, F, A> Function(R resource) use,
-  //
+  required ContError<F> Function(ContError<F> useError, ContError<F> releaseError) combine,
 }) {
   if (acquire is Cont<E, F, Never>) {
     acquire = acquire.absurd<R>();
@@ -24,101 +24,77 @@ Cont<E, F, A> _bracket<E, F, R, A>({
 
   return acquire.thenDo((resource) {
     return Cont.fromRun((runtime, observer) {
-      // Create a non-cancellable runtime for the release phase
-      // This ensures release always runs, even if the parent is cancelled
+      // Create a non-cancellable runtime for the release phase so that
+      // cleanup always completes even if the parent is cancelled.
       final releaseRuntime = ContRuntime<E>._(
         runtime.env(),
-        () {
-          return false;
-        },
+        () => false,
         runtime.onPanic,
       );
 
-      // Helper to safely call release and handle its result
-      // Uses _Either to distinguish between success (value) and failure (errors)
-      void doRelease(
-        _Either<A, List<ContError<F>>> useResult,
-      ) {
-        // Create helper to get release continuation safely
-        Cont<E, F, ()> getReleaseCont() {
-          try {
-            final cont = release(resource);
-            if (cont is Cont<E, F, Never>) {
-              return cont.absurd<()>();
-            }
-            return cont;
-          } catch (error, st) {
-            return Cont.stop<E, F, ()>([
-              ThrownError(error, st),
-            ]);
-          }
+      // Runs release and merges the outcome with [useResult].
+      void doRelease(_Either<A, ContError<F>> useResult) {
+        Cont<E, F, ()> releaseCont;
+        try {
+          final cont = release(resource);
+          releaseCont =
+              (cont is Cont<E, F, Never>) ? cont.absurd<()>() : cont;
+        } catch (error, st) {
+          releaseCont = Cont.stop<E, F, ()>(
+            ThrownError.withStackTrace(error, st),
+          );
         }
 
-        // Run release with non-cancellable runtime
-        try {
-          final releaseCont = getReleaseCont();
-          releaseCont._run(
-            releaseRuntime, // Use non-cancellable runtime
-            ContObserver._(
-              // Release terminated - combine with use errors if any
-              (releaseErrors) {
-                switch (useResult) {
-                  case _Left<A, List<ContError<F>>>():
-                    // Use succeeded but release failed
-                    observer.onElse([...releaseErrors]);
-                  case _Right<A, List<ContError<F>>>(
-                      value: final useErrors,
-                    ):
-                    // Both use and release failed - combine errors
-                    final combinedErrors = [
-                      ...useErrors,
-                      ...releaseErrors,
-                    ];
-                    observer.onElse(combinedErrors);
-                }
-              },
-              // Release succeeded
-              (_) {
-                switch (useResult) {
-                  case _Left<A, List<ContError<F>>>(
-                      value: final value,
-                    ):
-                    // Both use and release succeeded - return the value
-                    observer.onThen(value);
-                  case _Right<A, List<ContError<F>>>(
-                      value: final useErrors,
-                    ):
-                    // Use failed but release succeeded - propagate use errors
-                    observer.onElse(useErrors);
-                }
-              },
-            ),
-          );
-        } catch (error, st) {
-          // Exception while setting up release
-          switch (useResult) {
-            case _Left<A, List<ContError<F>>>():
-              // Use succeeded but release setup failed
-              observer.onElse([
-                ThrownError(error, st),
-              ]);
-            case _Right<A, List<ContError<F>>>(
-                value: final useErrors,
-              ):
-              // Both use and release setup failed
-              final combinedErrors = [
-                ...useErrors,
-                ThrownError<F>(error, st),
-              ];
-              observer.onElse(combinedErrors);
-          }
-        }
+        releaseCont._run(
+          releaseRuntime,
+          ContObserver._(
+            // Release terminated
+            (releaseError) {
+              switch (useResult) {
+                case _Left<A, ContError<F>>():
+                  // Use succeeded but release failed
+                  observer.onElse(releaseError);
+                case _Right<A, ContError<F>>(value: final useError):
+                  // Both failed – merge errors
+                  try {
+                    observer.onElse(combine(useError, releaseError));
+                  } catch (error, st) {
+                    observer.onElse(
+                      ThrownError.withStackTrace(error, st),
+                    );
+                  }
+              }
+            },
+            // Release succeeded
+            (_) {
+              switch (useResult) {
+                case _Left<A, ContError<F>>(value: final value):
+                  // Both succeeded – return the use value
+                  observer.onThen(value);
+                case _Right<A, ContError<F>>(value: final useError):
+                  // Use failed but release succeeded – propagate use error
+                  observer.onElse(useError);
+              }
+            },
+          ),
+        );
       }
 
-      // Check cancellation before starting use phase
+      // If already cancelled before the use phase, still release the
+      // resource but do not emit anything to the observer.
       if (runtime.isCancelled()) {
-        // Still attempt to release the resource even if cancelled
-        doRelease(_Right(const []));
+        try {
+          Cont<E, F, ()> releaseCont = release(resource);
+          if (releaseCont is Cont<E, F, Never>) {
+            releaseCont = releaseCont.absurd<()>();
+          }
+          releaseCont._run(
+            releaseRuntime,
+            ContObserver._(_ignore, _ignore),
+          );
+        } catch (_) {
+          // Ignore exceptions during release when already cancelled.
+        }
         return;
       }
 
@@ -132,23 +108,12 @@ Cont<E, F, A> _bracket<E, F, R, A>({
         useCont._run(
           runtime,
           ContObserver._(
-            // Use phase terminated
-            (useErrors) {
-              // Always release, even on termination
-              doRelease(_Right([...useErrors]));
-            },
-            // Use phase succeeded
-            (value) {
-              // Always release after successful use
-              doRelease(_Left(value));
-            },
+            (useError) => doRelease(_Right(useError)),
+            (value) => doRelease(_Left(value)),
           ),
         );
       } catch (error, st) {
-        // Exception while setting up use phase - still release
-        doRelease(
-          _Right([ThrownError(error, st)]),
-        );
+        doRelease(_Right(ThrownError.withStackTrace(error, st)));
       }
     });
   });

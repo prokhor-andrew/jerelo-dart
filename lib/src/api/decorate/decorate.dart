@@ -23,7 +23,7 @@ extension ContDecorExtension<E, F, A> on Cont<E, F, A> {
   ///   print('Execution initiated');
   /// });
   /// ```
-  Cont<E, F, A> decor(
+  Cont<E, F, A> decorate(
     void Function(
       void Function(ContRuntime<E>, ContObserver<F, A>) run,
       ContRuntime<E> runtime,

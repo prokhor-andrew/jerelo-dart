@@ -8,8 +8,8 @@ extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   /// is returned without delay. Any errors from the side-effect are silently ignored.
   ///
   /// - [f]: Function that takes the current value and returns a side-effect continuation.
-  Cont<E, F, A> thenFork<A2>(
-      Cont<E, F, A2> Function(A a) f) {
+  Cont<E, F, A> thenFork<F2, A2>(
+      Cont<E, F2, A2> Function(A a) f) {
     return _thenFork(this, f);
   }
 
@@ -18,7 +18,8 @@ extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   /// Similar to [thenFork] but ignores the current value.
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
-  Cont<E, F, A> thenFork0<A2>(Cont<E, F, A2> Function() f) {
+  Cont<E, F, A> thenFork0<F2, A2>(
+      Cont<E, F2, A2> Function() f) {
     return thenFork((_) {
       return f();
     });
@@ -31,8 +32,8 @@ extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   /// and any errors are silently ignored.
   ///
   /// - [f]: Function that takes the environment and value, and returns a side-effect continuation.
-  Cont<E, F, A> thenForkWithEnv<A2>(
-    Cont<E, F, A2> Function(E env, A a) f,
+  Cont<E, F, A> thenForkWithEnv<F2, A2>(
+    Cont<E, F2, A2> Function(E env, A a) f,
   ) {
     return Cont.ask<E, F>().thenDo((e) {
       return thenFork((a) {
@@ -47,8 +48,8 @@ extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   /// the environment and ignores the current value.
   ///
   /// - [f]: Function that takes the environment and returns a side-effect continuation.
-  Cont<E, F, A> thenForkWithEnv0<A2>(
-    Cont<E, F, A2> Function(E env) f,
+  Cont<E, F, A> thenForkWithEnv0<F2, A2>(
+    Cont<E, F2, A2> Function(E env) f,
   ) {
     return thenForkWithEnv((e, _) {
       return f(e);

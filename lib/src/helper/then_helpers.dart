@@ -4,10 +4,10 @@ part of '../cont.dart';
 ///
 /// Runs [cont], and on success starts the side-effect continuation produced
 /// by [f] without waiting for it. The original value is forwarded to the
-/// observer immediately. Errors from the side-effect are silently ignored.
-Cont<E, F, A> _thenFork<E, F, A, A2>(
+/// observer immediately. Error from the side-effect are silently ignored.
+Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
   Cont<E, F, A> cont,
-  Cont<E, F, A2> Function(A a) f,
+  Cont<E, F2, A2> Function(A a) f,
 ) {
   return Cont.fromRun((runtime, observer) {
     cont._run(
@@ -18,9 +18,9 @@ Cont<E, F, A> _thenFork<E, F, A, A2>(
         }
 
         // if this crashes, it should crash the computation
-        Cont<E, F, A2> contA2 = f(a);
+        Cont<E, F2, A2> contA2 = f(a);
 
-        if (contA2 is Cont<E, F, Never>) {
+        if (contA2 is Cont<E, F2, Never>) {
           contA2 = contA2.absurd<A2>();
         }
 
@@ -63,9 +63,9 @@ Cont<E, F, A2> _thenDo<E, F, A, A2>(
           }
           contA2._run(runtime, observer);
         } catch (error, st) {
-          observer.onElse([
-            ThrownError(error, st),
-          ]);
+          observer.onElse(
+            ThrownError.withStackTrace(error, st),
+          );
         }
       }),
     );

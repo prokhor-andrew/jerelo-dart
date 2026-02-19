@@ -13,10 +13,9 @@ Cont<E, F, A> _thenWhile<E, F, A>(
 ) {
   return Cont.fromRun((runtime, observer) {
     _stackSafeLoop<
-        _Either<(),
-            _Either<(), _Either<A, List<ContError<F>>>>>,
+        _Either<(), _Either<(), _Either<A, ContError<F>>>>,
         (),
-        _Either<(), _Either<A, List<ContError<F>>>>>(
+        _Either<(), _Either<A, ContError<F>>>>(
       seed: _Left(()),
       keepRunningIf: (state) {
         switch (state) {
@@ -24,7 +23,7 @@ Cont<E, F, A> _thenWhile<E, F, A>(
             // Keep running - need to execute the continuation again
             return _StackSafeLoopPolicyKeepRunning(());
           case _Right(value: final result):
-            // Stop - we have either a successful value or termination errors
+            // Stop - we have either a successful value or termination error
             return _StackSafeLoopPolicyStop(result);
         }
       },
@@ -33,14 +32,14 @@ Cont<E, F, A> _thenWhile<E, F, A>(
           cont._run(
             runtime,
             ContObserver._(
-              (errors) {
+              (error) {
                 if (runtime.isCancelled()) {
                   callback(_Right(_Left(())));
                   return;
                 }
-                // Terminated - stop the loop with errors
+                // Terminated - stop the loop with error
                 callback(
-                  _Right(_Right(_Right([...errors]))),
+                  _Right(_Right(_Right(error))),
                 );
               },
               (a) {
@@ -63,12 +62,12 @@ Cont<E, F, A> _thenWhile<E, F, A>(
                   callback(
                     _Right(
                       _Right(
-                        _Right([
-                          ThrownError(
+                        _Right(
+                          ThrownError.withStackTrace(
                             error,
                             st,
                           ),
-                        ]),
+                        ),
                       ),
                     ),
                   );
@@ -80,9 +79,9 @@ Cont<E, F, A> _thenWhile<E, F, A>(
           callback(
             _Right(
               _Right(
-                _Right([
-                  ThrownError(error, st),
-                ]),
+                _Right(
+                  ThrownError.withStackTrace(error, st),
+                ),
               ),
             ),
           );
@@ -90,18 +89,18 @@ Cont<E, F, A> _thenWhile<E, F, A>(
       },
       escape: (result) {
         switch (result) {
-          case _Left<(), _Either<A, List<ContError<F>>>>():
+          case _Left<(), _Either<A, ContError<F>>>():
             // cancellation
             return;
-          case _Right<(), _Either<A, List<ContError<F>>>>(
+          case _Right<(), _Either<A, ContError<F>>>(
               value: final result,
             ):
             switch (result) {
               case _Left(value: final a):
                 observer.onThen(a);
                 return;
-              case _Right(value: final errors):
-                observer.onElse(errors);
+              case _Right(value: final error):
+                observer.onElse(error);
                 return;
             }
         }
@@ -113,20 +112,19 @@ Cont<E, F, A> _thenWhile<E, F, A>(
 /// Implementation of the termination-path retry loop.
 ///
 /// Repeatedly runs [cont] while it terminates and [predicate] returns
-/// `true` for the termination errors. Stops retrying and propagates the
+/// `true` for the termination error. Stops retrying and propagates the
 /// termination when the predicate returns `false`, or succeeds if the
 /// continuation eventually succeeds. Uses [_stackSafeLoop] for stack
 /// safety across both synchronous and asynchronous iterations.
 Cont<E, F, A> _elseWhile<E, F, A>(
   Cont<E, F, A> cont,
-  bool Function(List<ContError<F>> errors) predicate,
+  bool Function(ContError<F> error) predicate,
 ) {
   return Cont.fromRun((runtime, observer) {
     _stackSafeLoop<
-        _Either<(),
-            _Either<(), _Either<A, List<ContError<F>>>>>,
+        _Either<(), _Either<(), _Either<A, ContError<F>>>>,
         (),
-        _Either<(), _Either<A, List<ContError<F>>>>>(
+        _Either<(), _Either<A, ContError<F>>>>(
       seed: _Left(()),
       keepRunningIf: (state) {
         switch (state) {
@@ -134,7 +132,7 @@ Cont<E, F, A> _elseWhile<E, F, A>(
             // Keep running - need to execute the continuation again
             return _StackSafeLoopPolicyKeepRunning(());
           case _Right(value: final result):
-            // Stop - we have either a successful value or termination errors
+            // Stop - we have either a successful value or termination error
             return _StackSafeLoopPolicyStop(result);
         }
       },
@@ -143,7 +141,7 @@ Cont<E, F, A> _elseWhile<E, F, A>(
           cont._run(
             runtime,
             ContObserver._(
-              (errors) {
+              (error) {
                 if (runtime.isCancelled()) {
                   callback(_Right(_Left(())));
                   return;
@@ -151,13 +149,13 @@ Cont<E, F, A> _elseWhile<E, F, A>(
 
                 try {
                   // Check the predicate
-                  if (predicate(errors)) {
+                  if (predicate(error)) {
                     // Predicate satisfied - retry
                     callback(_Left(()));
                   } else {
-                    // Predicate not satisfied - stop with errors
+                    // Predicate not satisfied - stop with error
                     callback(
-                      _Right(_Right(_Right([...errors]))),
+                      _Right(_Right(_Right(error))),
                     );
                   }
                 } catch (error, st) {
@@ -165,12 +163,12 @@ Cont<E, F, A> _elseWhile<E, F, A>(
                   callback(
                     _Right(
                       _Right(
-                        _Right([
-                          ThrownError(
+                        _Right(
+                          ThrownError.withStackTrace(
                             error,
                             st,
                           ),
-                        ]),
+                        ),
                       ),
                     ),
                   );
@@ -190,9 +188,9 @@ Cont<E, F, A> _elseWhile<E, F, A>(
           callback(
             _Right(
               _Right(
-                _Right([
-                  ThrownError(error, st),
-                ]),
+                _Right(
+                  ThrownError.withStackTrace(error, st),
+                ),
               ),
             ),
           );
@@ -200,18 +198,18 @@ Cont<E, F, A> _elseWhile<E, F, A>(
       },
       escape: (result) {
         switch (result) {
-          case _Left<(), _Either<A, List<ContError<F>>>>():
+          case _Left<(), _Either<A, ContError<F>>>():
             // cancellation
             return;
-          case _Right<(), _Either<A, List<ContError<F>>>>(
+          case _Right<(), _Either<A, ContError<F>>>(
               value: final result,
             ):
             switch (result) {
               case _Left(value: final a):
                 observer.onThen(a);
                 return;
-              case _Right(value: final errors):
-                observer.onElse(errors);
+              case _Right(value: final error):
+                observer.onElse(error);
                 return;
             }
         }

@@ -19,14 +19,13 @@ extension ContRunExtension<E, F, A> on Cont<E, F, A> {
   ///   (e.g. an observer callback throws). Defaults to re-throwing inside a
   ///   microtask.
   /// - [onElse]: Callback invoked when the continuation terminates with
-  ///   errors. Defaults to ignoring the errors.
+  ///   error. Defaults to ignoring the error.
   /// - [onThen]: Callback invoked when the continuation produces a successful
   ///   value. Defaults to ignoring the value.
   ContCancelToken run(
     E env, {
     void Function(ThrownError fatal) onPanic = _panic,
-    void Function(List<ContError<F>> errors) onElse =
-        _ignore,
+    void Function(ContError<F> error) onElse = _ignore,
     void Function(A value) onThen = _ignore,
   }) {
     final cancelToken = ContCancelToken._();

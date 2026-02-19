@@ -1,18 +1,18 @@
 part of '../cont.dart';
 
 final class ContObserver<F, A> {
-  final void Function(List<ContError<F>> errors) _onElse;
+  final void Function(ContError<F> error) _onElse;
 
   final void Function(A value) onThen;
 
   const ContObserver._(this._onElse, this.onThen);
 
-  void onElse([List<ContError<F>> errors = const []]) {
-    _onElse(errors);
+  void onElse(ContError<F> error) {
+    _onElse(error);
   }
 
   ContObserver<F2, A> copyUpdateOnElse<F2>(
-    void Function(List<ContError<F2>> errors) onElse,
+    void Function(ContError<F2> error) onElse,
   ) {
     return ContObserver._(onElse, onThen);
   }

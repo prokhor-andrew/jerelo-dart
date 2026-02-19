@@ -8,11 +8,18 @@ extension ContOrExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [right]: The other continuation to race with.
   /// - [policy]: Execution policy determining how continuations are run.
-  Cont<E, F, A> or(
-    Cont<E, F, A> right, {
-    required ContEitherPolicy<A> policy,
+  Cont<E, F3, A> or<F2, F3>(
+    Cont<E, F2, A> right,
+    ContError<F3> Function(ContError<F>, ContError<F2>)
+        combine, {
+    required ContPolicy<A> policy,
     //
   }) {
-    return Cont.either(this, right, policy: policy);
+    return Cont.either(
+      this,
+      right,
+      combine,
+      policy: policy,
+    );
   }
 }

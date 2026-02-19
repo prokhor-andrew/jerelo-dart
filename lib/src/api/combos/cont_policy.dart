@@ -5,18 +5,18 @@
 /// between execution order, error handling, and result combination.
 ///
 /// Three policies are available:
-/// - [EitherSequencePolicy]: Executes operations sequentially, one after another.
-/// - [EitherMergeWhenAllPolicy]: Waits for all operations to complete and merges results if multiple succeed.
-/// - [EitherQuitFastPolicy]: Terminates as soon as one operation succeeds.
-sealed class ContEitherPolicy<A> {
-  const ContEitherPolicy();
+/// - [SequencePolicy]: Executes operations sequentially, one after another.
+/// - [MergeWhenAllPolicy]: Waits for all operations to complete and merges results if multiple succeed.
+/// - [QuitFastPolicy]: Terminates as soon as one operation succeeds.
+sealed class ContPolicy<A> {
+  const ContPolicy();
 
   /// Creates a sequential execution policy.
   ///
   /// Operations are executed one after another in order.
   /// Execution continues until one succeeds or all fail.
-  static ContEitherPolicy<A> sequence<A>() {
-    return EitherSequencePolicy();
+  static ContPolicy<A> sequence<A>() {
+    return SequencePolicy();
   }
 
   /// Creates a merge-when-all policy with a custom combiner.
@@ -27,10 +27,10 @@ sealed class ContEitherPolicy<A> {
   /// the combined result.
   ///
   /// - [combine]: Function to merge accumulated and new values.
-  static ContEitherPolicy<A> mergeWhenAll<A>(
+  static ContPolicy<A> mergeWhenAll<A>(
     A Function(A a1, A a2) combine,
   ) {
-    return EitherMergeWhenAllPolicy(combine);
+    return MergeWhenAllPolicy(combine);
   }
 
   /// Creates a quit-fast policy.
@@ -38,8 +38,8 @@ sealed class ContEitherPolicy<A> {
   /// Terminates immediately on the first success.
   ///
   /// Provides the fastest feedback but may leave other operations running.
-  static ContEitherPolicy<A> quitFast<A>() {
-    return EitherQuitFastPolicy();
+  static ContPolicy<A> quitFast<A>() {
+    return QuitFastPolicy();
   }
 }
 
@@ -47,19 +47,17 @@ sealed class ContEitherPolicy<A> {
 ///
 /// Executes continuations one after another in order.
 /// Continues until the first success or all operations fail.
-final class EitherSequencePolicy<A>
-    extends ContEitherPolicy<A> {
-  const EitherSequencePolicy();
+final class SequencePolicy<A> extends ContPolicy<A> {
+  const SequencePolicy();
 }
 
 /// Merge-when-all execution policy.
 ///
 /// Executes all continuations in parallel and waits for all to complete.
 /// Combines multiple successful results using the provided combine function.
-final class EitherMergeWhenAllPolicy<A>
-    extends ContEitherPolicy<A> {
+final class MergeWhenAllPolicy<A> extends ContPolicy<A> {
   final A Function(A a1, A a2) combine;
-  const EitherMergeWhenAllPolicy(this.combine);
+  const MergeWhenAllPolicy(this.combine);
 }
 
 /// Quit-fast execution policy.
@@ -67,7 +65,6 @@ final class EitherMergeWhenAllPolicy<A>
 /// Terminates as soon as the first success occurs.
 ///
 /// Provides fastest feedback but other operations may continue running.
-final class EitherQuitFastPolicy<A>
-    extends ContEitherPolicy<A> {
-  const EitherQuitFastPolicy();
+final class QuitFastPolicy<A> extends ContPolicy<A> {
+  const QuitFastPolicy();
 }

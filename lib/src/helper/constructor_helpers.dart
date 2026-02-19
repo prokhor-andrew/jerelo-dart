@@ -27,8 +27,7 @@ Cont<E, F, A> _fromRun<E, F, A>(
 
     bool isDone = false;
 
-    void guardedTerminate(List<ContError<F>> errors) {
-      errors = errors.toList(); // defensive copy
+    void guardedTerminate(ContError<F> errors) {
       if (runtime.isCancelled()) {
         return;
       }
@@ -42,10 +41,10 @@ Cont<E, F, A> _fromRun<E, F, A>(
       } catch (error, st) {
         try {
           runtime.onPanic(
-            ThrownError(error, st),
+            ThrownError.withStackTrace(error, st),
           );
         } catch (error, st) {
-          _panic(ThrownError(error, st));
+          _panic(ThrownError.withStackTrace(error, st));
         }
       }
     }
@@ -64,11 +63,11 @@ Cont<E, F, A> _fromRun<E, F, A>(
       } catch (error, st) {
         try {
           runtime.onPanic(
-            ThrownError(error, st),
+            ThrownError.withStackTrace(error, st),
           );
         } catch (error, st) {
           _panic(
-            ThrownError(error, st),
+            ThrownError.withStackTrace(error, st),
           );
         }
       }
@@ -80,9 +79,9 @@ Cont<E, F, A> _fromRun<E, F, A>(
         ContObserver._(guardedTerminate, guardedValue),
       );
     } catch (error, st) {
-      guardedTerminate([
-        ThrownError<F>(error, st),
-      ]);
+      guardedTerminate(
+        ThrownError.withStackTrace(error, st),
+      );
     }
   });
 }

@@ -5,12 +5,12 @@ extension ContElseForkExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// If the continuation terminates, starts the side-effect continuation without waiting
   /// for it to complete. Unlike [elseTap], this does not wait for the side-effect to
-  /// finish before propagating the termination. Any errors from the side-effect are
+  /// finish before propagating the termination. Any error from the side-effect are
   /// silently ignored.
   ///
   /// - [f]: Function that returns a side-effect continuation.
-  Cont<E, F, A> elseFork<A2>(
-    Cont<E, F, A2> Function(List<ContError<F>> errors) f,
+  Cont<E, F, A> elseFork<F2, A2>(
+    Cont<E, F2, A2> Function(ContError<F> error) f,
   ) {
     return _elseFork(this, f);
   }
@@ -20,7 +20,8 @@ extension ContElseForkExtension<E, F, A> on Cont<E, F, A> {
   /// Similar to [elseFork] but ignores the error information.
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
-  Cont<E, F, A> elseFork0<A2>(Cont<E, F, A2> Function() f) {
+  Cont<E, F, A> elseFork0<F2, A2>(
+      Cont<E, F2, A2> Function() f) {
     return elseFork((_) {
       return f();
     });
@@ -28,18 +29,17 @@ extension ContElseForkExtension<E, F, A> on Cont<E, F, A> {
 
   /// Executes a side-effect continuation on termination in a fire-and-forget manner with access to the environment.
   ///
-  /// Similar to [elseFork], but the side-effect function receives both the errors
+  /// Similar to [elseFork], but the side-effect function receives both the error
   /// and the environment. The side-effect is started without waiting for it to complete,
-  /// and any errors from the side-effect are silently ignored.
+  /// and any error from the side-effect are silently ignored.
   ///
-  /// - [f]: Function that takes the environment and errors, and returns a side-effect continuation.
-  Cont<E, F, A> elseForkWithEnv(
-    Cont<E, F, A> Function(E env, List<ContError<F>> errors)
-        f,
+  /// - [f]: Function that takes the environment and error, and returns a side-effect continuation.
+  Cont<E, F, A> elseForkWithEnv<F2, A2>(
+    Cont<E, F2, A2> Function(E env, ContError<F> error) f,
   ) {
     return Cont.ask<E, F>().thenDo((e) {
-      return elseFork((errors) {
-        return f(e, [...errors]);
+      return elseFork<F2, A2>((error) {
+        return f(e, error);
       });
     });
   }
@@ -50,8 +50,8 @@ extension ContElseForkExtension<E, F, A> on Cont<E, F, A> {
   /// the environment and ignores the error information.
   ///
   /// - [f]: Function that takes the environment and returns a side-effect continuation.
-  Cont<E, F, A> elseForkWithEnv0(
-    Cont<E, F, A> Function(E env) f,
+  Cont<E, F, A> elseForkWithEnv0<F2, A2>(
+    Cont<E, F2, A2> Function(E env) f,
   ) {
     return elseForkWithEnv((e, _) {
       return f(e);

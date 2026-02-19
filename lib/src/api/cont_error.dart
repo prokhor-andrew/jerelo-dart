@@ -34,15 +34,20 @@ final class ThrownError<F> extends ContError<F> {
 
   final StackTrace stackTrace;
 
-  const ThrownError(this.error, this.stackTrace);
+  const ThrownError._(this.error, this.stackTrace);
+
+  static ThrownError<F> withStackTrace<F>(
+      Object error, StackTrace stackTrace) {
+    return ThrownError._(error, stackTrace);
+  }
 
   static ThrownError<F> withNoStackTrace<F>(Object error) {
-    return ThrownError(error, StackTrace.empty);
+    return ThrownError._(error, StackTrace.empty);
   }
 
   static ThrownError<F> withCurrentStackTrace<F>(
       Object error) {
-    return ThrownError(error, StackTrace.current);
+    return ThrownError._(error, StackTrace.current);
   }
 
   @override
