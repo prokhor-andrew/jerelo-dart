@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+part of '../cont.dart';
 
 /// A token used to cooperatively cancel a running continuation.
 ///

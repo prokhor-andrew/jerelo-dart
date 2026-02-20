@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   /// Runs this continuation with a transformed environment.
@@ -13,7 +13,7 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
     return Cont.fromRun((runtime, observer) {
       final env = f(runtime.env());
 
-      _run(runtime.copyUpdateEnv(env), observer);
+      runWith(runtime.copyUpdateEnv(env), observer);
     });
   }
 
@@ -81,11 +81,7 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   /// ```
   Cont<E, F, A2> injectInto<A2>(Cont<A, F, A2> cont) {
     return thenDo((a) {
-      Cont<A, F, A2> contA2 = cont;
-      if (contA2 is Cont<A, F, Never>) {
-        contA2 = contA2.absurd<A2>();
-      }
-      return contA2.scope(a);
+      return cont.absurdify().scope(a);
     });
   }
 

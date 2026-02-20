@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContAndExtension<E, F, A> on Cont<E, F, A> {
   /// Instance method for combining this continuation with another.
@@ -12,7 +12,7 @@ extension ContAndExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A3> and<A2, A3>(
     Cont<E, F, A2> right,
     A3 Function(A a, A2 a2) combine, {
-    required ContPolicy<ContError<F>> policy,
+    required ContPolicy<F> policy,
     //
   }) {
     return Cont.both(this, right, combine, policy: policy);

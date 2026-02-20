@@ -7,5 +7,20 @@
 library;
 
 export 'src/cont.dart';
-export 'src/api/cont_error.dart';
+export 'src/api/combos/and.dart';
+export 'src/api/combos/or.dart';
 export 'src/api/combos/cont_policy.dart';
+export 'src/api/then/do.dart';
+export 'src/api/then/tap.dart';
+export 'src/api/then/zip.dart';
+export 'src/api/then/if.dart';
+export 'src/api/then/until.dart';
+export 'src/api/decorate/decorate.dart';
+export 'src/api/then/map.dart';
+export 'src/api/else/do.dart';
+export 'src/api/else/map.dart';
+export 'src/api/else/tap.dart';
+export 'src/api/else/unless.dart';
+export 'src/api/else/zip.dart';
+export 'src/api/env/env.dart';
+export 'src/api/extensions/never.dart';

@@ -1,4 +1,41 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
+
+/// Implementation of side-effect execution on the termination path.
+///
+/// Runs [cont], and on termination executes the side-effect continuation
+/// produced by [f]. If the side-effect terminates, the original error are
+/// propagated. If the side-effect succeeds, recovery occurs with the
+/// side-effect's value.
+Cont<E, F, A> _elseTap<E, F, F2, A>(
+  Cont<E, F, A> cont,
+  Cont<E, F2, A> Function(F error) f,
+) {
+  return Cont.fromRun((runtime, observer) {
+    cont.runWith(
+      runtime,
+      observer.copyUpdateOnElse((error) {
+        if (runtime.isCancelled()) {
+          return;
+        }
+
+        final onCrash = observer.safeRun(() {
+          final Cont<E, F2, A> contA = f(error).absurdify();
+
+          contA.runWith(
+            runtime,
+            observer.copyUpdateOnElse((_) {
+              if (runtime.isCancelled()) {
+                return;
+              }
+              observer.onElse(error);
+            }),
+          );
+        });
+        onCrash?.call();
+      }),
+    );
+  });
+}
 
 extension ContElseTapExtension<E, F, A> on Cont<E, F, A> {
   /// Executes a side-effect continuation on termination.
@@ -16,7 +53,7 @@ extension ContElseTapExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that receives the original error and returns a side-effect continuation.
   Cont<E, F, A> elseTap<F2>(
-    Cont<E, F2, A> Function(ContError<F> error) f,
+    Cont<E, F2, A> Function(F error) f,
   ) {
     return _elseTap(this, f);
   }
@@ -40,9 +77,9 @@ extension ContElseTapExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the environment and error, and returns a side-effect continuation.
   Cont<E, F, A> elseTapWithEnv<F2>(
-    Cont<E, F2, A> Function(E env, ContError<F> error) f,
+    Cont<E, F2, A> Function(E env, F error) f,
   ) {
-    return Cont.ask<E, F>().thenDo((e) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return elseTap((error) {
         return f(e, error);
       });
@@ -56,7 +93,8 @@ extension ContElseTapExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the environment and returns a side-effect continuation.
   Cont<E, F, A> elseTapWithEnv0<F2>(
-      Cont<E, F2, A> Function(E env) f) {
+    Cont<E, F2, A> Function(E env) f,
+  ) {
     return elseTapWithEnv((e, _) {
       return f(e);
     });

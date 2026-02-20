@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContElseMapExtension<E, F, A> on Cont<E, F, A> {
   /// Transforms termination error using a pure function.
@@ -9,10 +9,10 @@ extension ContElseMapExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that transforms the error list.
   Cont<E, F2, A> elseMap<F2>(
-    ContError<F2> Function(ContError<F> error) f,
+    F2 Function(F error) f,
   ) {
     return elseDo((error) {
-      return Cont.stop(f(error));
+      return Cont.error(f(error));
     });
   }
 
@@ -22,7 +22,7 @@ extension ContElseMapExtension<E, F, A> on Cont<E, F, A> {
   /// error list.
   ///
   /// - [f]: Zero-argument function that produces new error.
-  Cont<E, F2, A> elseMap0<F2>(ContError<F2> Function() f) {
+  Cont<E, F2, A> elseMap0<F2>(F2 Function() f) {
     return elseMap((_) {
       return f();
     });
@@ -36,9 +36,9 @@ extension ContElseMapExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the environment and error, and produces transformed error.
   Cont<E, F2, A> elseMapWithEnv<F2>(
-    ContError<F2> Function(E env, ContError<F> error) f,
+    F2 Function(E env, F error) f,
   ) {
-    return Cont.ask<E, F2>().thenDo((e) {
+    return Cont.askThen<E, F2>().thenDo((e) {
       return elseMap((error) {
         return f(e, error);
       });
@@ -52,7 +52,7 @@ extension ContElseMapExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the environment and produces new error.
   Cont<E, F2, A> elseMapWithEnv0<F2>(
-    ContError<F2> Function(E env) f,
+    F2 Function(E env) f,
   ) {
     return elseMapWithEnv((e, _) {
       return f(e);
@@ -65,7 +65,7 @@ extension ContElseMapExtension<E, F, A> on Cont<E, F, A> {
   /// This is the simplest form of error transformation.
   ///
   /// - [error]: The error list to replace with.
-  Cont<E, F2, A> elseMapTo<F2>(ContError<F2> error) {
+  Cont<E, F2, A> elseMapTo<F2>(F2 error) {
     return elseMap0(() {
       return error;
     });

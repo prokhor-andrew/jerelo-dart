@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContAbortExtension<E, F, A> on Cont<E, F, A> {
   /// Unconditionally terminates the continuation with computed error.
@@ -8,10 +8,10 @@ extension ContAbortExtension<E, F, A> on Cont<E, F, A> {
   /// should cause termination, or for custom error handling flows.
   ///
   /// - [f]: Function that computes the error list from the value.
-  Cont<E, F, A> abort(ContError<F> Function(A value) f) {
+  Cont<E, F, A> abort(F Function(A value) f) {
     return thenDo((a) {
       final error = f(a);
-      return Cont.stop<E, F, A>(error);
+      return Cont.error<E, F, A>(error);
     });
   }
 
@@ -20,7 +20,7 @@ extension ContAbortExtension<E, F, A> on Cont<E, F, A> {
   /// Similar to [abort] but the error computation doesn't depend on the value.
   ///
   /// - [f]: Zero-argument function that computes the error list.
-  Cont<E, F, A> abort0(ContError<F> Function() f) {
+  Cont<E, F, A> abort0(F Function() f) {
     return abort((_) {
       return f();
     });
@@ -34,9 +34,9 @@ extension ContAbortExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the environment and value, and computes the error list.
   Cont<E, F, A> abortWithEnv(
-    ContError<F> Function(E env, A value) f,
+    F Function(E env, A value) f,
   ) {
-    return Cont.ask<E, F>().thenDo((e) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return abort((a) {
         return f(e, a);
       });
@@ -50,7 +50,7 @@ extension ContAbortExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the environment and computes the error list.
   Cont<E, F, A> abortWithEnv0(
-    ContError<F> Function(E env) f,
+    F Function(E env) f,
   ) {
     return abortWithEnv((e, _) {
       return f(e);
@@ -63,7 +63,7 @@ extension ContAbortExtension<E, F, A> on Cont<E, F, A> {
   /// provided error. This is the simplest form of forced termination.
   ///
   /// - [error]: The error list to terminate with.
-  Cont<E, F, A> abortWith(ContError<F> error) {
+  Cont<E, F, A> abortWith(F error) {
     return abort0(() {
       return error;
     });

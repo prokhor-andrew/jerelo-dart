@@ -1,5 +1,48 @@
 part of '../../cont.dart';
 
+/// Implementation of the fire-and-forget fork on the success path.
+///
+/// Runs [cont], and on success starts the side-effect continuation produced
+/// by [f] without waiting for it. The original value is forwarded to the
+/// observer immediately. Error from the side-effect are silently ignored.
+Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
+  Cont<E, F, A> cont,
+  Cont<E, F2, A2> Function(A a) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+}) {
+  return Cont.fromRun((runtime, observer) {
+    cont.runWith(
+      runtime,
+      observer.copyUpdateOnThen((a) {
+        if (runtime.isCancelled()) {
+          return;
+        }
+
+        // if this crashes, it should crash the computation
+        final Cont<E, F2, A2> contA2 = f(a).absurdify();
+
+        try {
+          contA2.run(
+            runtime.env(),
+            onPanic: onPanic,
+            onCrash: onCrash,
+            onElse: onElse,
+            onThen: onThen,
+          );
+        } catch (_) {
+          // do nothing, if anything happens to side-effect, it's not
+          // a concern of the thenFork
+        }
+
+        observer.onThen(a);
+      }),
+    );
+  });
+}
+
 extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   /// Executes a side-effect continuation in a fire-and-forget manner.
   ///
@@ -9,7 +52,8 @@ extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the current value and returns a side-effect continuation.
   Cont<E, F, A> thenFork<F2, A2>(
-      Cont<E, F2, A2> Function(A a) f) {
+    Cont<E, F2, A2> Function(A a) f,
+  ) {
     return _thenFork(this, f);
   }
 
@@ -19,7 +63,8 @@ extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
   Cont<E, F, A> thenFork0<F2, A2>(
-      Cont<E, F2, A2> Function() f) {
+    Cont<E, F2, A2> Function() f,
+  ) {
     return thenFork((_) {
       return f();
     });
@@ -35,7 +80,7 @@ extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A> thenForkWithEnv<F2, A2>(
     Cont<E, F2, A2> Function(E env, A a) f,
   ) {
-    return Cont.ask<E, F>().thenDo((e) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return thenFork((a) {
         return f(e, a);
       });

@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// Conditionally succeeds only when the predicate is satisfied.
@@ -29,15 +29,15 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// // Terminates with custom error
   /// ```
   Cont<E, F, A> thenIf(
-    bool Function(A value) predicate,
-    ContError<F> error,
-  ) {
+    bool Function(A value) predicate, {
+    required F orElse,
+  }) {
     return thenDo((a) {
       if (predicate(a)) {
         return Cont.of(a);
       }
 
-      return Cont.stop<E, F, A>(error);
+      return Cont.error<E, F, A>(orElse);
     });
   }
 
@@ -48,12 +48,12 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// - [predicate]: Zero-argument function that determines success or termination.
   /// - [error]: Optional list of error to use when terminating on predicate failure.
   Cont<E, F, A> thenIf0(
-    bool Function() predicate,
-    ContError<F> error,
-  ) {
+    bool Function() predicate, {
+    required F orElse,
+  }) {
     return thenIf((_) {
       return predicate();
-    }, error);
+    }, orElse: orElse);
   }
 
   /// Conditionally succeeds with access to both value and environment.
@@ -65,13 +65,13 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// - [predicate]: Function that takes the environment and value, and determines success or termination.
   /// - [error]: Optional list of error to use when terminating on predicate failure.
   Cont<E, F, A> thenIfWithEnv(
-    bool Function(E env, A value) predicate,
-    ContError<F> error,
-  ) {
-    return Cont.ask<E, F>().thenDo((e) {
+    bool Function(E env, A value) predicate, {
+    required F orElse,
+  }) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return thenIf((a) {
         return predicate(e, a);
-      }, error);
+      }, orElse: orElse);
     });
   }
 
@@ -83,11 +83,11 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// - [predicate]: Function that takes the environment and determines success or termination.
   /// - [error]: Optional list of error to use when terminating on predicate failure.
   Cont<E, F, A> thenIfWithEnv0(
-    bool Function(E env) predicate,
-    ContError<F> error,
-  ) {
+    bool Function(E env) predicate, {
+    required F orElse,
+  }) {
     return thenIfWithEnv((e, _) {
       return predicate(e);
-    }, error);
+    }, orElse: orElse);
   }
 }

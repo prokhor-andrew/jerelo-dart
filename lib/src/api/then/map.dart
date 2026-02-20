@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContThenMapExtension<E, F, A> on Cont<E, F, A> {
   /// Transforms the value inside a [Cont] using a pure function.
@@ -35,7 +35,7 @@ extension ContThenMapExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A2> thenMapWithEnv<A2>(
     A2 Function(E env, A value) f,
   ) {
-    return Cont.ask<E, F>().thenDo((e) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return thenMap((a) {
         return f(e, a);
       });

@@ -1,10 +1,48 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
+
+extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
+  Cont<E, F, A> thenAbsurdify() {
+    Cont<E, F, A> cont = this;
+
+    if (cont is Cont<E, F, Never>) {
+      cont = cont.thenAbsurd<A>();
+    }
+
+    return cont;
+  }
+
+  Cont<E, F, A> elseAbsurdify() {
+    Cont<E, F, A> cont = this;
+
+    if (cont is Cont<E, Never, A>) {
+      cont = cont.elseAbsurd<F>();
+    }
+
+    return cont;
+  }
+
+  Cont<E, F, A> absurdify() {
+    return thenAbsurdify().elseAbsurdify();
+  }
+}
+
+extension ContElseNeverExtension<E, A>
+    on Cont<E, Never, A> {
+  Cont<E, F, A> elseAbsurd<F>() {
+    return elseMap((
+      Never never,
+    ) {
+      return never;
+    });
+  }
+}
 
 /// Extension for running continuations that never produce a value.
 ///
 /// This extension provides specialized methods for [Cont]<[E], [Never]> where only
 /// termination is expected, simplifying the API by removing the unused value callback.
-extension ContNeverExtension<E, F> on Cont<E, F, Never> {
+extension ContThenNeverExtension<E, F>
+    on Cont<E, F, Never> {
   /// Converts a continuation that never produces a value to any desired type.
   ///
   /// The absurd method implements the principle of "ex falso quodlibet" (from
@@ -36,16 +74,19 @@ extension ContNeverExtension<E, F> on Cont<E, F, Never> {
   /// // Convert to Cont<Env, String> to match other continuation types
   /// final serverAsString = server.absurd<String>();
   /// ```
-  Cont<E, F, A> absurd<A>() {
-    return thenMap<A>((
-      Never // gonna give you up
-          never, // gonna let you down
-    ) {
-      return never; // gonna run around and desert you
-    });
+  Cont<E, F, A> thenAbsurd<A>() {
+    return thenMap<A>(
+      (
+        Never // gonna give you up
+            never, // gonna let you down
+      ) {
+        return never; // gonna run around and desert you
+      },
+    );
   }
+}
 
-  /*
+/*
   ..:..............:::------:::::::::----:-:::.::-----:::--::----::::::::----------:::::::::..........
 ................::::-------::::::::---::::::--=-=+*++*##**++=--:::::::----------:::::::::....:......
 ..............::::::::--:--:::::::::---::.:-*##########*******=::::::::----------::::..:...........:
@@ -102,4 +143,3 @@ extension ContNeverExtension<E, F> on Cont<E, F, Never> {
 ::::....:::--=========-================--==------=============================================::::::
 
    */
-}

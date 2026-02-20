@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContThenZipExtension<E, F, A> on Cont<E, F, A> {
   /// Chains and combines two continuation values.
@@ -12,10 +12,7 @@ extension ContThenZipExtension<E, F, A> on Cont<E, F, A> {
     A3 Function(A a1, A2 a2) combine,
   ) {
     return thenDo((a1) {
-      Cont<E, F, A2> contA2 = f(a1);
-      if (contA2 is Cont<E, F, Never>) {
-        contA2 = contA2.absurd<A2>();
-      }
+      final Cont<E, F, A2> contA2 = f(a1).absurdify();
       return contA2.thenMap((a2) {
         return combine(a1, a2);
       });
@@ -50,7 +47,7 @@ extension ContThenZipExtension<E, F, A> on Cont<E, F, A> {
     Cont<E, F, A2> Function(E env, A value) f,
     A3 Function(A a1, A2 a2) combine,
   ) {
-    return Cont.ask<E, F>().thenDo((e) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return thenZip((a1) {
         return f(e, a1);
       }, combine);

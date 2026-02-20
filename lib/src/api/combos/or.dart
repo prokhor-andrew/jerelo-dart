@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContOrExtension<E, F, A> on Cont<E, F, A> {
   /// Instance method for racing this continuation with another.
@@ -10,8 +10,7 @@ extension ContOrExtension<E, F, A> on Cont<E, F, A> {
   /// - [policy]: Execution policy determining how continuations are run.
   Cont<E, F3, A> or<F2, F3>(
     Cont<E, F2, A> right,
-    ContError<F3> Function(ContError<F>, ContError<F2>)
-        combine, {
+    F3 Function(F, F2) combine, {
     required ContPolicy<A> policy,
     //
   }) {

@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
   /// Conditionally recovers from termination when the predicate is satisfied.
@@ -27,16 +27,16 @@ extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
   ///   .elseIf((error) => error.first.error == 'not found', 42);
   /// // Continues terminating with 'fatal error'
   /// ```
-  Cont<E, F, A> elseIf(
-    bool Function(ContError<F> error) predicate,
-    A value,
-  ) {
+  Cont<E, F, A> elseUnless(
+    bool Function(F error) predicate, {
+    required A fallback,
+  }) {
     return elseDo((error) {
       if (predicate(error)) {
-        return Cont.of(value);
+        return Cont.error(error);
       }
 
-      return Cont.stop<E, F, A>(error);
+      return Cont.of(fallback);
     });
   }
 
@@ -46,11 +46,13 @@ extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [predicate]: Zero-argument function that determines whether to recover.
   /// - [value]: The value to recover with when the predicate returns `true`.
-  Cont<E, F, A> elseIf0(
-      bool Function() predicate, A value) {
-    return elseIf((_) {
+  Cont<E, F, A> elseUnless0(
+    bool Function() predicate, {
+    required A fallback,
+  }) {
+    return elseUnless((_) {
       return predicate();
-    }, value);
+    }, fallback: fallback);
   }
 
   /// Conditionally recovers with access to both error and environment.
@@ -61,14 +63,14 @@ extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [predicate]: Function that takes the environment and error, and determines whether to recover.
   /// - [value]: The value to recover with when the predicate returns `true`.
-  Cont<E, F, A> elseIfWithEnv(
-    bool Function(E env, ContError<F> error) predicate,
-    A value,
-  ) {
-    return Cont.ask<E, F>().thenDo((e) {
-      return elseIf((error) {
+  Cont<E, F, A> elseUnlessWithEnv(
+    bool Function(E env, F error) predicate, {
+    required A fallback,
+  }) {
+    return Cont.askThen<E, F>().thenDo((e) {
+      return elseUnless((error) {
         return predicate(e, error);
-      }, value);
+      }, fallback: fallback);
     });
   }
 
@@ -79,12 +81,12 @@ extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [predicate]: Function that takes the environment and determines whether to recover.
   /// - [value]: The value to recover with when the predicate returns `true`.
-  Cont<E, F, A> elseIfWithEnv0(
-    bool Function(E env) predicate,
-    A value,
-  ) {
-    return elseIfWithEnv((e, _) {
+  Cont<E, F, A> elseUnlessWithEnv0(
+    bool Function(E env) predicate, {
+    required A fallback,
+  }) {
+    return elseUnlessWithEnv((e, _) {
       return predicate(e);
-    }, value);
+    }, fallback: fallback);
   }
 }

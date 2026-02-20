@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContThenUntilExtension<E, F, A> on Cont<E, F, A> {
   /// Repeatedly executes the continuation until the predicate returns `true`.
@@ -22,7 +22,8 @@ extension ContThenUntilExtension<E, F, A> on Cont<E, F, A> {
   /// final value = checkProgress().thenUntil((progress) => progress >= 100);
   /// ```
   Cont<E, F, A> thenUntil(
-      bool Function(A value) predicate) {
+    bool Function(A value) predicate,
+  ) {
     return thenWhile((a) {
       return !predicate(a);
     });
@@ -49,7 +50,7 @@ extension ContThenUntilExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A> thenUntilWithEnv(
     bool Function(E env, A value) predicate,
   ) {
-    return Cont.ask<E, F>().thenDo((e) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return thenUntil((a) {
         return predicate(e, a);
       });

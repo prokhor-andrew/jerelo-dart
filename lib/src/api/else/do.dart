@@ -1,4 +1,40 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
+
+/// Implementation of monadic bind (flatMap) on the termination path.
+///
+/// Runs [cont], and on termination passes the error to [f] to produce a
+/// fallback continuation. If the fallback also terminates, only its error
+/// are propagated (the original error are discarded).
+Cont<E, F2, A> _elseDo<E, F, F2, A>(
+  Cont<E, F, A> cont,
+  Cont<E, F2, A> Function(F error) f,
+) {
+  return Cont.fromRun((runtime, observer) {
+    cont.runWith(
+      runtime,
+      observer.copyUpdateOnElse((error) {
+        if (runtime.isCancelled()) {
+          return;
+        }
+
+        final onCrash = observer.safeRun(() {
+          final contA = f(error).absurdify();
+          contA.runWith(
+            runtime,
+            observer.copyUpdateOnElse((error2) {
+              if (runtime.isCancelled()) {
+                return;
+              }
+              observer.onElse(error2);
+            }),
+          );
+        });
+
+        onCrash?.call();
+      }),
+    );
+  });
+}
 
 extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
   /// Provides a fallback continuation in case of termination.
@@ -11,7 +47,7 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that receives error and produces a fallback continuation.
   Cont<E, F2, A> elseDo<F2>(
-    Cont<E, F2, A> Function(ContError<F> error) f,
+    Cont<E, F2, A> Function(F error) f,
   ) {
     return _elseDo(this, f);
   }
@@ -35,9 +71,9 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the environment and error, and returns a fallback continuation.
   Cont<E, F2, A> elseDoWithEnv<F2>(
-    Cont<E, F2, A> Function(E env, ContError<F> error) f,
+    Cont<E, F2, A> Function(E env, F error) f,
   ) {
-    return Cont.ask<E, F2>().thenDo((e) {
+    return Cont.askThen<E, F2>().thenDo((e) {
       return elseDo((error) {
         return f(e, error);
       });
@@ -52,7 +88,8 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the environment and produces a fallback continuation.
   Cont<E, F2, A> elseDoWithEnv0<F2>(
-      Cont<E, F2, A> Function(E env) f) {
+    Cont<E, F2, A> Function(E env) f,
+  ) {
     return elseDoWithEnv((e, _) {
       return f(e);
     });

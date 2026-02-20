@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContDecorExtension<E, F, A> on Cont<E, F, A> {
   /// Transforms the execution of the continuation using a natural transformation.
@@ -32,7 +32,7 @@ extension ContDecorExtension<E, F, A> on Cont<E, F, A> {
     ) f,
   ) {
     return Cont.fromRun((runtime, observer) {
-      f(_run, runtime, observer);
+      f(runWith, runtime, observer);
     });
   }
 }

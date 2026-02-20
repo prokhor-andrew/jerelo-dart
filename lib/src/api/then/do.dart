@@ -1,4 +1,32 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
+
+/// Implementation of monadic bind (flatMap) on the success path.
+///
+/// Runs [cont], and on success passes the value to [f] to produce the next
+/// continuation, which is then run with the same runtime and observer.
+/// If [f] throws, the error is caught and forwarded as a termination.
+Cont<E, F, A2> _thenDo<E, F, A, A2>(
+  Cont<E, F, A> cont,
+  Cont<E, F, A2> Function(A value) f,
+) {
+  return Cont.fromRun((runtime, observer) {
+    cont.runWith(
+      runtime,
+      observer.copyUpdateOnThen((a) {
+        if (runtime.isCancelled()) {
+          return;
+        }
+
+        final onCrash = observer.safeRun(() {
+          final Cont<E, F, A2> contA2 = f(a).absurdify();
+          contA2.runWith(runtime, observer);
+        });
+
+        onCrash?.call();
+      }),
+    );
+  });
+}
 
 extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
   /// Chains a [Cont]-returning function to create dependent computations.
@@ -8,7 +36,8 @@ extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes a value and returns a continuation.
   Cont<E, F, A2> thenDo<A2>(
-      Cont<E, F, A2> Function(A value) f) {
+    Cont<E, F, A2> Function(A value) f,
+  ) {
     return _thenDo(this, f);
   }
 
@@ -33,7 +62,7 @@ extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A2> thenDoWithEnv<A2>(
     Cont<E, F, A2> Function(E env, A a) f,
   ) {
-    return Cont.ask<E, F>().thenDo((e) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return thenDo((a) {
         return f(e, a);
       });

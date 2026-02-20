@@ -1,48 +1,14 @@
-import 'dart:async';
-
 import 'package:jerelo/jerelo.dart';
 
-part 'api/combos/and.dart';
-part 'api/combos/or.dart';
-part 'api/cont_observer.dart';
+part 'api/cont_crash.dart';
 part 'api/cont_runtime.dart';
-part 'api/decorate/decorate.dart';
-part 'api/else/do.dart';
-part 'api/else/fork.dart';
-part 'api/else/if.dart';
-part 'api/else/map.dart';
-part 'api/else/recover.dart';
-part 'api/else/tap.dart';
-part 'api/else/until.dart';
-part 'api/else/while.dart';
-part 'api/else/zip.dart';
-part 'api/then/forever.dart';
-part 'api/env/env.dart';
-part 'api/extensions/flatten.dart';
-part 'api/extensions/never.dart';
-part 'api/run/cont_cancel_token.dart';
-part 'api/run/ff.dart';
-part 'api/run/run.dart';
-part 'api/then/abort.dart';
-part 'api/then/do.dart';
-part 'api/else/forever.dart';
+part 'api/cont_observer.dart';
+part 'api/cont_cancel_token.dart';
 part 'api/then/fork.dart';
-part 'api/then/if.dart';
-part 'api/then/map.dart';
-part 'api/then/tap.dart';
-part 'api/then/until.dart';
+part 'api/else/fork.dart';
 part 'api/then/while.dart';
-part 'api/then/zip.dart';
-part 'helper/when_all_helpers.dart';
-part 'helper/quit_fast_helpers.dart';
-part 'helper/constructor_helpers.dart';
+part 'api/else/while.dart';
 part 'helper/utils.dart';
-part 'helper/else_helpers.dart';
-part 'helper/combine_list_helpers.dart';
-part 'helper/loop_helpers.dart';
-part 'helper/stack_safe_loop_policy.dart';
-part 'helper/then_helpers.dart';
-part 'helper/resource_helpers.dart';
 
 /// A continuation monad representing a computation that will eventually
 /// produce a value of type [A] or terminate with error.
@@ -63,6 +29,33 @@ final class Cont<E, F, A> {
 
   const Cont._(this._run);
 
+  ContCancelToken run(
+    E env, {
+    void Function(NormalCrash crash) onPanic = _panic,
+    void Function(ContCrash crash) onCrash = _ignore,
+    void Function(F error) onElse = _ignore,
+    void Function(A value) onThen = _ignore,
+  }) {
+    final cancelToken = ContCancelToken._();
+
+    runWith(
+      ContRuntime._(env, cancelToken.isCancelled),
+      ContObserver._(onPanic, onCrash, onElse, onThen),
+    );
+
+    return cancelToken;
+  }
+
+  void runWith(
+    ContRuntime<E> runtime,
+    ContObserver<F, A> observer,
+  ) {
+    _run(
+      runtime,
+      observer,
+    );
+  }
+
   /// Creates a [Cont] from a run function that accepts an observer.
   ///
   /// Constructs a continuation with guaranteed idempotence and exception catching.
@@ -77,7 +70,92 @@ final class Cont<E, F, A> {
       ContObserver<F, A> observer,
     ) run,
   ) {
-    return _fromRun(run);
+    return Cont._((runtime, observer) {
+      if (runtime.isCancelled()) {
+        return;
+      }
+
+      void onPanic(NormalCrash crash) {
+        try {
+          observer._onUnsafePanic(crash);
+        } catch (error, st) {
+          // the important part here is that if onPanic crashes,
+          // we don't push the crash that was sent there,
+          // but the crash that caused the onPanic
+          _panic(NormalCrash._(error, st));
+        }
+      }
+
+      observer = observer.absurdify();
+
+      bool isDone = false;
+
+      void guardedOnCrash(ContCrash crash) {
+        if (runtime.isCancelled()) {
+          return;
+        }
+
+        if (isDone) {
+          return;
+        }
+
+        isDone = true;
+
+        try {
+          observer._onCrash(crash);
+        } catch (error, st) {
+          onPanic(NormalCrash._(error, st));
+        }
+      }
+
+      void guardedOnError(F error) {
+        if (runtime.isCancelled()) {
+          return;
+        }
+
+        if (isDone) {
+          return;
+        }
+
+        isDone = true;
+        try {
+          observer.onElse(error);
+        } catch (error, st) {
+          onPanic(NormalCrash._(error, st));
+        }
+      }
+
+      void guardedOnValue(A a) {
+        if (runtime.isCancelled()) {
+          return;
+        }
+
+        if (isDone) {
+          return;
+        }
+
+        isDone = true;
+        try {
+          observer.onThen(a);
+        } catch (error, st) {
+          onPanic(NormalCrash._(error, st));
+        }
+      }
+
+      try {
+        run(
+          runtime,
+          ContObserver._(
+            onPanic,
+            guardedOnCrash,
+            guardedOnError,
+            guardedOnValue,
+          ),
+        );
+      } catch (error, st) {
+        observer._onCrash(NormalCrash._(error, st));
+      }
+    });
   }
 
   /// Creates a [Cont] from a deferred continuation computation.
@@ -90,10 +168,7 @@ final class Cont<E, F, A> {
     Cont<E, F, A> Function() thunk,
   ) {
     return Cont.fromRun((runtime, observer) {
-      Cont<E, F, A> contA = thunk();
-      if (contA is Cont<E, F, Never>) {
-        contA = contA.absurd<A>();
-      }
+      Cont<E, F, A> contA = thunk().absurdify();
       contA._run(runtime, observer);
     });
   }
@@ -115,11 +190,9 @@ final class Cont<E, F, A> {
   /// Used to represent failure states.
   ///
   /// - [error]: List of error to terminate with. Defaults to an empty list.
-  static Cont<E, F, A> stop<E, F, A>(
-    ContError<F> error,
-  ) {
+  static Cont<E, F, A> error<E, F, A>(F err) {
     return Cont.fromRun((runtime, observer) {
-      observer.onElse(error);
+      observer.onElse(err);
     });
   }
 
@@ -130,33 +203,16 @@ final class Cont<E, F, A> {
   /// information that flows through the continuation execution.
   ///
   /// Returns a continuation that succeeds with the environment value.
-  static Cont<E, F, E> ask<E, F>() {
+  static Cont<E, F, E> askThen<E, F>() {
     return Cont.fromRun((runtime, observer) {
       observer.onThen(runtime.env());
     });
   }
 
-  static Cont<E, E, A> ask2<E, A>() {
+  static Cont<E, E, A> askElse<E, A>() {
     return Cont.fromRun((runtime, observer) {
-      observer.onElse(ManualError(runtime.env()));
+      observer.onElse(runtime.env());
     });
-  }
-
-  /// Retrieves the environment and chains a computation that depends on it.
-  ///
-  /// Convenience method equivalent to `Cont.ask<E>().thenDo(f)`. Reads the
-  /// environment of type [E] and immediately passes it to [f], which returns
-  /// a continuation to execute next.
-  ///
-  /// This is the most common pattern when building computations that depend
-  /// on the environment, avoiding the need to manually call `ask` and `thenDo`
-  /// separately.
-  ///
-  /// - [f]: Function that takes the environment and returns a continuation.
-  static Cont<E, F, A> askThen<E, F, A>(
-    Cont<E, F, A> Function(E env) f,
-  ) {
-    return Cont.ask<E, F>().thenDo(f);
   }
 
   /// Runs two continuations and combines their results according to the specified policy.
@@ -180,16 +236,10 @@ final class Cont<E, F, A> {
     Cont<E, F, A1> left,
     Cont<E, F, A2> right,
     A3 Function(A1 a, A2 a2) combine, {
-    required ContPolicy<ContError<F>> policy,
-    //
+    required ContPolicy<F> policy,
   }) {
-    if (left is Cont<E, F, Never>) {
-      left = left.absurd<A1>();
-    }
-
-    if (right is Cont<E, F, Never>) {
-      right = right.absurd<A2>();
-    }
+    left = left.absurdify();
+    right = right.absurdify();
 
     switch (policy) {
       case SequencePolicy():
@@ -219,8 +269,7 @@ final class Cont<E, F, A> {
   /// - [policy]: Execution policy determining how continuations are run and error are handled.
   static Cont<E, F, List<A>> all<E, F, A>(
     List<Cont<E, F, A>> list, {
-    required ContPolicy<ContError<F>> policy,
-    //
+    required ContPolicy<F> policy,
   }) {
     switch (policy) {
       case SequencePolicy():
@@ -249,18 +298,11 @@ final class Cont<E, F, A> {
   static Cont<E, F3, A> either<E, F1, F2, F3, A>(
     Cont<E, F1, A> left,
     Cont<E, F2, A> right,
-    ContError<F3> Function(ContError<F1>, ContError<F2>)
-        combine, {
+    F3 Function(F1, F2) combine, {
     required ContPolicy<A> policy,
-    //
   }) {
-    if (left is Cont<E, F1, Never>) {
-      left = left.absurd<A>();
-    }
-
-    if (right is Cont<E, F2, Never>) {
-      right = right.absurd<A>();
-    }
+    left = left.absurdify();
+    right = right.absurdify();
 
     switch (policy) {
       case SequencePolicy<A>():
@@ -294,7 +336,7 @@ final class Cont<E, F, A> {
   ///
   /// - [list]: List of continuations to race.
   /// - [policy]: Execution policy determining how continuations are run.
-  static Cont<E, List<ContError<F>>, A> any<E, F, A>(
+  static Cont<E, List<F>, A> any<E, F, A>(
     List<Cont<E, F, A>> list, {
     required ContPolicy<A> policy,
     //
@@ -309,51 +351,15 @@ final class Cont<E, F, A> {
     }
   }
 
-  /// Manages resource lifecycle with guaranteed cleanup.
-  ///
-  /// The bracket pattern ensures that a resource is properly released after use,
-  /// even if an error occurs during the [use] phase or if cancellation occurs.
-  /// This is the functional equivalent of try-with-resources or using statements.
-  ///
-  /// The execution order is:
-  /// 1. [acquire] - Obtain the resource
-  /// 2. [use] - Use the resource to produce a value
-  /// 3. [release] - Release the resource (always runs, even if [use] fails or is cancelled)
-  ///
-  /// Cancellation behavior:
-  /// - The [release] function is called even when the runtime is cancelled
-  /// - This ensures resources are properly cleaned up regardless of cancellation
-  /// - However, if cancellation occurs during release itself, cleanup may be partial
-  ///
-  /// Error handling behavior:
-  /// - If [use] succeeds and [release] succeeds: returns the value from [use]
-  /// - If [use] succeeds and [release] fails: terminates with release error
-  /// - If [use] fails and [release] succeeds: terminates with use error
-  /// - If [use] fails and [release] fails: terminates with both error combined
-  ///
-  /// Example:
-  /// ```dart
-  /// final result = Cont.bracket<File, String>(
-  ///   acquire: openFile('data.txt'),           // acquire
-  ///   release: (file) => closeFile(file),      // release
-  ///   use: (file) => readContents(file),   // use
-  /// );
-  /// ```
-  static Cont<E, F, A> bracket<E, F, R, A>({
-    required Cont<E, F, R> acquire,
-    required Cont<E, F, ()> Function(R resource) release,
+  static Cont<E, F, A> bracket<R, E, F, A>({
+    required Cont<E, Never, R> acquire,
+    required Cont<E, Never, ()> Function(
+      R resource,
+    ) release,
     required Cont<E, F, A> Function(R resource) use,
-    required ContError<F> Function(
-      ContError<F> useError,
-      ContError<F> releaseError,
-    ) combine,
     //
   }) {
-    return _bracket(
-      acquire: acquire,
-      release: release,
-      use: use,
-      combine: combine,
-    );
+    return Cont.fromRun((runtime, observer) {
+    });
   }
 }

@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 /// Extension providing flatten operation for nested continuations.
 extension ContFlattenExtension<E, F, A>

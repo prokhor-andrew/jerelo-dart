@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContRecoverExtension<E, F, A> on Cont<E, F, A> {
   /// Recovers from termination by computing a replacement value from the error.
@@ -8,7 +8,7 @@ extension ContRecoverExtension<E, F, A> on Cont<E, F, A> {
   /// where the recovery logic is a pure function rather than a full continuation.
   ///
   /// - [f]: Function that receives the termination error and returns a recovery value.
-  Cont<E, F, A> recover(A Function(ContError<F> error) f) {
+  Cont<E, F, A> recover(A Function(F error) f) {
     return elseDo((error) {
       final a = f(error);
       return Cont.of(a);
@@ -34,9 +34,9 @@ extension ContRecoverExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the environment and error, and returns a recovery value.
   Cont<E, F, A> recoverWithEnv(
-    A Function(E env, ContError<F> error) f,
+    A Function(E env, F error) f,
   ) {
-    return Cont.ask<E, F>().thenDo((e) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return recover((error) {
         return f(e, error);
       });

@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContThenTapExtension<E, F, A> on Cont<E, F, A> {
   /// Chains a side-effect continuation while preserving the original value.
@@ -7,12 +7,10 @@ extension ContThenTapExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Side-effect function that returns a continuation.
   Cont<E, F, A> thenTap<A2>(
-      Cont<E, F, A2> Function(A value) f) {
+    Cont<E, F, A2> Function(A value) f,
+  ) {
     return thenDo((a) {
-      Cont<E, F, A2> contA2 = f(a);
-      if (contA2 is Cont<E, F, Never>) {
-        contA2 = contA2.absurd<A2>();
-      }
+      final Cont<E, F, A2> contA2 = f(a).absurdify();
       return contA2.thenMapTo(a);
     });
   }
@@ -39,7 +37,7 @@ extension ContThenTapExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A> thenTapWithEnv<A2>(
     Cont<E, F, A2> Function(E env, A a) f,
   ) {
-    return Cont.ask<E, F>().thenDo((e) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return thenTap((a) {
         return f(e, a);
       });

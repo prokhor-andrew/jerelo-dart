@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContThenForeverExtension<E, F, A>
     on Cont<E, F, A> {

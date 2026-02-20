@@ -1,4 +1,4 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
 extension ContElseUntilExtension<E, F, A> on Cont<E, F, A> {
   /// Repeatedly retries the continuation until the predicate returns `true` on termination error.
@@ -20,7 +20,7 @@ extension ContElseUntilExtension<E, F, A> on Cont<E, F, A> {
   /// final result = apiCall().elseUntil((error) => error.first.error is FatalError);
   /// ```
   Cont<E, F, A> elseUntil(
-    bool Function(ContError<F> error) predicate,
+    bool Function(F error) predicate,
   ) {
     return elseWhile((error) {
       return !predicate(error);
@@ -46,9 +46,9 @@ extension ContElseUntilExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [predicate]: Function that takes the environment and error, and determines when to stop.
   Cont<E, F, A> elseUntilWithEnv(
-    bool Function(E env, ContError<F> error) predicate,
+    bool Function(E env, F error) predicate,
   ) {
-    return Cont.ask<E, F>().thenDo((e) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return elseUntil((error) {
         return predicate(e, error);
       });

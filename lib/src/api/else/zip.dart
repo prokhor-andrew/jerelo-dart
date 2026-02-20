@@ -1,4 +1,51 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
+
+/// Implementation of fallback with error accumulation on the termination path.
+///
+/// Runs [cont], and on termination executes the fallback produced by [f].
+/// If the fallback also terminates, error from both attempts are
+/// concatenated before being propagated.
+Cont<E, F3, A> _elseZip<E, F, F2, F3, A>(
+  Cont<E, F, A> cont,
+  Cont<E, F2, A> Function(F) f,
+  F3 Function(F f1, F2 f2) combine,
+) {
+  return Cont.fromRun((runtime, observer) {
+    cont.runWith(
+      runtime,
+      observer.copyUpdateOnElse((error) {
+        if (runtime.isCancelled()) {
+          return;
+        }
+
+        final outerOnCrash = observer.safeRun(() {
+          final Cont<E, F2, A> contA = f(error).absurdify();
+
+          contA.runWith(
+            runtime,
+            observer.copyUpdateOnElse((error2) {
+              if (runtime.isCancelled()) {
+                return;
+              }
+
+              final innerOnCrash = observer.safeRun(() {
+                final combinedError = combine(
+                  error,
+                  error2,
+                );
+                observer.onElse(combinedError);
+              });
+
+              innerOnCrash?.call();
+            }),
+          );
+        });
+
+        outerOnCrash?.call();
+      }),
+    );
+  });
+}
 
 extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
   /// Attempts a fallback continuation and combines error from both attempts.
@@ -11,11 +58,8 @@ extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that receives original error and produces a fallback continuation.
   Cont<E, F3, A> elseZip<F2, F3>(
-    Cont<E, F2, A> Function(ContError<F>) f,
-    ContError<F3> Function(
-      ContError<F> f1,
-      ContError<F2> f2,
-    ) combine,
+    Cont<E, F2, A> Function(F) f,
+    F3 Function(F f1, F2 f2) combine,
   ) {
     return _elseZip(this, f, combine);
   }
@@ -28,10 +72,7 @@ extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
   /// - [f]: Zero-argument function that produces a fallback continuation.
   Cont<E, F3, A> elseZip0<F2, F3>(
     Cont<E, F2, A> Function() f,
-    ContError<F3> Function(
-      ContError<F> f1,
-      ContError<F2> f2,
-    ) combine,
+    F3 Function(F f1, F2 f2) combine,
   ) {
     return elseZip((_) {
       return f();
@@ -47,13 +88,10 @@ extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the environment and error, and produces a fallback continuation.
   Cont<E, F3, A> elseZipWithEnv<F2, F3>(
-    Cont<E, F2, A> Function(E env, ContError<F>) f,
-    ContError<F3> Function(
-      ContError<F> f1,
-      ContError<F2> f2,
-    ) combine,
+    Cont<E, F2, A> Function(E env, F) f,
+    F3 Function(F f1, F2 f2) combine,
   ) {
-    return Cont.ask<E, F3>().thenDo((e) {
+    return Cont.askThen<E, F3>().thenDo((e) {
       return elseZip((error) {
         return f(e, error);
       }, combine);
@@ -68,10 +106,7 @@ extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
   /// - [f]: Function that takes the environment and produces a fallback continuation.
   Cont<E, F3, A> elseZipWithEnv0<F2, F3>(
     Cont<E, F2, A> Function(E env) f,
-    ContError<F3> Function(
-      ContError<F> f1,
-      ContError<F2> f2,
-    ) combine,
+    F3 Function(F f1, F2 f2) combine,
   ) {
     return elseZipWithEnv((e, _) {
       return f(e);
