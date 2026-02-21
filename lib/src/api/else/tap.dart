@@ -18,7 +18,7 @@ Cont<E, F, A> _elseTap<E, F, F2, A>(
           return;
         }
 
-        final onCrash = observer.safeRun(() {
+        final crashOrNull = ContCrash.tryCatch(() {
           final Cont<E, F2, A> contA = f(error).absurdify();
 
           contA.runWith(
@@ -31,7 +31,10 @@ Cont<E, F, A> _elseTap<E, F, F2, A>(
             }),
           );
         });
-        onCrash?.call();
+
+        if (crashOrNull != null) {
+          observer.onCrash(crashOrNull);
+        }
       }),
     );
   });

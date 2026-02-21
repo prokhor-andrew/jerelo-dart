@@ -2,6 +2,15 @@ part of '../cont.dart';
 
 sealed class ContCrash {
   const ContCrash();
+
+  static NormalCrash? tryCatch(void Function() function) {
+    try {
+      function();
+      return null;
+    } catch (error, st) {
+      return NormalCrash._(error, st);
+    }
+  }
 }
 
 final class NormalCrash extends ContCrash {

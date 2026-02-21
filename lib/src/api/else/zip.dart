@@ -18,7 +18,7 @@ Cont<E, F3, A> _elseZip<E, F, F2, F3, A>(
           return;
         }
 
-        final outerOnCrash = observer.safeRun(() {
+        final outerCrash = ContCrash.tryCatch(() {
           final Cont<E, F2, A> contA = f(error).absurdify();
 
           contA.runWith(
@@ -28,7 +28,7 @@ Cont<E, F3, A> _elseZip<E, F, F2, F3, A>(
                 return;
               }
 
-              final innerOnCrash = observer.safeRun(() {
+              final innerCrash = ContCrash.tryCatch(() {
                 final combinedError = combine(
                   error,
                   error2,
@@ -36,12 +36,16 @@ Cont<E, F3, A> _elseZip<E, F, F2, F3, A>(
                 observer.onElse(combinedError);
               });
 
-              innerOnCrash?.call();
+              if (innerCrash != null) {
+                observer.onCrash(innerCrash);
+              }
             }),
           );
         });
 
-        outerOnCrash?.call();
+        if (outerCrash != null) {
+          observer.onCrash(outerCrash);
+        }
       }),
     );
   });

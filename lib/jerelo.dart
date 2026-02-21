@@ -21,6 +21,7 @@ export 'src/api/else/do.dart';
 export 'src/api/else/map.dart';
 export 'src/api/else/tap.dart';
 export 'src/api/else/unless.dart';
+export 'src/api/else/until.dart';
 export 'src/api/else/zip.dart';
 export 'src/api/env/env.dart';
 export 'src/api/extensions/never.dart';

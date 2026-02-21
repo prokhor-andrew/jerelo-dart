@@ -1,33 +1,5 @@
 import 'package:jerelo/jerelo.dart';
 
-/// Implementation of monadic bind (flatMap) on the success path.
-///
-/// Runs [cont], and on success passes the value to [f] to produce the next
-/// continuation, which is then run with the same runtime and observer.
-/// If [f] throws, the error is caught and forwarded as a termination.
-Cont<E, F, A2> _thenDo<E, F, A, A2>(
-  Cont<E, F, A> cont,
-  Cont<E, F, A2> Function(A value) f,
-) {
-  return Cont.fromRun((runtime, observer) {
-    cont.runWith(
-      runtime,
-      observer.copyUpdateOnThen((a) {
-        if (runtime.isCancelled()) {
-          return;
-        }
-
-        final onCrash = observer.safeRun(() {
-          final Cont<E, F, A2> contA2 = f(a).absurdify();
-          contA2.runWith(runtime, observer);
-        });
-
-        onCrash?.call();
-      }),
-    );
-  });
-}
-
 extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
   /// Chains a [Cont]-returning function to create dependent computations.
   ///
@@ -38,7 +10,25 @@ extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A2> thenDo<A2>(
     Cont<E, F, A2> Function(A value) f,
   ) {
-    return _thenDo(this, f);
+    return Cont.fromRun((runtime, observer) {
+      runWith(
+        runtime,
+        observer.copyUpdateOnThen((a) {
+          if (runtime.isCancelled()) {
+            return;
+          }
+
+          final crash = ContCrash.tryCatch(() {
+            final contA2 = f(a).absurdify();
+            contA2.runWith(runtime, observer);
+          });
+
+          if (crash != null) {
+            observer.onCrash(crash);
+          }
+        }),
+      );
+    });
   }
 
   /// Chains a [Cont]-returning zero-argument function.

@@ -102,7 +102,7 @@ final class Cont<E, F, A> {
         isDone = true;
 
         try {
-          observer._onCrash(crash);
+          observer.onCrash(crash);
         } catch (error, st) {
           onPanic(NormalCrash._(error, st));
         }
@@ -153,7 +153,7 @@ final class Cont<E, F, A> {
           ),
         );
       } catch (error, st) {
-        observer._onCrash(NormalCrash._(error, st));
+        observer.onCrash(NormalCrash._(error, st));
       }
     });
   }

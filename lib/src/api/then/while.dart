@@ -1,111 +1,5 @@
 part of '../../cont.dart';
 
-/// Implementation of the success-path looping operator.
-///
-/// Repeatedly runs [cont] as long as [predicate] returns `true` for the
-/// produced value. Stops and succeeds when the predicate returns `false`,
-/// or terminates if the continuation itself terminates. Uses
-/// [_stackSafeLoop] for stack safety across both synchronous and
-/// asynchronous iterations.
-Cont<E, F, A> _thenWhile<E, F, A>(
-  Cont<E, F, A> cont,
-  bool Function(A value) predicate,
-) {
-  return Cont.fromRun((runtime, observer) {
-    _stackSafeLoop<
-        _Triple<_KeepGoing, _Cancelled,
-            _Either<_Either<OnCrash, F>, A>>,
-        _IgnoredPayload,
-        _Either<_Cancelled,
-            _Either<_Either<OnCrash, F>, A>>>(
-      seed: _Value1(()),
-      keepRunningIf: (state) {
-        switch (state) {
-          case _Value1<_KeepGoing, _Cancelled,
-                _Either<_Either<OnCrash, F>, A>>():
-            // Keep running - need to execute the continuation again
-            return _StackSafeLoopPolicyKeepRunning(());
-          case _Value2<_KeepGoing, _Cancelled,
-                _Either<_Either<OnCrash, F>, A>>():
-            return _StackSafeLoopPolicyStop(_Left(()));
-          case _Value3<_KeepGoing, _Cancelled,
-                _Either<_Either<OnCrash, F>, A>>(
-              c: final result
-            ):
-            return _StackSafeLoopPolicyStop(_Right(result));
-        }
-      },
-      computation: (_, callback) {
-        final onOuterCrash = observer.safeRun(() {
-          cont.runWith(
-            runtime,
-            observer.copyUpdateOnElse<F>((error) {
-              if (runtime.isCancelled()) {
-                callback(_Value2(()));
-                return;
-              }
-
-              // Terminated - stop the loop with error
-              callback(_Value3(_Left(_Right(error))));
-            }).copyUpdateOnThen<A>((a) {
-              if (runtime.isCancelled()) {
-                callback(_Value2(()));
-                return;
-              }
-
-              final onInnerCrash = observer.safeRun(() {
-                // Check the predicate
-                if (!predicate(a)) {
-                  // Predicate satisfied - stop with success
-                  callback(_Value3(_Right(a)));
-                } else {
-                  // Predicate not satisfied - retry
-                  callback(_Value1(()));
-                }
-              });
-
-              if (onInnerCrash != null) {
-                callback(
-                    _Value3(_Left(_Left(onInnerCrash))));
-              }
-            }),
-          );
-        });
-        if (onOuterCrash != null) {
-          callback(_Value3(_Left(_Left(onOuterCrash))));
-        }
-      },
-      escape: (result) {
-        switch (result) {
-          case _Left<(), _Either<_Either<OnCrash, F>, A>>():
-            // cancellation
-            return;
-          case _Right<(), _Either<_Either<OnCrash, F>, A>>(
-              value: final crashOrFOrA,
-            ):
-            switch (crashOrFOrA) {
-              case _Left<_Either<OnCrash, F>, A>(
-                  value: final crashOrF
-                ):
-                switch (crashOrF) {
-                  case _Left<OnCrash, F>(
-                      value: final onCrash
-                    ):
-                    onCrash();
-                  case _Right<OnCrash, F>(value: final f):
-                    observer.onElse(f);
-                }
-              case _Right<_Either<OnCrash, F>, A>(
-                  value: final a
-                ):
-                observer.onThen(a);
-            }
-        }
-      },
-    );
-  });
-}
-
 extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
   /// Repeatedly executes the continuation as long as the predicate returns `true`,
   /// stopping when it returns `false`.
@@ -135,7 +29,106 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A> thenWhile(
     bool Function(A value) predicate,
   ) {
-    return _thenWhile(this, predicate);
+    return Cont.fromRun((runtime, observer) {
+      _stackSafeLoop<
+          _Triple<_KeepGoing, _Cancelled,
+              _Either<_Either<NormalCrash, F>, A>>,
+          _IgnoredPayload,
+          _Either<_Cancelled,
+              _Either<_Either<NormalCrash, F>, A>>>(
+        seed: _Value1(()),
+        keepRunningIf: (state) {
+          switch (state) {
+            case _Value1<_KeepGoing, _Cancelled,
+                  _Either<_Either<NormalCrash, F>, A>>():
+              // Keep running - need to execute the continuation again
+              return _StackSafeLoopPolicyKeepRunning(());
+            case _Value2<_KeepGoing, _Cancelled,
+                  _Either<_Either<NormalCrash, F>, A>>():
+              return _StackSafeLoopPolicyStop(_Left(()));
+            case _Value3<_KeepGoing, _Cancelled,
+                  _Either<_Either<NormalCrash, F>, A>>(
+                c: final result
+              ):
+              return _StackSafeLoopPolicyStop(
+                  _Right(result));
+          }
+        },
+        computation: (_, callback) {
+          final crash = ContCrash.tryCatch(() {
+            runWith(
+              runtime,
+              observer.copyUpdateOnElse<F>((error) {
+                if (runtime.isCancelled()) {
+                  callback(_Value2(()));
+                  return;
+                }
+
+                // Terminated - stop the loop with error
+                callback(_Value3(_Left(_Right(error))));
+              }).copyUpdateOnThen<A>((a) {
+                if (runtime.isCancelled()) {
+                  callback(_Value2(()));
+                  return;
+                }
+
+                final innerCrash = ContCrash.tryCatch(() {
+                  // Check the predicate
+                  if (!predicate(a)) {
+                    // Predicate satisfied - stop with success
+                    callback(_Value3(_Right(a)));
+                  } else {
+                    // Predicate not satisfied - retry
+                    callback(_Value1(()));
+                  }
+                });
+
+                if (innerCrash != null) {
+                  callback(
+                    _Value3(_Left(_Left(innerCrash))),
+                  );
+                }
+              }),
+            );
+          });
+
+          if (crash != null) {
+            callback(_Value3(_Left(_Left(crash))));
+          }
+        },
+        escape: (result) {
+          switch (result) {
+            case _Left<(),
+                  _Either<_Either<NormalCrash, F>, A>>():
+              // cancellation
+              return;
+            case _Right<(),
+                  _Either<_Either<NormalCrash, F>, A>>(
+                value: final crashOrFOrA,
+              ):
+              switch (crashOrFOrA) {
+                case _Left<_Either<NormalCrash, F>, A>(
+                    value: final crashOrF
+                  ):
+                  switch (crashOrF) {
+                    case _Left<NormalCrash, F>(
+                        value: final crash
+                      ):
+                      observer.onCrash(crash);
+                    case _Right<NormalCrash, F>(
+                        value: final f
+                      ):
+                      observer.onElse(f);
+                  }
+                case _Right<_Either<NormalCrash, F>, A>(
+                    value: final a
+                  ):
+                  observer.onThen(a);
+              }
+          }
+        },
+      );
+    });
   }
 
   /// Repeatedly executes based on a zero-argument predicate.

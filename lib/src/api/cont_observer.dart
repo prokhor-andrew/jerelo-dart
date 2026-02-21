@@ -1,11 +1,9 @@
 part of '../cont.dart';
 
-typedef OnCrash = void Function();
-
 final class ContObserver<F, A> {
   final void Function(NormalCrash crash) _onUnsafePanic;
 
-  final void Function(ContCrash crash) _onCrash;
+  final void Function(ContCrash crash) onCrash;
 
   final void Function(F error) onElse;
 
@@ -13,17 +11,28 @@ final class ContObserver<F, A> {
 
   const ContObserver._(
     this._onUnsafePanic,
-    this._onCrash,
+    this.onCrash,
     this.onElse,
     this.onThen,
   );
+
+  ContObserver<F, A> copyUpdateOnCrash(
+    void Function(ContCrash crash) onCrash,
+  ) {
+    return ContObserver._(
+      _onUnsafePanic,
+      onCrash,
+      onElse,
+      onThen,
+    );
+  }
 
   ContObserver<F2, A> copyUpdateOnElse<F2>(
     void Function(F2 error) onElse,
   ) {
     return ContObserver._(
       _onUnsafePanic,
-      _onCrash,
+      onCrash,
       onElse,
       onThen,
     );
@@ -34,57 +43,36 @@ final class ContObserver<F, A> {
   ) {
     return ContObserver._(
       _onUnsafePanic,
-      _onCrash,
+      onCrash,
       onElse,
       onThen,
     );
   }
-
-  OnCrash? safeRun(void Function() function) {
-    try {
-      function();
-
-      return null;
-    } catch (error, st) {
-      return () {
-        _onCrash(NormalCrash._(error, st));
-      };
-    }
-  }
-
-  // bool safeMerged(
-  //   void Function() left,
-  //   void Function() right,
-  // ) {
-  //   try {
-  //     left();
-  //     right();
-  //   } catch (error, st) {
-  //
-  //   }
-  // }
-  //
-  // bool safeListed(
-  //   List<void Function()> list,
-  // ) {
-  //   try {} catch (error, st) {}
-  // }
 }
 
 extension ContObserverAbsurdifyExtension<F, A>
     on ContObserver<F, A> {
-  ContObserver<F, A> absurdify() {
+  ContObserver<F, A> thenAbsurdify() {
     ContObserver<F, A> cont = this;
 
     if (cont is ContObserver<F, Never>) {
       cont = cont.thenAbsurd<A>();
     }
+    return cont;
+  }
+
+  ContObserver<F, A> elseAbsurdify() {
+    ContObserver<F, A> cont = this;
 
     if (cont is ContObserver<Never, A>) {
       cont = cont.elseAbsurd<F>();
     }
 
     return cont;
+  }
+
+  ContObserver<F, A> absurdify() {
+    return thenAbsurdify().elseAbsurdify();
   }
 }
 
@@ -93,7 +81,7 @@ extension ContObserverThenNeverExtension<F>
   ContObserver<F, A> thenAbsurd<A>() {
     return ContObserver._(
       _onUnsafePanic,
-      _onCrash,
+      onCrash,
       onElse,
       _ignore,
     );
@@ -105,7 +93,7 @@ extension ContObserverElseNeverExtension<A>
   ContObserver<F, A> elseAbsurd<F>() {
     return ContObserver._(
       _onUnsafePanic,
-      _onCrash,
+      onCrash,
       _ignore,
       onThen,
     );
