@@ -33,13 +33,11 @@ Cont<E, F, A3> _bothWhenAll<E, F, A1, A2, A3>(
     final leftCrash = ContCrash.tryCatch(() {
       left.runWith(
         runtime,
-        observer.copyUpdateOnCrash((crash) {
-          handleCrash(_Left(crash));
-        }).copyUpdateOnElse<F>((error) {
-          handleSecondary(_Left(error));
-        }).copyUpdateOnThen<A1>((a) {
-          handlePrimary(_Left(a));
-        }),
+        observer.copyUpdate<F, A1>(
+          onCrash: (crash) => handleCrash(_Left(crash)),
+          onElse: (error) => handleSecondary(_Left(error)),
+          onThen: (a) => handlePrimary(_Left(a)),
+        ),
       );
     });
     if (leftCrash != null) {
@@ -49,13 +47,11 @@ Cont<E, F, A3> _bothWhenAll<E, F, A1, A2, A3>(
     final rightCrash = ContCrash.tryCatch(() {
       right.runWith(
         runtime,
-        observer.copyUpdateOnCrash((crash) {
-          handleCrash(_Right(crash));
-        }).copyUpdateOnElse<F>((error) {
-          handleSecondary(_Right(error));
-        }).copyUpdateOnThen<A2>((a2) {
-          handlePrimary(_Right(a2));
-        }),
+        observer.copyUpdate<F, A2>(
+          onCrash: (crash) => handleCrash(_Right(crash)),
+          onElse: (error) => handleSecondary(_Right(error)),
+          onThen: (a2) => handlePrimary(_Right(a2)),
+        ),
       );
     });
     if (rightCrash != null) {
@@ -96,13 +92,11 @@ Cont<E, F3, A> _eitherWhenAll<E, F1, F2, F3, A>(
     final leftCrash = ContCrash.tryCatch(() {
       left.runWith(
         runtime,
-        observer.copyUpdateOnCrash((crash) {
-          handleCrash(_Left(crash));
-        }).copyUpdateOnElse<F1>((error) {
-          handlePrimary(_Left(error));
-        }).copyUpdateOnThen<A>((a) {
-          handleSecondary(_Left(a));
-        }),
+        observer.copyUpdate<F1, A>(
+          onCrash: (crash) => handleCrash(_Left(crash)),
+          onElse: (error) => handlePrimary(_Left(error)),
+          onThen: (a) => handleSecondary(_Left(a)),
+        ),
       );
     });
     if (leftCrash != null) {
@@ -112,13 +106,11 @@ Cont<E, F3, A> _eitherWhenAll<E, F1, F2, F3, A>(
     final rightCrash = ContCrash.tryCatch(() {
       right.runWith(
         runtime,
-        observer.copyUpdateOnCrash((crash) {
-          handleCrash(_Right(crash));
-        }).copyUpdateOnElse<F2>((error) {
-          handlePrimary(_Right(error));
-        }).copyUpdateOnThen<A>((a2) {
-          handleSecondary(_Right(a2));
-        }),
+        observer.copyUpdate<F2, A>(
+          onCrash: (crash) => handleCrash(_Right(crash)),
+          onElse: (error) => handlePrimary(_Right(error)),
+          onThen: (a2) => handleSecondary(_Right(a2)),
+        ),
       );
     });
     if (rightCrash != null) {

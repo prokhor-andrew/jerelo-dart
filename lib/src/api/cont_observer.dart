@@ -108,6 +108,35 @@ sealed class ContObserver<F, A> {
         ),
     };
   }
+
+  ContObserver<F2, A2> copyUpdate<F2, A2>({
+    required void Function(ContCrash crash) onCrash,
+    required void Function(F2 error) onElse,
+    required void Function(A2 value) onThen,
+  }) {
+    return switch (this) {
+      SafeObserver<F, A>(
+        isUsed: final isUsed,
+        _onUnsafePanic: final _onUnsafePanic,
+      ) =>
+        SafeObserver._(
+          isUsed,
+          _onUnsafePanic,
+          onCrash,
+          onElse,
+          onThen,
+        ),
+      _UnsafeObserver<F, A>(
+        _onUnsafePanic: final _onUnsafePanic,
+      ) =>
+        _UnsafeObserver._(
+          _onUnsafePanic,
+          onCrash,
+          onElse,
+          onThen,
+        ),
+    };
+  }
 }
 
 extension ContObserverAbsurdifyExtension<F, A>
