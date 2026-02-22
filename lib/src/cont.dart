@@ -262,8 +262,17 @@ final class Cont<E, F, A> {
         });
       case QuitFastOkPolicy():
         return _bothQuitFast(left, right, combine);
-      case RunAllOkPolicy(combine: final combine2):
-        return _bothWhenAll(left, right, combine, combine2);
+      case RunAllOkPolicy(
+          combine: final combineErrors,
+          shouldFavorCrash: final shouldFavorCrash,
+        ):
+        return _bothWhenAll(
+          left,
+          right,
+          combine,
+          combineErrors,
+          shouldFavorCrash,
+        );
     }
   }
 
@@ -325,12 +334,16 @@ final class Cont<E, F, A> {
         });
       case QuitFastOkPolicy<A>():
         return _eitherQuitFast(left, right, combine);
-      case RunAllOkPolicy<A>(combine: final combine2):
+      case RunAllOkPolicy<A>(
+          combine: final combineValues,
+          shouldFavorCrash: final shouldFavorCrash,
+        ):
         return _eitherWhenAll(
           left,
           right,
           combine,
-          combine2,
+          combineValues,
+          shouldFavorCrash,
         );
     }
   }
@@ -484,18 +497,17 @@ final class Cont<E, F, A> {
 
           void withRelease({
             required void Function() onReleaseOk,
-            required void Function(ContCrash releaseCrash) onReleaseCrash,
+            required void Function(ContCrash releaseCrash)
+                onReleaseCrash,
           }) {
             final crash = ContCrash.tryCatch(() {
               release(r).elseAbsurd<F>().runWith(
-                runtime,
-                observer
-                    .copyUpdateOnThen<()>((_) {
+                    runtime,
+                    observer.copyUpdateOnThen<()>((_) {
                       if (runtime.isCancelled()) return;
                       onReleaseOk();
-                    })
-                    .copyUpdateOnCrash(onReleaseCrash),
-              );
+                    }).copyUpdateOnCrash(onReleaseCrash),
+                  );
             });
             if (crash != null) {
               onReleaseCrash(crash);
@@ -504,30 +516,32 @@ final class Cont<E, F, A> {
 
           final crash = ContCrash.tryCatch(() {
             use(r).absurdify().runWith(
-              runtime,
-              observer
-                  .copyUpdateOnThen<A>((a) {
+                  runtime,
+                  observer.copyUpdateOnThen<A>((a) {
                     if (runtime.isCancelled()) return;
                     withRelease(
                       onReleaseOk: () => observer.onThen(a),
-                      onReleaseCrash: (rc) => observer.onCrash(rc),
+                      onReleaseCrash: (rc) =>
+                          observer.onCrash(rc),
                     );
-                  })
-                  .copyUpdateOnElse<F>((error) {
+                  }).copyUpdateOnElse<F>((error) {
                     if (runtime.isCancelled()) return;
                     withRelease(
-                      onReleaseOk: () => observer.onElse(error),
-                      onReleaseCrash: (rc) => observer.onCrash(rc),
-                    );
-                  })
-                  .copyUpdateOnCrash((useCrash) {
-                    withRelease(
-                      onReleaseOk: () => observer.onCrash(useCrash),
+                      onReleaseOk: () =>
+                          observer.onElse(error),
                       onReleaseCrash: (rc) =>
-                          observer.onCrash(MergedCrash._(useCrash, rc)),
+                          observer.onCrash(rc),
+                    );
+                  }).copyUpdateOnCrash((useCrash) {
+                    withRelease(
+                      onReleaseOk: () =>
+                          observer.onCrash(useCrash),
+                      onReleaseCrash: (rc) =>
+                          observer.onCrash(
+                              MergedCrash._(useCrash, rc)),
                     );
                   }),
-            );
+                );
           });
 
           if (crash != null) {
