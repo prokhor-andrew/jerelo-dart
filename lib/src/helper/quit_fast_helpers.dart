@@ -5,12 +5,13 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
   Cont<E, F, A2> right,
   A3 Function(A1 a1, A2 a2) combine,
 ) {
+  // no absurdify, as they were absurdified before
   return Cont.fromRun((runtime0, observer) {
     final (
       runtime,
       handleCrash,
-      handleError,
-      handleValue,
+      handleElse,
+      handleThen,
     ) = _quitFast<E, A1, A2, A3, F>(
       runtime: runtime0,
       combine: combine,
@@ -24,9 +25,10 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
         runtime,
         observer
             .copyUpdateOnCrash(handleCrash)
+            .copyUpdateOnElse<F>(handleElse)
             .copyUpdateOnThen<A1>((a) {
-          handleValue(_Left(a));
-        }).copyUpdateOnElse<F>(handleError),
+          handleThen(_Left(a));
+        }),
       );
     });
 
@@ -39,9 +41,10 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
         runtime,
         observer
             .copyUpdateOnCrash(handleCrash)
+            .copyUpdateOnElse(handleElse)
             .copyUpdateOnThen<A2>((a) {
-          handleValue(_Right(a));
-        }).copyUpdateOnElse(handleError),
+          handleThen(_Right(a));
+        }),
       );
     });
     if (rightCrash != null) {
@@ -59,8 +62,8 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
     final (
       runtime,
       handleCrash,
-      handleValue,
-      handleError,
+      handleThen,
+      handleElse,
     ) = _quitFast<E, F1, F2, F3, A>(
       runtime: runtime0,
       combine: combine,
@@ -74,9 +77,9 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
         runtime,
         observer
             .copyUpdateOnCrash(handleCrash)
-            .copyUpdateOnThen(handleValue)
+            .copyUpdateOnThen(handleThen)
             .copyUpdateOnElse((f1) {
-          handleError(_Left(f1));
+          handleElse(_Left(f1));
         }),
       );
     });
@@ -89,9 +92,9 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
         runtime,
         observer
             .copyUpdateOnCrash(handleCrash)
-            .copyUpdateOnThen(handleValue)
+            .copyUpdateOnThen(handleThen)
             .copyUpdateOnElse((f2) {
-          handleError(_Right(f2));
+          handleElse(_Right(f2));
         }),
       );
     });
