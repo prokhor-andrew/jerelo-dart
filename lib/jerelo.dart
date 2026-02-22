@@ -26,7 +26,6 @@ export 'src/api/else/until.dart';
 export 'src/api/else/zip.dart';
 export 'src/api/crash/do.dart';
 export 'src/api/crash/tap.dart';
-export 'src/api/crash/zip.dart';
 export 'src/api/crash/unless.dart';
 export 'src/api/crash/until.dart';
 export 'src/api/crash/recover.dart';

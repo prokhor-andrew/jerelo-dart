@@ -1,4 +1,4 @@
-import 'package:jerelo/jerelo.dart';
+part of '../../cont.dart';
 
 /// Implementation of fallback with crash accumulation on the crash path.
 ///
@@ -6,49 +6,17 @@ import 'package:jerelo/jerelo.dart';
 /// If the fallback also crashes, crashes from both attempts are
 /// combined before being propagated.
 ///
+/// TODO:
 Cont<E, F, A> _crashZip<E, F, A>(
   Cont<E, F, A> cont,
   Cont<E, F, A> Function(ContCrash crash) f,
-  ContCrash Function(ContCrash c1, ContCrash c2) combine,
 ) {
-  return Cont.fromRun((runtime, observer) {
-    cont.runWith(
-      runtime,
-      observer.copyUpdateOnCrash((crash) {
-        if (runtime.isCancelled()) {
-          return;
-        }
-
-        final outerCrash = ContCrash.tryCatch(() {
-          final Cont<E, F, A> contA = f(crash).absurdify();
-
-          contA.runWith(
-            runtime,
-            observer.copyUpdateOnCrash((crash2) {
-              if (runtime.isCancelled()) {
-                return;
-              }
-
-              final innerCrash = ContCrash.tryCatch(() {
-                final combinedCrash = combine(
-                  crash,
-                  crash2,
-                );
-                observer.onCrash(combinedCrash);
-              });
-
-              if (innerCrash != null) {
-                observer.onCrash(innerCrash);
-              }
-            }),
-          );
-        });
-
-        if (outerCrash != null) {
-          observer.onCrash(outerCrash);
-        }
-      }),
-    );
+  return cont.crashDo((crash1) {
+    final Cont<E, F, A> cont2 =
+        f(crash1).absurdify(); // TODO: ???
+    return cont2.crashDo((crash2) {
+      return Cont.crash(MergedCrash._(crash1, crash2));
+    });
   });
 }
 
@@ -65,9 +33,8 @@ extension ContCrashZipExtension<E, F, A> on Cont<E, F, A> {
   /// - [combine]: Function to combine the two crashes.
   Cont<E, F, A> crashZip(
     Cont<E, F, A> Function(ContCrash crash) f,
-    ContCrash Function(ContCrash c1, ContCrash c2) combine,
   ) {
-    return _crashZip(this, f, combine);
+    return _crashZip(this, f);
   }
 
   /// Zero-argument version of [crashZip].
@@ -79,11 +46,10 @@ extension ContCrashZipExtension<E, F, A> on Cont<E, F, A> {
   /// - [combine]: Function to combine the two crashes.
   Cont<E, F, A> crashZip0(
     Cont<E, F, A> Function() f,
-    ContCrash Function(ContCrash c1, ContCrash c2) combine,
   ) {
     return crashZip((_) {
       return f();
-    }, combine);
+    });
   }
 
   /// Attempts a fallback continuation with access to the environment and combines crashes.
@@ -97,12 +63,11 @@ extension ContCrashZipExtension<E, F, A> on Cont<E, F, A> {
   /// - [combine]: Function to combine the two crashes.
   Cont<E, F, A> crashZipWithEnv(
     Cont<E, F, A> Function(E env, ContCrash crash) f,
-    ContCrash Function(ContCrash c1, ContCrash c2) combine,
   ) {
     return Cont.askThen<E, F>().thenDo((e) {
       return crashZip((crash) {
         return f(e, crash);
-      }, combine);
+      });
     });
   }
 
@@ -115,10 +80,9 @@ extension ContCrashZipExtension<E, F, A> on Cont<E, F, A> {
   /// - [combine]: Function to combine the two crashes.
   Cont<E, F, A> crashZipWithEnv0(
     Cont<E, F, A> Function(E env) f,
-    ContCrash Function(ContCrash c1, ContCrash c2) combine,
   ) {
     return crashZipWithEnv((e, _) {
       return f(e);
-    }, combine);
+    });
   }
 }

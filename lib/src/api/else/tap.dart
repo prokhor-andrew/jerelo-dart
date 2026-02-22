@@ -10,33 +10,9 @@ Cont<E, F, A> _elseTap<E, F, F2, A>(
   Cont<E, F, A> cont,
   Cont<E, F2, A> Function(F error) f,
 ) {
-  return Cont.fromRun((runtime, observer) {
-    cont.runWith(
-      runtime,
-      observer.copyUpdateOnElse((error) {
-        if (runtime.isCancelled()) {
-          return;
-        }
-
-        final crashOrNull = ContCrash.tryCatch(() {
-          final Cont<E, F2, A> contA = f(error).absurdify();
-
-          contA.runWith(
-            runtime,
-            observer.copyUpdateOnElse((_) {
-              if (runtime.isCancelled()) {
-                return;
-              }
-              observer.onElse(error);
-            }),
-          );
-        });
-
-        if (crashOrNull != null) {
-          observer.onCrash(crashOrNull);
-        }
-      }),
-    );
+  return cont.elseDo((error) {
+    final Cont<E, F2, A> contA2 = f(error).absurdify();
+    return contA2.elseMapTo(error);
   });
 }
 

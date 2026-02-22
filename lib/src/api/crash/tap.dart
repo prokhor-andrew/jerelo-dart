@@ -1,36 +1,16 @@
 import 'package:jerelo/jerelo.dart';
 
+// TODO: reconsider semantics
 Cont<E, F, A> _crashTap<E, F, A>(
   Cont<E, F, A> cont,
   Cont<E, F, A> Function(ContCrash crash) f,
 ) {
-  return Cont.fromRun((runtime, observer) {
-    cont.runWith(
-      runtime,
-      observer.copyUpdateOnCrash((crash) {
-        if (runtime.isCancelled()) {
-          return;
-        }
-
-        final resultCrash = ContCrash.tryCatch(() {
-          final Cont<E, F, A> contA = f(crash).absurdify();
-
-          contA.runWith(
-            runtime,
-            observer.copyUpdateOnCrash((_) {
-              if (runtime.isCancelled()) {
-                return;
-              }
-              observer.onCrash(crash);
-            }),
-          );
-        });
-
-        if (resultCrash != null) {
-          observer.onCrash(resultCrash);
-        }
-      }),
-    );
+  return cont.crashDo((crash) {
+    final Cont<E, F, A> cont2 =
+        f(crash).absurdify(); // TODO: ????
+    return cont2.crashDo((_) {
+      return Cont.crash(crash);
+    });
   });
 }
 

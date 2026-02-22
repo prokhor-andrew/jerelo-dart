@@ -16,6 +16,7 @@ extension ContCrashDoExtension<E, F, A> on Cont<E, F, A> {
             final cont = f(initialCrash);
             cont.runWith(runtime, observer);
           });
+
           if (resultCrash != null) {
             observer.onCrash(resultCrash);
           }

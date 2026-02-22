@@ -1,5 +1,7 @@
 import 'package:jerelo/jerelo.dart';
 
+// TODO: answer the question:"Do we differentiate between f crashing, and Cont from f crashing?"
+
 extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
   /// Chains a [Cont]-returning function to create dependent computations.
   ///

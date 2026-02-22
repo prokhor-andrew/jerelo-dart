@@ -21,13 +21,13 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
             return;
           }
 
-          final crashOrNull = ContCrash.tryCatch(() {
+          final crash = ContCrash.tryCatch(() {
             final contA = f(error).absurdify();
             contA.runWith(runtime, observer);
           });
 
-          if (crashOrNull != null) {
-            observer.onCrash(crashOrNull);
+          if (crash != null) {
+            observer.onCrash(crash);
           }
         }),
       );

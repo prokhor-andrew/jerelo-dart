@@ -52,7 +52,9 @@ extension ContCrashRecoverExtension<E, F, A>
   /// the environment and ignores the crash.
   ///
   /// - [f]: Function that takes the environment and returns a recovery value.
-  Cont<E, F, A> crashRecoverThenWithEnv0(A Function(E env) f) {
+  Cont<E, F, A> crashRecoverThenWithEnv0(
+    A Function(E env) f,
+  ) {
     return crashRecoverThenWithEnv((e, _) {
       return f(e);
     });
@@ -120,7 +122,9 @@ extension ContCrashRecoverExtension<E, F, A>
   /// the environment and ignores the crash.
   ///
   /// - [f]: Function that takes the environment and returns an error.
-  Cont<E, F, A> crashRecoverElseWithEnv0(F Function(E env) f) {
+  Cont<E, F, A> crashRecoverElseWithEnv0(
+    F Function(E env) f,
+  ) {
     return crashRecoverElseWithEnv((e, _) {
       return f(e);
     });

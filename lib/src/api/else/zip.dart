@@ -10,44 +10,11 @@ Cont<E, F3, A> _elseZip<E, F, F2, F3, A>(
   Cont<E, F2, A> Function(F) f,
   F3 Function(F f1, F2 f2) combine,
 ) {
-  return Cont.fromRun((runtime, observer) {
-    cont.runWith(
-      runtime,
-      observer.copyUpdateOnElse((error) {
-        if (runtime.isCancelled()) {
-          return;
-        }
-
-        final outerCrash = ContCrash.tryCatch(() {
-          final Cont<E, F2, A> contA = f(error).absurdify();
-
-          contA.runWith(
-            runtime,
-            observer.copyUpdateOnElse((error2) {
-              if (runtime.isCancelled()) {
-                return;
-              }
-
-              final innerCrash = ContCrash.tryCatch(() {
-                final combinedError = combine(
-                  error,
-                  error2,
-                );
-                observer.onElse(combinedError);
-              });
-
-              if (innerCrash != null) {
-                observer.onCrash(innerCrash);
-              }
-            }),
-          );
-        });
-
-        if (outerCrash != null) {
-          observer.onCrash(outerCrash);
-        }
-      }),
-    );
+  return cont.elseDo((error1) {
+    final Cont<E, F2, A> cont2 = f(error1).absurdify();
+    return cont2.elseMap((error2) {
+      return combine(error1, error2);
+    });
   });
 }
 

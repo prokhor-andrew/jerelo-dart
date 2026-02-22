@@ -10,6 +10,7 @@ part 'api/then/while.dart';
 part 'api/else/while.dart';
 part 'api/crash/fork.dart';
 part 'api/crash/while.dart';
+part 'api/crash/zip.dart';
 part 'helper/utils.dart';
 
 part 'helper/sequence_helpers.dart';
@@ -393,10 +394,13 @@ final class Cont<E, F, A> {
 
     switch (policy) {
       case SequenceCrashPolicy():
+        // TODO:
         throw "";
       case QuitFastCrashPolicy():
+        // TODO:
         throw "";
       case RunAllCrashPolicy():
+        // TODO:
         throw "";
     }
   }
