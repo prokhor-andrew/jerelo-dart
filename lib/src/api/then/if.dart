@@ -30,14 +30,14 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// ```
   Cont<E, F, A> thenIf(
     bool Function(A value) predicate, {
-    required F orElse,
+    required F fallback,
   }) {
     return thenDo((a) {
       if (predicate(a)) {
         return Cont.of(a);
       }
 
-      return Cont.error<E, F, A>(orElse);
+      return Cont.error<E, F, A>(fallback);
     });
   }
 
@@ -49,11 +49,11 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// - [error]: Optional list of error to use when terminating on predicate failure.
   Cont<E, F, A> thenIf0(
     bool Function() predicate, {
-    required F orElse,
+    required F fallback,
   }) {
     return thenIf((_) {
       return predicate();
-    }, orElse: orElse);
+    }, fallback: fallback);
   }
 
   /// Conditionally succeeds with access to both value and environment.
@@ -66,12 +66,12 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// - [error]: Optional list of error to use when terminating on predicate failure.
   Cont<E, F, A> thenIfWithEnv(
     bool Function(E env, A value) predicate, {
-    required F orElse,
+    required F fallback,
   }) {
     return Cont.askThen<E, F>().thenDo((e) {
       return thenIf((a) {
         return predicate(e, a);
-      }, orElse: orElse);
+      }, fallback: fallback);
     });
   }
 
@@ -84,10 +84,10 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// - [error]: Optional list of error to use when terminating on predicate failure.
   Cont<E, F, A> thenIfWithEnv0(
     bool Function(E env) predicate, {
-    required F orElse,
+    required F fallback,
   }) {
     return thenIfWithEnv((e, _) {
       return predicate(e);
-    }, orElse: orElse);
+    }, fallback: fallback);
   }
 }
