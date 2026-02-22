@@ -8,6 +8,8 @@ part 'api/then/fork.dart';
 part 'api/else/fork.dart';
 part 'api/then/while.dart';
 part 'api/else/while.dart';
+part 'api/crash/fork.dart';
+part 'api/crash/while.dart';
 part 'helper/utils.dart';
 
 part 'helper/sequence_helpers.dart';
@@ -182,6 +184,12 @@ final class Cont<E, F, A> {
     return Cont.fromRun((runtime, observer) {
       Cont<E, F, A> contA = thunk().absurdify();
       contA.runWith(runtime, observer);
+    });
+  }
+
+  static Cont<E, F, A> crash<E, F, A>(ContCrash crash) {
+    return Cont.fromRun((runtime, observer) {
+      observer.onCrash(crash);
     });
   }
 
@@ -375,25 +383,7 @@ final class Cont<E, F, A> {
     }
   }
 
-  /// Runs two continuations and combines their results with crash-channel routing.
-  ///
-  /// Like [both], but panics and synchronous throws from either continuation
-  /// are routed to the crash channel ([onCrash]) instead of being converted
-  /// to errors. Uses homogeneous types (both sides must share the same [F] and [A]).
-  ///
-  /// The execution behavior depends on the provided [policy]:
-  ///
-  /// - [SequenceCrashPolicy]: Runs [left] then [right] sequentially;
-  ///   [right]'s value is returned (left must succeed but its value is discarded).
-  /// - [QuitFastCrashPolicy]: Runs both in parallel, quits immediately if either fails.
-  /// - [RunAllCrashPolicy]: Runs both in parallel, waits for both to complete,
-  ///   combines successes with [RunAllCrashPolicy.combineThenVals] and errors
-  ///   with [RunAllCrashPolicy.combineElseVals]. Crashes go to [onCrash].
-  ///
-  /// - [left]: First continuation to execute.
-  /// - [right]: Second continuation to execute.
-  /// - [policy]: Execution policy determining how continuations run and results are combined.
-  static Cont<E, F, A> bothCrash<E, F, A>(
+  static Cont<E, F, A> xxx<E, F, A>(
     Cont<E, F, A> left,
     Cont<E, F, A> right, {
     required CrashPolicy<F, A> policy,
@@ -403,62 +393,11 @@ final class Cont<E, F, A> {
 
     switch (policy) {
       case SequenceCrashPolicy():
-        return left.thenDo((_) => right);
+        throw "";
       case QuitFastCrashPolicy():
-        return _bothQuitFast(left, right, (_, a) => a);
-      case RunAllCrashPolicy(
-          :final combineThenVals,
-          :final combineElseVals,
-        ):
-        return _bothWhenAllCrash(
-          left,
-          right,
-          combineThenVals,
-          combineElseVals,
-        );
-    }
-  }
-
-  /// Races two continuations with crash-channel routing.
-  ///
-  /// Like [either], but panics and synchronous throws from either continuation
-  /// are routed to the crash channel ([onCrash]) instead of being converted
-  /// to errors. Uses homogeneous types (both sides must share the same [F] and [A]).
-  ///
-  /// The execution behavior depends on the provided [policy]:
-  ///
-  /// - [SequenceCrashPolicy]: Tries [left] first; if [left] fails, tries [right].
-  /// - [QuitFastCrashPolicy]: Runs both in parallel, returns immediately on first success.
-  /// - [RunAllCrashPolicy]: Runs both in parallel, waits for both to complete,
-  ///   combines errors with [RunAllCrashPolicy.combineElseVals] and successes
-  ///   with [RunAllCrashPolicy.combineThenVals]. Crashes go to [onCrash].
-  ///
-  /// - [left]: First continuation to try.
-  /// - [right]: Second continuation to try.
-  /// - [policy]: Execution policy determining how continuations run and results are combined.
-  static Cont<E, F, A> eitherCrash<E, F, A>(
-    Cont<E, F, A> left,
-    Cont<E, F, A> right, {
-    required CrashPolicy<F, A> policy,
-  }) {
-    left = left.absurdify();
-    right = right.absurdify();
-
-    switch (policy) {
-      case SequenceCrashPolicy():
-        return left.elseDo((_) => right);
-      case QuitFastCrashPolicy():
-        return _eitherQuitFast(left, right, (_, f) => f);
-      case RunAllCrashPolicy(
-          :final combineElseVals,
-          :final combineThenVals,
-        ):
-        return _eitherWhenAllCrash(
-          left,
-          right,
-          combineElseVals,
-          combineThenVals,
-        );
+        throw "";
+      case RunAllCrashPolicy():
+        throw "";
     }
   }
 
