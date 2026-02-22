@@ -12,7 +12,7 @@ extension ContElseForeverExtension<E, F, A>
   /// on termination indefinitely.
   ///
   /// This is useful for:
-  /// - Services that must always recover from errors
+  /// - Services that must always promote past errors
   /// - Resilient connections that automatically reconnect
   /// - Operations that should never give up on transient failures
   /// - Self-healing systems that retry on any error

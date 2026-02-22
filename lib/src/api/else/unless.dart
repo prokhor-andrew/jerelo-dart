@@ -1,21 +1,22 @@
 import 'package:jerelo/jerelo.dart';
 
 extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
-  /// Conditionally recovers from termination when the predicate is satisfied.
+  /// Conditionally promotes from error to success when the predicate is not satisfied.
   ///
   /// Filters termination based on the predicate. If the predicate returns
-  /// `true`, the continuation recovers with the provided value. If the predicate
-  /// returns `false`, the continuation continues terminating with the original error.
+  /// `true`, the continuation continues terminating with the original error.
+  /// If the predicate returns `false`, the continuation promotes to success
+  /// with the provided value.
   ///
   /// This is the error-channel counterpart to [thenIf]. While [thenIf] filters
-  /// values on the success channel, [elseIf] filters error on the termination
-  /// channel and provides conditional recovery.
+  /// values on the success channel, [elseUnless] filters error on the termination
+  /// channel and provides conditional promotion.
   ///
-  /// This is useful for recovering from specific error conditions while letting
+  /// This is useful for promoting past specific error conditions while letting
   /// other error propagate through.
   ///
   /// - [predicate]: Function that tests the error list.
-  /// - [value]: The value to recover with when the predicate returns `true`.
+  /// - [fallback]: The value to promote with when the predicate returns `false`.
   ///
   /// Example:
   /// ```dart
@@ -40,12 +41,12 @@ extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
     });
   }
 
-  /// Conditionally recovers based on a zero-argument predicate.
+  /// Conditionally promotes based on a zero-argument predicate.
   ///
-  /// Similar to [elseIf] but the predicate doesn't examine the error.
+  /// Similar to [elseUnless] but the predicate doesn't examine the error.
   ///
-  /// - [predicate]: Zero-argument function that determines whether to recover.
-  /// - [value]: The value to recover with when the predicate returns `true`.
+  /// - [predicate]: Zero-argument function that determines whether to keep the error.
+  /// - [fallback]: The value to promote with when the predicate returns `false`.
   Cont<E, F, A> elseUnless0(
     bool Function() predicate, {
     required A fallback,
@@ -55,14 +56,14 @@ extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
     }, fallback: fallback);
   }
 
-  /// Conditionally recovers with access to both error and environment.
+  /// Conditionally promotes with access to both error and environment.
   ///
-  /// Similar to [elseIf], but the predicate function receives both the
-  /// termination error and the environment. This is useful when recovery logic
+  /// Similar to [elseUnless], but the predicate function receives both the
+  /// termination error and the environment. This is useful when promotion logic
   /// needs access to configuration or context information.
   ///
-  /// - [predicate]: Function that takes the environment and error, and determines whether to recover.
-  /// - [value]: The value to recover with when the predicate returns `true`.
+  /// - [predicate]: Function that takes the environment and error, and determines whether to keep the error.
+  /// - [fallback]: The value to promote with when the predicate returns `false`.
   Cont<E, F, A> elseUnlessWithEnv(
     bool Function(E env, F error) predicate, {
     required A fallback,
@@ -74,13 +75,13 @@ extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
     });
   }
 
-  /// Conditionally recovers with access to the environment only.
+  /// Conditionally promotes with access to the environment only.
   ///
-  /// Similar to [elseIfWithEnv], but the predicate only receives the
+  /// Similar to [elseUnlessWithEnv], but the predicate only receives the
   /// environment and ignores the error.
   ///
-  /// - [predicate]: Function that takes the environment and determines whether to recover.
-  /// - [value]: The value to recover with when the predicate returns `true`.
+  /// - [predicate]: Function that takes the environment and determines whether to keep the error.
+  /// - [fallback]: The value to promote with when the predicate returns `false`.
   Cont<E, F, A> elseUnlessWithEnv0(
     bool Function(E env) predicate, {
     required A fallback,

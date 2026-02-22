@@ -87,7 +87,7 @@ extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// Similar to [elseZip], but the fallback function receives both the original
   /// error and the environment. If both the original attempt and fallback fail,
-  /// their error are concatenated. This is useful when error recovery strategies
+  /// their error are concatenated. This is useful when error handling strategies
   /// need access to configuration or context.
   ///
   /// - [f]: Function that takes the environment and error, and produces a fallback continuation.
