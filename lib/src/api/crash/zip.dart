@@ -6,14 +6,17 @@ part of '../../cont.dart';
 /// If the fallback also crashes, crashes from both attempts are
 /// combined before being propagated.
 ///
-/// TODO:
 Cont<E, F, A> _crashZip<E, F, A>(
   Cont<E, F, A> cont,
   Cont<E, F, A> Function(ContCrash crash) f,
 ) {
   return cont.crashDo((crash1) {
-    final Cont<E, F, A> cont2 =
-        f(crash1).absurdify(); // TODO: ???
+    final Cont<E, F, A> cont2;
+    try {
+      cont2 = f(crash1).absurdify();
+    } catch (error, st) {
+      return Cont.crash(MergedCrash._(crash1, NormalCrash._(error, st)));
+    }
     return cont2.crashDo((crash2) {
       return Cont.crash(MergedCrash._(crash1, crash2));
     });
