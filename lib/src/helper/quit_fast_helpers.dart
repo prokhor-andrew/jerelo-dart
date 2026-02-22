@@ -106,6 +106,108 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
   });
 }
 
+Cont<E, F, A> _crashQuitFast<E, F, A>(
+  Cont<E, F, A> left,
+  Cont<E, F, A> right,
+) {
+  // no absurdify, as they were absurdified before
+  return Cont.fromRun((runtime0, observer) {
+    final _QuitFastStateHolder<ContCrash, ContCrash>
+        holder = _QuitFastStateHolder();
+
+    final runtime = runtime0.extendCancellation(() {
+      return holder.state == null;
+    });
+
+    void handleThen(A a) {
+      if (runtime.isCancelled()) {
+        return;
+      }
+      holder.state = null;
+      observer.onThen(a);
+    }
+
+    void handleElse(F f) {
+      if (runtime.isCancelled()) {
+        return;
+      }
+      holder.state = null;
+      observer.onElse(f);
+    }
+
+    void handleCrash(_Either<ContCrash, ContCrash> either) {
+      if (runtime.isCancelled()) {
+        return;
+      }
+
+      switch (either) {
+        case _Left<ContCrash, ContCrash>(value: final c1):
+          switch (holder.state) {
+            case null:
+              break; // cancelled, do nothing
+            case _QuitFastStep0<ContCrash, ContCrash>():
+              holder.state =
+                  _QuitFastLeftSecondaryRightNull(c1);
+            case _QuitFastLeftSecondaryRightNull<ContCrash,
+                  ContCrash>():
+              break; // can't have left crash twice - unreachable state
+            case _QuitFastLeftNullRightSecondary<ContCrash,
+                  ContCrash>(f2: final c2):
+              holder.state = null;
+              observer.onCrash(MergedCrash._(c1, c2));
+          }
+        case _Right<ContCrash, ContCrash>(value: final c2):
+          switch (holder.state) {
+            case null:
+              break; // cancelled, do nothing
+            case _QuitFastStep0<ContCrash, ContCrash>():
+              holder.state =
+                  _QuitFastLeftNullRightSecondary(c2);
+            case _QuitFastLeftSecondaryRightNull<ContCrash,
+                  ContCrash>(f1: final c1):
+              holder.state = null;
+              observer.onCrash(MergedCrash._(c1, c2));
+            case _QuitFastLeftNullRightSecondary<ContCrash,
+                  ContCrash>():
+              break; // can't have right crash twice - unreachable state
+          }
+      }
+    }
+
+    final leftCrash = ContCrash.tryCatch(() {
+      left.runWith(
+        runtime,
+        observer.copyUpdate(
+          onCrash: (crash) {
+            handleCrash(_Left(crash));
+          },
+          onElse: handleElse,
+          onThen: handleThen,
+        ),
+      );
+    });
+    if (leftCrash != null) {
+      handleCrash(_Left(leftCrash));
+    }
+
+    final rightCrash = ContCrash.tryCatch(() {
+      right.runWith(
+        runtime,
+        observer.copyUpdate(
+          onCrash: (crash) {
+            handleCrash(_Right(crash));
+          },
+          onElse: handleElse,
+          onThen: handleThen,
+        ),
+      );
+    });
+    if (rightCrash != null) {
+      handleCrash(_Right(rightCrash));
+    }
+  });
+}
+
 (
   ContRuntime<E> runtime,
   void Function(ContCrash) handleCrash,

@@ -394,11 +394,15 @@ final class Cont<E, F, A> {
 
     switch (policy) {
       case SequenceCrashPolicy():
-        // TODO:
-        throw "";
+        return left.crashDo((crash1) {
+          return right.crashDo((crash2) {
+            return Cont.crash(
+              MergedCrash._(crash1, crash2),
+            );
+          });
+        });
       case QuitFastCrashPolicy():
-        // TODO:
-        throw "";
+        return _crashQuitFast(left, right);
       case RunAllCrashPolicy():
         // TODO:
         throw "";
