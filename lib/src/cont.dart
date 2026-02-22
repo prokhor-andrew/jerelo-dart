@@ -449,6 +449,24 @@ final class Cont<E, F, A> {
     }
   }
 
+  /// Acquires a resource, uses it, and guarantees its release.
+  ///
+  /// Implements the bracket pattern for safe resource management. Regardless
+  /// of whether [use] succeeds, fails, or crashes, [release] is always called
+  /// with the acquired resource.
+  ///
+  /// - [acquire]: Obtains the resource. Cannot produce a business-logic error
+  ///   (error type is [Never]); it can only succeed or crash.
+  /// - [release]: Releases the resource. Cannot produce a business-logic error
+  ///   (error type is [Never]); it can only succeed or crash.
+  /// - [use]: Uses the resource; may succeed with [A], fail with [F], or crash.
+  ///
+  /// Outcome rules after [release] completes:
+  /// - [use] succeeded  → propagate the success value (unless [release] crashes).
+  /// - [use] failed     → propagate the failure error (unless [release] crashes).
+  /// - [use] crashed    → propagate the crash; if [release] also crashes, the
+  ///   two crashes are merged into a [MergedCrash].
+  /// - [release] crashes in any case → that crash is forwarded to [onCrash].
   static Cont<E, F, A> bracket<R, E, F, A>({
     required Cont<E, Never, R> acquire,
     required Cont<E, Never, ()> Function(
@@ -457,7 +475,66 @@ final class Cont<E, F, A> {
     required Cont<E, F, A> Function(R resource) use,
   }) {
     return Cont.fromRun((runtime, observer) {
+      acquire.elseAbsurd<F>().runWith(
+        runtime,
+        observer.copyUpdateOnThen<R>((r) {
+          if (runtime.isCancelled()) {
+            return;
+          }
 
+          void withRelease({
+            required void Function() onReleaseOk,
+            required void Function(ContCrash releaseCrash) onReleaseCrash,
+          }) {
+            final crash = ContCrash.tryCatch(() {
+              release(r).elseAbsurd<F>().runWith(
+                runtime,
+                observer
+                    .copyUpdateOnThen<()>((_) {
+                      if (runtime.isCancelled()) return;
+                      onReleaseOk();
+                    })
+                    .copyUpdateOnCrash(onReleaseCrash),
+              );
+            });
+            if (crash != null) {
+              onReleaseCrash(crash);
+            }
+          }
+
+          final crash = ContCrash.tryCatch(() {
+            use(r).absurdify().runWith(
+              runtime,
+              observer
+                  .copyUpdateOnThen<A>((a) {
+                    if (runtime.isCancelled()) return;
+                    withRelease(
+                      onReleaseOk: () => observer.onThen(a),
+                      onReleaseCrash: (rc) => observer.onCrash(rc),
+                    );
+                  })
+                  .copyUpdateOnElse<F>((error) {
+                    if (runtime.isCancelled()) return;
+                    withRelease(
+                      onReleaseOk: () => observer.onElse(error),
+                      onReleaseCrash: (rc) => observer.onCrash(rc),
+                    );
+                  })
+                  .copyUpdateOnCrash((useCrash) {
+                    withRelease(
+                      onReleaseOk: () => observer.onCrash(useCrash),
+                      onReleaseCrash: (rc) =>
+                          observer.onCrash(MergedCrash._(useCrash, rc)),
+                    );
+                  }),
+            );
+          });
+
+          if (crash != null) {
+            observer.onCrash(crash);
+          }
+        }),
+      );
     });
   }
 }
