@@ -263,6 +263,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
           case _QuitFastLeftNullRightSecondary<F1, F2>(
               f2: final f2
             ):
+            holder.state = null;
             final crash = ContCrash.tryCatch(() {
               final f3 = combine(f1, f2);
               onSecondary(f3);
@@ -282,6 +283,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
           case _QuitFastLeftSecondaryRightNull<F1, F2>(
               f1: final f1
             ):
+            holder.state = null;
             final crash = ContCrash.tryCatch(() {
               final f3 = combine(f1, f2);
               onSecondary(f3);
