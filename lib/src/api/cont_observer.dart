@@ -1,6 +1,6 @@
 part of '../cont.dart';
 
-final class ContObserver<F, A> {
+sealed class ContObserver<F, A> {
   final void Function(NormalCrash crash) _onUnsafePanic;
 
   final void Function(ContCrash crash) onCrash;
@@ -9,7 +9,7 @@ final class ContObserver<F, A> {
 
   final void Function(A value) onThen;
 
-  const ContObserver._(
+  const ContObserver(
     this._onUnsafePanic,
     this.onCrash,
     this.onElse,
@@ -19,34 +19,94 @@ final class ContObserver<F, A> {
   ContObserver<F, A> copyUpdateOnCrash(
     void Function(ContCrash crash) onCrash,
   ) {
-    return ContObserver._(
-      _onUnsafePanic,
-      onCrash,
-      onElse,
-      onThen,
-    );
+    return switch (this) {
+      SafeObserver<F, A>(
+        isUsed: final isUsed,
+        _onUnsafePanic: final _onUnsafePanic,
+        onElse: final onElse,
+        onThen: final onThen,
+      ) =>
+        SafeObserver._(
+          isUsed,
+          _onUnsafePanic,
+          onCrash,
+          onElse,
+          onThen,
+        ),
+      _UnsafeObserver<F, A>(
+        _onUnsafePanic: final _onUnsafePanic,
+        onElse: final onElse,
+        onThen: final onThen,
+      ) =>
+        _UnsafeObserver._(
+          _onUnsafePanic,
+          onCrash,
+          onElse,
+          onThen,
+        ),
+    };
   }
 
   ContObserver<F2, A> copyUpdateOnElse<F2>(
     void Function(F2 error) onElse,
   ) {
-    return ContObserver._(
-      _onUnsafePanic,
-      onCrash,
-      onElse,
-      onThen,
-    );
+    return switch (this) {
+      SafeObserver<F, A>(
+        isUsed: final isUsed,
+        _onUnsafePanic: final _onUnsafePanic,
+        onCrash: final onCrash,
+        onThen: final onThen,
+      ) =>
+        SafeObserver._(
+          isUsed,
+          _onUnsafePanic,
+          onCrash,
+          onElse,
+          onThen,
+        ),
+      _UnsafeObserver<F, A>(
+        _onUnsafePanic: final _onUnsafePanic,
+        onCrash: final onCrash,
+        onThen: final onThen,
+      ) =>
+        _UnsafeObserver._(
+          _onUnsafePanic,
+          onCrash,
+          onElse,
+          onThen,
+        ),
+    };
   }
 
   ContObserver<F, A2> copyUpdateOnThen<A2>(
     void Function(A2 value) onThen,
   ) {
-    return ContObserver._(
-      _onUnsafePanic,
-      onCrash,
-      onElse,
-      onThen,
-    );
+    return switch (this) {
+      SafeObserver<F, A>(
+        isUsed: final isUsed,
+        _onUnsafePanic: final _onUnsafePanic,
+        onElse: final onElse,
+        onCrash: final onCrash,
+      ) =>
+        SafeObserver._(
+          isUsed,
+          _onUnsafePanic,
+          onCrash,
+          onElse,
+          onThen,
+        ),
+      _UnsafeObserver<F, A>(
+        _onUnsafePanic: final _onUnsafePanic,
+        onElse: final onElse,
+        onCrash: final onCrash,
+      ) =>
+        _UnsafeObserver._(
+          _onUnsafePanic,
+          onCrash,
+          onElse,
+          onThen,
+        ),
+    };
   }
 }
 
@@ -79,23 +139,76 @@ extension ContObserverAbsurdifyExtension<F, A>
 extension ContObserverThenNeverExtension<F>
     on ContObserver<F, Never> {
   ContObserver<F, A> thenAbsurd<A>() {
-    return ContObserver._(
-      _onUnsafePanic,
-      onCrash,
-      onElse,
-      _ignore,
-    );
+    return switch (this) {
+      SafeObserver<F, Never>(
+        isUsed: final isUsed,
+        _onUnsafePanic: final _onUnsafePanic,
+        onElse: final onElse,
+        onCrash: final onCrash,
+      ) =>
+        SafeObserver._(isUsed, _onUnsafePanic, onCrash,
+            onElse, _ignore),
+      _UnsafeObserver<F, Never>(
+        _onUnsafePanic: final _onUnsafePanic,
+        onElse: final onElse,
+        onCrash: final onCrash,
+      ) =>
+        _UnsafeObserver._(
+            _onUnsafePanic, onCrash, onElse, _ignore),
+    };
   }
 }
 
 extension ContObserverElseNeverExtension<A>
     on ContObserver<Never, A> {
   ContObserver<F, A> elseAbsurd<F>() {
-    return ContObserver._(
-      _onUnsafePanic,
-      onCrash,
-      _ignore,
-      onThen,
-    );
+    return switch (this) {
+      SafeObserver<Never, A>(
+        isUsed: final isUsed,
+        _onUnsafePanic: final _onUnsafePanic,
+        onThen: final onThen,
+        onCrash: final onCrash,
+      ) =>
+        SafeObserver._(
+          isUsed,
+          _onUnsafePanic,
+          onCrash,
+          _ignore,
+          onThen,
+        ),
+      _UnsafeObserver<Never, A>(
+        _onUnsafePanic: final _onUnsafePanic,
+        onThen: final onThen,
+        onCrash: final onCrash,
+      ) =>
+        _UnsafeObserver._(
+          _onUnsafePanic,
+          onCrash,
+          _ignore,
+          onThen,
+        ),
+    };
   }
+}
+
+final class _UnsafeObserver<F, A>
+    extends ContObserver<F, A> {
+  const _UnsafeObserver._(
+    super._onUnsafePanic,
+    super.onCrash,
+    super.onElse,
+    super.onThen,
+  );
+}
+
+final class SafeObserver<F, A> extends ContObserver<F, A> {
+  final bool Function() isUsed;
+
+  const SafeObserver._(
+    this.isUsed,
+    super._onUnsafePanic,
+    super.onCrash,
+    super.onElse,
+    super.onThen,
+  );
 }

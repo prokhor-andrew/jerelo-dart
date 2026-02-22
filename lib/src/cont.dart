@@ -40,7 +40,7 @@ final class Cont<E, F, A> {
 
     runWith(
       ContRuntime._(env, cancelToken.isCancelled),
-      ContObserver._(onPanic, onCrash, onElse, onThen),
+      _UnsafeObserver._(onPanic, onCrash, onElse, onThen),
     );
 
     return cancelToken;
@@ -67,13 +67,15 @@ final class Cont<E, F, A> {
   static Cont<E, F, A> fromRun<E, F, A>(
     void Function(
       ContRuntime<E> runtime,
-      ContObserver<F, A> observer,
+      SafeObserver<F, A> observer,
     ) run,
   ) {
     return Cont._((runtime, observer) {
       if (runtime.isCancelled()) {
         return;
       }
+
+      observer = observer.absurdify();
 
       void onPanic(NormalCrash crash) {
         try {
@@ -86,12 +88,11 @@ final class Cont<E, F, A> {
         }
       }
 
-      observer = observer.absurdify();
-
       bool isDone = false;
 
       void guardedOnCrash(ContCrash crash) {
         if (runtime.isCancelled()) {
+          isDone = true;
           return;
         }
 
@@ -108,8 +109,9 @@ final class Cont<E, F, A> {
         }
       }
 
-      void guardedOnError(F error) {
+      void guardedOnElse(F error) {
         if (runtime.isCancelled()) {
+          isDone = true;
           return;
         }
 
@@ -125,8 +127,9 @@ final class Cont<E, F, A> {
         }
       }
 
-      void guardedOnValue(A a) {
+      void guardedOnThen(A a) {
         if (runtime.isCancelled()) {
+          isDone = true;
           return;
         }
 
@@ -145,15 +148,18 @@ final class Cont<E, F, A> {
       try {
         run(
           runtime,
-          ContObserver._(
+          SafeObserver._(
+            () {
+              return isDone;
+            },
             onPanic,
             guardedOnCrash,
-            guardedOnError,
-            guardedOnValue,
+            guardedOnElse,
+            guardedOnThen,
           ),
         );
       } catch (error, st) {
-        observer.onCrash(NormalCrash._(error, st));
+        guardedOnCrash(NormalCrash._(error, st));
       }
     });
   }
@@ -169,7 +175,7 @@ final class Cont<E, F, A> {
   ) {
     return Cont.fromRun((runtime, observer) {
       Cont<E, F, A> contA = thunk().absurdify();
-      contA._run(runtime, observer);
+      contA.runWith(runtime, observer);
     });
   }
 
@@ -339,7 +345,6 @@ final class Cont<E, F, A> {
   static Cont<E, List<F>, A> any<E, F, A>(
     List<Cont<E, F, A>> list, {
     required ContPolicy<A> policy,
-    //
   }) {
     switch (policy) {
       case SequencePolicy<A>():
@@ -357,9 +362,7 @@ final class Cont<E, F, A> {
       R resource,
     ) release,
     required Cont<E, F, A> Function(R resource) use,
-    //
   }) {
-    return Cont.fromRun((runtime, observer) {
-    });
+    return Cont.fromRun((runtime, observer) {});
   }
 }
