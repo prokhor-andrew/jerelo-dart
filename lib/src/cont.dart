@@ -10,6 +10,12 @@ part 'api/then/while.dart';
 part 'api/else/while.dart';
 part 'helper/utils.dart';
 
+part 'helper/sequence_helpers.dart';
+part 'helper/quit_fast_helpers.dart';
+part 'helper/quit_fast_list_helpers.dart';
+part 'helper/when_all_helpers.dart';
+part 'helper/when_all_list_helpers.dart';
+
 /// A continuation monad representing a computation that will eventually
 /// produce a value of type [A] or terminate with error.
 ///
@@ -242,22 +248,22 @@ final class Cont<E, F, A> {
     Cont<E, F, A1> left,
     Cont<E, F, A2> right,
     A3 Function(A1 a, A2 a2) combine, {
-    required ContPolicy<F> policy,
+    required OkPolicy<F> policy,
   }) {
     left = left.absurdify();
     right = right.absurdify();
 
     switch (policy) {
-      case SequencePolicy():
+      case SequenceOkPolicy():
         return left.thenDo((a) {
           return right.thenMap((a2) {
             return combine(a, a2);
           });
         });
-      case MergeWhenAllPolicy(combine: final combine2):
-        return _bothWhenAll(left, right, combine, combine2);
-      case QuitFastPolicy():
+      case QuitFastOkPolicy():
         return _bothQuitFast(left, right, combine);
+      case RunAllOkPolicy(combine: final combine2):
+        return _bothWhenAll(left, right, combine, combine2);
     }
   }
 
@@ -275,15 +281,15 @@ final class Cont<E, F, A> {
   /// - [policy]: Execution policy determining how continuations are run and error are handled.
   static Cont<E, F, List<A>> all<E, F, A>(
     List<Cont<E, F, A>> list, {
-    required ContPolicy<F> policy,
+    required OkPolicy<F> policy,
   }) {
     switch (policy) {
-      case SequencePolicy():
+      case SequenceOkPolicy():
         return _allSequence(list);
-      case MergeWhenAllPolicy(combine: final combine):
-        return _whenAllAll(list, combine);
-      case QuitFastPolicy():
+      case QuitFastOkPolicy():
         return _quitFastAll(list);
+      case RunAllOkPolicy(combine: final combine):
+        return _whenAllAll(list, combine);
     }
   }
 
@@ -293,10 +299,10 @@ final class Cont<E, F, A> {
   /// If both fail, concatenates their error. The execution behavior depends on the
   /// provided [policy]:
   ///
-  /// - [SequencePolicy]: Tries [left] first, then [right] if [left] fails.
-  /// - [MergeWhenAllPolicy]: Runs both in parallel, returns first success or merges
+  /// - [SequenceOkPolicy]: Tries [left] first, then [right] if [left] fails.
+  /// - [RunAllOkPolicy]: Runs both in parallel, returns first success or merges
   ///   results using the policy's combine function if both succeed.
-  /// - [QuitFastPolicy]: Runs both in parallel, returns immediately on first success.
+  /// - [QuitFastOkPolicy]: Runs both in parallel, returns immediately on first success.
   ///
   /// - [left]: First continuation to try.
   /// - [right]: Second continuation to try.
@@ -305,27 +311,27 @@ final class Cont<E, F, A> {
     Cont<E, F1, A> left,
     Cont<E, F2, A> right,
     F3 Function(F1, F2) combine, {
-    required ContPolicy<A> policy,
+    required OkPolicy<A> policy,
   }) {
     left = left.absurdify();
     right = right.absurdify();
 
     switch (policy) {
-      case SequencePolicy<A>():
+      case SequenceOkPolicy<A>():
         return left.elseDo((error1) {
           return right.elseMap((error2) {
             return combine(error1, error2);
           });
         });
-      case MergeWhenAllPolicy<A>(combine: final combine2):
+      case QuitFastOkPolicy<A>():
+        return _eitherQuitFast(left, right, combine);
+      case RunAllOkPolicy<A>(combine: final combine2):
         return _eitherWhenAll(
           left,
           right,
           combine,
           combine2,
         );
-      case QuitFastPolicy<A>():
-        return _eitherQuitFast(left, right, combine);
     }
   }
 
@@ -335,24 +341,111 @@ final class Cont<E, F, A> {
   /// If all fail, collects all error. The execution behavior depends on the
   /// provided [policy]:
   ///
-  /// - [SequencePolicy]: Tries continuations one by one in order until one succeeds.
-  /// - [MergeWhenAllPolicy]: Runs all in parallel, returns first success or merges
+  /// - [SequenceOkPolicy]: Tries continuations one by one in order until one succeeds.
+  /// - [RunAllOkPolicy]: Runs all in parallel, returns first success or merges
   ///   results using the policy's combine function if multiple succeed.
-  /// - [QuitFastPolicy]: Runs all in parallel, returns immediately on first success.
+  /// - [QuitFastOkPolicy]: Runs all in parallel, returns immediately on first success.
   ///
   /// - [list]: List of continuations to race.
   /// - [policy]: Execution policy determining how continuations are run.
   static Cont<E, List<F>, A> any<E, F, A>(
     List<Cont<E, F, A>> list, {
-    required ContPolicy<A> policy,
+    required OkPolicy<A> policy,
   }) {
     switch (policy) {
-      case SequencePolicy<A>():
+      case SequenceOkPolicy<A>():
         return _anySequence(list);
-      case MergeWhenAllPolicy<A>(combine: final combine):
-        return _whenAllAny(list, combine);
-      case QuitFastPolicy<A>():
+      case QuitFastOkPolicy<A>():
         return _quitFastAny(list);
+      case RunAllOkPolicy<A>(combine: final combine):
+        return _whenAllAny(list, combine);
+    }
+  }
+
+  /// Runs two continuations and combines their results with crash-channel routing.
+  ///
+  /// Like [both], but panics and synchronous throws from either continuation
+  /// are routed to the crash channel ([onCrash]) instead of being converted
+  /// to errors. Uses homogeneous types (both sides must share the same [F] and [A]).
+  ///
+  /// The execution behavior depends on the provided [policy]:
+  ///
+  /// - [SequenceCrashPolicy]: Runs [left] then [right] sequentially;
+  ///   [right]'s value is returned (left must succeed but its value is discarded).
+  /// - [QuitFastCrashPolicy]: Runs both in parallel, quits immediately if either fails.
+  /// - [RunAllCrashPolicy]: Runs both in parallel, waits for both to complete,
+  ///   combines successes with [RunAllCrashPolicy.combineThenVals] and errors
+  ///   with [RunAllCrashPolicy.combineElseVals]. Crashes go to [onCrash].
+  ///
+  /// - [left]: First continuation to execute.
+  /// - [right]: Second continuation to execute.
+  /// - [policy]: Execution policy determining how continuations run and results are combined.
+  static Cont<E, F, A> bothCrash<E, F, A>(
+    Cont<E, F, A> left,
+    Cont<E, F, A> right, {
+    required CrashPolicy<F, A> policy,
+  }) {
+    left = left.absurdify();
+    right = right.absurdify();
+
+    switch (policy) {
+      case SequenceCrashPolicy():
+        return left.thenDo((_) => right);
+      case QuitFastCrashPolicy():
+        return _bothQuitFast(left, right, (_, a) => a);
+      case RunAllCrashPolicy(
+          :final combineThenVals,
+          :final combineElseVals,
+        ):
+        return _bothWhenAllCrash(
+          left,
+          right,
+          combineThenVals,
+          combineElseVals,
+        );
+    }
+  }
+
+  /// Races two continuations with crash-channel routing.
+  ///
+  /// Like [either], but panics and synchronous throws from either continuation
+  /// are routed to the crash channel ([onCrash]) instead of being converted
+  /// to errors. Uses homogeneous types (both sides must share the same [F] and [A]).
+  ///
+  /// The execution behavior depends on the provided [policy]:
+  ///
+  /// - [SequenceCrashPolicy]: Tries [left] first; if [left] fails, tries [right].
+  /// - [QuitFastCrashPolicy]: Runs both in parallel, returns immediately on first success.
+  /// - [RunAllCrashPolicy]: Runs both in parallel, waits for both to complete,
+  ///   combines errors with [RunAllCrashPolicy.combineElseVals] and successes
+  ///   with [RunAllCrashPolicy.combineThenVals]. Crashes go to [onCrash].
+  ///
+  /// - [left]: First continuation to try.
+  /// - [right]: Second continuation to try.
+  /// - [policy]: Execution policy determining how continuations run and results are combined.
+  static Cont<E, F, A> eitherCrash<E, F, A>(
+    Cont<E, F, A> left,
+    Cont<E, F, A> right, {
+    required CrashPolicy<F, A> policy,
+  }) {
+    left = left.absurdify();
+    right = right.absurdify();
+
+    switch (policy) {
+      case SequenceCrashPolicy():
+        return left.elseDo((_) => right);
+      case QuitFastCrashPolicy():
+        return _eitherQuitFast(left, right, (_, f) => f);
+      case RunAllCrashPolicy(
+          :final combineElseVals,
+          :final combineThenVals,
+        ):
+        return _eitherWhenAllCrash(
+          left,
+          right,
+          combineElseVals,
+          combineThenVals,
+        );
     }
   }
 
@@ -363,6 +456,8 @@ final class Cont<E, F, A> {
     ) release,
     required Cont<E, F, A> Function(R resource) use,
   }) {
-    return Cont.fromRun((runtime, observer) {});
+    return Cont.fromRun((runtime, observer) {
+
+    });
   }
 }
