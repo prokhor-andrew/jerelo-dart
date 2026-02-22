@@ -384,7 +384,7 @@ final class Cont<E, F, A> {
     }
   }
 
-  static Cont<E, F, A> xxx<E, F, A>(
+  static Cont<E, F, A> merge<E, F, A>(
     Cont<E, F, A> left,
     Cont<E, F, A> right, {
     required CrashPolicy<F, A> policy,
@@ -403,9 +403,18 @@ final class Cont<E, F, A> {
         });
       case QuitFastCrashPolicy():
         return _crashQuitFast(left, right);
-      case RunAllCrashPolicy():
-        // TODO:
-        throw "";
+      case RunAllCrashPolicy(
+          shouldFavorElse: final shouldFavorElse,
+          combineElseVals: final combineElseVals,
+          combineThenVals: final combineThenVals,
+        ):
+        return _crashWhenAll(
+          left,
+          right,
+          combineThenVals,
+          combineElseVals,
+          shouldFavorElse,
+        );
     }
   }
 
