@@ -25,7 +25,7 @@ extension ContElseForeverExtension<E, F, A>
   ///
   /// // A resilient worker that never stops retrying
   /// final worker = processJob()
-  ///     .elseTap((errors) => logError(errors))
+  ///     .elseTap((error) => logError(error))
   ///     .elseForever();
   /// ```
   Cont<E, Never, A> elseForever() {

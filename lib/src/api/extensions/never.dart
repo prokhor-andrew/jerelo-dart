@@ -1,6 +1,11 @@
 import 'package:jerelo/jerelo.dart';
 
 extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
+  /// Widens the then (success) channel from [Never] to [A] if this continuation
+  /// has a [Never] success type; otherwise returns `this` unchanged.
+  ///
+  /// This is a type-safe no-op that allows a `Cont<E, F, Never>` to be used
+  /// where a `Cont<E, F, A>` is expected.
   Cont<E, F, A> thenAbsurdify() {
     Cont<E, F, A> cont = this;
 
@@ -11,6 +16,11 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
     return cont;
   }
 
+  /// Widens the else (error) channel from [Never] to [F] if this continuation
+  /// has a [Never] error type; otherwise returns `this` unchanged.
+  ///
+  /// This is a type-safe no-op that allows a `Cont<E, Never, A>` to be used
+  /// where a `Cont<E, F, A>` is expected.
   Cont<E, F, A> elseAbsurdify() {
     Cont<E, F, A> cont = this;
 
@@ -21,6 +31,10 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
     return cont;
   }
 
+  /// Widens both the then and else channels from [Never] to [A] and [F]
+  /// respectively, if needed; otherwise returns `this` unchanged.
+  ///
+  /// Combines [thenAbsurdify] and [elseAbsurdify] in a single call.
   Cont<E, F, A> absurdify() {
     Cont<E, F, A> cont = this;
 
@@ -43,6 +57,15 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
 
 extension ContElseNeverExtension<E, A>
     on Cont<E, Never, A> {
+  /// Converts a continuation that never produces a business-logic error to
+  /// any desired error type [F].
+  ///
+  /// The absurd method implements the "ex falso quodlibet" principle from type
+  /// theory. Since [Never] is an uninhabited type, the mapping function can
+  /// never actually execute, but the type system accepts the transformation.
+  ///
+  /// This is useful for unifying error types when composing continuations that
+  /// cannot fail on the else channel with ones that can.
   Cont<E, F, A> elseAbsurd<F>() {
     return elseMap((
       Never never,

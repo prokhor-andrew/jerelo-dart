@@ -5,28 +5,21 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// Filters the continuation based on the predicate. If the predicate returns
   /// `true`, the continuation succeeds with the value. If the predicate returns
-  /// `false`, the continuation terminates with the provided error (or no error
-  /// if none are specified).
+  /// `false`, the continuation terminates on the else channel with [fallback].
   ///
   /// This is useful for conditional execution where you want to treat a
-  /// predicate failure as termination rather than an error.
+  /// predicate failure as a business-logic error.
   ///
   /// - [predicate]: Function that tests the value.
-  /// - [error]: Optional list of error to use when terminating on predicate failure.
+  /// - [fallback]: The error value to terminate with when the predicate returns `false`.
   ///
   /// Example:
   /// ```dart
-  /// final cont = Cont.of(42).thenIf((n) => n > 0);
+  /// final cont = Cont.of(42).thenIf((n) => n > 0, fallback: 'must be positive');
   /// // Succeeds with 42
   ///
-  /// final cont2 = Cont.of(-5).thenIf((n) => n > 0);
-  /// // Terminates without error
-  ///
-  /// final cont3 = Cont.of(-5).thenIf(
-  ///   (n) => n > 0,
-  ///   [ContError.capture('Value must be positive')],
-  /// );
-  /// // Terminates with custom error
+  /// final cont2 = Cont.of(-5).thenIf((n) => n > 0, fallback: 'must be positive');
+  /// // Terminates with 'must be positive'
   /// ```
   Cont<E, F, A> thenIf(
     bool Function(A value) predicate, {
@@ -46,7 +39,7 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// Similar to [thenIf] but the predicate doesn't examine the value.
   ///
   /// - [predicate]: Zero-argument function that determines success or termination.
-  /// - [error]: Optional list of error to use when terminating on predicate failure.
+  /// - [fallback]: The error value to terminate with when the predicate returns `false`.
   Cont<E, F, A> thenIf0(
     bool Function() predicate, {
     required F fallback,
@@ -63,7 +56,7 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// needs access to configuration or context information.
   ///
   /// - [predicate]: Function that takes the environment and value, and determines success or termination.
-  /// - [error]: Optional list of error to use when terminating on predicate failure.
+  /// - [fallback]: The error value to terminate with when the predicate returns `false`.
   Cont<E, F, A> thenIfWithEnv(
     bool Function(E env, A value) predicate, {
     required F fallback,
@@ -81,7 +74,7 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// environment and ignores the current value.
   ///
   /// - [predicate]: Function that takes the environment and determines success or termination.
-  /// - [error]: Optional list of error to use when terminating on predicate failure.
+  /// - [fallback]: The error value to terminate with when the predicate returns `false`.
   Cont<E, F, A> thenIfWithEnv0(
     bool Function(E env) predicate, {
     required F fallback,

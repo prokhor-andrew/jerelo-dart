@@ -38,6 +38,15 @@ final class ContRuntime<E> {
     return ContRuntime._(env, isCancelled);
   }
 
+  /// Creates a copy of this runtime with an additional cancellation source.
+  ///
+  /// Returns a new [ContRuntime] whose [isCancelled] returns `true` if either
+  /// the original cancellation function or [anotherIsCancelled] returns `true`.
+  /// Used internally to compose independent cancellation tokens when running
+  /// continuations in parallel.
+  ///
+  /// - [anotherIsCancelled]: Additional cancellation predicate to combine with
+  ///   the existing one.
   ContRuntime<E> extendCancellation(
     bool Function() anotherIsCancelled,
   ) {

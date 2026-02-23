@@ -3,9 +3,8 @@ part of '../../cont.dart';
 /// Implementation of fallback with crash accumulation on the crash path.
 ///
 /// Runs [cont], and on crash executes the fallback produced by [f].
-/// If the fallback also crashes, crashes from both attempts are
-/// combined before being propagated.
-///
+/// If the fallback also crashes, crashes from both attempts are merged
+/// into a [MergedCrash] before being propagated.
 Cont<E, F, A> _crashZip<E, F, A>(
   Cont<E, F, A> cont,
   Cont<E, F, A> Function(ContCrash crash) f,
@@ -35,7 +34,6 @@ extension ContCrashZipExtension<E, F, A> on Cont<E, F, A> {
   /// accumulates and combines crashes from both attempts.
   ///
   /// - [f]: Function that receives original crash and produces a fallback continuation.
-  /// - [combine]: Function to combine the two crashes.
   Cont<E, F, A> crashZip(
     Cont<E, F, A> Function(ContCrash crash) f,
   ) {
@@ -48,7 +46,6 @@ extension ContCrashZipExtension<E, F, A> on Cont<E, F, A> {
   /// when producing the fallback continuation.
   ///
   /// - [f]: Zero-argument function that produces a fallback continuation.
-  /// - [combine]: Function to combine the two crashes.
   Cont<E, F, A> crashZip0(
     Cont<E, F, A> Function() f,
   ) {
@@ -65,7 +62,6 @@ extension ContCrashZipExtension<E, F, A> on Cont<E, F, A> {
   /// need access to configuration or context.
   ///
   /// - [f]: Function that takes the environment and crash, and produces a fallback continuation.
-  /// - [combine]: Function to combine the two crashes.
   Cont<E, F, A> crashZipWithEnv(
     Cont<E, F, A> Function(E env, ContCrash crash) f,
   ) {
@@ -82,7 +78,6 @@ extension ContCrashZipExtension<E, F, A> on Cont<E, F, A> {
   /// environment and ignores the original crash information.
   ///
   /// - [f]: Function that takes the environment and produces a fallback continuation.
-  /// - [combine]: Function to combine the two crashes.
   Cont<E, F, A> crashZipWithEnv0(
     Cont<E, F, A> Function(E env) f,
   ) {

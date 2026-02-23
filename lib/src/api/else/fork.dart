@@ -4,7 +4,7 @@ part of '../../cont.dart';
 ///
 /// Runs [cont], and on termination starts the side-effect continuation
 /// produced by [f] without waiting for it. The original termination error
-/// are forwarded to the observer immediately. error from the side-effect
+/// is forwarded to the observer immediately. Outcomes from the side-effect
 /// are silently ignored.
 Cont<E, F, A> _elseFork<E, F, F2, A, A2>(
   Cont<E, F, A> cont,

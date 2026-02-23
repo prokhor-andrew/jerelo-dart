@@ -20,15 +20,16 @@ part 'helper/when_all_helpers.dart';
 part 'helper/when_all_list_helpers.dart';
 
 /// A continuation monad representing a computation that will eventually
-/// produce a value of type [A] or terminate with error.
+/// produce a value, terminate with a business-logic error, or crash.
 ///
 /// [Cont] provides a powerful abstraction for managing asynchronous operations,
 /// error handling, and composition of effectful computations. It follows the
 /// continuation-passing style where computations are represented as functions
-/// that take callbacks for success and failure.
+/// that take callbacks for each of the three outcome channels.
 ///
 /// Type parameters:
 /// - [E]: The environment type providing context for the continuation execution.
+/// - [F]: The error type that the continuation may terminate with on the else channel.
 /// - [A]: The value type that the continuation produces upon success.
 final class Cont<E, F, A> {
   final void Function(
@@ -38,6 +39,21 @@ final class Cont<E, F, A> {
 
   const Cont._(this._run);
 
+  /// Executes the continuation with the given environment.
+  ///
+  /// Runs the continuation and routes its outcome to the appropriate callback.
+  /// Returns a [ContCancelToken] that can be used to cooperatively cancel
+  /// the running computation.
+  ///
+  /// - [env]: The environment value to provide to the computation.
+  /// - [onPanic]: Called when an unexpected exception escapes all crash handlers.
+  ///   Defaults to rethrowing the panic.
+  /// - [onCrash]: Called when the computation terminates on the crash channel.
+  ///   Defaults to silently ignoring the crash.
+  /// - [onElse]: Called when the computation terminates on the else (error) channel.
+  ///   Defaults to silently ignoring the error.
+  /// - [onThen]: Called when the computation succeeds with a value.
+  ///   Defaults to silently ignoring the value.
   ContCancelToken run(
     E env, {
     void Function(NormalCrash crash) onPanic = _panic,
@@ -55,6 +71,14 @@ final class Cont<E, F, A> {
     return cancelToken;
   }
 
+  /// Executes the continuation with the given runtime and observer directly.
+  ///
+  /// Lower-level alternative to [run]. Useful when composing continuations
+  /// internally or when a [ContRuntime] and [ContObserver] are already
+  /// available from an enclosing computation.
+  ///
+  /// - [runtime]: The runtime context providing the environment and cancellation state.
+  /// - [observer]: The observer whose callbacks receive the computation's outcome.
   void runWith(
     ContRuntime<E> runtime,
     ContObserver<F, A> observer,
@@ -188,6 +212,9 @@ final class Cont<E, F, A> {
     });
   }
 
+  /// Creates a [Cont] that immediately terminates on the crash channel.
+  ///
+  /// - [crash]: The [ContCrash] value to propagate.
   static Cont<E, F, A> crash<E, F, A>(ContCrash crash) {
     return Cont.fromRun((runtime, observer) {
       observer.onCrash(crash);
@@ -205,12 +232,11 @@ final class Cont<E, F, A> {
     });
   }
 
-  /// Creates a [Cont] that immediately terminates with optional error.
+  /// Creates a [Cont] that immediately terminates on the else (error) channel.
   ///
-  /// Creates a continuation that terminates without producing a value.
-  /// Used to represent failure states.
+  /// Used to represent business-logic failure states.
   ///
-  /// - [error]: List of error to terminate with. Defaults to an empty list.
+  /// - [err]: The error value to terminate with.
   static Cont<E, F, A> error<E, F, A>(F err) {
     return Cont.fromRun((runtime, observer) {
       observer.onElse(err);
@@ -230,6 +256,13 @@ final class Cont<E, F, A> {
     });
   }
 
+  /// Retrieves the current environment value as an else (error).
+  ///
+  /// Accesses the environment of type [E] from the runtime context and
+  /// immediately terminates on the else channel with it. Useful for
+  /// threading context into error-handling paths.
+  ///
+  /// Returns a continuation that terminates with the environment value.
   static Cont<E, E, A> askElse<E, A>() {
     return Cont.fromRun((runtime, observer) {
       observer.onElse(runtime.env());
@@ -244,10 +277,10 @@ final class Cont<E, F, A> {
   ///
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [BothSequencePolicy]: Runs [left] then [right] sequentially.
-  /// - [BothMergeWhenAllPolicy]: Runs both in parallel, waits for both to complete,
-  ///   and merges error if both fail.
-  /// - [BothQuitFastPolicy]: Runs both in parallel, terminates immediately if either fails.
+  /// - [SequenceOkPolicy]: Runs [left] then [right] sequentially.
+  /// - [RunAllOkPolicy]: Runs both in parallel, waits for both to complete,
+  ///   and merges errors if both fail.
+  /// - [QuitFastOkPolicy]: Runs both in parallel, terminates immediately if either fails.
   ///
   /// - [left]: First continuation to execute.
   /// - [right]: Second continuation to execute.
@@ -290,10 +323,10 @@ final class Cont<E, F, A> {
   /// Executes all continuations in [list] and collects their values into a list.
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [BothSequencePolicy]: Runs continuations one by one in order, stops at first failure.
-  /// - [BothMergeWhenAllPolicy]: Runs all in parallel, waits for all to complete,
-  ///   and merges error if any fail.
-  /// - [BothQuitFastPolicy]: Runs all in parallel, terminates immediately on first failure.
+  /// - [SequenceOkPolicy]: Runs continuations one by one in order, stops at first failure.
+  /// - [RunAllOkPolicy]: Runs all in parallel, waits for all to complete,
+  ///   and merges errors if any fail.
+  /// - [QuitFastOkPolicy]: Runs all in parallel, terminates immediately on first failure.
   ///
   /// - [list]: List of continuations to execute.
   /// - [policy]: Execution policy determining how continuations are run and error are handled.
@@ -317,16 +350,18 @@ final class Cont<E, F, A> {
   /// Races two continuations, returning the first successful value.
   ///
   /// Executes both continuations and returns the result from whichever succeeds first.
-  /// If both fail, concatenates their error. The execution behavior depends on the
-  /// provided [policy]:
+  /// If both fail, their errors are combined via [combine]. The execution behavior
+  /// depends on the provided [policy]:
   ///
   /// - [SequenceOkPolicy]: Tries [left] first, then [right] if [left] fails.
-  /// - [RunAllOkPolicy]: Runs both in parallel, returns first success or merges
-  ///   results using the policy's combine function if both succeed.
+  /// - [RunAllOkPolicy]: Runs both in parallel; if both succeed, combines their
+  ///   values using the policy's combine function; otherwise propagates the first
+  ///   success or merges errors if both fail.
   /// - [QuitFastOkPolicy]: Runs both in parallel, returns immediately on first success.
   ///
   /// - [left]: First continuation to try.
   /// - [right]: Second continuation to try.
+  /// - [combine]: Function to combine errors when both continuations fail.
   /// - [policy]: Execution policy determining how continuations are run.
   static Cont<E, F3, A> either<E, F1, F2, F3, A>(
     Cont<E, F1, A> left,
@@ -363,12 +398,13 @@ final class Cont<E, F, A> {
   /// Races multiple continuations, returning the first successful value.
   ///
   /// Executes all continuations in [list] and returns the first one that succeeds.
-  /// If all fail, collects all error. The execution behavior depends on the
-  /// provided [policy]:
+  /// If all fail, their errors are collected into a [List]. The execution behavior
+  /// depends on the provided [policy]:
   ///
   /// - [SequenceOkPolicy]: Tries continuations one by one in order until one succeeds.
-  /// - [RunAllOkPolicy]: Runs all in parallel, returns first success or merges
-  ///   results using the policy's combine function if multiple succeed.
+  /// - [RunAllOkPolicy]: Runs all in parallel; if multiple succeed, combines their
+  ///   values using the policy's combine function; otherwise returns the first success
+  ///   or collects all errors if all fail.
   /// - [QuitFastOkPolicy]: Runs all in parallel, returns immediately on first success.
   ///
   /// - [list]: List of continuations to race.
@@ -390,6 +426,24 @@ final class Cont<E, F, A> {
     }
   }
 
+  /// Runs two continuations and merges their crash paths.
+  ///
+  /// Executes both continuations and combines crashes according to the [policy].
+  /// Non-crash outcomes (success and error) are handled according to the policy
+  /// when both continuations produce them.
+  ///
+  /// The execution behavior depends on the provided [policy]:
+  ///
+  /// - [SequenceCrashPolicy]: Runs [left] then [right] sequentially; if both crash,
+  ///   produces a [MergedCrash].
+  /// - [QuitFastCrashPolicy]: Runs both in parallel, propagates the first crash
+  ///   immediately.
+  /// - [RunAllCrashPolicy]: Runs both in parallel, waits for both, and merges crashes
+  ///   if both crash.
+  ///
+  /// - [left]: First continuation to execute.
+  /// - [right]: Second continuation to execute.
+  /// - [policy]: Crash policy determining how crashes are merged.
   static Cont<E, F, A> merge<E, F, A>(
     Cont<E, F, A> left,
     Cont<E, F, A> right, {
@@ -424,6 +478,23 @@ final class Cont<E, F, A> {
     }
   }
 
+  /// Runs multiple continuations and merges their crash paths.
+  ///
+  /// Executes all continuations in [list] and combines their crashes according
+  /// to the [policy]. Non-crash outcomes are handled per-policy when produced
+  /// by multiple continuations.
+  ///
+  /// The execution behavior depends on the provided [policy]:
+  ///
+  /// - [SequenceCrashPolicy]: Runs continuations one by one; sequential crashes
+  ///   are merged into a [MergedCrash].
+  /// - [QuitFastCrashPolicy]: Runs all in parallel, propagates the first crash
+  ///   immediately.
+  /// - [RunAllCrashPolicy]: Runs all in parallel, waits for all, and collects
+  ///   crashes into a [CollectedCrash].
+  ///
+  /// - [list]: List of continuations to execute.
+  /// - [policy]: Crash policy determining how crashes are merged.
   static Cont<E, F, A> mergeAll<E, F, A>(
     List<Cont<E, F, A>> list, {
     required CrashPolicy<F, A> policy,

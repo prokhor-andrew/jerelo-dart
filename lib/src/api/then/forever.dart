@@ -5,11 +5,12 @@ extension ContThenForeverExtension<E, F, A>
   /// Repeatedly executes the continuation indefinitely.
   ///
   /// Runs the continuation in an infinite loop that never stops on its own.
-  /// The loop only terminates if the underlying continuation terminates with
-  /// an error.
+  /// The loop only terminates if the underlying continuation terminates on the
+  /// else (error) channel.
   ///
-  /// The return type [Cont]<[E], [Never]> indicates that this continuation never
-  /// produces a value - it either runs forever or terminates with errors.
+  /// The return type `Cont<E, F, Never>` indicates that this continuation never
+  /// produces a value — it either runs forever or terminates with a
+  /// business-logic error.
   ///
   /// This is useful for:
   /// - Daemon-like processes that run continuously
@@ -21,11 +22,10 @@ extension ContThenForeverExtension<E, F, A>
   /// ```dart
   /// // A server that handles requests forever
   /// final server = acceptConnection()
-  ///     .then((conn) => handleConnection(conn))
+  ///     .thenDo((conn) => handleConnection(conn))
   ///     .thenForever();
   ///
-  /// // Run with only a termination handler (using trap extension)
-  /// server.trap(env, (errors) => print('Server stopped: $errors'));
+  /// server.run(env, onElse: (error) => print('Server stopped: $error'));
   /// ```
   Cont<E, F, Never> thenForever() {
     return thenUntil((_) {

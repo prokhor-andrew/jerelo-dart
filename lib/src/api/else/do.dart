@@ -4,10 +4,10 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
   /// Provides a fallback continuation in case of termination.
   ///
   /// If the continuation terminates, executes the fallback. If the fallback
-  /// also terminates, only the fallback's error are propagated (the original
-  /// error are discarded).
+  /// also terminates, only the fallback's error is propagated (the original
+  /// error is discarded).
   ///
-  /// To accumulate error from both attempts, use [elseZip] instead.
+  /// To accumulate errors from both attempts, use [elseZip] instead.
   ///
   /// - [f]: Function that receives error and produces a fallback continuation.
   Cont<E, F2, A> elseDo<F2>(

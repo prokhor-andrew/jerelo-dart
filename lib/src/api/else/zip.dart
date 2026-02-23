@@ -3,8 +3,8 @@ import 'package:jerelo/jerelo.dart';
 /// Implementation of fallback with error accumulation on the termination path.
 ///
 /// Runs [cont], and on termination executes the fallback produced by [f].
-/// If the fallback also terminates, error from both attempts are
-/// concatenated before being propagated.
+/// If the fallback also terminates, errors from both attempts are
+/// combined before being propagated.
 Cont<E, F3, A> _elseZip<E, F, F2, F3, A>(
   Cont<E, F, A> cont,
   Cont<E, F2, A> Function(F) f,
@@ -19,13 +19,13 @@ Cont<E, F3, A> _elseZip<E, F, F2, F3, A>(
 }
 
 extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
-  /// Attempts a fallback continuation and combines error from both attempts.
+  /// Attempts a fallback continuation and combines errors from both attempts.
   ///
   /// If the continuation terminates, executes the fallback. If the fallback also
-  /// terminates, concatenates error from both attempts before terminating.
+  /// terminates, combines errors from both attempts via [combine] before terminating.
   ///
-  /// Unlike [elseDo], which only keeps the second error list, this method
-  /// accumulates and combines error from both attempts.
+  /// Unlike [elseDo], which only keeps the second error, this method
+  /// accumulates and combines errors from both attempts.
   ///
   /// - [f]: Function that receives original error and produces a fallback continuation.
   Cont<E, F3, A> elseZip<F2, F3>(
@@ -50,12 +50,12 @@ extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
     }, combine);
   }
 
-  /// Attempts a fallback continuation with access to the environment and combines error.
+  /// Attempts a fallback continuation with access to the environment and combines errors.
   ///
   /// Similar to [elseZip], but the fallback function receives both the original
   /// error and the environment. If both the original attempt and fallback fail,
-  /// their error are concatenated. This is useful when error handling strategies
-  /// need access to configuration or context.
+  /// their errors are combined via [combine]. This is useful when error handling
+  /// strategies need access to configuration or context.
   ///
   /// - [f]: Function that takes the environment and error, and produces a fallback continuation.
   Cont<E, F3, A> elseZipWithEnv<F2, F3>(
@@ -69,7 +69,7 @@ extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
     });
   }
 
-  /// Attempts a fallback continuation with access to the environment only and combines error.
+  /// Attempts a fallback continuation with access to the environment only and combines errors.
   ///
   /// Similar to [elseZipWithEnv], but the fallback function only receives the
   /// environment and ignores the original error information.

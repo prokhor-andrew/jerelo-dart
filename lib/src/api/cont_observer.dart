@@ -1,12 +1,29 @@
 part of '../cont.dart';
 
+/// Receives the outcome of a [Cont] computation.
+///
+/// [ContObserver] is the callback container passed to [Cont.runWith]. It holds
+/// three outcome callbacks — [onCrash], [onElse], and [onThen] — exactly one
+/// of which will be invoked when the continuation completes.
+///
+/// Use the `copyUpdate*` family of methods to derive observers with selectively
+/// overridden callbacks while preserving the rest of the original observer's state.
 sealed class ContObserver<F, A> {
   final void Function(NormalCrash crash) _onUnsafePanic;
 
+  /// Called when the computation terminates on the crash channel.
+  ///
+  /// Receives the [ContCrash] that describes the unexpected exception.
   final void Function(ContCrash crash) onCrash;
 
+  /// Called when the computation terminates on the else (error) channel.
+  ///
+  /// Receives the business-logic error value of type [F].
   final void Function(F error) onElse;
 
+  /// Called when the computation succeeds on the then (value) channel.
+  ///
+  /// Receives the success value of type [A].
   final void Function(A value) onThen;
 
   const ContObserver(
@@ -16,6 +33,11 @@ sealed class ContObserver<F, A> {
     this.onThen,
   );
 
+  /// Returns a copy of this observer with a replaced [onCrash] callback.
+  ///
+  /// All other callbacks are inherited from this observer unchanged.
+  ///
+  /// - [onCrash]: The new crash callback.
   ContObserver<F, A> copyUpdateOnCrash(
     void Function(ContCrash crash) onCrash,
   ) {
@@ -47,6 +69,12 @@ sealed class ContObserver<F, A> {
     };
   }
 
+  /// Returns a copy of this observer with a replaced [onElse] callback and
+  /// a new error type [F2].
+  ///
+  /// All other callbacks are inherited from this observer unchanged.
+  ///
+  /// - [onElse]: The new else callback.
   ContObserver<F2, A> copyUpdateOnElse<F2>(
     void Function(F2 error) onElse,
   ) {
@@ -78,6 +106,12 @@ sealed class ContObserver<F, A> {
     };
   }
 
+  /// Returns a copy of this observer with a replaced [onThen] callback and
+  /// a new value type [A2].
+  ///
+  /// All other callbacks are inherited from this observer unchanged.
+  ///
+  /// - [onThen]: The new then callback.
   ContObserver<F, A2> copyUpdateOnThen<A2>(
     void Function(A2 value) onThen,
   ) {
@@ -109,6 +143,13 @@ sealed class ContObserver<F, A> {
     };
   }
 
+  /// Returns a copy of this observer with all three outcome callbacks replaced.
+  ///
+  /// The panic handler is inherited from this observer unchanged.
+  ///
+  /// - [onCrash]: The new crash callback.
+  /// - [onElse]: The new else callback.
+  /// - [onThen]: The new then callback.
   ContObserver<F2, A2> copyUpdate<F2, A2>({
     required void Function(ContCrash crash) onCrash,
     required void Function(F2 error) onElse,
@@ -230,7 +271,13 @@ final class _UnsafeObserver<F, A>
   );
 }
 
+/// A [ContObserver] that guards against duplicate callback invocations.
+///
+/// Provided to the user-supplied run function in [Cont.fromRun]. The [isUsed]
+/// predicate returns `true` once any outcome callback has already been called,
+/// allowing downstream operators to detect and ignore redundant invocations.
 final class SafeObserver<F, A> extends ContObserver<F, A> {
+  /// Returns `true` if an outcome callback has already been invoked.
   final bool Function() isUsed;
 
   const SafeObserver._(

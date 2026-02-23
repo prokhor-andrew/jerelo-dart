@@ -6,26 +6,27 @@ extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
   /// Filters termination based on the predicate. If the predicate returns
   /// `true`, the continuation continues terminating with the original error.
   /// If the predicate returns `false`, the continuation promotes to success
-  /// with the provided value.
+  /// with the provided [fallback] value.
   ///
   /// This is the error-channel counterpart to [thenIf]. While [thenIf] filters
-  /// values on the success channel, [elseUnless] filters error on the termination
+  /// values on the success channel, [elseUnless] filters errors on the else
   /// channel and provides conditional promotion.
   ///
   /// This is useful for promoting past specific error conditions while letting
-  /// other error propagate through.
+  /// other errors propagate through.
   ///
-  /// - [predicate]: Function that tests the error list.
+  /// - [predicate]: Function that tests the error value. Returns `true` to keep
+  ///   the error, or `false` to promote with [fallback].
   /// - [fallback]: The value to promote with when the predicate returns `false`.
   ///
   /// Example:
   /// ```dart
-  /// final cont = Cont.terminate<(), int>([ContError.capture('not found')])
-  ///   .elseIf((error) => error.first.error == 'not found', 42);
+  /// final cont = Cont.error<(), String, int>('not found')
+  ///   .elseUnless((error) => error == 'not found', fallback: 42);
   /// // Recovers with 42
   ///
-  /// final cont2 = Cont.terminate<(), int>([ContError.capture('fatal error')])
-  ///   .elseIf((error) => error.first.error == 'not found', 42);
+  /// final cont2 = Cont.error<(), String, int>('fatal error')
+  ///   .elseUnless((error) => error == 'not found', fallback: 42);
   /// // Continues terminating with 'fatal error'
   /// ```
   Cont<E, F, A> elseUnless(

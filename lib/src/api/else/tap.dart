@@ -3,9 +3,9 @@ import 'package:jerelo/jerelo.dart';
 /// Implementation of side-effect execution on the termination path.
 ///
 /// Runs [cont], and on termination executes the side-effect continuation
-/// produced by [f]. If the side-effect terminates, the original error are
-/// propagated. If the side-effect succeeds, promotion occurs with the
-/// side-effect's value.
+/// produced by [f]. If the side-effect terminates, the original error is
+/// propagated. If the side-effect succeeds, the computation promotes to
+/// the success channel with the side-effect's value.
 Cont<E, F, A> _elseTap<E, F, F2, A>(
   Cont<E, F, A> cont,
   Cont<E, F2, A> Function(F error) f,
