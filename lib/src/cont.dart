@@ -444,7 +444,7 @@ final class Cont<E, F, A> {
     required Cont<E, F, A> Function(R resource) use,
   }) {
     return Cont.fromRun((runtime, observer) {
-      acquire.elseAbsurd<F>().runWith(
+      acquire.absurdify().elseAbsurd<F>().runWith(
         runtime,
         observer.copyUpdateOnThen<R>((r) {
           if (runtime.isCancelled()) {
@@ -457,7 +457,7 @@ final class Cont<E, F, A> {
                 onReleaseCrash,
           }) {
             final crash = ContCrash.tryCatch(() {
-              release(r).elseAbsurd<F>().runWith(
+              release(r).absurdify().elseAbsurd<F>().runWith(
                     runtime,
                     observer.copyUpdateOnThen<()>((_) {
                       if (runtime.isCancelled()) return;

@@ -22,6 +22,21 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
   }
 
   Cont<E, F, A> absurdify() {
+    Cont<E, F, A> cont = this;
+
+    if (cont is Cont<E, Never, Never>) {
+      return Cont.fromRun((runtime, observer) {
+        cont.runWith(
+          runtime,
+          observer.copyUpdate<Never, Never>(
+            onCrash: observer.onCrash,
+            onElse: (Never n) {},
+            onThen: (Never n) {},
+          ),
+        );
+      });
+    }
+
     return thenAbsurdify().elseAbsurdify();
   }
 }
