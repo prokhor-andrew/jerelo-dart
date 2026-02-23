@@ -10,45 +10,59 @@ void _whenAllPar<P, S>({
   required S Function(S acc, S next) combine,
   required void Function(List<P> primaries) onAllPrimary,
   required void Function(S secondary) onAnySecondary,
+  required void Function(ContCrash crash) onCrash,
 }) {
   if (total == 0) {
     onAllPrimary([]);
     return;
   }
 
+  bool isDone = false;
   S? seed;
   final List<P> results = [];
   var i = 0;
 
   void handlePrimary(P p) {
+    if (isDone) return;
     i += 1;
     final seedCopy = seed;
     if (seedCopy != null && i >= total) {
+      isDone = true;
       onAnySecondary(seedCopy);
       return;
     }
     results.add(p);
     if (i >= total) {
+      isDone = true;
       onAllPrimary(results);
     }
   }
 
   void handleSecondary(S s) {
+    if (isDone) return;
     i += 1;
     final seedCopy = seed;
     if (seedCopy == null) {
       if (i >= total) {
+        isDone = true;
         onAnySecondary(s);
         return;
       }
       seed = s;
     } else {
-      final newSeed = combine(seedCopy, s);
-      if (i >= total) {
-        onAnySecondary(newSeed);
-        return;
+      final crash = ContCrash.tryCatch(() {
+        final newSeed = combine(seedCopy, s);
+        if (i >= total) {
+          isDone = true;
+          onAnySecondary(newSeed);
+          return;
+        }
+        seed = newSeed;
+      });
+      if (crash != null) {
+        isDone = true;
+        onCrash(crash);
       }
-      seed = newSeed;
     }
   }
 
@@ -86,6 +100,7 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
       combine: combine,
       onAllPrimary: observer.onThen,
       onAnySecondary: observer.onElse,
+      onCrash: observer.onCrash,
     );
   });
 }
@@ -119,6 +134,7 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
       combine: combine,
       onAllPrimary: observer.onElse,
       onAnySecondary: observer.onThen,
+      onCrash: observer.onCrash,
     );
   });
 }

@@ -457,7 +457,10 @@ final class Cont<E, F, A> {
                 onReleaseCrash,
           }) {
             final crash = ContCrash.tryCatch(() {
-              release(r).absurdify().elseAbsurd<F>().runWith(
+              release(r)
+                  .absurdify()
+                  .elseAbsurd<F>()
+                  .runWith(
                     runtime,
                     observer.copyUpdateOnThen<()>((_) {
                       if (runtime.isCancelled()) return;
