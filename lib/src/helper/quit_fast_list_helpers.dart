@@ -104,6 +104,68 @@ Cont<E, F, List<A>> _quitFastAll<E, F, A>(
   });
 }
 
+Cont<E, F, A> _mergeAllCrashQuitFast<E, F, A>(
+  List<Cont<E, F, A>> list,
+) {
+  list = list.toList(); // defensive copy
+  return Cont.fromRun((runtime, observer) {
+    list = list.toList(); // defensive copy
+
+    if (list.isEmpty) {
+      observer.onCrash(CollectedCrash._({}));
+      return;
+    }
+
+    final total = list.length;
+    bool isDone = false;
+    int numberOfCrashed = 0;
+    final crashes = <int, ContCrash>{};
+
+    final shared = runtime.extendCancellation(() => isDone);
+
+    void handleThen(A a) {
+      if (shared.isCancelled()) return;
+      isDone = true;
+      observer.onThen(a);
+    }
+
+    void handleElse(F f) {
+      if (shared.isCancelled()) return;
+      isDone = true;
+      observer.onElse(f);
+    }
+
+    void handleCrash(int index, ContCrash crash) {
+      if (shared.isCancelled()) return;
+      crashes[index] = crash;
+      numberOfCrashed += 1;
+      if (numberOfCrashed >= total) {
+        isDone = true;
+        observer.onCrash(
+          CollectedCrash._(Map.from(crashes)),
+        );
+      }
+    }
+
+    for (var i = 0; i < total; i++) {
+      final idx = i;
+      final contCrash = ContCrash.tryCatch(() {
+        list[idx].absurdify().runWith(
+              shared,
+              observer.copyUpdate(
+                onCrash: (c) => handleCrash(idx, c),
+                onElse: handleElse,
+                onThen: handleThen,
+              ),
+            );
+      });
+      if (contCrash != null) {
+        handleCrash(idx, contCrash);
+      }
+    }
+  });
+}
+
 Cont<E, List<F>, A> _quitFastAny<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
