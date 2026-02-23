@@ -18,20 +18,22 @@ Cont<E, F, List<A>> _allSequence<E, F, A>(
         final Cont<E, F, A> cont = list[index].absurdify();
         cont.runWith(
           runtime,
-          observer.copyUpdateOnCrash((crash) {
-            if (runtime.isCancelled()) {
-              updateCancel();
-              return;
-            }
-            updateCrash(crash);
-          }).copyUpdateOnElse<F>((error) {
-            if (runtime.isCancelled()) {
-              updateCancel();
-              return;
-            }
-            updateSecondary(error);
-          }).copyUpdateOnThen<A>(
-            (a) {
+          observer.copyUpdate(
+            onCrash: (crash) {
+              if (runtime.isCancelled()) {
+                updateCancel();
+                return;
+              }
+              updateCrash(crash);
+            },
+            onElse: (error) {
+              if (runtime.isCancelled()) {
+                updateCancel();
+                return;
+              }
+              updateSecondary(error);
+            },
+            onThen: (a) {
               if (runtime.isCancelled()) {
                 updateCancel();
                 return;
@@ -66,27 +68,25 @@ Cont<E, List<F>, A> _anySequence<E, F, A>(
         final Cont<E, F, A> cont = list[index].absurdify();
         cont.runWith(
           runtime,
-          observer.copyUpdateOnCrash((crash) {
+          observer.copyUpdate(onCrash: (crash) {
             if (runtime.isCancelled()) {
               updateCancel();
               return;
             }
             updateCrash(crash);
-          }).copyUpdateOnElse<F>((error) {
+          }, onElse: (error) {
             if (runtime.isCancelled()) {
               updateCancel();
               return;
             }
             updatePrimary(error);
-          }).copyUpdateOnThen<A>(
-            (a) {
-              if (runtime.isCancelled()) {
-                updateCancel();
-                return;
-              }
-              updateSecondary(a);
-            },
-          ),
+          }, onThen: (a) {
+            if (runtime.isCancelled()) {
+              updateCancel();
+              return;
+            }
+            updateSecondary(a);
+          }),
         );
       },
       onPrimary: observer.onElse,
@@ -126,10 +126,12 @@ void _seq<S, A>({
             );
           }
           return _StackSafeLoopPolicyKeepRunning(values);
-        case _Value2(b: final f):
-          return _StackSafeLoopPolicyStop(_Value2(f));
-        case _Value3(c: final error):
-          return _StackSafeLoopPolicyStop(_Value3(error));
+        case _Value2(b: final secondary):
+          return _StackSafeLoopPolicyStop(
+            _Value2(secondary),
+          );
+        case _Value3(c: final crash):
+          return _StackSafeLoopPolicyStop(_Value3(crash));
       }
     },
     computation: (values, update) {
@@ -141,26 +143,20 @@ void _seq<S, A>({
             update(null);
           },
           (crash) {
-            update(
-              _Value3(crash),
-            );
+            update(_Value3(crash));
           },
           (a) {
             values.add(a);
-            update(
-              _Value1(values),
-            );
+            update(_Value1(values));
           },
-          (f) {
-            update(_Value2(f));
+          (secondary) {
+            update(_Value2(secondary));
           },
         );
       });
 
       if (crash != null) {
-        update(
-          _Value3(crash),
-        );
+        update(_Value3(crash));
       }
     },
     escape: (triple) {
