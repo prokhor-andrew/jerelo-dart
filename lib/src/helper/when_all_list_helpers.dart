@@ -69,7 +69,7 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
       onRun: (index, onPrimary, onSecondary) {
         final cont = list[index];
         try {
-          cont._run(
+          cont.runWith(
             runtime,
             observer.copyUpdateOnElse<F>((error) {
               if (runtime.isCancelled()) return;
@@ -102,7 +102,7 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
       onRun: (index, onPrimary, onSecondary) {
         final cont = list[index];
         try {
-          cont._run(
+          cont.runWith(
             runtime,
             observer.copyUpdateOnElse<F>((error) {
               if (runtime.isCancelled()) return;
