@@ -416,7 +416,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
       );
     });
     if (leftCrash != null) {
-      observer.onCrash(leftCrash);
+      handleCrash(_Left(leftCrash));
     }
 
     final rightCrash = ContCrash.tryCatch(() {
@@ -430,7 +430,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
       );
     });
     if (rightCrash != null) {
-      observer.onCrash(rightCrash);
+      handleCrash(_Right(rightCrash));
     }
   });
 }
