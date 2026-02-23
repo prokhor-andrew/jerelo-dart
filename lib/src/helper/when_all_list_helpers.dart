@@ -239,6 +239,142 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
   });
 }
 
+Cont<E, F, A> _mergeAllCrashRunAll<E, F, A>(
+  List<Cont<E, F, A>> list,
+  A Function(A a1, A a2) combineThenVals,
+  F Function(F f1, F f2) combineElseVals,
+  bool shouldFavorElse,
+) {
+  list = list.toList(); // defensive copy
+  return Cont.fromRun((runtime, observer) {
+    list = list.toList(); // defensive copy
+
+    if (list.isEmpty) {
+      observer.onCrash(CollectedCrash._({}));
+      return;
+    }
+
+    final total = list.length;
+    bool isDone = false;
+    int numberOfFinished = 0;
+    final crashes = <int, ContCrash>{};
+    _Either<(), A> thenAcc = _Left(());
+    _Either<(), F> elseAcc = _Left(());
+
+    void onAllFinished() {
+      if (crashes.length >= total) {
+        observer.onCrash(
+          CollectedCrash._(Map.from(crashes)),
+        );
+        return;
+      }
+      switch ((thenAcc, elseAcc)) {
+        case (
+            _Right(value: final a),
+            _Right(value: final f)
+          ):
+          if (shouldFavorElse) {
+            observer.onElse(f);
+          } else {
+            observer.onThen(a);
+          }
+        case (_Right(value: final a), _Left()):
+          observer.onThen(a);
+        case (_Left(), _Right(value: final f)):
+          observer.onElse(f);
+        case (_Left(), _Left()):
+          break; // unreachable: crashes.length < total implies hasThen || hasElse
+      }
+    }
+
+    void handleThen(int index, A a) {
+      if (isDone) return;
+      numberOfFinished += 1;
+      switch (thenAcc) {
+        case _Left():
+          thenAcc = _Right(a);
+        case _Right(value: final prev):
+          final combineCrash = ContCrash.tryCatch(() {
+            thenAcc = _Right(combineThenVals(prev, a));
+          });
+          if (combineCrash != null) {
+            crashes[index] = combineCrash;
+            if (numberOfFinished >= total) {
+              isDone = true;
+              onAllFinished();
+            }
+            return;
+          }
+      }
+      if (numberOfFinished >= total) {
+        isDone = true;
+        onAllFinished();
+      }
+    }
+
+    void handleElse(int index, F f) {
+      if (isDone) return;
+      numberOfFinished += 1;
+      switch (elseAcc) {
+        case _Left():
+          elseAcc = _Right(f);
+        case _Right(value: final prev):
+          final combineCrash = ContCrash.tryCatch(() {
+            elseAcc = _Right(combineElseVals(prev, f));
+          });
+          if (combineCrash != null) {
+            crashes[index] = combineCrash;
+            if (numberOfFinished >= total) {
+              isDone = true;
+              onAllFinished();
+            }
+            return;
+          }
+      }
+      if (numberOfFinished >= total) {
+        isDone = true;
+        onAllFinished();
+      }
+    }
+
+    void handleCrash(int index, ContCrash crash) {
+      if (isDone) return;
+      numberOfFinished += 1;
+      crashes[index] = crash;
+      if (numberOfFinished >= total) {
+        isDone = true;
+        onAllFinished();
+      }
+    }
+
+    for (var i = 0; i < total; i++) {
+      final idx = i;
+      final contCrash = ContCrash.tryCatch(() {
+        list[idx].absurdify().runWith(
+              runtime,
+              observer.copyUpdate(
+                onCrash: (crash) {
+                  if (runtime.isCancelled()) return;
+                  handleCrash(idx, crash);
+                },
+                onElse: (f) {
+                  if (runtime.isCancelled()) return;
+                  handleElse(idx, f);
+                },
+                onThen: (a) {
+                  if (runtime.isCancelled()) return;
+                  handleThen(idx, a);
+                },
+              ),
+            );
+      });
+      if (contCrash != null) {
+        handleCrash(idx, contCrash);
+      }
+    }
+  });
+}
+
 Cont<E, List<F>, A> _whenAllAny<E, F, A>(
   List<Cont<E, F, A>> list,
   A Function(A acc, A value) combine,

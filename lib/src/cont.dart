@@ -424,6 +424,29 @@ final class Cont<E, F, A> {
     }
   }
 
+  static Cont<E, F, A> mergeAll<E, F, A>(
+    List<Cont<E, F, A>> list, {
+    required CrashPolicy<F, A> policy,
+  }) {
+    switch (policy) {
+      case SequenceCrashPolicy():
+        return _mergeAllSequence(list);
+      case QuitFastCrashPolicy():
+        return _mergeAllCrashQuitFast(list);
+      case RunAllCrashPolicy(
+          shouldFavorElse: final shouldFavorElse,
+          combineElseVals: final combineElseVals,
+          combineThenVals: final combineThenVals,
+        ):
+        return _mergeAllCrashRunAll(
+          list,
+          combineThenVals,
+          combineElseVals,
+          shouldFavorElse,
+        );
+    }
+  }
+
   /// Acquires a resource, uses it, and guarantees its release.
   ///
   /// Implements the bracket pattern for safe resource management. Regardless
