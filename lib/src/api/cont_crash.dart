@@ -70,14 +70,14 @@ final class MergedCrash extends ContCrash {
   int get hashCode => left.hashCode ^ right.hashCode;
 }
 
-final class ListedCrash extends ContCrash {
-  final List<ContCrash> crashes;
+final class CollectedCrash extends ContCrash {
+  final Map<int, ContCrash> crashes;
 
-  const ListedCrash._(this.crashes);
+  const CollectedCrash._(this.crashes);
 
   @override
   String toString() {
-    return "ListedCrash { crashes=$crashes }";
+    return "CollectedCrash { crashes=$crashes }";
   }
 
   @override
@@ -86,7 +86,7 @@ final class ListedCrash extends ContCrash {
       return true;
     }
 
-    if (other is! ListedCrash) {
+    if (other is! CollectedCrash) {
       return false;
     }
 

@@ -306,8 +306,11 @@ final class Cont<E, F, A> {
         return _allSequence(list);
       case QuitFastOkPolicy():
         return _quitFastAll(list);
-      case RunAllOkPolicy(combine: final combine):
-        return _whenAllAll(list, combine);
+      case RunAllOkPolicy(
+          combine: final combine,
+          shouldFavorCrash: final shouldFavorCrash,
+        ):
+        return _whenAllAll(list, combine, shouldFavorCrash);
     }
   }
 
@@ -379,8 +382,11 @@ final class Cont<E, F, A> {
         return _anySequence(list);
       case QuitFastOkPolicy<A>():
         return _quitFastAny(list);
-      case RunAllOkPolicy<A>(combine: final combine):
-        return _whenAllAny(list, combine);
+      case RunAllOkPolicy<A>(
+          combine: final combine,
+          shouldFavorCrash: final shouldFavorCrash,
+        ):
+        return _whenAllAny(list, combine, shouldFavorCrash);
     }
   }
 

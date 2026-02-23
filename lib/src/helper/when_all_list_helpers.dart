@@ -4,6 +4,7 @@ void _whenAllPar<P, S>({
   required int total,
   required void Function(
     int index,
+    void Function(ContCrash) onCrash,
     void Function(P) onPrimary,
     void Function(S) onSecondary,
   ) onRun,
@@ -11,90 +12,223 @@ void _whenAllPar<P, S>({
   required void Function(List<P> primaries) onAllPrimary,
   required void Function(S secondary) onAnySecondary,
   required void Function(ContCrash crash) onCrash,
+  required bool shouldFavorCrash,
 }) {
-  if (total == 0) {
+  if (total <= 0) {
     onAllPrimary([]);
     return;
   }
 
   bool isDone = false;
-  S? seed;
-  final List<P> results = [];
-  var i = 0;
 
-  void handlePrimary(P p) {
-    if (isDone) return;
-    i += 1;
-    final seedCopy = seed;
-    if (seedCopy != null && i >= total) {
-      isDone = true;
-      onAnySecondary(seedCopy);
+  _Either<(), S> seed = _Left(());
+  final List<P> results = [];
+  final Map<int, ContCrash> crashes = {};
+
+  var numberOfFinishedComputations = 0;
+
+  void handleCrash(int index, ContCrash crash) {
+    if (isDone) {
       return;
     }
-    results.add(p);
-    if (i >= total) {
+    numberOfFinishedComputations += 1;
+
+    if (numberOfFinishedComputations >= total) {
       isDone = true;
-      onAllPrimary(results);
+
+      switch (seed) {
+        case _Left<(), S>():
+          crashes[index] = crash;
+          final resultCrash = CollectedCrash._(
+            Map<int, ContCrash>.from(crashes),
+          ); // defensive copy
+          onCrash(resultCrash);
+        case _Right<(), S>(value: final seedValue):
+          if (shouldFavorCrash) {
+            crashes[index] = crash;
+            final resultCrash = CollectedCrash._(
+              Map<int, ContCrash>.from(crashes),
+            ); // defensive copy
+            onCrash(resultCrash);
+          } else {
+            onAnySecondary(seedValue);
+          }
+      }
+
+      return;
     }
+
+    crashes[index] = crash;
   }
 
-  void handleSecondary(S s) {
-    if (isDone) return;
-    i += 1;
-    final seedCopy = seed;
-    if (seedCopy == null) {
-      if (i >= total) {
-        isDone = true;
-        onAnySecondary(s);
-        return;
+  void handlePrimary(P p) {
+    if (isDone) {
+      return;
+    }
+    numberOfFinishedComputations += 1;
+
+    if (numberOfFinishedComputations >= total) {
+      isDone = true;
+      switch (seed) {
+        case _Left<(), S>():
+          if (crashes.isEmpty) {
+            results.add(p);
+            onAllPrimary(
+              results,
+            ); // defensive copy
+          } else {
+            final resultCrash = CollectedCrash._(
+              Map<int, ContCrash>.from(crashes),
+            ); // defensive copy
+            onCrash(resultCrash);
+          }
+        case _Right<(), S>(value: final seedValue):
+          if (crashes.isNotEmpty) {
+            if (shouldFavorCrash) {
+              final resultCrash = CollectedCrash._(
+                Map<int, ContCrash>.from(crashes),
+              ); // defensive copy
+              onCrash(resultCrash);
+            } else {
+              onAnySecondary(seedValue);
+            }
+          } else {
+            onAnySecondary(seedValue);
+          }
       }
-      seed = s;
-    } else {
-      final crash = ContCrash.tryCatch(() {
-        final newSeed = combine(seedCopy, s);
-        if (i >= total) {
-          isDone = true;
-          onAnySecondary(newSeed);
-          return;
+      return;
+    }
+
+    results.add(p);
+  }
+
+  void handleSecondary(int i, S s) {
+    if (isDone) {
+      return;
+    }
+
+    numberOfFinishedComputations += 1;
+
+    if (numberOfFinishedComputations >= total) {
+      isDone = true;
+
+      switch (seed) {
+        case _Left<(), S>():
+          if (crashes.isEmpty) {
+            onAnySecondary(s);
+          } else {
+            if (shouldFavorCrash) {
+              final resultCrash = CollectedCrash._(
+                Map<int, ContCrash>.from(crashes),
+              ); // defensive copy
+              onCrash(resultCrash);
+            } else {
+              onAnySecondary(s);
+            }
+          }
+        case _Right<(), S>(value: final seedValue):
+          if (crashes.isEmpty) {
+            final crash = ContCrash.tryCatch(() {
+              final newSeed = combine(seedValue, s);
+              onAnySecondary(newSeed);
+            });
+            if (crash != null) {
+              if (shouldFavorCrash) {
+                onCrash(crash);
+              } else {
+                onAnySecondary(seedValue);
+              }
+            }
+          } else {
+            if (shouldFavorCrash) {
+              final resultCrash = CollectedCrash._(
+                Map<int, ContCrash>.from(crashes),
+              ); // defensive copy
+              onCrash(resultCrash);
+            } else {
+              final crash = ContCrash.tryCatch(() {
+                final newSeed = combine(seedValue, s);
+                onAnySecondary(newSeed);
+              });
+              if (crash != null) {
+                onAnySecondary(
+                    seedValue); // we ignore crash, as we favor secondary
+              }
+            }
+          }
+      }
+
+      return;
+    }
+
+    switch (seed) {
+      case _Left<(), S>():
+        seed = _Right(s);
+      case _Right<(), S>(value: final seedValue):
+        final crash = ContCrash.tryCatch(() {
+          final newSeed = combine(seedValue, s);
+          seed = _Right(newSeed);
+        });
+        if (crash != null) {
+          crashes[i] = crash;
         }
-        seed = newSeed;
-      });
-      if (crash != null) {
-        isDone = true;
-        onCrash(crash);
-      }
     }
   }
 
-  for (var index = 0; index < total; index++) {
-    onRun(index, handlePrimary, handleSecondary);
+  for (var i = 0; i < total; i++) {
+    onRun(
+      i,
+      (crash) {
+        handleCrash(i, crash);
+      },
+      handlePrimary,
+      (secondary) {
+        handleSecondary(i, secondary);
+      },
+    );
   }
 }
 
 Cont<E, F, List<A>> _whenAllAll<E, F, A>(
   List<Cont<E, F, A>> list,
   F Function(F acc, F error) combine,
+  bool shouldFavorCrash,
 ) {
-  list = list.toList();
+  list = list.toList(); // defensive copy
   return Cont.fromRun((runtime, observer) {
-    list = list.toList();
+    list = list.toList(); // another defensive copy
     _whenAllPar<A, F>(
+      shouldFavorCrash: shouldFavorCrash,
       total: list.length,
-      onRun: (index, onPrimary, onSecondary) {
-        final cont = list[index];
-        try {
+      onRun: (index, onCrash, onPrimary, onSecondary) {
+        final cont = list[index].absurdify();
+        final crash = ContCrash.tryCatch(() {
           cont.runWith(
             runtime,
-            observer.copyUpdateOnElse<F>((error) {
-              if (runtime.isCancelled()) return;
-              onSecondary(error);
-            }).copyUpdateOnThen<A>((a) {
-              if (runtime.isCancelled()) return;
-              onPrimary(a);
-            }),
+            observer.copyUpdate(
+              onCrash: (crash) {
+                if (runtime.isCancelled()) {
+                  return;
+                }
+                onCrash(crash);
+              },
+              onElse: (error) {
+                if (runtime.isCancelled()) {
+                  return;
+                }
+                onSecondary(error);
+              },
+              onThen: (a) {
+                if (runtime.isCancelled()) {
+                  return;
+                }
+                onPrimary(a);
+              },
+            ),
           );
-        } catch (error, st) {
-          observer.onCrash(NormalCrash._(error, st));
+        });
+        if (crash != null) {
+          onCrash(crash);
         }
       },
       combine: combine,
@@ -108,27 +242,44 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
 Cont<E, List<F>, A> _whenAllAny<E, F, A>(
   List<Cont<E, F, A>> list,
   A Function(A acc, A value) combine,
+  bool shouldFavorCrash,
 ) {
-  list = list.toList();
+  list = list.toList(); // defensive copy
   return Cont.fromRun((runtime, observer) {
-    list = list.toList();
+    list = list.toList(); // another defensive copy
     _whenAllPar<F, A>(
+      shouldFavorCrash: shouldFavorCrash,
       total: list.length,
-      onRun: (index, onPrimary, onSecondary) {
-        final cont = list[index];
-        try {
+      onRun: (index, onCrash, onPrimary, onSecondary) {
+        final cont = list[index].absurdify();
+
+        final crash = ContCrash.tryCatch(() {
           cont.runWith(
             runtime,
-            observer.copyUpdateOnElse<F>((error) {
-              if (runtime.isCancelled()) return;
-              onPrimary(error);
-            }).copyUpdateOnThen<A>((a) {
-              if (runtime.isCancelled()) return;
-              onSecondary(a);
-            }),
+            observer.copyUpdate(
+              onCrash: (crash) {
+                if (runtime.isCancelled()) {
+                  return;
+                }
+                onCrash(crash);
+              },
+              onElse: (error) {
+                if (runtime.isCancelled()) {
+                  return;
+                }
+                onPrimary(error);
+              },
+              onThen: (a) {
+                if (runtime.isCancelled()) {
+                  return;
+                }
+                onSecondary(a);
+              },
+            ),
           );
-        } catch (error, st) {
-          observer.onCrash(NormalCrash._(error, st));
+        });
+        if (crash != null) {
+          onCrash(crash);
         }
       },
       combine: combine,

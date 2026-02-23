@@ -85,13 +85,13 @@ Cont<E, F, List<A>> _quitFastAll<E, F, A>(
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
         final crash = ContCrash.tryCatch(() {
           list[i].absurdify().runWith(
-            shared,
-            observer.copyUpdate(
-              onCrash: onCrash,
-              onElse: onQuitFast,
-              onThen: onCollect,
-            ),
-          );
+                shared,
+                observer.copyUpdate(
+                  onCrash: onCrash,
+                  onElse: onQuitFast,
+                  onThen: onCollect,
+                ),
+              );
         });
         if (crash != null) {
           onCrash(crash);
@@ -116,13 +116,13 @@ Cont<E, List<F>, A> _quitFastAny<E, F, A>(
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
         final crash = ContCrash.tryCatch(() {
           list[i].absurdify().runWith(
-            shared,
-            observer.copyUpdate(
-              onCrash: onCrash,
-              onThen: onQuitFast,
-              onElse: onCollect,
-            ),
-          );
+                shared,
+                observer.copyUpdate(
+                  onCrash: onCrash,
+                  onThen: onQuitFast,
+                  onElse: onCollect,
+                ),
+              );
         });
         if (crash != null) {
           onCrash(crash);
