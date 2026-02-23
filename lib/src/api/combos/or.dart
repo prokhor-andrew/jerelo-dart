@@ -12,7 +12,6 @@ extension ContOrExtension<E, F, A> on Cont<E, F, A> {
     Cont<E, F2, A> right,
     F3 Function(F, F2) combine, {
     required OkPolicy<A> policy,
-    //
   }) {
     return Cont.either(
       this,

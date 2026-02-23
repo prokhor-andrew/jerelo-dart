@@ -28,9 +28,11 @@ extension ContElseForeverExtension<E, F, A>
   ///     .elseTap((errors) => logError(errors))
   ///     .elseForever();
   /// ```
-  Cont<E, F, A> elseForever() {
+  Cont<E, Never, A> elseForever() {
     return elseUntil((_) {
       return false;
+    }).elseMap((value) {
+      return value as Never;
     });
   }
 }
