@@ -13,7 +13,7 @@ extension ContCrashDoExtension<E, F, A> on Cont<E, F, A> {
           }
 
           final resultCrash = ContCrash.tryCatch(() {
-            final cont = f(initialCrash);
+            final cont = f(initialCrash).absurdify();
             cont.runWith(runtime, observer);
           });
 
