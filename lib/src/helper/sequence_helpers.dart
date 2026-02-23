@@ -96,6 +96,107 @@ Cont<E, List<F>, A> _anySequence<E, F, A>(
   });
 }
 
+Cont<E, F, A> _mergeAllSequence<E, F, A>(
+  List<Cont<E, F, A>> list,
+) {
+  list = list.toList(); // defensive copy
+  return Cont.fromRun((runtime, observer) {
+    list = list.toList(); // defensive copy
+
+    if (list.isEmpty) {
+      observer.onCrash(CollectedCrash._({}));
+      return;
+    }
+
+    final crashes = <int, ContCrash>{};
+
+    _stackSafeLoop<_Either<(), _Triple<int, A, F>>, int,
+        _Either<(), _Triple<(), A, F>>>(
+      seed: _Right(_Value1(0)),
+      keepRunningIf: (state) {
+        switch (state) {
+          case _Left():
+            return _StackSafeLoopPolicyStop(_Left(()));
+          case _Right(value: final triple):
+            switch (triple) {
+              case _Value1(a: final i):
+                if (i >= list.length) {
+                  return _StackSafeLoopPolicyStop(
+                    _Right(_Value1(())),
+                  );
+                }
+                return _StackSafeLoopPolicyKeepRunning(i);
+              case _Value2(b: final a):
+                return _StackSafeLoopPolicyStop(
+                  _Right(_Value2(a)),
+                );
+              case _Value3(c: final f):
+                return _StackSafeLoopPolicyStop(
+                  _Right(_Value3(f)),
+                );
+            }
+        }
+      },
+      computation: (i, update) {
+        final contCrash = ContCrash.tryCatch(() {
+          list[i].absurdify().runWith(
+                runtime,
+                observer.copyUpdate(
+                  onCrash: (c) {
+                    if (runtime.isCancelled()) {
+                      update(_Left(()));
+                      return;
+                    }
+                    crashes[i] = c;
+                    update(_Right(_Value1(i + 1)));
+                  },
+                  onElse: (f) {
+                    if (runtime.isCancelled()) {
+                      update(_Left(()));
+                      return;
+                    }
+                    update(_Right(_Value3(f)));
+                  },
+                  onThen: (a) {
+                    if (runtime.isCancelled()) {
+                      update(_Left(()));
+                      return;
+                    }
+                    update(_Right(_Value2(a)));
+                  },
+                ),
+              );
+        });
+        if (contCrash != null) {
+          if (runtime.isCancelled()) {
+            update(_Left(()));
+            return;
+          }
+          crashes[i] = contCrash;
+          update(_Right(_Value1(i + 1)));
+        }
+      },
+      escape: (finalState) {
+        switch (finalState) {
+          case _Left():
+            return;
+          case _Right(value: final triple):
+            switch (triple) {
+              case _Value1():
+                observer.onCrash(
+                  CollectedCrash._(Map.from(crashes)),
+                );
+              case _Value2(b: final a):
+                observer.onThen(a);
+              case _Value3(c: final f):
+                observer.onElse(f);
+            }
+        }
+      },
+    );
+  });
+}
+
 void _seq<S, A>({
   required int total,
   required void Function(
