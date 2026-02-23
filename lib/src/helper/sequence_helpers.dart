@@ -11,13 +11,20 @@ Cont<E, F, List<A>> _allSequence<E, F, A>(
       onRun: (
         index,
         updateCancel,
+        updateCrash,
         updatePrimary,
         updateSecondary,
       ) {
         final Cont<E, F, A> cont = list[index].absurdify();
         cont.runWith(
           runtime,
-          observer.copyUpdateOnElse<F>((error) {
+          observer.copyUpdateOnCrash((crash) {
+            if (runtime.isCancelled()) {
+              updateCancel();
+              return;
+            }
+            updateCrash(crash);
+          }).copyUpdateOnElse<F>((error) {
             if (runtime.isCancelled()) {
               updateCancel();
               return;
@@ -52,13 +59,20 @@ Cont<E, List<F>, A> _anySequence<E, F, A>(
       onRun: (
         index,
         updateCancel,
+        updateCrash,
         updatePrimary,
         updateSecondary,
       ) {
         final Cont<E, F, A> cont = list[index].absurdify();
         cont.runWith(
           runtime,
-          observer.copyUpdateOnElse<F>((error) {
+          observer.copyUpdateOnCrash((crash) {
+            if (runtime.isCancelled()) {
+              updateCancel();
+              return;
+            }
+            updateCrash(crash);
+          }).copyUpdateOnElse<F>((error) {
             if (runtime.isCancelled()) {
               updateCancel();
               return;
@@ -87,6 +101,7 @@ void _seq<S, A>({
   required void Function(
     int index,
     void Function() updateCancel,
+    void Function(ContCrash crash) updateCrash,
     void Function(A) updatePrimary,
     void Function(S) updateSecondary,
   ) onRun,
@@ -125,10 +140,16 @@ void _seq<S, A>({
           () {
             update(null);
           },
-          (a) {
+          (crash) {
             update(
-              _Value1([...values, a]),
-            ); // defensive copy
+              _Value3(crash),
+            );
+          },
+          (a) {
+            values.add(a);
+            update(
+              _Value1(values),
+            );
           },
           (f) {
             update(_Value2(f));
@@ -148,7 +169,7 @@ void _seq<S, A>({
           // cancellation
           return;
         case _Value1(a: final values):
-          onPrimary(values);
+          onPrimary(values.toList()); // defensive copy
         case _Value2(b: final secondary):
           onSecondary(secondary);
         case _Value3(c: final crash):
