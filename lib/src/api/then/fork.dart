@@ -22,7 +22,7 @@ Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
         }
 
         // if this crashes, it should crash the computation
-        final crash = ContCrash.tryCatch(() {
+        ContCrash.tryCatch(() {
           final contA2 = f(a).absurdify();
           try {
             contA2.run(
@@ -36,10 +36,7 @@ Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
             // do nothing, if anything happens to side-effect, it's not
             // a concern of the thenFork
           }
-        });
-        if (crash != null) {
-          observer.onCrash(crash);
-        }
+        }).match((_) {}, observer.onCrash);
 
         observer.onThen(a);
       }),

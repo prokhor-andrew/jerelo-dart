@@ -18,14 +18,10 @@ extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
             return;
           }
 
-          final crash = ContCrash.tryCatch(() {
+          ContCrash.tryCatch(() {
             final contA2 = f(a).absurdify();
             contA2.runWith(runtime, observer);
-          });
-
-          if (crash != null) {
-            observer.onCrash(crash);
-          }
+          }).match((_) {}, observer.onCrash);
         }),
       );
     });

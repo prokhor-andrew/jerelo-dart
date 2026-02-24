@@ -21,14 +21,10 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
             return;
           }
 
-          final crash = ContCrash.tryCatch(() {
+          ContCrash.tryCatch(() {
             final contA = f(error).absurdify();
             contA.runWith(runtime, observer);
-          });
-
-          if (crash != null) {
-            observer.onCrash(crash);
-          }
+          }).match((_) {}, observer.onCrash);
         }),
       );
     });

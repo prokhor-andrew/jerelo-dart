@@ -25,7 +25,7 @@
 
 ## ContCrash (sealed class)
 
-- [ ] `ContCrash.tryCatch` -- wrap a function call, returning a NormalCrash if it throws
+- [ ] `ContCrash.tryCatch` -- wrap a function call, returning a CrashOr carrying either the value or a NormalCrash
 
 ### NormalCrash
 - [ ] `error` property

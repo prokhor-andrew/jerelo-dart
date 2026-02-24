@@ -10,16 +10,14 @@ Cont<E, F, A> _crashZip<E, F, A>(
   Cont<E, F, A> Function(ContCrash crash) f,
 ) {
   return cont.crashDo((crash1) {
-    final Cont<E, F, A> cont2;
-    try {
-      cont2 = f(crash1).absurdify();
-    } catch (error, st) {
+    return ContCrash.tryCatch(() {
+      return f(crash1).absurdify().crashDo((crash2) {
+        return Cont.crash(MergedCrash._(crash1, crash2));
+      });
+    }).match((cont) => cont, (crash2) {
       return Cont.crash(
-        MergedCrash._(crash1, NormalCrash._(error, st)),
+        MergedCrash._(crash1, crash2),
       );
-    }
-    return cont2.crashDo((crash2) {
-      return Cont.crash(MergedCrash._(crash1, crash2));
     });
   });
 }

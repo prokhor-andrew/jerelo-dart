@@ -43,7 +43,7 @@ extension ContCrashWhileExtension<E, F, A>
           }
         },
         computation: (_, callback) {
-          final outerCrash = ContCrash.tryCatch(() {
+          ContCrash.tryCatch(() {
             runWith(
               runtime,
               observer.copyUpdate<F, A>(
@@ -71,7 +71,7 @@ extension ContCrashWhileExtension<E, F, A>
                     return;
                   }
 
-                  final innerCrash = ContCrash.tryCatch(() {
+                  ContCrash.tryCatch(() {
                     // Check the predicate
                     if (!predicate(crash)) {
                       // Predicate not satisfied - stop with crash
@@ -80,19 +80,17 @@ extension ContCrashWhileExtension<E, F, A>
                       // Predicate satisfied - retry
                       callback(_Value1(()));
                     }
-                  });
-                  if (innerCrash != null) {
+                  }).match((_) {}, (innerCrash) {
                     callback(
                       _Value3(_Left(innerCrash)),
                     );
-                  }
+                  });
                 },
               ),
             );
-          });
-          if (outerCrash != null) {
+          }).match((_) {}, (outerCrash) {
             callback(_Value3(_Left(outerCrash)));
-          }
+          });
         },
         escape: (result) {
           switch (result) {

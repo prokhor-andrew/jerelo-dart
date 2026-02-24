@@ -83,7 +83,7 @@ Cont<E, F, List<A>> _quitFastAll<E, F, A>(
       runtime: runtime,
       total: list.length,
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
-        final crash = ContCrash.tryCatch(() {
+        ContCrash.tryCatch(() {
           list[i].absurdify().runWith(
                 shared,
                 observer.copyUpdate(
@@ -92,10 +92,7 @@ Cont<E, F, List<A>> _quitFastAll<E, F, A>(
                   onThen: onCollect,
                 ),
               );
-        });
-        if (crash != null) {
-          onCrash(crash);
-        }
+        }).match((_) {}, onCrash);
       },
       onFirstQuitFast: observer.onElse,
       onAllCollected: observer.onThen,
@@ -149,7 +146,7 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
 
     for (var i = 0; i < total; i++) {
       final idx = i;
-      final contCrash = ContCrash.tryCatch(() {
+      ContCrash.tryCatch(() {
         list[idx].absurdify().runWith(
               shared,
               observer.copyUpdate(
@@ -158,10 +155,9 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
                 onThen: handleThen,
               ),
             );
+      }).match((_) {}, (crash) {
+        handleCrash(idx, crash);
       });
-      if (contCrash != null) {
-        handleCrash(idx, contCrash);
-      }
     }
   });
 }
@@ -176,7 +172,7 @@ Cont<E, List<F>, A> _quitFastAny<E, F, A>(
       runtime: runtime,
       total: list.length,
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
-        final crash = ContCrash.tryCatch(() {
+        ContCrash.tryCatch(() {
           list[i].absurdify().runWith(
                 shared,
                 observer.copyUpdate(
@@ -185,10 +181,7 @@ Cont<E, List<F>, A> _quitFastAny<E, F, A>(
                   onElse: onCollect,
                 ),
               );
-        });
-        if (crash != null) {
-          onCrash(crash);
-        }
+        }).match((_) {}, onCrash);
       },
       onFirstQuitFast: observer.onThen,
       onAllCollected: observer.onElse,

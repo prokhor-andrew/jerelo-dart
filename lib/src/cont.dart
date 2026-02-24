@@ -111,14 +111,14 @@ final class Cont<E, F, A> {
       observer = observer.absurdify();
 
       void onPanic(NormalCrash crash) {
-        try {
+        ContCrash.tryCatch(() {
           observer._onUnsafePanic(crash);
-        } catch (error, st) {
+        }).match((_) {}, (panic) {
           // the important part here is that if onPanic crashes,
           // we don't push the crash that was sent there,
           // but the crash that caused the onPanic
-          _panic(NormalCrash._(error, st));
-        }
+          _panic(panic);
+        });
       }
 
       bool isDone = false;
@@ -130,11 +130,9 @@ final class Cont<E, F, A> {
 
         isDone = true;
 
-        try {
+        ContCrash.tryCatch(() {
           observer.onCrash(crash);
-        } catch (error, st) {
-          onPanic(NormalCrash._(error, st));
-        }
+        }).match((_) {}, onPanic);
       }
 
       void guardedOnElse(F error) {
@@ -143,11 +141,10 @@ final class Cont<E, F, A> {
         }
 
         isDone = true;
-        try {
+
+        ContCrash.tryCatch(() {
           observer.onElse(error);
-        } catch (error, st) {
-          onPanic(NormalCrash._(error, st));
-        }
+        }).match((_) {}, onPanic);
       }
 
       void guardedOnThen(A a) {
@@ -156,14 +153,13 @@ final class Cont<E, F, A> {
         }
 
         isDone = true;
-        try {
+
+        ContCrash.tryCatch(() {
           observer.onThen(a);
-        } catch (error, st) {
-          onPanic(NormalCrash._(error, st));
-        }
+        }).match((_) {}, onPanic);
       }
 
-      try {
+      ContCrash.tryCatch(() {
         run(
           runtime,
           SafeObserver._(
@@ -176,9 +172,7 @@ final class Cont<E, F, A> {
             guardedOnThen,
           ),
         );
-      } catch (error, st) {
-        guardedOnCrash(NormalCrash._(error, st));
-      }
+      }).match((_) {}, guardedOnCrash);
     });
   }
 
@@ -541,16 +535,14 @@ final class Cont<E, F, A> {
         runtime,
         observer.copyUpdateOnThen<R>((r) {
           void fireRelease() {
-            try {
+            ContCrash.tryCatch(() {
               release(r).run(
                 runtime.env(),
                 onPanic: onReleasePanic,
                 onCrash: onReleaseCrash,
                 onThen: (_) => onReleaseThen(),
               );
-            } catch (error, st) {
-              onReleasePanic(NormalCrash._(error, st));
-            }
+            }).match((_) {}, onReleasePanic);
           }
 
           if (runtime.isCancelled()) {
@@ -558,7 +550,7 @@ final class Cont<E, F, A> {
             return;
           }
 
-          final crash = ContCrash.tryCatch(() {
+          ContCrash.tryCatch(() {
             use(r).absurdify().runWith(
                   runtime,
                   observer.copyUpdate(
@@ -588,12 +580,10 @@ final class Cont<E, F, A> {
                     },
                   ),
                 );
-          });
-
-          if (crash != null) {
+          }).match((_) {}, (crash) {
             observer.onCrash(crash);
             fireRelease();
-          }
+          });
         }),
       );
     });

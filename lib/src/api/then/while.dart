@@ -55,7 +55,7 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
           }
         },
         computation: (_, callback) {
-          final crash = ContCrash.tryCatch(() {
+          ContCrash.tryCatch(() {
             runWith(
               runtime,
               observer.copyUpdate<F, A>(
@@ -82,7 +82,7 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
                     return;
                   }
 
-                  final innerCrash = ContCrash.tryCatch(() {
+                  ContCrash.tryCatch(() {
                     // Check the predicate
                     if (!predicate(a)) {
                       // Predicate satisfied - stop with success
@@ -91,21 +91,17 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
                       // Predicate not satisfied - retry
                       callback(_Value1(()));
                     }
-                  });
-
-                  if (innerCrash != null) {
+                  }).match((_) {}, (innerCrash) {
                     callback(
                       _Value3(_Left(_Left(innerCrash))),
                     );
-                  }
+                  });
                 },
               ),
             );
-          });
-
-          if (crash != null) {
+          }).match((_) {}, (crash) {
             callback(_Value3(_Left(_Left(crash))));
-          }
+          });
         },
         escape: (result) {
           switch (result) {

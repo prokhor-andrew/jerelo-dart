@@ -128,17 +128,16 @@ void _whenAllPar<P, S>({
           }
         case _Right<(), S>(value: final seedValue):
           if (crashes.isEmpty) {
-            final crash = ContCrash.tryCatch(() {
+            ContCrash.tryCatch(() {
               final newSeed = combine(seedValue, s);
               onAnySecondary(newSeed);
-            });
-            if (crash != null) {
+            }).match((_) {}, (crash) {
               if (shouldFavorCrash) {
                 onCrash(crash);
               } else {
                 onAnySecondary(seedValue);
               }
-            }
+            });
           } else {
             if (shouldFavorCrash) {
               final resultCrash = CollectedCrash._(
@@ -146,14 +145,14 @@ void _whenAllPar<P, S>({
               ); // defensive copy
               onCrash(resultCrash);
             } else {
-              final crash = ContCrash.tryCatch(() {
+              ContCrash.tryCatch(() {
                 final newSeed = combine(seedValue, s);
                 onAnySecondary(newSeed);
-              });
-              if (crash != null) {
+              }).match((_) {}, (_) {
                 onAnySecondary(
-                    seedValue); // we ignore crash, as we favor secondary
-              }
+                  seedValue,
+                ); // we ignore crash, as we favor secondary
+              });
             }
           }
       }
@@ -165,13 +164,12 @@ void _whenAllPar<P, S>({
       case _Left<(), S>():
         seed = _Right(s);
       case _Right<(), S>(value: final seedValue):
-        final crash = ContCrash.tryCatch(() {
+        ContCrash.tryCatch(() {
           final newSeed = combine(seedValue, s);
           seed = _Right(newSeed);
-        });
-        if (crash != null) {
+        }).match((_) {}, (crash) {
           crashes[i] = crash;
-        }
+        });
     }
   }
 
@@ -202,7 +200,7 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
       total: list.length,
       onRun: (index, onCrash, onPrimary, onSecondary) {
         final cont = list[index].absurdify();
-        final crash = ContCrash.tryCatch(() {
+        ContCrash.tryCatch(() {
           cont.runWith(
             runtime,
             observer.copyUpdate(
@@ -226,10 +224,7 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
               },
             ),
           );
-        });
-        if (crash != null) {
-          onCrash(crash);
-        }
+        }).match((_) {}, onCrash);
       },
       combine: combine,
       onAllPrimary: observer.onThen,
@@ -294,17 +289,11 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
         case _Left():
           thenAcc = _Right(a);
         case _Right(value: final prev):
-          final combineCrash = ContCrash.tryCatch(() {
+          ContCrash.tryCatch(() {
             thenAcc = _Right(combineThenVals(prev, a));
+          }).match((_) {}, (crash) {
+            crashes[index] = crash;
           });
-          if (combineCrash != null) {
-            crashes[index] = combineCrash;
-            if (numberOfFinished >= total) {
-              isDone = true;
-              onAllFinished();
-            }
-            return;
-          }
       }
       if (numberOfFinished >= total) {
         isDone = true;
@@ -319,17 +308,11 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
         case _Left():
           elseAcc = _Right(f);
         case _Right(value: final prev):
-          final combineCrash = ContCrash.tryCatch(() {
+          ContCrash.tryCatch(() {
             elseAcc = _Right(combineElseVals(prev, f));
+          }).match((_) {}, (crash) {
+            crashes[index] = crash;
           });
-          if (combineCrash != null) {
-            crashes[index] = combineCrash;
-            if (numberOfFinished >= total) {
-              isDone = true;
-              onAllFinished();
-            }
-            return;
-          }
       }
       if (numberOfFinished >= total) {
         isDone = true;
@@ -349,7 +332,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
 
     for (var i = 0; i < total; i++) {
       final idx = i;
-      final contCrash = ContCrash.tryCatch(() {
+      ContCrash.tryCatch(() {
         list[idx].absurdify().runWith(
               runtime,
               observer.copyUpdate(
@@ -367,10 +350,9 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
                 },
               ),
             );
+      }).match((_) {}, (crash) {
+        handleCrash(idx, crash);
       });
-      if (contCrash != null) {
-        handleCrash(idx, contCrash);
-      }
     }
   });
 }
@@ -389,7 +371,7 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
       onRun: (index, onCrash, onPrimary, onSecondary) {
         final cont = list[index].absurdify();
 
-        final crash = ContCrash.tryCatch(() {
+        ContCrash.tryCatch(() {
           cont.runWith(
             runtime,
             observer.copyUpdate(
@@ -413,10 +395,7 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
               },
             ),
           );
-        });
-        if (crash != null) {
-          onCrash(crash);
-        }
+        }).match((_) {}, onCrash);
       },
       combine: combine,
       onAllPrimary: observer.onElse,

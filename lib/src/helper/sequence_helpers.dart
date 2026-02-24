@@ -138,7 +138,7 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
         }
       },
       computation: (i, update) {
-        final contCrash = ContCrash.tryCatch(() {
+        ContCrash.tryCatch(() {
           list[i].absurdify().runWith(
                 runtime,
                 observer.copyUpdate(
@@ -166,11 +166,10 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
                   },
                 ),
               );
-        });
-        if (contCrash != null) {
-          crashes[i] = contCrash;
+        }).match((_) {}, (crash) {
+          crashes[i] = crash;
           update(_Right(_Value1(i + 1)));
-        }
+        });
       },
       escape: (finalState) {
         switch (finalState) {
@@ -233,7 +232,7 @@ void _seq<S, A>({
     },
     computation: (values, update) {
       final i = values.length;
-      final crash = ContCrash.tryCatch(() {
+      ContCrash.tryCatch(() {
         onRun(
           i,
           () {
@@ -250,11 +249,9 @@ void _seq<S, A>({
             update(_Value2(secondary));
           },
         );
-      });
-
-      if (crash != null) {
+      }).match((_) {}, (crash) {
         update(_Value3(crash));
-      }
+      });
     },
     escape: (triple) {
       switch (triple) {

@@ -14,17 +14,19 @@ part of '../cont.dart';
 sealed class ContCrash {
   const ContCrash();
 
-  /// Runs [function] and returns any synchronous exception as a [NormalCrash].
+  /// Runs [function] and wraps the outcome in a [CrashOr].
   ///
-  /// If [function] completes without throwing, returns `null`.
+  /// If [function] completes without throwing, returns a [CrashOr] carrying
+  /// the computed value. If [function] throws, returns a [CrashOr] carrying
+  /// the caught exception as a [NormalCrash].
   /// This helper is used internally to convert raw Dart exceptions into
   /// the [ContCrash] representation.
-  static NormalCrash? tryCatch(void Function() function) {
+  static CrashOr<T> tryCatch<T>(T Function() function) {
     try {
-      function();
-      return null;
+      final value = function();
+      return _ValueCrashOr(value);
     } catch (error, st) {
-      return NormalCrash._(error, st);
+      return _CrashCrashOr(NormalCrash._(error, st));
     }
   }
 }
@@ -128,4 +130,32 @@ final class CollectedCrash extends ContCrash {
 
   @override
   int get hashCode => crashes.hashCode;
+}
+
+sealed class CrashOr<T> {
+  const CrashOr();
+
+  R match<R>(
+    R Function(T value) ifValue,
+    R Function(NormalCrash crash) ifCrash,
+  ) {
+    return switch (this) {
+      _ValueCrashOr<T>(value: final value) =>
+        ifValue(value),
+      _CrashCrashOr<T>(crash: final crash) =>
+        ifCrash(crash),
+    };
+  }
+}
+
+final class _ValueCrashOr<T> extends CrashOr<T> {
+  final T value;
+
+  const _ValueCrashOr(this.value);
+}
+
+final class _CrashCrashOr<T> extends CrashOr<T> {
+  final NormalCrash crash;
+
+  const _CrashCrashOr(this.crash);
 }
