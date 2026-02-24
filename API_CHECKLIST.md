@@ -14,7 +14,7 @@
 - [ ] `Cont.all` -- run multiple continuations and collect all results
 - [ ] `Cont.either` -- race two continuations, return the first success
 - [ ] `Cont.any` -- race multiple continuations, return the first success
-- [ ] `Cont.merge` -- merge two continuations on the crash channel
+- [ ] `Cont.coalesce` -- coalesce two continuations on the crash channel
 - [ ] `Cont.bracket` -- safe resource management (acquire/release/use)
 
 ### Instance Methods
@@ -284,7 +284,7 @@
 
 - [ ] `and` -- instance wrapper for `Cont.both`
 - [ ] `or` -- instance wrapper for `Cont.either`
-- [ ] `mergeWith` -- instance wrapper for `Cont.merge`
+- [ ] `coalesceWith` -- instance wrapper for `Cont.coalesce`
 
 ---
 

@@ -104,7 +104,7 @@ Cont<E, F, List<A>> _quitFastAll<E, F, A>(
   });
 }
 
-Cont<E, F, A> _mergeAllCrashQuitFast<E, F, A>(
+Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
   list = list.toList(); // defensive copy

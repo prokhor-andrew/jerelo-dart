@@ -96,7 +96,7 @@ Cont<E, List<F>, A> _anySequence<E, F, A>(
   });
 }
 
-Cont<E, F, A> _mergeAllSequence<E, F, A>(
+Cont<E, F, A> _convergeSequence<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
   list = list.toList(); // defensive copy

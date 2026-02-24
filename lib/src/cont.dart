@@ -411,7 +411,7 @@ final class Cont<E, F, A> {
     }
   }
 
-  /// Runs two continuations and merges their crash paths.
+  /// Runs two continuations and coalesces their crash paths.
   ///
   /// Executes both continuations and combines crashes according to the [policy].
   /// Non-crash outcomes (success and error) are handled according to the policy
@@ -423,13 +423,13 @@ final class Cont<E, F, A> {
   ///   produces a [MergedCrash].
   /// - [QuitFastCrashPolicy]: Runs both in parallel, propagates the first crash
   ///   immediately.
-  /// - [RunAllCrashPolicy]: Runs both in parallel, waits for both, and merges crashes
+  /// - [RunAllCrashPolicy]: Runs both in parallel, waits for both, and coalesces crashes
   ///   if both crash.
   ///
   /// - [left]: First continuation to execute.
   /// - [right]: Second continuation to execute.
-  /// - [policy]: Crash policy determining how crashes are merged.
-  static Cont<E, F, A> merge<E, F, A>(
+  /// - [policy]: Crash policy determining how crashes are coalesced.
+  static Cont<E, F, A> coalesce<E, F, A>(
     Cont<E, F, A> left,
     Cont<E, F, A> right, {
     required CrashPolicy<F, A> policy,
@@ -463,7 +463,7 @@ final class Cont<E, F, A> {
     }
   }
 
-  /// Runs multiple continuations and merges their crash paths.
+  /// Runs multiple continuations and converges their crash paths.
   ///
   /// Executes all continuations in [list] and combines their crashes according
   /// to the [policy]. Non-crash outcomes are handled per-policy when produced
@@ -472,29 +472,29 @@ final class Cont<E, F, A> {
   /// The execution behavior depends on the provided [policy]:
   ///
   /// - [SequenceCrashPolicy]: Runs continuations one by one; sequential crashes
-  ///   are merged into a [MergedCrash].
+  ///   are converged into a [MergedCrash].
   /// - [QuitFastCrashPolicy]: Runs all in parallel, propagates the first crash
   ///   immediately.
   /// - [RunAllCrashPolicy]: Runs all in parallel, waits for all, and collects
   ///   crashes into a [CollectedCrash].
   ///
   /// - [list]: List of continuations to execute.
-  /// - [policy]: Crash policy determining how crashes are merged.
-  static Cont<E, F, A> mergeAll<E, F, A>(
+  /// - [policy]: Crash policy determining how crashes are converged.
+  static Cont<E, F, A> converge<E, F, A>(
     List<Cont<E, F, A>> list, {
     required CrashPolicy<F, A> policy,
   }) {
     switch (policy) {
       case SequenceCrashPolicy():
-        return _mergeAllSequence(list);
+        return _convergeSequence(list);
       case QuitFastCrashPolicy():
-        return _mergeAllCrashQuitFast(list);
+        return _convergeCrashQuitFast(list);
       case RunAllCrashPolicy(
           shouldFavorElse: final shouldFavorElse,
           combineElseVals: final combineElseVals,
           combineThenVals: final combineThenVals,
         ):
-        return _mergeAllCrashRunAll(
+        return _convergeCrashRunAll(
           list,
           combineThenVals,
           combineElseVals,

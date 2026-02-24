@@ -9,7 +9,7 @@ library;
 export 'src/cont.dart';
 export 'src/api/combos/and.dart';
 export 'src/api/combos/or.dart';
-export 'src/api/combos/merge.dart';
+export 'src/api/combos/coalesce.dart';
 export 'src/api/combos/ok_policy.dart';
 export 'src/api/combos/crash_policy.dart';
 export 'src/api/then/do.dart';

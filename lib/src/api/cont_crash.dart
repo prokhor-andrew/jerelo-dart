@@ -63,7 +63,7 @@ final class NormalCrash extends ContCrash {
 
 /// A crash that combines two crashes from paired operations.
 ///
-/// Produced when two continuations are run (e.g. in [Cont.merge]) and both
+/// Produced when two continuations are run (e.g. in [Cont.coalesce]) and both
 /// crash. Carries the original [left] and [right] crashes so callers can
 /// inspect both.
 final class MergedCrash extends ContCrash {
@@ -99,7 +99,7 @@ final class MergedCrash extends ContCrash {
 
 /// A crash that collects multiple crashes from a list of operations.
 ///
-/// Produced when [Cont.mergeAll] is run with [RunAllCrashPolicy] and more
+/// Produced when [Cont.converge] is run with [RunAllCrashPolicy] and more
 /// than one continuation crashes. The [crashes] map associates each
 /// continuation's index with its [ContCrash].
 final class CollectedCrash extends ContCrash {

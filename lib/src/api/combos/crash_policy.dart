@@ -1,7 +1,7 @@
 /// Controls how two or more continuations on the crash channel are executed
 /// and how their crashes are merged.
 ///
-/// Pass a [CrashPolicy] to [Cont.merge] or [Cont.mergeAll] via the named
+/// Pass a [CrashPolicy] to [Cont.coalesce] or [Cont.converge] via the named
 /// `policy` parameter. Use the static factory methods [sequence], [quitFast],
 /// or [runAll] to construct a policy.
 sealed class CrashPolicy<E, A> {
@@ -48,7 +48,7 @@ sealed class CrashPolicy<E, A> {
   }
 }
 
-/// Sequential crash-merging policy for [Cont.merge] and [Cont.mergeAll].
+/// Sequential crash-merging policy for [Cont.coalesce] and [Cont.converge].
 ///
 /// Continuations are run sequentially; if both crash, crashes are combined
 /// into a [MergedCrash]. See [CrashPolicy.sequence].
@@ -57,7 +57,7 @@ final class SequenceCrashPolicy<E, A>
   const SequenceCrashPolicy();
 }
 
-/// Parallel quit-fast crash policy for [Cont.merge] and [Cont.mergeAll].
+/// Parallel quit-fast crash policy for [Cont.coalesce] and [Cont.converge].
 ///
 /// Continuations run concurrently; the first crash short-circuits the rest.
 /// See [CrashPolicy.quitFast].
@@ -66,7 +66,7 @@ final class QuitFastCrashPolicy<E, A>
   const QuitFastCrashPolicy();
 }
 
-/// Parallel run-all crash policy for [Cont.merge] and [Cont.mergeAll].
+/// Parallel run-all crash policy for [Cont.coalesce] and [Cont.converge].
 ///
 /// Continuations run concurrently and the computation waits for all of them.
 /// Multiple crashes are merged; multiple non-crash outcomes are combined via

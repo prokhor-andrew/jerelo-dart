@@ -239,7 +239,7 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
   });
 }
 
-Cont<E, F, A> _mergeAllCrashRunAll<E, F, A>(
+Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
   List<Cont<E, F, A>> list,
   A Function(A a1, A a2) combineThenVals,
   F Function(F f1, F f2) combineElseVals,
