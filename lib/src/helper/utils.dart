@@ -44,6 +44,8 @@ final class _Value3<A, B, C> extends _Triple<A, B, C> {
 
 void _ignore(Object? val) {}
 
+void _voidIgnore() {}
+
 void _panic(NormalCrash crash) {
   Future.microtask(() {
     Error.throwWithStackTrace(

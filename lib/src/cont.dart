@@ -512,60 +512,48 @@ final class Cont<E, F, A> {
   /// - [acquire]: Obtains the resource. Cannot produce a business-logic error
   ///   (error type is [Never]); it can only succeed or crash.
   /// - [release]: Releases the resource. Cannot produce a business-logic error
-  ///   (error type is [Never]); it can only succeed or crash.
+  ///   (error type is [Never]); it can only succeed or crash. Release is
+  ///   fire-and-forget: the [use] outcome is propagated immediately and
+  ///   [release] runs independently. Release outcomes are routed to the
+  ///   optional [onReleasePanic], [onReleaseCrash], and [onReleaseThen]
+  ///   callbacks, following the same pattern as fork handlers.
   /// - [use]: Uses the resource; may succeed with [A], fail with [F], or crash.
   ///
-  /// Outcome rules after [release] completes:
-  /// - [use] succeeded  → propagate the success value (unless [release] crashes).
-  /// - [use] failed     → propagate the failure error (unless [release] crashes).
-  /// - [use] crashed    → propagate the crash; if [release] also crashes, the
-  ///   two crashes are merged into a [MergedCrash].
-  /// - [release] crashes in any case → that crash is forwarded to [onCrash].
+  /// Outcome rules:
+  /// - [use] succeeded  → propagate the success value immediately.
+  /// - [use] failed     → propagate the failure error immediately.
+  /// - [use] crashed    → propagate the crash immediately.
+  /// - Cancelled before [use] → release fires, observer receives nothing.
+  /// - [release] outcomes are routed to the release handlers.
   static Cont<E, F, A> bracket<R, E, F, A>({
     required Cont<E, Never, R> acquire,
     required Cont<E, Never, ()> Function(
       R resource,
     ) release,
     required Cont<E, F, A> Function(R resource) use,
+    void Function(NormalCrash crash) onReleasePanic = _panic,
+    void Function(ContCrash crash) onReleaseCrash = _ignore,
+    void Function() onReleaseThen = _voidIgnore,
   }) {
     return Cont.fromRun((runtime, observer) {
       acquire.absurdify().elseAbsurd<F>().runWith(
         runtime,
         observer.copyUpdateOnThen<R>((r) {
-          // Uncancellable runtime for release — release must always
-          // run to completion to avoid resource leaks.
-          final uncancellableRuntime = ContRuntime._(
-            runtime.env(),
-            () => false,
-          );
-
-          void withRelease({
-            required void Function() onReleaseOk,
-            required void Function(
-              ContCrash releaseCrash,
-            ) onReleaseCrash,
-          }) {
-            final crash = ContCrash.tryCatch(() {
-              release(r)
-                  .absurdify()
-                  .elseAbsurd<F>()
-                  .runWith(
-                    uncancellableRuntime,
-                    observer.copyUpdateOnThen<()>((_) {
-                      onReleaseOk();
-                    }).copyUpdateOnCrash(onReleaseCrash),
-                  );
-            });
-            if (crash != null) {
-              onReleaseCrash(crash);
+          void fireRelease() {
+            try {
+              release(r).run(
+                runtime.env(),
+                onPanic: onReleasePanic,
+                onCrash: onReleaseCrash,
+                onThen: (_) => onReleaseThen(),
+              );
+            } catch (error, st) {
+              onReleasePanic(NormalCrash._(error, st));
             }
           }
 
           if (runtime.isCancelled()) {
-            withRelease(
-              onReleaseOk: () {},
-              onReleaseCrash: (rc) => observer.onCrash(rc),
-            );
+            fireRelease();
             return;
           }
 
@@ -574,42 +562,24 @@ final class Cont<E, F, A> {
                   runtime,
                   observer.copyUpdate(
                     onCrash: (crash) {
-                      withRelease(
-                        onReleaseOk: () =>
-                            observer.onCrash(crash),
-                        onReleaseCrash: (rc) =>
-                            observer.onCrash(
-                          MergedCrash._(crash, rc),
-                        ),
-                      );
+                      observer.onCrash(crash);
+                      fireRelease();
                     },
                     onElse: (error) {
-                      withRelease(
-                        onReleaseOk: () =>
-                            observer.onElse(error),
-                        onReleaseCrash: (rc) =>
-                            observer.onCrash(rc),
-                      );
+                      observer.onElse(error);
+                      fireRelease();
                     },
                     onThen: (a) {
-                      withRelease(
-                        onReleaseOk: () =>
-                            observer.onThen(a),
-                        onReleaseCrash: (rc) =>
-                            observer.onCrash(rc),
-                      );
+                      observer.onThen(a);
+                      fireRelease();
                     },
                   ),
                 );
           });
 
           if (crash != null) {
-            withRelease(
-              onReleaseOk: () => observer.onCrash(crash),
-              onReleaseCrash: (rc) => observer.onCrash(
-                MergedCrash._(crash, rc),
-              ),
-            );
+            observer.onCrash(crash);
+            fireRelease();
           }
         }),
       );

@@ -63,9 +63,9 @@ final class NormalCrash extends ContCrash {
 
 /// A crash that combines two crashes from paired operations.
 ///
-/// Produced when two continuations are run (e.g. in [Cont.merge] or
-/// [Cont.bracket]) and both crash. Carries the original [left] and [right]
-/// crashes so callers can inspect both.
+/// Produced when two continuations are run (e.g. in [Cont.merge]) and both
+/// crash. Carries the original [left] and [right] crashes so callers can
+/// inspect both.
 final class MergedCrash extends ContCrash {
   /// The crash from the left (or first) operation.
   final ContCrash left;
