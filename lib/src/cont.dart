@@ -563,14 +563,26 @@ final class Cont<E, F, A> {
                   runtime,
                   observer.copyUpdate(
                     onCrash: (crash) {
+                      if (runtime.isCancelled()) {
+                        fireRelease();
+                        return;
+                      }
                       observer.onCrash(crash);
                       fireRelease();
                     },
                     onElse: (error) {
+                      if (runtime.isCancelled()) {
+                        fireRelease();
+                        return;
+                      }
                       observer.onElse(error);
                       fireRelease();
                     },
                     onThen: (a) {
+                      if (runtime.isCancelled()) {
+                        fireRelease();
+                        return;
+                      }
                       observer.onThen(a);
                       fireRelease();
                     },
