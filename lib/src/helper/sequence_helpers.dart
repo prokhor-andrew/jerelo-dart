@@ -168,10 +168,6 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
               );
         });
         if (contCrash != null) {
-          if (runtime.isCancelled()) {
-            update(_Left(()));
-            return;
-          }
           crashes[i] = contCrash;
           update(_Right(_Value1(i + 1)));
         }
