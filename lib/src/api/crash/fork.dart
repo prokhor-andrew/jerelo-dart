@@ -26,8 +26,8 @@ Cont<E, F, A> _crashFork<E, F, F2, A, A2>(
         final Cont<E, F2, A2> contA2;
         try {
           contA2 = f(crash).absurdify();
-        } catch (error, st) {
-          observer.onCrash(NormalCrash._(error, st));
+        } catch (_) {
+          observer.onCrash(crash);
           return;
         }
 
