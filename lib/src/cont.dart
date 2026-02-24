@@ -124,11 +124,6 @@ final class Cont<E, F, A> {
       bool isDone = false;
 
       void guardedOnCrash(ContCrash crash) {
-        if (runtime.isCancelled()) {
-          isDone = true;
-          return;
-        }
-
         if (isDone) {
           return;
         }
@@ -143,11 +138,6 @@ final class Cont<E, F, A> {
       }
 
       void guardedOnElse(F error) {
-        if (runtime.isCancelled()) {
-          isDone = true;
-          return;
-        }
-
         if (isDone) {
           return;
         }
@@ -161,11 +151,6 @@ final class Cont<E, F, A> {
       }
 
       void guardedOnThen(A a) {
-        if (runtime.isCancelled()) {
-          isDone = true;
-          return;
-        }
-
         if (isDone) {
           return;
         }
@@ -547,23 +532,26 @@ final class Cont<E, F, A> {
       acquire.absurdify().elseAbsurd<F>().runWith(
         runtime,
         observer.copyUpdateOnThen<R>((r) {
-          if (runtime.isCancelled()) {
-            return;
-          }
+          // Uncancellable runtime for release — release must always
+          // run to completion to avoid resource leaks.
+          final uncancellableRuntime = ContRuntime._(
+            runtime.env(),
+            () => false,
+          );
 
           void withRelease({
             required void Function() onReleaseOk,
-            required void Function(ContCrash releaseCrash)
-                onReleaseCrash,
+            required void Function(
+              ContCrash releaseCrash,
+            ) onReleaseCrash,
           }) {
             final crash = ContCrash.tryCatch(() {
               release(r)
                   .absurdify()
                   .elseAbsurd<F>()
                   .runWith(
-                    runtime,
+                    uncancellableRuntime,
                     observer.copyUpdateOnThen<()>((_) {
-                      if (runtime.isCancelled()) return;
                       onReleaseOk();
                     }).copyUpdateOnCrash(onReleaseCrash),
                   );
@@ -573,38 +561,55 @@ final class Cont<E, F, A> {
             }
           }
 
+          if (runtime.isCancelled()) {
+            withRelease(
+              onReleaseOk: () {},
+              onReleaseCrash: (rc) => observer.onCrash(rc),
+            );
+            return;
+          }
+
           final crash = ContCrash.tryCatch(() {
             use(r).absurdify().runWith(
                   runtime,
-                  observer.copyUpdateOnThen<A>((a) {
-                    if (runtime.isCancelled()) return;
-                    withRelease(
-                      onReleaseOk: () => observer.onThen(a),
-                      onReleaseCrash: (rc) =>
-                          observer.onCrash(rc),
-                    );
-                  }).copyUpdateOnElse<F>((error) {
-                    if (runtime.isCancelled()) return;
-                    withRelease(
-                      onReleaseOk: () =>
-                          observer.onElse(error),
-                      onReleaseCrash: (rc) =>
-                          observer.onCrash(rc),
-                    );
-                  }).copyUpdateOnCrash((useCrash) {
-                    withRelease(
-                      onReleaseOk: () =>
-                          observer.onCrash(useCrash),
-                      onReleaseCrash: (rc) =>
-                          observer.onCrash(
-                              MergedCrash._(useCrash, rc)),
-                    );
-                  }),
+                  observer.copyUpdate(
+                    onCrash: (crash) {
+                      withRelease(
+                        onReleaseOk: () =>
+                            observer.onCrash(crash),
+                        onReleaseCrash: (rc) =>
+                            observer.onCrash(
+                          MergedCrash._(crash, rc),
+                        ),
+                      );
+                    },
+                    onElse: (error) {
+                      withRelease(
+                        onReleaseOk: () =>
+                            observer.onElse(error),
+                        onReleaseCrash: (rc) =>
+                            observer.onCrash(rc),
+                      );
+                    },
+                    onThen: (a) {
+                      withRelease(
+                        onReleaseOk: () =>
+                            observer.onThen(a),
+                        onReleaseCrash: (rc) =>
+                            observer.onCrash(rc),
+                      );
+                    },
+                  ),
                 );
           });
 
           if (crash != null) {
-            observer.onCrash(crash);
+            withRelease(
+              onReleaseOk: () => observer.onCrash(crash),
+              onReleaseCrash: (rc) => observer.onCrash(
+                MergedCrash._(crash, rc),
+              ),
+            );
           }
         }),
       );
