@@ -23,12 +23,13 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
     final leftCrash = ContCrash.tryCatch(() {
       left.runWith(
         runtime,
-        observer
-            .copyUpdateOnCrash(handleCrash)
-            .copyUpdateOnElse<F>(handleElse)
-            .copyUpdateOnThen<A1>((a) {
-          handleThen(_Left(a));
-        }),
+        observer.copyUpdate(
+          onCrash: handleCrash,
+          onElse: handleElse,
+          onThen: (a) {
+            handleThen(_Left(a));
+          },
+        ),
       );
     });
 
@@ -39,12 +40,13 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
     final rightCrash = ContCrash.tryCatch(() {
       right.runWith(
         runtime,
-        observer
-            .copyUpdateOnCrash(handleCrash)
-            .copyUpdateOnElse(handleElse)
-            .copyUpdateOnThen<A2>((a) {
-          handleThen(_Right(a));
-        }),
+        observer.copyUpdate(
+          onCrash: handleCrash,
+          onElse: handleElse,
+          onThen: (a) {
+            handleThen(_Right(a));
+          },
+        ),
       );
     });
     if (rightCrash != null) {
@@ -76,12 +78,13 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
     final leftCrash = ContCrash.tryCatch(() {
       left.runWith(
         runtime,
-        observer
-            .copyUpdateOnCrash(handleCrash)
-            .copyUpdateOnThen(handleThen)
-            .copyUpdateOnElse((f1) {
-          handleElse(_Left(f1));
-        }),
+        observer.copyUpdate(
+          onCrash: handleCrash,
+          onElse: ((f1) {
+            handleElse(_Left(f1));
+          }),
+          onThen: handleThen,
+        ),
       );
     });
     if (leftCrash != null) {
@@ -91,12 +94,13 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
     final rightCrash = ContCrash.tryCatch(() {
       right.runWith(
         runtime,
-        observer
-            .copyUpdateOnCrash(handleCrash)
-            .copyUpdateOnThen(handleThen)
-            .copyUpdateOnElse((f2) {
-          handleElse(_Right(f2));
-        }),
+        observer.copyUpdate(
+          onCrash: handleCrash,
+          onElse: ((f2) {
+            handleElse(_Right(f2));
+          }),
+          onThen: handleThen,
+        ),
       );
     });
 

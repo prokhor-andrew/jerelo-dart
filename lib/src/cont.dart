@@ -531,7 +531,8 @@ final class Cont<E, F, A> {
       R resource,
     ) release,
     required Cont<E, F, A> Function(R resource) use,
-    void Function(NormalCrash crash) onReleasePanic = _panic,
+    void Function(NormalCrash crash) onReleasePanic =
+        _panic,
     void Function(ContCrash crash) onReleaseCrash = _ignore,
     void Function() onReleaseThen = _voidIgnore,
   }) {
