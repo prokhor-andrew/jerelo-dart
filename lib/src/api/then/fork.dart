@@ -22,25 +22,23 @@ Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
         }
 
         // if this crashes, it should crash the computation
-        final Cont<E, F2, A2> contA2;
-        try {
-          contA2 = f(a).absurdify();
-        } catch (error, st) {
-          observer.onCrash(NormalCrash._(error, st));
-          return;
-        }
-
-        try {
-          contA2.run(
-            runtime.env(),
-            onPanic: onPanic,
-            onCrash: onCrash,
-            onElse: onElse,
-            onThen: onThen,
-          );
-        } catch (_) {
-          // do nothing, if anything happens to side-effect, it's not
-          // a concern of the thenFork
+        final crash = ContCrash.tryCatch(() {
+          final contA2 = f(a).absurdify();
+          try {
+            contA2.run(
+              runtime.env(),
+              onPanic: onPanic,
+              onCrash: onCrash,
+              onElse: onElse,
+              onThen: onThen,
+            );
+          } catch (_) {
+            // do nothing, if anything happens to side-effect, it's not
+            // a concern of the thenFork
+          }
+        });
+        if (crash != null) {
+          observer.onCrash(crash);
         }
 
         observer.onThen(a);

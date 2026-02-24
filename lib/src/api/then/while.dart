@@ -32,22 +32,22 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
     return Cont.fromRun((runtime, observer) {
       _stackSafeLoop<
           _Triple<_KeepGoing, _Cancelled,
-              _Either<_Either<NormalCrash, F>, A>>,
+              _Either<_Either<ContCrash, F>, A>>,
           _IgnoredPayload,
           _Either<_Cancelled,
-              _Either<_Either<NormalCrash, F>, A>>>(
+              _Either<_Either<ContCrash, F>, A>>>(
         seed: _Value1(()),
         keepRunningIf: (state) {
           switch (state) {
             case _Value1<_KeepGoing, _Cancelled,
-                  _Either<_Either<NormalCrash, F>, A>>():
+                  _Either<_Either<ContCrash, F>, A>>():
               // Keep running - need to execute the continuation again
               return _StackSafeLoopPolicyKeepRunning(());
             case _Value2<_KeepGoing, _Cancelled,
-                  _Either<_Either<NormalCrash, F>, A>>():
+                  _Either<_Either<ContCrash, F>, A>>():
               return _StackSafeLoopPolicyStop(_Left(()));
             case _Value3<_KeepGoing, _Cancelled,
-                  _Either<_Either<NormalCrash, F>, A>>(
+                  _Either<_Either<ContCrash, F>, A>>(
                 c: final result
               ):
               return _StackSafeLoopPolicyStop(
@@ -58,37 +58,48 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
           final crash = ContCrash.tryCatch(() {
             runWith(
               runtime,
-              observer.copyUpdateOnElse<F>((error) {
-                if (runtime.isCancelled()) {
-                  callback(_Value2(()));
-                  return;
-                }
-
-                // Terminated - stop the loop with error
-                callback(_Value3(_Left(_Right(error))));
-              }).copyUpdateOnThen<A>((a) {
-                if (runtime.isCancelled()) {
-                  callback(_Value2(()));
-                  return;
-                }
-
-                final innerCrash = ContCrash.tryCatch(() {
-                  // Check the predicate
-                  if (!predicate(a)) {
-                    // Predicate satisfied - stop with success
-                    callback(_Value3(_Right(a)));
-                  } else {
-                    // Predicate not satisfied - retry
-                    callback(_Value1(()));
+              observer.copyUpdate<F, A>(
+                onCrash: (crash) {
+                  if (runtime.isCancelled()) {
+                    callback(_Value2(()));
+                    return;
                   }
-                });
 
-                if (innerCrash != null) {
-                  callback(
-                    _Value3(_Left(_Left(innerCrash))),
-                  );
-                }
-              }),
+                  callback(_Value3(_Left(_Left(crash))));
+                },
+                onElse: (error) {
+                  if (runtime.isCancelled()) {
+                    callback(_Value2(()));
+                    return;
+                  }
+
+                  // Terminated - stop the loop with error
+                  callback(_Value3(_Left(_Right(error))));
+                },
+                onThen: (a) {
+                  if (runtime.isCancelled()) {
+                    callback(_Value2(()));
+                    return;
+                  }
+
+                  final innerCrash = ContCrash.tryCatch(() {
+                    // Check the predicate
+                    if (!predicate(a)) {
+                      // Predicate satisfied - stop with success
+                      callback(_Value3(_Right(a)));
+                    } else {
+                      // Predicate not satisfied - retry
+                      callback(_Value1(()));
+                    }
+                  });
+
+                  if (innerCrash != null) {
+                    callback(
+                      _Value3(_Left(_Left(innerCrash))),
+                    );
+                  }
+                },
+              ),
             );
           });
 
@@ -99,28 +110,28 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
         escape: (result) {
           switch (result) {
             case _Left<(),
-                  _Either<_Either<NormalCrash, F>, A>>():
+                  _Either<_Either<ContCrash, F>, A>>():
               // cancellation
               return;
             case _Right<(),
-                  _Either<_Either<NormalCrash, F>, A>>(
+                  _Either<_Either<ContCrash, F>, A>>(
                 value: final crashOrFOrA,
               ):
               switch (crashOrFOrA) {
-                case _Left<_Either<NormalCrash, F>, A>(
+                case _Left<_Either<ContCrash, F>, A>(
                     value: final crashOrF
                   ):
                   switch (crashOrF) {
-                    case _Left<NormalCrash, F>(
+                    case _Left<ContCrash, F>(
                         value: final crash
                       ):
                       observer.onCrash(crash);
-                    case _Right<NormalCrash, F>(
+                    case _Right<ContCrash, F>(
                         value: final f
                       ):
                       observer.onElse(f);
                   }
-                case _Right<_Either<NormalCrash, F>, A>(
+                case _Right<_Either<ContCrash, F>, A>(
                     value: final a
                   ):
                   observer.onThen(a);
