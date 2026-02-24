@@ -132,9 +132,17 @@ final class CollectedCrash extends ContCrash {
   int get hashCode => crashes.hashCode;
 }
 
+/// The result of [ContCrash.tryCatch] — either a successfully computed
+/// value of type [T] or a [NormalCrash].
+///
+/// Use [match] to exhaustively handle both cases.
 sealed class CrashOr<T> {
   const CrashOr();
 
+  /// Folds this [CrashOr] into a single value of type [R].
+  ///
+  /// Calls [ifValue] when the computation succeeded, passing the result.
+  /// Calls [ifCrash] when the computation threw, passing the [NormalCrash].
   R match<R>(
     R Function(T value) ifValue,
     R Function(NormalCrash crash) ifCrash,
