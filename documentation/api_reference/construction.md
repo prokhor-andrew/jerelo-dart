@@ -12,12 +12,13 @@ Creating and transforming continuations.
   - [Cont.fromRun](#contfromrun)
   - [Cont.fromDeferred](#contfromdeferred)
   - [Cont.of](#contof)
-  - [Cont.stop](#contstop)
-  - [Cont.ask](#contask)
+  - [Cont.error](#conterror)
+  - [Cont.crash](#contcrash)
   - [Cont.askThen](#contaskthen)
+  - [Cont.askElse](#contaskelse)
   - [Cont.bracket](#contbracket)
 - [Transformation](#transformation)
-  - [decor](#decor)
+  - [decorate](#decorate)
 
 ---
 
@@ -26,25 +27,27 @@ Creating and transforming continuations.
 ### Cont.fromRun
 
 ```dart
-static Cont<E, A> fromRun<E, A>(void Function(ContRuntime<E> runtime, ContObserver<A> observer) run)
+static Cont<E, F, A> fromRun<E, F, A>(
+  void Function(ContRuntime<E> runtime, SafeObserver<F, A> observer) run,
+)
 ```
 
 Creates a `Cont` from a run function that accepts an observer.
 
-Constructs a continuation with guaranteed idempotence and exception catching. The run function receives an observer with `onThen` and `onElse` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later.
+Constructs a continuation with guaranteed idempotence and exception catching. The run function receives a `SafeObserver` with `onCrash`, `onElse`, and `onThen` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later. The `SafeObserver` ensures that only the first callback invocation takes effect; subsequent calls are ignored.
 
 - **Parameters:**
   - `run`: Function that executes the continuation and calls observer callbacks
 
 **Example:**
 ```dart
-final cont = Cont.fromRun<MyEnv, int>((runtime, observer) {
+final cont = Cont.fromRun<MyEnv, String, int>((runtime, observer) {
   // Access environment
   final config = runtime.env();
 
   // Check cancellation
   if (runtime.isCancelled()) {
-    observer.onElse([ContError.capture('Cancelled')]);
+    observer.onElse('Cancelled');
     return;
   }
 
@@ -58,7 +61,7 @@ final cont = Cont.fromRun<MyEnv, int>((runtime, observer) {
 ### Cont.fromDeferred
 
 ```dart
-static Cont<E, A> fromDeferred<E, A>(Cont<E, A> Function() thunk)
+static Cont<E, F, A> fromDeferred<E, F, A>(Cont<E, F, A> Function() thunk)
 ```
 
 Creates a `Cont` from a deferred continuation computation.
@@ -85,7 +88,7 @@ deferred.run(env, onThen: print);
 ### Cont.of
 
 ```dart
-static Cont<E, A> of<E, A>(A value)
+static Cont<E, F, A> of<E, F, A>(A value)
 ```
 
 Creates a `Cont` that immediately succeeds with a value.
@@ -97,54 +100,57 @@ Identity operation that wraps a pure value in a continuation context.
 
 **Example:**
 ```dart
-final cont = Cont.of<(), int>(42);
+final cont = Cont.of<(), Never, int>(42);
 cont.run((), onThen: print); // prints: 42
 ```
 
 ---
 
-### Cont.stop
+### Cont.error
 
 ```dart
-static Cont<E, A> stop<E, A>([List<ContError> errors = const []])
+static Cont<E, F, A> error<E, F, A>(F err)
 ```
 
-Creates a `Cont` that immediately terminates with optional errors.
+Creates a `Cont` that immediately terminates with a typed error.
 
-Creates a continuation that terminates without producing a value. Used to represent failure states.
+Creates a continuation that terminates without producing a value. Used to represent typed failure states.
 
 - **Parameters:**
-  - `errors`: List of errors to terminate with. Defaults to an empty list
+  - `err`: The error value to terminate with
 
 **Example:**
 ```dart
-final cont = Cont.stop<(), int>([
-  ContError.capture('Not found'),
-]);
+final cont = Cont.error<(), String, int>('Not found');
 
-cont.run((), onElse: (errors) {
-  print('Failed: ${errors.first.error}');
+cont.run((), onElse: (error) {
+  print('Failed: $error'); // prints: Failed: Not found
 });
 ```
 
 ---
 
-### Cont.ask
+### Cont.crash
 
 ```dart
-static Cont<E, E> ask<E>()
+static Cont<E, F, A> crash<E, F, A>(ContCrash crash)
 ```
 
-Retrieves the current environment value.
+Creates a `Cont` that immediately crashes with an unexpected exception.
 
-Accesses the environment of type `E` from the runtime context. This is used to read configuration, dependencies, or any contextual information that flows through the continuation execution.
+Used to represent unrecoverable failures that are outside the typed error channel.
 
-Returns a continuation that succeeds with the environment value.
+- **Parameters:**
+  - `crash`: The crash to propagate
 
 **Example:**
 ```dart
-final cont = Cont.ask<DatabaseConfig>().thenDo((config) {
-  return queryDatabase(config.connectionString);
+final cont = Cont.crash<(), String, int>(
+  NormalCrash.current(Exception('Unexpected failure')),
+);
+
+cont.run((), onCrash: (crash) {
+  print('Crashed: $crash');
 });
 ```
 
@@ -153,28 +159,39 @@ final cont = Cont.ask<DatabaseConfig>().thenDo((config) {
 ### Cont.askThen
 
 ```dart
-static Cont<E, A> askThen<E, A>(Cont<E, A> Function(E env) f)
+static Cont<E, F, E> askThen<E, F>()
 ```
 
-Retrieves the environment and chains a computation that depends on it.
+Retrieves the current environment value as a success.
 
-Convenience method equivalent to `Cont.ask<E>().thenDo(f)`. Reads the environment of type `E` and immediately passes it to `f`, which returns a continuation to execute next.
+Accesses the environment of type `E` from the runtime context and places it on the then (success) channel. This is used to read configuration, dependencies, or any contextual information that flows through the continuation execution.
 
-This is the most common pattern when building computations that depend on the environment, avoiding the need to manually call `ask` and `thenDo` separately.
-
-- **Parameters:**
-  - `f`: Function that takes the environment and returns a continuation
+Returns a continuation that succeeds with the environment value.
 
 **Example:**
 ```dart
-final cont = Cont.askThen<DatabaseConfig, List<User>>((config) {
-  return queryDatabase(config.connectionString);
-});
+final cont = Cont.askThen<DatabaseConfig, String>()
+  .thenDo((config) => queryDatabase(config.connectionString));
+```
 
-// Equivalent to:
-final cont2 = Cont.ask<DatabaseConfig>().thenDo((config) {
-  return queryDatabase(config.connectionString);
-});
+---
+
+### Cont.askElse
+
+```dart
+static Cont<E, E, A> askElse<E, A>()
+```
+
+Retrieves the current environment value as an error.
+
+Accesses the environment of type `E` from the runtime context and places it on the else (error) channel. This is the error-channel counterpart of `askThen`.
+
+Returns a continuation that terminates with the environment value as the error.
+
+**Example:**
+```dart
+final cont = Cont.askElse<String, int>()
+  .elseDo((errorMsg) => logAndRecover(errorMsg));
 ```
 
 ---
@@ -182,50 +199,47 @@ final cont2 = Cont.ask<DatabaseConfig>().thenDo((config) {
 ### Cont.bracket
 
 ```dart
-static Cont<E, A> bracket<E, R, A>({
-  required Cont<E, R> acquire,
-  required Cont<E, ()> Function(R resource) release,
-  required Cont<E, A> Function(R resource) use,
+static Cont<E, F, A> bracket<R, E, F, A>({
+  required Cont<E, Never, R> acquire,
+  required Cont<E, Never, ()> Function(R resource) release,
+  required Cont<E, F, A> Function(R resource) use,
+  void Function(NormalCrash crash) onReleasePanic,
+  void Function(ContCrash crash) onReleaseCrash,
+  void Function() onReleaseThen,
 })
 ```
 
 Manages resource lifecycle with guaranteed cleanup.
 
-The bracket pattern ensures that a resource is properly released after use, even if an error occurs during the `use` phase or if cancellation occurs. This is the functional equivalent of try-with-resources or using statements.
+The bracket pattern ensures that a resource is properly released after use, even if an error or crash occurs during the `use` phase or if cancellation occurs. This is the functional equivalent of try-with-resources or using statements.
+
+Note that `acquire` and `release` use `Never` as their error type, meaning they cannot fail with a typed error — they can only succeed or crash.
 
 **The execution order is:**
-1. `acquire` - Obtain the resource
-2. `use` - Use the resource to produce a value
-3. `release` - Release the resource (always runs if `acquire` succeeded, even if `use` fails or is cancelled)
+1. `acquire` — Obtain the resource
+2. `use` — Use the resource to produce a value
+3. `release` — Release the resource (always runs if `acquire` succeeded, even if `use` fails or is cancelled)
 
 **Cancellation behavior:**
 - The `release` function is called even when the runtime is cancelled
 - Release runs with a non-cancellable runtime, ensuring complete cleanup
-- Cancellation is checked before the `use` phase; if cancelled, `use` is skipped but `release` still runs
 
-**Error handling behavior:**
-- If `acquire` fails: terminates immediately with `acquire` errors (neither `use` nor `release` execute)
-- If `use` succeeds and `release` succeeds: returns the value from `use`
-- If `use` succeeds and `release` fails: terminates with release errors
-- If `use` fails and `release` succeeds: terminates with use errors
-- If `use` fails and `release` fails: terminates with both error lists concatenated
+**Optional release callbacks:**
+- `onReleasePanic`: Called if the release crashes with a panic-level failure. Defaults to re-throwing
+- `onReleaseCrash`: Called if the release crashes. Defaults to ignoring
+- `onReleaseThen`: Called when release succeeds. Defaults to no-op
 
 - **Parameters:**
-  - `acquire`: Continuation that acquires the resource
-  - `release`: Function that takes the resource and returns a continuation that releases it
+  - `acquire`: Continuation that acquires the resource (cannot fail with typed error)
+  - `release`: Function that takes the resource and returns a continuation that releases it (cannot fail with typed error)
   - `use`: Function that takes the resource and returns a continuation that uses it
+  - `onReleasePanic`: Optional panic handler for release phase
+  - `onReleaseCrash`: Optional crash handler for release phase
+  - `onReleaseThen`: Optional success handler for release phase
 
 **Example:**
 ```dart
-// With explicit type parameters: <Environment, Resource, Result>
-final result = Cont.bracket<MyEnv, File, String>(
-  acquire: openFile('data.txt'),           // Cont<MyEnv, File>
-  release: (file) => closeFile(file),      // File => Cont<MyEnv, ()>
-  use: (file) => readContents(file),       // File => Cont<MyEnv, String>
-);
-
-// Or using type inference (recommended):
-final result = Cont.bracket(
+final result = Cont.bracket<File, MyEnv, String, String>(
   acquire: openFile('data.txt'),
   release: (file) => closeFile(file),
   use: (file) => readContents(file),
@@ -236,32 +250,38 @@ final result = Cont.bracket(
 
 ## Transformation
 
-### decor
+### decorate
 
 ```dart
-Cont<E, A> decor(void Function(void Function(ContRuntime<E>, ContObserver<A>) run, ContRuntime<E> runtime, ContObserver<A> observer) f)
+Cont<E, F, A> decorate(
+  void Function(
+    void Function(ContRuntime<E>, ContObserver<F, A>) run,
+    ContRuntime<E> runtime,
+    ContObserver<F, A> observer,
+  ) f,
+)
 ```
 
 Transforms the execution of the continuation using a natural transformation.
 
 Applies a function that wraps or modifies the underlying run behavior. This is useful for intercepting execution to add middleware-like behavior such as logging, timing, or modifying how observers receive callbacks.
 
-The transformation function receives both the original run function and the observer, allowing custom execution behavior to be injected.
+The transformation function receives the original run function, the runtime, and the observer, allowing custom execution behavior to be injected.
 
 - **Parameters:**
-  - `f`: A transformation function that receives the run function and observer, and implements custom execution logic by calling the run function with the observer at the appropriate time
+  - `f`: A transformation function that receives the run function, runtime, and observer, and implements custom execution logic by calling the run function at the appropriate time
 
 **Example:**
 ```dart
 // Add logging around execution
-final logged = cont.decor((run, runtime, observer) {
+final logged = cont.decorate((run, runtime, observer) {
   print('Starting execution');
   run(runtime, observer);
   print('Execution initiated');
 });
 
 // Add timing
-final timed = cont.decor((run, runtime, observer) {
+final timed = cont.decorate((run, runtime, observer) {
   final start = DateTime.now();
   run(
     runtime,

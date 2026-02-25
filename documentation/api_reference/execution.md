@@ -8,54 +8,16 @@ Running continuations and specialized extensions.
 
 ## Table of Contents
 
-- [ContCancelToken](#contcanceltoken)
 - [Execution Methods](#execution-methods)
   - [run](#run)
-  - [ff](#ff)
+  - [runWith](#runwith)
 - [Extensions](#extensions)
-  - [ContFlattenExtension](#contflattenextension)
-  - [ContRunExtension](#contrunextension)
-  - [ContAbsurdExtension](#contabsurdextension)
-
----
-
-## ContCancelToken
-
-```dart
-final class ContCancelToken
-```
-
-A token used to cooperatively cancel a running continuation.
-
-Returned by `Cont.run`, this token provides a way to signal cancellation to a running computation and to query its current cancellation state.
-
-Cancellation is cooperative: calling `cancel` sets an internal flag that the runtime polls via `isCancelled`. The computation checks this flag at safe points and stops work when it detects cancellation.
-
-**Methods:**
-
-```dart
-bool isCancelled()
-```
-Returns `true` if `cancel` has been called on this token, `false` otherwise.
-
-```dart
-void cancel()
-```
-Signals cancellation to the running computation. After this call, `isCancelled()` will return `true` and the runtime will detect the cancellation at the next polling point. Calling this method multiple times is safe but has no additional effect.
-
-**Example:**
-```dart
-final token = computation.run(
-  env,
-  onThen: (value) => print('Success: $value'),
-);
-
-// Later, cancel the computation
-token.cancel();
-
-// Check cancellation state
-print(token.isCancelled()); // true
-```
+  - [flatten](#flatten)
+  - [absurdify](#absurdify)
+  - [thenAbsurdify](#thenabsurdify)
+  - [elseAbsurdify](#elseabsurdify)
+  - [thenAbsurd](#thenabsurd)
+  - [elseAbsurd](#elseabsurd)
 
 ---
 
@@ -66,95 +28,84 @@ print(token.isCancelled()); // true
 ```dart
 ContCancelToken run(
   E env, {
-  void Function(ContError fatal) onPanic = _panic,
-  void Function(List<ContError> errors) onElse = _ignore,
-  void Function(A value) onThen = _ignore,
+  void Function(NormalCrash crash) onPanic,
+  void Function(ContCrash crash) onCrash,
+  void Function(F error) onElse,
+  void Function(A value) onThen,
 })
 ```
 
-Executes the continuation with separate callbacks for termination and value.
+Executes the continuation with separate callbacks for each outcome channel.
 
-Initiates execution of the continuation with separate handlers for success and failure cases. All callbacks are optional and default to no-op, allowing callers to subscribe only to the channels they care about.
+Initiates execution of the continuation with separate handlers for panics, crashes, errors, and successes. All callbacks are optional and default to no-op (except `onPanic` which defaults to re-throwing inside a microtask), allowing callers to subscribe only to the channels they care about.
 
-**Returns** a `ContCancelToken` that can be used to cooperatively cancel the execution. Calling `ContCancelToken.cancel()` sets an internal flag that the runtime polls via `isCancelled()`. The token also exposes `ContCancelToken.isCancelled()` to query the current cancellation state. Calling `cancel()` multiple times is safe but has no additional effect.
+**Returns** a `ContCancelToken` that can be used to cooperatively cancel the execution.
 
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
-  - `onPanic`: Callback invoked when a fatal, unrecoverable error occurs (e.g. an observer callback throws). Defaults to re-throwing inside a microtask
-  - `onElse`: Callback invoked when the continuation terminates with errors. Defaults to ignoring the errors
+  - `onPanic`: Callback invoked when a fatal, unrecoverable panic occurs (e.g., an observer callback throws). Defaults to re-throwing inside a microtask
+  - `onCrash`: Callback invoked when the continuation crashes with an unexpected exception. Defaults to ignoring the crash
+  - `onElse`: Callback invoked when the continuation terminates with a typed error. Defaults to ignoring the error
   - `onThen`: Callback invoked when the continuation produces a successful value. Defaults to ignoring the value
 
 **Example:**
 ```dart
-// Subscribe to all channels and get a cancel token
+// Subscribe to all channels
 final token = computation.run(
   env,
-  onPanic: (fatal) => log('PANIC: ${fatal.error}'),
-  onElse: (errors) => print('Failed: $errors'),
+  onPanic: (panic) => log('PANIC: ${panic.error}'),
+  onCrash: (crash) => log('Crash: $crash'),
+  onElse: (error) => print('Failed: $error'),
   onThen: (value) => print('Success: $value'),
 );
 
 // Subscribe only to the value channel
-final token = computation.run(env, onThen: print);
+computation.run(env, onThen: print);
 
 // Cancel the computation when needed
 token.cancel();
-
-// Check cancellation state
-print(token.isCancelled()); // true
 ```
 
 ---
 
-### ff
+### runWith
 
 ```dart
-void ff(
-  E env, {
-  void Function(ContError error) onPanic = _panic,
-})
+void runWith(
+  ContRuntime<E> runtime,
+  ContObserver<F, A> observer,
+)
 ```
 
-Executes the continuation in a fire-and-forget manner.
+Low-level execution method that runs the continuation with an explicit runtime and observer.
 
-Runs the continuation without waiting for the result. Both success and failure outcomes are ignored. This is useful for side-effects that should run asynchronously without blocking or requiring error handling.
+This is the primitive execution method used internally by the library. It gives full control over the runtime context and observer callbacks. Most users should prefer `run` instead.
 
 - **Parameters:**
-  - `env`: The environment value to provide as context during execution
-  - `onPanic`: Callback invoked when a fatal, unrecoverable error occurs. Defaults to re-throwing inside a microtask
-
-**Example:**
-```dart
-// Fire and forget a logging operation
-logEvent(userId, action).ff(env);
-
-// Continue with other work immediately
-processNextRequest();
-```
+  - `runtime`: The runtime context providing environment and cancellation
+  - `observer`: The observer that receives crash, error, and success callbacks
 
 ---
 
 ## Extensions
 
-### ContFlattenExtension
+### flatten
 
 ```dart
-extension ContFlattenExtension<E, A> on Cont<E, Cont<E, A>>
+extension ContFlattenExtension<E, F, A> on Cont<E, F, Cont<E, F, A>>
 ```
 
 Extension providing flatten operation for nested continuations.
 
-**Methods:**
-
 ```dart
-Cont<E, A> flatten()
+Cont<E, F, A> flatten()
 ```
-Flattens a nested `Cont` structure. Converts `Cont<E, Cont<E, A>>` to `Cont<E, A>`. Equivalent to `thenDo((contA) => contA)`.
+Flattens a nested `Cont` structure. Converts `Cont<E, F, Cont<E, F, A>>` to `Cont<E, F, A>`. Equivalent to `thenDo((contA) => contA)`.
 
 **Example:**
 ```dart
 // Without flatten
-final nested = Cont.of(Cont.of(42));
+final nested = Cont.of<(), Never, Cont<(), Never, int>>(Cont.of(42));
 final result = nested.thenDo((inner) => inner);
 
 // With flatten
@@ -163,71 +114,75 @@ final flattened = nested.flatten();
 
 ---
 
-### ContRunExtension
+### absurdify
 
 ```dart
-extension ContRunExtension<E> on Cont<E, Never>
+extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
 ```
-
-Extension for running continuations that never produce a value.
-
-This extension provides specialized methods for `Cont<E, Never>` where only termination is expected, simplifying the API by removing the unused value callback.
-
-**Methods:**
 
 ```dart
-ContCancelToken trap(
-  E env, {
-  void Function(ContError error) onPanic = _panic,
-  void Function(List<ContError> errors) onElse = _ignore,
-})
+Cont<E, F, A> absurdify()
 ```
-Executes the continuation expecting only termination. This is a convenience method for `Cont<E, Never>` that executes the continuation with only a termination handler, since a value callback would never be called for a `Cont<E, Never>`. All callbacks are optional and default to no-op.
 
-**Returns** a `ContCancelToken` that can be used to cooperatively cancel the execution. Calling `ContCancelToken.cancel()` sets an internal flag that the runtime polls via `isCancelled()`. The token also exposes `ContCancelToken.isCancelled()` to query the current cancellation state.
+Widens both `Never` channels simultaneously. If `F` is `Never`, it widens the error channel; if `A` is `Never`, it widens the success channel. Equivalent to calling `thenAbsurdify()` and `elseAbsurdify()`.
 
-- **Parameters:**
-  - `env`: The environment value to provide as context during execution
-  - `onPanic`: Callback invoked when a fatal, unrecoverable error occurs. Defaults to re-throwing inside a microtask
-  - `onElse`: Callback invoked when the continuation terminates with errors. Defaults to ignoring the errors
+This is safe because `Never` is uninhabited — a callback for `Never` can never actually be invoked.
 
 **Example:**
 ```dart
-final cont = Cont.stop<MyEnv, Never>([ContError.capture(Exception('Failed'))]);
-final token = cont.trap(myEnv, onElse: (errors) {
-  print('Terminated with ${errors.length} error(s)');
-});
-
-// Cancel the continuation when needed
-token.cancel();
-
-// Check cancellation state
-print(token.isCancelled()); // true
+final neverBoth = Cont.crash<(), Never, Never>(someCrash);
+final Cont<(), String, int> widened = neverBoth.absurdify();
 ```
 
 ---
 
-### ContAbsurdExtension
+### thenAbsurdify
 
 ```dart
-extension ContAbsurdExtension<E> on Cont<E, Never>
+Cont<E, F, A> thenAbsurdify()
 ```
 
-Extension providing type conversion for continuations that never produce a value.
+Widens the success channel when `A` is `Never`. Since a `Never` callback can never be invoked, this is a safe type-level transformation.
 
-**Methods:**
+**Example:**
+```dart
+final Cont<(), String, Never> neverSucceeds = Cont.error('fail');
+final Cont<(), String, int> widened = neverSucceeds.thenAbsurdify();
+```
+
+---
+
+### elseAbsurdify
 
 ```dart
-Cont<E, A> absurd<A>()
+Cont<E, F, A> elseAbsurdify()
 ```
 
-Converts a continuation that never produces a value to any desired type.
+Widens the error channel when `F` is `Never`. Since a `Never` callback can never be invoked, this is a safe type-level transformation.
 
-The `absurd` method implements the principle of "ex falso quodlibet" (from falsehood, anything follows) from type theory. It allows converting a `Cont<E, Never>` to `Cont<E, A>` for any type `A`.
+**Example:**
+```dart
+final Cont<(), Never, int> neverFails = Cont.of(42);
+final Cont<(), String, int> widened = neverFails.elseAbsurdify();
+```
 
-Since `Never` is an uninhabited type with no possible values, the mapping function `(Never never) => never` can never actually execute. However, the type system accepts this transformation as valid, enabling type-safe conversion from a continuation that cannot produce a value to one with any desired value type.
+---
 
-This is particularly useful when:
+### thenAbsurd
+
+```dart
+extension ContThenNeverExtension<E, F> on Cont<E, F, Never>
+```
+
+```dart
+Cont<E, F, A> thenAbsurd<A>()
+```
+
+Converts a continuation that never produces a value to any desired value type.
+
+Implements the principle of "ex falso quodlibet" (from falsehood, anything follows). Since `Never` is uninhabited, the success callback can never be called, making this a safe type-level transformation.
+
+This is useful when:
 - Working with continuations that run forever (e.g., from `thenForever`)
 - Matching types with other continuations in composition
 - Converting terminating-only continuations to typed continuations
@@ -235,20 +190,39 @@ This is particularly useful when:
 - **Type Parameters:**
   - `A`: The desired value type for the resulting continuation
 
-**Returns:** A continuation with the same environment type but a different value type parameter.
+**Example:**
+```dart
+// A server that runs forever has type Cont<Env, String, Never>
+final server = handleRequests().thenForever();
+
+// Convert to Cont<Env, String, int> to match other continuation types
+final serverAsInt = server.thenAbsurd<int>();
+```
+
+---
+
+### elseAbsurd
+
+```dart
+extension ContElseNeverExtension<E, A> on Cont<E, Never, A>
+```
+
+```dart
+Cont<E, F, A> elseAbsurd<F>()
+```
+
+Converts a continuation that never produces an error to any desired error type.
+
+The error-channel counterpart of `thenAbsurd`. Since `Never` is uninhabited, the error callback can never be called, making this a safe type-level transformation.
+
+- **Type Parameters:**
+  - `F`: The desired error type for the resulting continuation
 
 **Example:**
 ```dart
-// A server that runs forever has type Cont<Env, Never>
-final server = handleRequests().thenForever();
+// A continuation that cannot fail
+final infallible = Cont.of<(), Never, int>(42);
 
-// Convert to Cont<Env, String> to match other continuation types
-final serverAsString = server.absurd<String>();
-
-// Now it can be used in contexts expecting Cont<Env, String>
-final result = Cont.either(
-  serverAsString,
-  fallbackOperation,
-  policy: ContEitherPolicy.quitFast(),
-);
+// Convert to match a context expecting String errors
+final Cont<(), String, int> compatible = infallible.elseAbsurd<String>();
 ```

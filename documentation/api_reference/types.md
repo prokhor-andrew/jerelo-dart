@@ -8,67 +8,164 @@ Core types used throughout the Jerelo continuation library.
 
 ## Table of Contents
 
-- [ContError](#conterror)
+- [ContCrash](#contcrash)
+  - [NormalCrash](#normalcrash)
+  - [MergedCrash](#mergedcrash)
+  - [CollectedCrash](#collectedcrash)
+- [CrashOr](#crashor)
 - [ContRuntime](#contruntime)
 - [ContObserver](#contobserver)
+  - [SafeObserver](#safeobserver)
+- [ContCancelToken](#contcanceltoken)
 
 ---
 
-## ContError
+## ContCrash
 
 ```dart
-final class ContError
+sealed class ContCrash
 ```
 
-An immutable error container used throughout the continuation system.
+Represents unexpected exceptions (crashes) that occur during continuation execution.
 
-Wraps an error object together with its stack trace, providing a consistent way to propagate error information through continuation chains.
+Unlike typed errors on the else channel (type `F`), crashes represent unrecoverable failures — exceptions that were not part of the expected control flow. `ContCrash` is a sealed class with three subtypes representing different crash scenarios.
 
-**Fields:**
-- `error: Object` - The error object that was caught or created
-- `stackTrace: StackTrace` - The stack trace captured at the point where the error occurred
-
-**Static Factory Methods:**
+**Static Methods:**
 
 ```dart
-static ContError withStackTrace(Object error, StackTrace st)
+static ContCrash merge(ContCrash left, ContCrash right)
 ```
-Creates an error wrapper from an error and an existing stack trace. Use this when you have already caught an error and its associated stack trace, for example inside a `catch` block.
+Combines two crashes into a `MergedCrash`.
 
 - **Parameters:**
-  - `error`: The error object to wrap
-  - `st`: The stack trace associated with the error
+  - `left`: The first crash
+  - `right`: The second crash
 
 ```dart
-static ContError withNoStackTrace(Object error)
+static ContCrash collect(Map<int, ContCrash> crashes)
 ```
-Creates an error wrapper with an empty stack trace. Use this when the stack trace is not available or not relevant, for example when creating a logical termination reason that does not originate from a thrown exception.
+Combines multiple crashes from a list operation into a `CollectedCrash`.
 
 - **Parameters:**
-  - `error`: The error object to wrap
+  - `crashes`: A map from index to crash
 
 ```dart
-static ContError capture(Object error)
+static CrashOr<T> tryCatch<T>(T Function() function)
 ```
-Creates an error wrapper and captures the current stack trace automatically. Use this when you want to create an error at the call site and record where it was created.
+Executes a function and captures any thrown exception as a `CrashOr`.
 
 - **Parameters:**
-  - `error`: The error object to wrap
+  - `function`: The function to execute
+
+- **Returns:** A `CrashOr<T>` containing either the function's return value or a `NormalCrash`
 
 **Example:**
 ```dart
-// From a catch block — use withStackTrace
-try {
-  riskyOperation();
-} catch (error, st) {
-  observer.onElse([ContError.withStackTrace(error, st)]);
-}
+final result = ContCrash.tryCatch(() => int.parse('not a number'));
+result.match(
+  (value) => print('Parsed: $value'),
+  (crash) => print('Failed: ${crash.error}'),
+);
+```
 
-// Logical termination without a stack trace
-ContError.withNoStackTrace('User not found');
+---
 
-// Capture the stack trace at the call site
-ContError.capture('Something went wrong');
+### NormalCrash
+
+```dart
+final class NormalCrash extends ContCrash
+```
+
+A single exception with its stack trace.
+
+**Fields:**
+- `error: Object` — The exception that was thrown
+- `stackTrace: StackTrace` — The stack trace captured at the point of the exception
+
+**Constructors:**
+
+```dart
+const NormalCrash(Object error, StackTrace stackTrace)
+```
+
+```dart
+factory NormalCrash.current(Object error)
+```
+Creates a `NormalCrash` capturing the current stack trace.
+
+- **Parameters:**
+  - `error`: The error object to wrap
+
+---
+
+### MergedCrash
+
+```dart
+final class MergedCrash extends ContCrash
+```
+
+Two crashes combined from a two-way parallel operation (e.g., `both`, `either`).
+
+**Fields:**
+- `left: ContCrash` — The crash from the left continuation
+- `right: ContCrash` — The crash from the right continuation
+
+**Constructor:**
+
+```dart
+const MergedCrash(ContCrash left, ContCrash right)
+```
+
+---
+
+### CollectedCrash
+
+```dart
+final class CollectedCrash extends ContCrash
+```
+
+Multiple crashes from a list operation (e.g., `all`, `any`), indexed by position.
+
+**Fields:**
+- `crashes: Map<int, ContCrash>` — A map from the index in the original list to the crash
+
+**Constructor:**
+
+```dart
+const CollectedCrash(Map<int, ContCrash> crashes)
+```
+
+---
+
+## CrashOr
+
+```dart
+sealed class CrashOr<T>
+```
+
+A result type representing either a value or a crash. Returned by `ContCrash.tryCatch`.
+
+**Methods:**
+
+```dart
+R match<R>(
+  R Function(T value) ifValue,
+  R Function(NormalCrash crash) ifCrash,
+)
+```
+Pattern-matches on the result, calling `ifValue` if the computation succeeded or `ifCrash` if it threw.
+
+- **Parameters:**
+  - `ifValue`: Called with the value if no crash occurred
+  - `ifCrash`: Called with the `NormalCrash` if an exception was thrown
+
+**Example:**
+```dart
+final result = ContCrash.tryCatch(() => riskyOperation());
+final output = result.match(
+  (value) => 'Got: $value',
+  (crash) => 'Crashed: ${crash.error}',
+);
 ```
 
 ---
@@ -86,14 +183,9 @@ Provides runtime context for continuation execution.
 **Fields & Methods:**
 
 ```dart
-bool isCancelled()
+bool Function() isCancelled
 ```
 Function that checks whether the continuation execution has been cancelled. Returns `true` if the execution should be stopped, `false` otherwise. Continuations should check this regularly to support cooperative cancellation.
-
-```dart
-void onPanic(ContError fatal)
-```
-Callback invoked when a fatal, unrecoverable error occurs during continuation execution. Unlike `ContObserver.onElse`, which handles expected termination errors within the normal control flow, `onPanic` is reserved for situations that violate internal invariants (e.g. an observer callback throwing an exception). The default implementation re-throws the error inside a microtask so it surfaces as an unhandled exception.
 
 ```dart
 E env()
@@ -103,52 +195,147 @@ Returns the environment value of type `E`. The environment provides contextual i
 ```dart
 ContRuntime<E2> copyUpdateEnv<E2>(E2 env)
 ```
-Creates a copy of this runtime with a different environment. Returns a new `ContRuntime` with the provided environment while preserving the cancellation function and panic handler. This is used by `local` and related methods to modify the environment context.
+Creates a copy of this runtime with a different environment. Returns a new `ContRuntime` with the provided environment while preserving the cancellation function. This is used by `local` and related methods to modify the environment context.
 
 - **Parameters:**
   - `env`: The new environment value to use
+
+```dart
+ContRuntime<E> extendCancellation(bool Function() anotherIsCancelled)
+```
+Creates a copy of this runtime with an additional cancellation source. The resulting runtime reports cancelled if either the original or the new cancellation function returns `true`.
+
+- **Parameters:**
+  - `anotherIsCancelled`: An additional cancellation check to combine with the existing one
 
 ---
 
 ## ContObserver
 
 ```dart
-final class ContObserver<A>
+sealed class ContObserver<F, A>
 ```
 
-An observer that handles both success and termination cases of a continuation.
+An observer that handles all three outcome channels of a continuation: crash, error, and success.
 
-`ContObserver` provides the callback mechanism for receiving results from a `Cont` execution. It encapsulates handlers for both successful values and termination (failure) scenarios.
+`ContObserver` provides the callback mechanism for receiving results from a `Cont` execution. It encapsulates handlers for crashes (unexpected exceptions), errors (typed business failures), and successful values.
 
-`ContObserver` has a private constructor. Instances cannot be created directly. Instead, new observers are derived from existing ones using the `copyUpdateOnElse` and `copyUpdateOnThen` methods. The initial observer is provided by the runtime when a continuation is executed (e.g., inside `Cont.fromRun` or `decor`).
+`ContObserver` has a private constructor. Instances cannot be created directly. Instead, new observers are derived from existing ones using the copy methods. The initial observer is provided by the runtime when a continuation is executed (e.g., inside `Cont.fromRun` or `decorate`).
+
+**Fields:**
+
+```dart
+final void Function(ContCrash crash) onCrash
+```
+The callback invoked when the continuation crashes with an unexpected exception.
+
+```dart
+final void Function(F error) onElse
+```
+The callback invoked when the continuation terminates with a typed error.
+
+```dart
+final void Function(A value) onThen
+```
+The callback invoked when the continuation produces a successful value.
 
 **Methods:**
 
 ```dart
-void onThen(A value)
+ContObserver<F, A> copyUpdateOnCrash(
+  void Function(ContCrash crash) onCrash,
+)
 ```
-The callback function invoked when the continuation produces a successful value.
-
-```dart
-void onElse([List<ContError> errors = const []])
-```
-Invokes the termination callback with the provided errors.
+Creates a new observer with an updated crash handler.
 
 - **Parameters:**
-  - `errors`: List of errors that caused termination. Defaults to an empty list
+  - `onCrash`: The new crash handler to use
 
 ```dart
-ContObserver<A> copyUpdateOnElse(void Function(List<ContError> errors) onElse)
+ContObserver<F2, A> copyUpdateOnElse<F2>(
+  void Function(F2 error) onElse,
+)
 ```
-Creates a new observer with an updated termination handler. Returns a copy of this observer with a different termination callback, while preserving the value callback.
+Creates a new observer with an updated error handler and potentially different error type.
 
 - **Parameters:**
-  - `onElse`: The new termination handler to use
+  - `onElse`: The new error handler to use
 
 ```dart
-ContObserver<A2> copyUpdateOnValue<A2>(void Function(A2 value) onThen)
+ContObserver<F, A2> copyUpdateOnThen<A2>(
+  void Function(A2 value) onThen,
+)
 ```
-Creates a new observer with an updated value handler and potentially different type. Returns a copy of this observer with a different value callback type, while preserving the termination callback.
+Creates a new observer with an updated value handler and potentially different value type.
 
 - **Parameters:**
   - `onThen`: The new value handler to use
+
+```dart
+ContObserver<F2, A2> copyUpdate<F2, A2>({
+  required void Function(ContCrash crash) onCrash,
+  required void Function(F2 error) onElse,
+  required void Function(A2 value) onThen,
+})
+```
+Creates a new observer with all three handlers replaced.
+
+- **Parameters:**
+  - `onCrash`: The new crash handler
+  - `onElse`: The new error handler
+  - `onThen`: The new value handler
+
+---
+
+### SafeObserver
+
+```dart
+final class SafeObserver<F, A> extends ContObserver<F, A>
+```
+
+An observer that tracks whether any callback has already been invoked, preventing duplicate invocations.
+
+Used by `Cont.fromRun` to wrap user-provided callbacks with idempotence and exception safety.
+
+**Fields:**
+- `isUsed: bool Function()` — Returns `true` if any callback on this observer has already been invoked
+
+---
+
+## ContCancelToken
+
+```dart
+final class ContCancelToken
+```
+
+A token used to cooperatively cancel a running continuation.
+
+Returned by `Cont.run`, this token provides a way to signal cancellation to a running computation and to query its current cancellation state.
+
+Cancellation is cooperative: calling `cancel` sets an internal flag that the runtime polls via `isCancelled`. The computation checks this flag at safe points and stops work when it detects cancellation.
+
+**Methods:**
+
+```dart
+bool isCancelled()
+```
+Returns `true` if `cancel` has been called on this token, `false` otherwise.
+
+```dart
+void cancel()
+```
+Signals cancellation to the running computation. After this call, `isCancelled()` will return `true` and the runtime will detect the cancellation at the next polling point. Calling this method multiple times is safe but has no additional effect.
+
+**Example:**
+```dart
+final token = computation.run(
+  env,
+  onThen: (value) => print('Success: $value'),
+);
+
+// Later, cancel the computation
+token.cancel();
+
+// Check cancellation state
+print(token.isCancelled()); // true
+```
