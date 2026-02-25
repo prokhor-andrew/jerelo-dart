@@ -114,6 +114,46 @@ final flattened = nested.flatten();
 
 ---
 
+### thenAbsurdify
+
+```dart
+extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
+```
+
+```dart
+Cont<E, F, A> thenAbsurdify()
+```
+
+Checks if `A` is `Never` during execution and casts it to `A` to prevent runtime crashes.
+
+**Example:**
+```dart
+final Cont<(), String, int> neverSucceeds = Cont.error<(), String, Never>('fail');
+final Cont<(), String, int> runtimeSafe = neverSucceeds.thenAbsurdify();
+```
+
+---
+
+### elseAbsurdify
+
+```dart
+extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
+```
+
+```dart
+Cont<E, F, A> elseAbsurdify()
+```
+
+Checks if `F` is `Never` during execution and casts it to `F` to prevent runtime crashes.
+
+**Example:**
+```dart
+final Cont<(), String, int> neverFails = Cont.of<(), Never, int>(42);
+final Cont<(), String, int> widened = neverFails.elseAbsurdify();
+```
+
+---
+
 ### absurdify
 
 ```dart
@@ -124,46 +164,12 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
 Cont<E, F, A> absurdify()
 ```
 
-Widens both `Never` channels simultaneously. If `F` is `Never`, it widens the error channel; if `A` is `Never`, it widens the success channel. Equivalent to calling `thenAbsurdify()` and `elseAbsurdify()`.
-
-This is safe because `Never` is uninhabited — a callback for `Never` can never actually be invoked.
+Checks if `F` and/or `A` are `Never` during execution and casts them to prevent runtime crashes. Equivalent to calling `thenAbsurdify()` and `elseAbsurdify()`.
 
 **Example:**
 ```dart
-final neverBoth = Cont.crash<(), Never, Never>(someCrash);
+final Cont.crash<(), String, int> neverBoth = ...
 final Cont<(), String, int> widened = neverBoth.absurdify();
-```
-
----
-
-### thenAbsurdify
-
-```dart
-Cont<E, F, A> thenAbsurdify()
-```
-
-Widens the success channel when `A` is `Never`. Since a `Never` callback can never be invoked, this is a safe type-level transformation.
-
-**Example:**
-```dart
-final Cont<(), String, Never> neverSucceeds = Cont.error('fail');
-final Cont<(), String, int> widened = neverSucceeds.thenAbsurdify();
-```
-
----
-
-### elseAbsurdify
-
-```dart
-Cont<E, F, A> elseAbsurdify()
-```
-
-Widens the error channel when `F` is `Never`. Since a `Never` callback can never be invoked, this is a safe type-level transformation.
-
-**Example:**
-```dart
-final Cont<(), Never, int> neverFails = Cont.of(42);
-final Cont<(), String, int> widened = neverFails.elseAbsurdify();
 ```
 
 ---
