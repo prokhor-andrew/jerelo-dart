@@ -145,9 +145,14 @@ Used to represent unrecoverable failures that are outside the typed error channe
 
 **Example:**
 ```dart
-final cont = Cont.crash<(), String, int>(
-  NormalCrash.current(Exception('Unexpected failure')),
-);
+final cont = Cont.fromDeferred(() {
+  throw Exception('Unexpected failure');
+}).crashDo((crash) {
+  if (crash is! NormalCrash) {
+    return Cont.of(0);
+  }
+  return Cont.crash(crash);
+});
 
 cont.run((), onCrash: (crash) {
   print('Crashed: $crash');
