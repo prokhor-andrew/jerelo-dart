@@ -334,14 +334,20 @@ static Cont<E, F, A> coalesce<E, F, A>(
 })
 ```
 
-Runs two continuations and coalesces their results according to the crash policy.
+Runs two continuations and coalesces their crash paths.
 
-Unlike `both` (which requires both to succeed) or `either` (which requires one to succeed), `coalesce` handles all three channels — crashes, errors, and successes — using the provided `CrashPolicy` to determine how outcomes are combined.
+Executes both continuations and combines crashes according to the `policy`. Non-crash outcomes (success and error) are handled according to the policy when both continuations produce them.
+
+The execution behavior depends on the provided `policy`:
+
+- **`SequenceCrashPolicy`**: Runs `left` then `right` sequentially; if both crash, produces a `MergedCrash`.
+- **`QuitFastCrashPolicy`**: Runs both in parallel, propagates the first crash immediately.
+- **`RunAllCrashPolicy`**: Runs both in parallel, waits for both, and coalesces crashes if both crash.
 
 - **Parameters:**
-  - `left`: First continuation
-  - `right`: Second continuation
-  - `policy`: Crash policy determining execution strategy and outcome merging
+  - `left`: First continuation to execute
+  - `right`: Second continuation to execute
+  - `policy`: Crash policy determining how crashes are coalesced
 
 **Example:**
 ```dart
@@ -363,13 +369,19 @@ static Cont<E, F, A> converge<E, F, A>(
 })
 ```
 
-Runs multiple continuations and converges their results according to the crash policy.
+Runs multiple continuations and converges their crash paths.
 
-The list counterpart of `coalesce`. Handles all three channels for an arbitrary number of continuations.
+Executes all continuations in `list` and combines their crashes according to the `policy`. Non-crash outcomes are handled per-policy when produced by multiple continuations.
+
+The execution behavior depends on the provided `policy`:
+
+- **`SequenceCrashPolicy`**: Runs continuations one by one; sequential crashes are converged into a `MergedCrash`.
+- **`QuitFastCrashPolicy`**: Runs all in parallel, propagates the first crash immediately.
+- **`RunAllCrashPolicy`**: Runs all in parallel, waits for all, and collects crashes into a `CollectedCrash`.
 
 - **Parameters:**
   - `list`: List of continuations to execute
-  - `policy`: Crash policy determining execution strategy and outcome merging
+  - `policy`: Crash policy determining how crashes are converged
 
 **Example:**
 ```dart
@@ -448,11 +460,11 @@ Cont<E, F, A> coalesceWith(
 })
 ```
 
-Instance method wrapper for `Cont.coalesce`. Runs this continuation and `right`, coalescing their results according to the crash policy.
+Instance method wrapper for `Cont.coalesce`. Executes this continuation and `right` according to the specified `policy`, coalescing crashes when both crash.
 
 - **Parameters:**
-  - `right`: The other continuation to coalesce with
-  - `policy`: Crash policy
+  - `right`: The other continuation whose crash path is coalesced
+  - `policy`: Crash policy determining how crashes are coalesced
 
 **Example:**
 ```dart
