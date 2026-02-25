@@ -111,7 +111,7 @@ As you can see, the more functions we want to compose, the uglier it becomes.
 
 ### The Solution: Jerelo's Cont
 
-**Cont** is a type that represents an arbitrary computation. It has two result channels, and comes with a basic interface that allows you to do every fundamental operation:
+**Cont** is a type that represents an arbitrary computation. It has three result channels, and comes with a basic interface that allows you to do every fundamental operation:
 - Construct
 - Run
 - Transform
@@ -133,57 +133,77 @@ final program = function1(value)
 
 ## Getting Started with Cont
 
-`Cont` has two result channels:
-- **Success channel**: Represented by the type parameter `T` in `Cont<E, T>`
-- **Termination channel**: Represented by `List<ContError>` for errors that caused termination
+`Cont<E, F, A>` has three type parameters and three result channels:
+
+- **`E`** — Environment type: configuration, dependencies, or context threaded through the chain
+- **`F`** — Error type: typed business-logic errors (e.g., `String`, a custom `AppError` enum, etc.)
+- **`A`** — Value type: the success result
 
 ### Result Channels
 
-The termination channel is used when a computation crashes or when you manually terminate it.
+Every `Cont` computation terminates on exactly one of three channels:
+
+1. **Then channel** (success) — carries a value of type `A`
+2. **Else channel** (business error) — carries a typed error of type `F`
+3. **Crash channel** (unexpected exception) — carries a `ContCrash` value
 
 ```dart
 final program = getUserAge(userId).thenMap((age) {
-  throw "Armageddon!"; // <- throws here
+  throw "Armageddon!"; // <- throws here → crash channel
 });
 
 // or
 
 final program = getUserAge(userId).thenDo((age) {
-  return Cont.stop([ContError.capture("Armageddon!")]);
+  return Cont.error("Too young"); // → else channel
 });
 
 // ignore `()` for now
 final token = program.run(
   (),
-  onElse: (errors) {
-    // will automatically catch thrown error here
+  onCrash: (crash) {
+    // crash channel: unexpected exceptions
+    print("Crash: ${crash}");
+  },
+  onElse: (error) {
+    // else channel: typed business-logic errors
+    print("Error: $error");
   },
   onThen: (value) {
-    // success channel. not called in this case
+    // then channel: success
     print("value=$value");
   },
 );
 ```
 
-### ContError Type
+### ContCrash Type
 
-The type of a thrown error is `ContError`. It is a holder for the original error and stack trace. Instances are created via static factory methods:
+When an exception is thrown inside a computation, it is automatically caught and wrapped in a `ContCrash`. The crash type hierarchy is:
 
 ```dart
-final class ContError {
+sealed class ContCrash {
+  // ...
+}
+
+// A single caught exception
+final class NormalCrash extends ContCrash {
   final Object error;
   final StackTrace stackTrace;
+}
 
-  // From a catch block — preserves the caught stack trace
-  ContError.withStackTrace(error, stackTrace);
+// Two crashes combined from parallel or sequential operations
+final class MergedCrash extends ContCrash {
+  final ContCrash left;
+  final ContCrash right;
+}
 
-  // When no stack trace is needed
-  ContError.withNoStackTrace(error);
-
-  // Captures the stack trace at the call site automatically
-  ContError.capture(error);
+// Multiple crashes collected from a list of operations
+final class CollectedCrash extends ContCrash {
+  final Map<int, ContCrash> crashes;
 }
 ```
+
+Unlike the typed error on the else channel (type `F`), crashes are untyped and represent unexpected failures — the equivalent of unhandled exceptions in traditional code.
 
 ---
 

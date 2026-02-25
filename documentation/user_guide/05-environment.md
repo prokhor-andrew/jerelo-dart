@@ -19,10 +19,10 @@ Without environment, you would need to manually pass these values through every 
 
 ### Accessing Environment
 
-Use `Cont.ask` to retrieve the current environment:
+Use `Cont.askThen` to retrieve the current environment on the success channel:
 
 ```dart
-final program = Cont.ask<Config>().thenDo((config) {
+final program = Cont.askThen<Config, String>().thenDo((config) {
   return fetchFromApi(config.apiUrl);
 });
 
@@ -32,35 +32,21 @@ program.run(
 );
 ```
 
-### Shorthand: askThen
-
-`Cont.askThen` combines `Cont.ask` and `thenDo` into a single call. Since accessing the environment and immediately chaining a computation is so common, this shorthand avoids the extra step:
+Use `Cont.askElse` to retrieve the current environment on the else (error) channel:
 
 ```dart
-// Using askThen (recommended for conciseness)
-final program = Cont.askThen<Config, Response>((config) {
-  return fetchFromApi(config.apiUrl);
-});
-
-// Equivalent long form
-final program2 = Cont.ask<Config>().thenDo((config) {
-  return fetchFromApi(config.apiUrl);
-});
-
-program.run(
-  Config(apiUrl: "https://api.example.com"),
-  onThen: print,
-);
+final program = Cont.askElse<Config, int>();
+// This immediately terminates with the environment as the error value
 ```
 
-### Scoping Environment
+### Providing Environment with withEnv
 
-Use `scope` to provide an environment value:
+Use `withEnv` to provide a fixed environment value:
 
 ```dart
-final cont = Cont.ask<String>().thenMap((s) => s.toUpperCase());
+final cont = Cont.askThen<String, Never>().thenMap((s) => s.toUpperCase());
 
-final program = cont.scope("hello");
+final program = cont.withEnv("hello");
 
 program.run(
   "ignored", // outer env doesn't matter
@@ -86,7 +72,7 @@ class AppConfig {
 }
 
 // Operation that needs DatabaseConfig
-final dbOperation = Cont.ask<DatabaseConfig>().thenDo((config) {
+final dbOperation = Cont.askThen<DatabaseConfig, String>().thenDo((config) {
   return connectToDb(config.host, config.port);
 });
 
@@ -99,12 +85,10 @@ program.run(
 );
 ```
 
-**Difference from `scope`:**
-- `scope(value)`: Replaces environment with a fixed value
+**Difference from `withEnv`:**
+- `withEnv(value)`: Replaces environment with a fixed value
 - `local(f)`: Transforms the outer environment before passing it down
 - `local0(f)`: Provides environment from zero-argument function
-
-**Variants:** `local0`
 
 **Use cases:**
 - Adapting environment types (extracting sub-configurations)
@@ -126,6 +110,7 @@ Available variants:
 **Chaining:**
 - `thenDoWithEnv`, `thenDoWithEnv0`
 - `elseDoWithEnv`, `elseDoWithEnv0`
+- `crashDoWithEnv`, `crashDoWithEnv0`
 
 **Transformations:**
 - `thenMapWithEnv`, `thenMapWithEnv0`
@@ -134,28 +119,33 @@ Available variants:
 **Side effects:**
 - `thenTapWithEnv`, `thenTapWithEnv0`
 - `elseTapWithEnv`, `elseTapWithEnv0`
+- `crashTapWithEnv`, `crashTapWithEnv0`
 
 **Combining:**
 - `thenZipWithEnv`, `thenZipWithEnv0`
 - `elseZipWithEnv`, `elseZipWithEnv0`
 
-**Fire-and-forget:**
-- `thenForkWithEnv`, `thenForkWithEnv0`
-- `elseForkWithEnv`, `elseForkWithEnv0`
-
 **Conditions:**
 - `thenIfWithEnv`, `thenIfWithEnv0`
-- `elseIfWithEnv`, `elseIfWithEnv0`
+- `elseUnlessWithEnv`, `elseUnlessWithEnv0`
+- `crashUnlessThenWithEnv`, `crashUnlessThenWithEnv0`
+- `crashUnlessElseWithEnv`, `crashUnlessElseWithEnv0`
 
 **Loops:**
 - `thenWhileWithEnv`, `thenWhileWithEnv0`
 - `thenUntilWithEnv`, `thenUntilWithEnv0`
 - `elseWhileWithEnv`, `elseWhileWithEnv0`
 - `elseUntilWithEnv`, `elseUntilWithEnv0`
+- `crashWhileWithEnv`, `crashWhileWithEnv0`
+- `crashUntilWithEnv`, `crashUntilWithEnv0`
 
-**Termination and recovery:**
-- `abortWithEnv`, `abortWithEnv0`
-- `recoverWithEnv`, `recoverWithEnv0`
+**Demotion and promotion:**
+- `demoteWithEnv`, `demoteWithEnv0`
+- `promoteWithEnv`, `promoteWithEnv0`
+
+**Crash recovery:**
+- `crashRecoverThenWithEnv`, `crashRecoverThenWithEnv0`
+- `crashRecoverElseWithEnv`, `crashRecoverElseWithEnv0`
 
 ### Example: Using WithEnv for Configuration
 
@@ -168,8 +158,8 @@ class ApiConfig {
   ApiConfig(this.baseUrl, this.timeout, this.apiKey);
 }
 
-Cont<ApiConfig, User> fetchUser(String userId) {
-  return Cont.ask<ApiConfig>().thenDoWithEnv((config, _) {
+Cont<ApiConfig, String, User> fetchUser(String userId) {
+  return Cont.askThen<ApiConfig, String>().thenDoWithEnv((config, _) {
     return httpGet(
       '${config.baseUrl}/users/$userId',
       headers: {'Authorization': 'Bearer ${config.apiKey}'},
@@ -190,60 +180,75 @@ fetchUser('123').run(config, onThen: print);
 
 ## Dependency Injection Patterns
 
-Jerelo provides two powerful operators for dependency injection: `injectInto` and `injectedBy`. These enable patterns where the result of one continuation becomes the environment (dependencies) for another.
+Jerelo provides operators for dependency injection where the result of one continuation becomes the environment for another.
 
-### Using injectInto
+### Using thenInject
 
-The `injectInto` method takes the value produced by one continuation and injects it as the environment for another continuation:
+The `thenInject` method takes the success value of this continuation and injects it as the environment for another continuation:
 
 ```dart
 // Build a configuration and inject it into operations that need it
-final configCont = Cont.of<(), DbConfig>(
+final configCont = Cont.of<void, Never, DbConfig>(
   DbConfig(host: 'localhost', port: 5432)
 );
 
 // Define an operation that requires DbConfig as its environment
-final queryOp = Cont.ask<DbConfig>().thenDo((config) {
+final queryOp = Cont.askThen<DbConfig, String>().thenDo((config) {
   return executeQuery(config, 'SELECT * FROM users');
 });
 
 // Inject the config into the query operation
-final result = configCont.injectInto(queryOp);
-// Type: Cont<(), List<User>>
+final result = configCont.thenInject(queryOp);
+// Type: Cont<void, String, List<User>>
 
-result.run((), onThen: (users) {
+result.run(null, onThen: (users) {
   print("Fetched ${users.length} users");
 });
 ```
 
 **Type transformation:**
-- Input: `Cont<E, A>` (produces value of type `A`)
-- Target: `Cont<A, A2>` (needs environment of type `A`)
-- Output: `Cont<E, A2>` (produces value of type `A2` with original environment)
+- Input: `Cont<E, F, A>` (produces value of type `A`)
+- Target: `Cont<A, F, A2>` (needs environment of type `A`)
+- Output: `Cont<E, F, A2>` (produces value of type `A2` with original environment)
 
-### Using injectedBy
+### Using injectedByThen
 
-The `injectedBy` method is the inverse - it expresses that a continuation receives its environment from another source. This is equivalent to `cont.injectInto(this)` but reads more naturally:
+The `injectedByThen` method is the inverse — it expresses that a continuation receives its environment from another source:
 
 ```dart
 // An operation that needs a database config
-final queryOp = Cont.ask<DbConfig>().thenDo((config) {
+final queryOp = Cont.askThen<DbConfig, String>().thenDo((config) {
   return executeQuery(config, 'SELECT * FROM users');
 });
 
 // A provider that produces the config
-final configProvider = Cont.of<(), DbConfig>(
+final configProvider = Cont.of<void, String, DbConfig>(
   DbConfig(host: 'localhost', port: 5432)
 );
 
 // Express that queryOp is injected by configProvider
-final result = queryOp.injectedBy(configProvider);
-// Type: Cont<(), List<User>>
+final result = queryOp.injectedByThen(configProvider);
+// Type: Cont<void, String, List<User>>
+```
+
+### Error-Channel Injection
+
+You can also inject via the error channel:
+
+- `elseInject(cont)`: When this continuation terminates on the else channel with error `F`, runs `cont` using `F` as its environment
+- `injectedByElse(cont)`: This continuation receives its environment from the else channel of `cont`
+
+```dart
+// An error recovery operation that needs the error as its environment
+final recoveryOp = Cont.askThen<String, String>().thenDo((errorMsg) {
+  return logAndRecover(errorMsg);
+});
+
+// If mainOp fails, inject the error into recoveryOp
+final result = mainOp.elseInject(recoveryOp);
 ```
 
 ### Dependency Injection Use Cases
-
-These operators are particularly useful for:
 
 #### 1. Resource creation and injection
 
@@ -251,12 +256,12 @@ These operators are particularly useful for:
 // Create a connection pool and inject it into operations
 final poolCont = createConnectionPool(maxConnections: 10);
 
-final transaction = Cont.ask<ConnectionPool>()
+final transaction = Cont.askThen<ConnectionPool, String>()
   .thenDo((pool) => pool.beginTransaction())
   .thenDo((txn) => performDatabaseWork(txn))
   .thenTap((result) => commitTransaction());
 
-final program = poolCont.injectInto(transaction);
+final program = poolCont.thenInject(transaction);
 ```
 
 #### 2. Multi-stage dependency construction
@@ -269,18 +274,17 @@ final authServiceCont = httpClientCont.thenDo((client) {
   return Cont.of(AuthService(client: client, apiKey: 'secret'));
 });
 
-final userServiceOp = Cont.ask<AuthService>().thenDo((auth) {
+final userServiceOp = Cont.askThen<AuthService, String>().thenDo((auth) {
   return fetchAuthenticatedUsers(auth);
 });
 
 // Inject the multi-stage dependency
-final result = authServiceCont.injectInto(userServiceOp);
+final result = authServiceCont.thenInject(userServiceOp);
 ```
 
 #### 3. Configuration scoping
 
 ```dart
-// Different operations with different configs
 class DatabaseConfig {
   final String host;
   final int port;
@@ -294,62 +298,61 @@ class ApiConfig {
 }
 
 // Operation needing DB config
-final dbOp = Cont.ask<DatabaseConfig>().thenDo((config) {
+final dbOp = Cont.askThen<DatabaseConfig, String>().thenDo((config) {
   return queryDatabase(config.host, config.port);
 });
 
 // Operation needing API config
-final apiOp = Cont.ask<ApiConfig>().thenDo((config) {
+final apiOp = Cont.askThen<ApiConfig, String>().thenDo((config) {
   return fetchFromApi(config.baseUrl, config.apiKey);
 });
 
 // Build and inject different configs
-final dbConfig = Cont.of<(), DatabaseConfig>(
+final dbConfig = Cont.of<void, String, DatabaseConfig>(
   DatabaseConfig('localhost', 5432)
 );
-final apiConfig = Cont.of<(), ApiConfig>(
+final apiConfig = Cont.of<void, String, ApiConfig>(
   ApiConfig('https://api.example.com', 'key123')
 );
 
 // Each operation gets its own config type
-final dbResult = dbConfig.injectInto(dbOp);   // Cont<(), DbData>
-final apiResult = apiConfig.injectInto(apiOp); // Cont<(), ApiData>
+final dbResult = dbConfig.thenInject(dbOp);
+final apiResult = apiConfig.thenInject(apiOp);
 
 // Combine them
 Cont.both(
   dbResult,
   apiResult,
   (dbData, apiData) => merge(dbData, apiData),
-  policy: ContBothPolicy.quitFast(),
-).run((), onThen: print);
+  policy: OkPolicy.quitFast<String>(),
+).run(null, onThen: print);
 ```
 
 #### 4. Testing with mock dependencies
 
 ```dart
 // Production code
-final queryOp = Cont.ask<Database>().thenDo((db) {
+final queryOp = Cont.askThen<Database, String>().thenDo((db) {
   return db.query('SELECT * FROM users');
 });
 
 // Production: inject real database
 final prodDb = Cont.of(RealDatabase());
-final prodProgram = queryOp.injectedBy(prodDb);
+final prodProgram = queryOp.injectedByThen(prodDb);
 
 // Testing: inject mock database
 final mockDb = Cont.of(MockDatabase(testData: [...]));
-final testProgram = queryOp.injectedBy(mockDb);
+final testProgram = queryOp.injectedByThen(mockDb);
 ```
 
 ## Key Benefits of Environment Management
 
 - **Type-safe**: The compiler ensures environment types match correctly
 - **Composable**: Chain multiple injection stages together
-- **Flexible**: Use `injectInto` for forward declaration or `injectedBy` for reverse declaration
+- **Flexible**: Use `thenInject` for forward declaration or `injectedByThen` for reverse declaration
 - **Testable**: Easy to swap implementations by injecting different providers
 - **Clean**: No manual passing of dependencies through every function
-- **Zero overhead when unused**: If you don't need environment, just use `()` as the unit type
-- **Eliminates boilerplate**: No need to pass configuration through every function manually
+- **Zero overhead when unused**: If you don't need environment, just use `void` as the type
 
 ## Common Patterns
 
@@ -375,7 +378,7 @@ class OperationConfig {
 }
 
 // Extract what you need at each level
-final operation = Cont.ask<OperationConfig>()
+final operation = Cont.askThen<OperationConfig, String>()
   .local<FeatureConfig>((fc) => OperationConfig(fc, 3))
   .local<AppConfig>((ac) => FeatureConfig(ac, 'newFeature'));
 ```
@@ -389,8 +392,8 @@ class RequestContext {
   final DateTime timestamp;
 }
 
-Cont<RequestContext, Response> handleRequest(Request req) {
-  return Cont.ask<RequestContext>()
+Cont<RequestContext, String, Response> handleRequest(Request req) {
+  return Cont.askThen<RequestContext, String>()
     .thenDoWithEnv((ctx, _) {
       return logRequest(ctx.requestId, ctx.userId);
     })
@@ -420,14 +423,19 @@ class Services {
   final HttpClient httpClient;
 }
 
-Cont<Services, User> getUser(String userId) {
-  return Cont.ask<Services>().thenDoWithEnv((services, _) {
-    return services.cache.get(userId).elseDo((_) {
-      return services.database.query('SELECT * FROM users WHERE id = ?', [userId])
-        .thenTap((user) => services.cache.set(userId, user))
-        .thenTapWithEnv((services, user) {
-          return services.logger.info('Fetched user $userId');
-        });
+Cont<Services, String, User> getUser(String userId) {
+  return Cont.askThen<Services, String>().thenDoWithEnv((services, _) {
+    return Cont.fromRun<Services, String, User>((runtime, observer) {
+      final cached = runtime.env().cache.get<User>(userId);
+      if (cached != null) {
+        observer.onThen(cached);
+      } else {
+        observer.onElse('cache miss');
+      }
+    }).elseDo((_) {
+      return Cont.askThen<Services, String>().thenDo((services) {
+        return services.database.query('SELECT * FROM users WHERE id = ?', [userId]);
+      });
     });
   });
 }

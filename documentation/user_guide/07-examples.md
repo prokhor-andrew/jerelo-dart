@@ -18,40 +18,39 @@ class AppConfig {
 }
 
 // Fetch user with retry and caching
-Cont<AppConfig, User> getUser(String userId) {
-  return Cont.ask<AppConfig>()
+Cont<AppConfig, String, User> getUser(String userId) {
+  return Cont.askThen<AppConfig, String>()
     .thenDoWithEnv((config, _) {
       // Try API first
       return fetchFromApi(config.apiUrl, userId, config.timeout)
-        .thenIf((user) => user.isValid)
-        .elseTapWithEnv((env, errors) {
+        .thenIf((user) => user.isValid, fallback: 'invalid user')
+        .elseTapWithEnv((env, error) {
           // Log errors in background
-          return logToFile(env.cacheDir, errors);
+          return logToFile(env.cacheDir, error);
         })
-        .elseDoWithEnv((env, errors) {
+        .elseDoWithEnv((env, error) {
           // Fallback to cache
           return loadFromCache(env.cacheDir, userId);
         });
     })
     .thenTapWithEnv((env, user) {
       // Update cache in background
-      return saveToCache(env.cacheDir, user)
-        .elseFork((_) => Cont.of(())); // ignore cache failures
+      return saveToCache(env.cacheDir, user);
     });
 }
 
 // Fetch multiple users in parallel
-Cont<AppConfig, List<User>> getUsers(List<String> userIds) {
+Cont<AppConfig, String, List<User>> getUsers(List<String> userIds) {
   final continuations = userIds.map((id) => getUser(id)).toList();
   return Cont.all(
     continuations,
-    policy: ContBothPolicy.quitFast(), // Fails fast if any user fetch fails
+    policy: OkPolicy.quitFast<String>(),
   );
 }
 
 // Process users with resource management
-Cont<AppConfig, Report> processUsers(List<String> userIds) {
-  return Cont.bracket<AppConfig, Database, Report>(
+Cont<AppConfig, String, Report> processUsers(List<String> userIds) {
+  return Cont.bracket<Database, AppConfig, String, Report>(
     acquire: openDatabase(),
     release: (db) => closeDatabase(db),
     use: (db) {
@@ -75,11 +74,11 @@ final config = AppConfig(
 
 final token = processUsers(['user1', 'user2', 'user3']).run(
   config,
-  onElse: (errors) {
-    print("Failed: ${errors.length} error(s)");
-    for (final e in errors) {
-      print("  ${e.error}");
-    }
+  onCrash: (crash) {
+    print("Crash: $crash");
+  },
+  onElse: (error) {
+    print("Failed: $error");
   },
   onThen: (report) {
     print("Success: $report");
@@ -93,9 +92,9 @@ final token = processUsers(['user1', 'user2', 'user3']).run(
 This example demonstrates:
 - Environment management (AppConfig)
 - Error handling with fallbacks (elseDo)
-- Side effects (thenTap, elseFork)
-- Conditional execution (thenIf)
-- Parallel execution with policies (Cont.all with ContBothPolicy.quitFast)
+- Side effects (thenTap)
+- Conditional execution (thenIf with fallback)
+- Parallel execution with policies (Cont.all with OkPolicy.quitFast)
 - Resource management (bracket)
 - Looping (thenWhile)
 - WithEnv variants for accessing config
@@ -115,30 +114,30 @@ class ApiClient<E> {
 
   ApiClient(this.baseUrl, this.timeout, this.maxRetries);
 
-  Cont<E, T> get<T>(
+  Cont<E, String, T> get<T>(
     String path,
     T Function(Map<String, dynamic>) fromJson,
   ) {
     return _makeRequest(path)
-      .thenMap((response) => fromJson(response))
-      .timeout(timeout)
-      .retry(maxRetries);
+      .thenMap((response) => fromJson(response));
   }
 
-  Cont<E, Map<String, dynamic>> _makeRequest(String path) {
+  Cont<E, String, Map<String, dynamic>> _makeRequest(String path) {
     return Cont.fromRun((runtime, observer) {
       http.get(Uri.parse('$baseUrl$path')).then(
         (response) {
+          if (runtime.isCancelled()) return;
+
           if (response.statusCode == 200) {
             observer.onThen(jsonDecode(response.body));
           } else {
-            observer.onElse([
-              ContError.capture('HTTP ${response.statusCode}')
-            ]);
+            observer.onElse('HTTP ${response.statusCode}');
           }
         },
         onError: (error, st) {
-          observer.onElse([ContError.withStackTrace(error, st)]);
+          if (!runtime.isCancelled()) {
+            observer.onElse('Request failed: $error');
+          }
         },
       );
     });
@@ -149,21 +148,21 @@ class ApiClient<E> {
 final client = ApiClient('https://api.example.com', Duration(seconds: 5), 3);
 
 client.get('/users/123', User.fromJson).run(
-  (),
+  null,
   onThen: (user) => print('User: $user'),
-  onElse: (errors) => print('Failed: $errors'),
+  onElse: (error) => print('Failed: $error'),
 );
 ```
 
 ### Pattern 2: Cache-Then-Network Strategy
 
 ```dart
-Cont<E, T> cacheFirst<E, T>(
+Cont<E, String, T> cacheFirst<E, T>(
   String key,
-  Cont<E, T> network,
+  Cont<E, String, T> network,
   Cache cache,
 ) {
-  return Cont.fromRun<E, T>((runtime, observer) {
+  return Cont.fromRun<E, String, T>((runtime, observer) {
     // Try cache first
     final cached = cache.get<T>(key);
     if (cached != null) {
@@ -194,34 +193,34 @@ cacheFirst(
   'user:123',
   fetchUserFromApi('123'),
   cache,
-).run((), onThen: displayUser);
+).run(null, onThen: displayUser);
 ```
 
 ### Pattern 3: Validation Pipeline
 
 ```dart
-Cont<E, T> validate<E, T>(
+Cont<E, List<String>, T> validate<E, T>(
   T value,
   List<bool Function(T)> validators,
   List<String> errorMessages,
 ) {
-  return Cont.of<E, T>(value).thenDo((val) {
-    final errors = <ContError>[];
+  return Cont.of<E, List<String>, T>(value).thenDo((val) {
+    final errors = <String>[];
 
     for (var i = 0; i < validators.length; i++) {
       if (!validators[i](val)) {
-        errors.add(ContError.capture(errorMessages[i]));
+        errors.add(errorMessages[i]);
       }
     }
 
     return errors.isEmpty
-      ? Cont.of<E, T>(val)
-      : Cont.stop<E, T>(errors);
+      ? Cont.of<E, List<String>, T>(val)
+      : Cont.error<E, List<String>, T>(errors);
   });
 }
 
 // Usage
-Cont<(), UserInput> validateUserInput(UserInput input) {
+Cont<void, List<String>, UserInput> validateUserInput(UserInput input) {
   return validate(
     input,
     [
@@ -238,11 +237,11 @@ Cont<(), UserInput> validateUserInput(UserInput input) {
 }
 
 validateUserInput(userInput).run(
-  (),
+  null,
   onThen: processRegistration,
   onElse: (errors) {
     for (final error in errors) {
-      print('Validation error: ${error.error}');
+      print('Validation error: $error');
     }
   },
 );
@@ -264,8 +263,8 @@ class ProgressTracker {
   }
 }
 
-Cont<E, List<T>> parallelWithProgress<E, T>(
-  List<Cont<E, T>> tasks,
+Cont<E, F, List<T>> parallelWithProgress<E, F, T>(
+  List<Cont<E, F, T>> tasks,
   void Function(double) onProgress,
 ) {
   final tracker = ProgressTracker(tasks.length, onProgress);
@@ -277,7 +276,7 @@ Cont<E, List<T>> parallelWithProgress<E, T>(
     });
   }).toList();
 
-  return Cont.all(trackedTasks, policy: ContBothPolicy.quitFast());
+  return Cont.all(trackedTasks, policy: OkPolicy.quitFast<F>());
 }
 
 // Usage
@@ -287,18 +286,19 @@ parallelWithProgress(
   downloadTasks,
   (progress) => print('Progress: ${(progress * 100).toInt()}%'),
 ).run(
-  (),
+  null,
   onThen: (results) => print('All downloads complete'),
-  onElse: (errors) => print('Download failed: $errors'),
+  onElse: (error) => print('Download failed: $error'),
 );
 ```
 
 ### Pattern 5: Circuit Breaker
 
 ```dart
-class CircuitBreaker<E, T> {
+class CircuitBreaker<E, F, T> {
   final Duration resetTimeout;
   final int failureThreshold;
+  final F openCircuitError;
 
   int _failureCount = 0;
   DateTime? _openedAt;
@@ -307,9 +307,10 @@ class CircuitBreaker<E, T> {
   CircuitBreaker({
     required this.resetTimeout,
     required this.failureThreshold,
+    required this.openCircuitError,
   });
 
-  Cont<E, T> protect(Cont<E, T> operation) {
+  Cont<E, F, T> protect(Cont<E, F, T> operation) {
     return Cont.fromRun((runtime, observer) {
       // Check if circuit is open
       if (_isOpen) {
@@ -321,9 +322,7 @@ class CircuitBreaker<E, T> {
           _failureCount = 0;
         } else {
           // Circuit still open
-          observer.onElse([
-            ContError.capture('Circuit breaker is open')
-          ]);
+          observer.onElse(openCircuitError);
           return;
         }
       }
@@ -336,7 +335,7 @@ class CircuitBreaker<E, T> {
           _failureCount = 0;
           observer.onThen(value);
         },
-        onElse: (errors) {
+        onElse: (error) {
           // Increment failure count
           _failureCount++;
 
@@ -345,7 +344,7 @@ class CircuitBreaker<E, T> {
             _openedAt = DateTime.now();
           }
 
-          observer.onElse(errors);
+          observer.onElse(error);
         },
       );
     });
@@ -353,78 +352,31 @@ class CircuitBreaker<E, T> {
 }
 
 // Usage
-final breaker = CircuitBreaker<(), Data>(
+final breaker = CircuitBreaker<void, String, Data>(
   resetTimeout: Duration(seconds: 30),
   failureThreshold: 3,
+  openCircuitError: 'Circuit breaker is open',
 );
 
 breaker.protect(fetchFromUnreliableService()).run(
-  (),
+  null,
   onThen: processData,
   onElse: handleError,
 );
 ```
 
-### Pattern 6: Request Deduplication
+### Pattern 6: Rate Limiting
 
 ```dart
-class RequestDeduplicator<K, E, T> {
-  final Map<K, List<ContObserver<T>>> _pending = {};
-
-  Cont<E, T> deduplicate(K key, Cont<E, T> operation) {
-    return Cont.fromRun((runtime, observer) {
-      // Check if request is already in flight
-      if (_pending.containsKey(key)) {
-        // Add observer to pending list
-        _pending[key]!.add(observer);
-        return;
-      }
-
-      // Start new request
-      _pending[key] = [observer];
-
-      operation.run(
-        runtime.env(),
-        onThen: (value) {
-          // Notify all waiting observers
-          for (final obs in _pending[key]!) {
-            obs.onThen(value);
-          }
-          _pending.remove(key);
-        },
-        onElse: (errors) {
-          // Notify all waiting observers
-          for (final obs in _pending[key]!) {
-            obs.onElse(errors);
-          }
-          _pending.remove(key);
-        },
-      );
-    });
-  }
-}
-
-// Usage
-final deduper = RequestDeduplicator<String, (), User>();
-
-// Multiple concurrent requests for same user
-deduper.deduplicate('user:123', fetchUser('123')).run((), onThen: display);
-deduper.deduplicate('user:123', fetchUser('123')).run((), onThen: display);
-deduper.deduplicate('user:123', fetchUser('123')).run((), onThen: display);
-// Only one actual API call is made
-```
-
-### Pattern 7: Rate Limiting
-
-```dart
-class RateLimiter<E, T> {
+class RateLimiter<E, F, T> {
   final int maxRequests;
   final Duration window;
+  final F rateLimitError;
   final Queue<DateTime> _timestamps = Queue();
 
-  RateLimiter(this.maxRequests, this.window);
+  RateLimiter(this.maxRequests, this.window, this.rateLimitError);
 
-  Cont<E, T> limit(Cont<E, T> operation) {
+  Cont<E, F, T> limit(Cont<E, F, T> operation) {
     return Cont.fromRun((runtime, observer) {
       final now = DateTime.now();
 
@@ -436,9 +388,7 @@ class RateLimiter<E, T> {
 
       // Check if we're at the limit
       if (_timestamps.length >= maxRequests) {
-        observer.onElse([
-          ContError.capture('Rate limit exceeded')
-        ]);
+        observer.onElse(rateLimitError);
         return;
       }
 
@@ -456,13 +406,14 @@ class RateLimiter<E, T> {
 }
 
 // Usage
-final limiter = RateLimiter<(), Data>(
+final limiter = RateLimiter<void, String, Data>(
   5, // max 5 requests
   Duration(seconds: 1), // per second
+  'Rate limit exceeded',
 );
 
 limiter.limit(fetchData()).run(
-  (),
+  null,
   onThen: processData,
   onElse: handleError,
 );
@@ -476,10 +427,10 @@ limiter.limit(fetchData()).run(
 
 ```dart
 // Good: Compose existing operators
-Cont<E, T> retryWithLogging<E, T>(Cont<E, T> operation, int maxRetries) {
+Cont<E, String, T> retryWithLogging<E, T>(Cont<E, String, T> operation, int maxRetries) {
   return operation
-    .elseTap((errors) {
-      print('Operation failed: $errors');
+    .elseTap((error) {
+      print('Operation failed: $error');
       return Cont.of(());
     })
     .retry(maxRetries)
@@ -503,9 +454,9 @@ class AppServices {
   final Database database;
 }
 
-Cont<AppServices, T> operation() {
-  return Cont.ask<AppServices>().thenDoWithEnv((services, _) {
-    return services.database.query(...).thenTapWithEnv((services, result) {
+Cont<AppServices, String, T> operation<T>() {
+  return Cont.askThen<AppServices, String>().thenDoWithEnv((services, _) {
+    return services.database.query('...').thenTapWithEnv((services, result) {
       return services.analytics.track('query_completed');
     });
   });
@@ -518,7 +469,7 @@ Cont<AppServices, T> operation() {
 
 ```dart
 // Good: Check cancellation periodically
-Cont<E, List<T>> processLarge<E, T>(List<T> items) {
+Cont<E, F, List<T>> processLarge<E, F, T>(List<T> items) {
   return Cont.fromRun((runtime, observer) {
     final results = <T>[];
 
@@ -536,15 +487,37 @@ Cont<E, List<T>> processLarge<E, T>(List<T> items) {
 
 ```dart
 // Good: Guaranteed cleanup
-Cont<E, T> withConnection<E, T>(Cont<Connection, T> operation) {
+Cont<E, F, T> withConnection<E, F, T>(Cont<Connection, F, T> operation) {
   return Cont.bracket(
     acquire: openConnection(),
     release: (conn) => closeConnection(conn),
-    use: (conn) => operation.scope(conn),
+    use: (conn) => operation.withEnv(conn),
   );
 }
 
 // Less ideal: Manual cleanup (easy to miss error paths)
+```
+
+### 5. Use Typed Errors for Business Logic
+
+```dart
+// Good: Typed error enum
+enum UserError { notFound, unauthorized, invalidInput }
+
+Cont<void, UserError, User> getUser(String id) {
+  return Cont.fromRun((runtime, observer) {
+    if (id.isEmpty) {
+      observer.onElse(UserError.invalidInput);
+      return;
+    }
+    // ...
+  });
+}
+
+// Handle specific errors
+getUser(userId)
+  .elseUnless((error) => error == UserError.notFound, fallback: User.guest())
+  .run(null, onThen: display, onElse: showError);
 ```
 
 ---

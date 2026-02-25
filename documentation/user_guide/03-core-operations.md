@@ -13,7 +13,7 @@ To transform a value inside `Cont`, use `thenMap`:
 ```dart
 Cont.of(0).thenMap((zero) {
   return zero + 1;
-}).run((), onThen: print); // prints 1
+}).run(null, onThen: print); // prints 1
 ```
 
 **Variants:**
@@ -25,34 +25,32 @@ Cont.of(0).thenMap((zero) {
 
 ### Decorating
 
-Sometimes you need to intercept or modify how a continuation executes, without changing the value it produces. The `decor` operator lets you wrap the underlying run function with custom behavior.
+Sometimes you need to intercept or modify how a continuation executes, without changing the value it produces. The `decorate` operator lets you wrap the underlying run function with custom behavior.
 
 This is useful for:
 - Logging when execution starts
 - Adding timing/profiling
-- Wrapping with try-catch for additional error handling
 - Scheduling
 - Modifying observer behavior
 
 ```dart
-// `delay` is not a real operator. It is a contrived example.
-final cont = Cont.of(42).delay(Duration(milliseconds: 2));
+final cont = Cont.of(42);
 
 // Add logging around execution
-final logged = cont.decor((run, runtime, observer) {
+final logged = cont.decorate((run, runtime, observer) {
   print('Execution starting...');
   run(runtime, observer);
   print('Execution initiated');
 });
 
-logged.run((), onThen: print);
+logged.run(null, onThen: print);
 // Prints:
 // Execution starting...
 // Execution initiated
 // 42
 ```
 
-**Note:** `decor` is a natural transformation that gives you full control over the execution mechanics, making it the most powerful operator for creating custom behaviors.
+**Note:** `decorate` is a natural transformation that gives you full control over the execution mechanics, making it the most powerful operator for creating custom behaviors.
 
 ---
 
@@ -60,9 +58,10 @@ logged.run((), onThen: print);
 
 Chaining is constructing a computation from the result of the previous one. This is the heart of composing computations.
 
-Jerelo provides two families of chaining operators:
-- **Success operators** (`then*`): Continue the chain when computation succeeds
-- **Error operators** (`else*`): Handle termination and provide fallbacks
+Jerelo provides three families of chaining operators:
+- **Then operators** (`then*`): Continue the chain when computation succeeds
+- **Else operators** (`else*`): Handle typed business-logic errors
+- **Crash operators** (`crash*`): Handle unexpected exceptions
 
 ### Success Chaining
 
@@ -71,11 +70,11 @@ Use `thenDo` to chain computations based on success values:
 ```dart
 Cont.of(0).thenDo((zero) {
   return Cont.of(zero + 1);
-}).run((), onThen: print); // prints 1
+}).run(null, onThen: print); // prints 1
 ```
 
 Other success operators include:
-- `thenTap`: Execute side effects while passing the original value through
+- `thenTap`: Execute side effects while preserving the original value
 - `thenZip`: Combine the original value with a new computation's result
 - `thenFork`: Run a computation in the background without blocking the chain (fire-and-forget)
 
@@ -93,52 +92,74 @@ final program = function1(value)
 
 ### Error Chaining
 
-Use `elseDo` to recover from termination by providing a fallback:
+Use `elseDo` to recover from a business-logic error by providing a fallback:
 
 ```dart
-Cont.stop<(), int>([ContError.capture("fail")])
-  .elseDo((errors) {
-    print("Caught: ${errors[0].error}");
+Cont.error<void, String, int>('not found')
+  .elseDo((error) {
+    print("Caught: $error");
     return Cont.of(42); // recover with default value
   })
-  .run((), onThen: print); // prints: Caught: fail, then: 42
+  .run(null, onThen: print); // prints: Caught: not found, then: 42
 ```
 
 **Variants:** `elseDo0`, `elseDoWithEnv`, `elseDoWithEnv0`
 
 ### Error Transformation with elseMap
 
-The `elseMap` operator transforms the error list on the termination channel without changing the channel (stays on termination). This is useful for adding context, filtering errors, or wrapping errors in a different format.
+The `elseMap` operator transforms the error on the else channel without changing the channel (stays on else). This is useful for adding context, adapting error types, or wrapping errors in a different format.
 
 ```dart
-Cont.stop<(), int>([ContError.capture("connection timeout")])
-  .elseMap((errors) {
-    return errors.map((e) =>
-      ContError.capture("Network error: ${e.error}")
-    ).toList();
+Cont.error<void, String, int>('connection timeout')
+  .elseMap((error) {
+    return 'Network error: $error';
   })
   .run(
-    (),
-    onElse: (errors) => print(errors.first.error),
+    null,
+    onElse: (error) => print(error),
   ); // prints "Network error: connection timeout"
 ```
 
 **Difference from `elseDo`:**
-- `elseMap`: Transforms errors and stays on termination channel (returns `List<ContError>`)
-- `elseDo`: Can recover to success channel (returns `Cont<E, A>`)
+- `elseMap`: Transforms the error and stays on else channel (returns a new error of type `F2`)
+- `elseDo`: Can recover to success channel (returns `Cont<E, F2, A>`)
 
 **Variants:** `elseMap0`, `elseMapWithEnv`, `elseMapWithEnv0`, `elseMapTo`
 
+### Crash Chaining
+
+Use `crashDo` to recover from unexpected exceptions:
+
+```dart
+Cont.fromRun<void, String, int>((runtime, observer) {
+  throw 'something unexpected';
+}).crashDo((crash) {
+  print('Recovered from crash: $crash');
+  return Cont.of(0); // recover with default
+}).run(null, onThen: print); // prints 0
+```
+
+**Variants:** `crashDo0`, `crashDoWithEnv`, `crashDoWithEnv0`
+
 ### Other Error Operators
 
-- `elseTap`: Execute side effects on termination (e.g., logging) while preserving the original errors
-- `elseZip`: Runs fallback and combines errors from both attempts
+- `elseTap`: Execute side effects on error while preserving the original error
+- `elseZip`: Run fallback and combine errors from both attempts
 - `elseFork`: Handle errors in the background without blocking (fire-and-forget)
-- `recover`: Compute a replacement value from the errors (convenience shorthand for `elseDo`)
-- `recover0`: Compute a replacement value ignoring the errors
-- `recoverWith`: Provide a constant fallback value on termination
+- `promote`: Compute a replacement value from the error (convenience over `elseDo`)
+- `promote0`: Compute a replacement value ignoring the error
+- `promoteWith`: Provide a constant fallback value on error
+- `promoteWithEnv`, `promoteWithEnv0`: Variants with environment access
 
-**Variants:** All error operators have `0`, `WithEnv`, and `WithEnv0` variants
+### Other Crash Operators
+
+- `crashTap`: Execute side effects on crash
+- `crashZip`: Run recovery and combine crashes from both attempts
+- `crashFork`: Handle crashes in the background without blocking
+- `crashRecoverThen`: Compute a success value from the crash
+- `crashRecoverThenWith`: Provide a constant fallback on crash
+- `crashRecoverElse`: Compute a typed error from the crash
+- `crashRecoverElseWith`: Provide a constant error on crash
 
 ### Environment Variants
 
@@ -149,7 +170,7 @@ Cont.of(42).thenDoWithEnv((env, value) {
   return fetchWithConfig(env.apiUrl, value);
 });
 
-computation.elseDoWithEnv((env, errors) {
+computation.elseDoWithEnv((env, error) {
   return loadFromCache(env.cacheDir);
 });
 ```
@@ -160,193 +181,129 @@ computation.elseDoWithEnv((env, errors) {
 
 Branching operators allow you to conditionally execute or repeat computations based on predicates.
 
-### Conditional Execution
+### Conditional Execution with thenIf
 
-The `thenIf` operator filters a computation based on a predicate. If the predicate returns `true`, the computation succeeds with the value. If it returns `false`, the computation terminates with optional custom errors.
+The `thenIf` operator filters a computation based on a predicate. If the predicate returns `true`, the computation succeeds with the value. If it returns `false`, the computation terminates on the else channel with the required `fallback` error.
 
 ```dart
-Cont.of(5)
-  .thenIf((value) => value > 3)
+Cont.of<void, String, int>(5)
+  .thenIf((value) => value > 3, fallback: 'too small')
   .run(
-    (),
-    onElse: (_) => print("terminated"),
+    null,
+    onElse: (error) => print("error: $error"),
     onThen: (value) => print("success: $value"),
   ); // prints "success: 5"
 
-Cont.of(2)
-  .thenIf((value) => value > 3)
+Cont.of<void, String, int>(2)
+  .thenIf((value) => value > 3, fallback: 'too small')
   .run(
-    (),
-    onElse: (_) => print("terminated"),
+    null,
+    onElse: (error) => print("error: $error"),
     onThen: (value) => print("success: $value"),
-  ); // prints "terminated"
-
-// With custom termination errors
-Cont.of(2)
-  .thenIf(
-    (value) => value > 3,
-    [ContError.capture('Value must be greater than 3')],
-  )
-  .run(
-    (),
-    onElse: (errors) => print("error: ${errors.first.error}"),
-    onThen: (value) => print("success: $value"),
-  ); // prints "error: Value must be greater than 3"
+  ); // prints "error: too small"
 ```
-
-This is useful for early termination of computation chains when certain conditions are not met. The optional `errors` parameter allows you to provide meaningful error context when the predicate fails.
 
 **Variants:** `thenIf0`, `thenIfWithEnv`, `thenIfWithEnv0`
 
-#### Conditional Recovery with elseIf
+### Conditional Recovery with elseUnless
 
-The `elseIf` operator is the error-channel counterpart to `thenIf`. While `thenIf` filters values on the success channel, `elseIf` filters errors on the termination channel and provides conditional recovery.
+The `elseUnless` operator is the error-channel counterpart to `thenIf`. It conditionally promotes from error to success.
 
-If the predicate returns `true`, the computation recovers with the provided value. If the predicate returns `false`, the computation continues terminating with the original errors.
+If the predicate returns `true`, the error is preserved. If the predicate returns `false`, the computation recovers with the provided `fallback` value.
 
 ```dart
-Cont.stop<(), int>([ContError.capture('not found')])
-  .elseIf((errors) => errors.first.error == 'not found', 42)
+Cont.error<void, String, int>('not found')
+  .elseUnless((error) => error == 'not found', fallback: 42)
   .run(
-    (),
-    onElse: (_) => print("terminated"),
+    null,
+    onElse: (error) => print("error: $error"),
     onThen: (value) => print("success: $value"),
   ); // prints "success: 42"
 
-Cont.stop<(), int>([ContError.capture('fatal error')])
-  .elseIf((errors) => errors.first.error == 'not found', 42)
+Cont.error<void, String, int>('fatal error')
+  .elseUnless((error) => error == 'not found', fallback: 42)
   .run(
-    (),
-    onElse: (errors) => print("terminated: ${errors.first.error}"),
+    null,
+    onElse: (error) => print("error: $error"),
     onThen: (value) => print("success: $value"),
-  ); // prints "terminated: fatal error"
+  ); // prints "error: fatal error"
 ```
 
-**Variants:** `elseIf0`, `elseIfWithEnv`, `elseIfWithEnv0`
+**Variants:** `elseUnless0`, `elseUnlessWithEnv`, `elseUnlessWithEnv0`
 
 This is particularly useful for:
 - Recovering from specific error types while propagating others
 - Implementing fallback values based on error conditions
 - Creating error-handling strategies that depend on the error context
 
-**Real-world example: Handling network errors with fallbacks**
+### Conditional Crash Recovery with crashUnless
+
+The crash channel has its own conditional recovery operators:
+
+- `crashUnlessThen`: If predicate is `false`, recover to a success value
+- `crashUnlessElse`: If predicate is `false`, recover to a typed error
 
 ```dart
-fetchUserFromNetwork(userId)
-  .elseIf(
-    (errors) => errors.any((e) => e.error.toString().contains('404')),
-    User.guest(), // Use guest user if not found
+someCont
+  .crashUnlessThen(
+    (crash) => crash is NormalCrash && crash.error == 'fatal',
+    fallback: 0,
   )
-  .elseIf(
-    (errors) => errors.any((e) => e.error.toString().contains('timeout')),
-    User.cached(userId), // Use cached user on timeout
-  )
-  .elseDo((errors) {
-    // All other errors propagate
-    return Cont.stop(errors);
-  })
-  .run(
-    (),
-    onElse: (errors) => print("Failed to get user: $errors"),
-    onThen: (user) => print("Got user: ${user.name}"),
-  );
+  .run(null, onThen: print);
 ```
 
-#### Branching with thenIf-thenDo-elseDo
+**Variants:** `crashUnlessThen0`, `crashUnlessThenWithEnv`, `crashUnlessThenWithEnv0`, `crashUnlessElse0`, `crashUnlessElseWithEnv`, `crashUnlessElseWithEnv0`
 
-While `thenIf` is powerful on its own, combining it with `thenDo` and `elseDo` creates an elegant if-then-else pattern that's fully composable. Since `thenIf` terminates when the predicate is false, you can use `elseDo` to recover from that termination and provide an alternative path:
+### Branching with thenIf-thenDo-elseDo
+
+While `thenIf` is powerful on its own, combining it with `thenDo` and `elseDo` creates an elegant if-then-else pattern that's fully composable. Since `thenIf` terminates on the else channel when the predicate is false, you can use `elseDo` to recover from that and provide an alternative path:
 
 ```dart
-Cont.of(5)
-  .thenIf((value) => value > 3)
+Cont.of<void, String, int>(5)
+  .thenIf((value) => value > 3, fallback: 'not greater')
   .thenDo((value) {
     // Handle the "if true" branch
     return Cont.of("Value $value is greater than 3");
   })
-  .elseDo((errors) {
+  .elseDo((error) {
     // Handle the "if false" branch
     return Cont.of("Value was not greater than 3");
   })
-  .run((), onThen: print); // prints "Value 5 is greater than 3"
-
-Cont.of(2)
-  .thenIf((value) => value > 3)
-  .thenDo((value) {
-    // This won't execute because predicate is false
-    return Cont.of("Value $value is greater than 3");
-  })
-  .elseDo((errors) {
-    // This executes as a fallback
-    return Cont.of("Value was not greater than 3");
-  })
-  .run((), onThen: print); // prints "Value was not greater than 3"
+  .run(null, onThen: print); // prints "Value 5 is greater than 3"
 ```
 
-This pattern is particularly handy because:
-- **Composable**: Both branches return `Cont`, so they can be further chained
-- **Type-safe**: The result type is consistent across both branches
-- **Readable**: Clearly expresses conditional logic without nesting
-- **Integrated**: Fits naturally into longer computation chains
+### Demoting to Error with demote
 
-```dart
-// Real-world example: validate user age and take different actions
-getUserAge(userId)
-  .thenIf((age) => age >= 18)
-  .thenDo((age) => grantFullAccess(userId))
-  .elseDo((_) => grantRestrictedAccess(userId))
-  .thenDo((accessLevel) => logAccessGrant(userId, accessLevel))
-  .run(
-    (),
-    onElse: (errors) => print("Failed to process user: $errors"),
-    onThen: (result) => print("Access granted: $result"),
-  );
-```
-
-### Forced Termination with abort
-
-The `abort` operator unconditionally switches to the termination channel with computed errors, regardless of whether the computation succeeded or failed. This is useful when you need to forcefully terminate based on the result value.
+The `demote` operator unconditionally switches from the success channel to the else channel. It takes a value and converts it into a typed error.
 
 ```dart
 Cont.of(42)
-  .abort((value) => [ContError.capture("Value $value is not allowed")])
+  .demote((value) => "Value $value is not allowed")
   .run(
-    (),
-    onElse: (errors) => print("Terminated: ${errors.first.error}"),
+    null,
+    onElse: (error) => print("Error: $error"),
     onThen: (value) => print("Success: $value"),
-  ); // prints "Terminated: Value 42 is not allowed"
+  ); // prints "Error: Value 42 is not allowed"
 ```
-
-The key difference from `thenIf` is that `abort` computes the error list dynamically from the value, while `thenIf` simply filters without producing custom errors.
 
 **Variants:**
-- `abort(f)` - Compute errors from value
-- `abort0(f)` - Compute errors without examining value
-- `abortWithEnv(f)` - Compute errors with environment access
-- `abortWithEnv0(f)` - Compute errors from environment only
-- `abortWith(errors)` - Unconditionally terminate with fixed error list
+- `demote(f)` - Compute error from value
+- `demote0(f)` - Compute error without examining value
+- `demoteWithEnv(f)` - Compute error with environment access
+- `demoteWithEnv0(f)` - Compute error from environment only
+- `demoteWith(error)` - Unconditionally demote with fixed error
 
-**Example: Validation with custom error messages**
+### Promoting to Success with promote
+
+The `promote` operator is the inverse of `demote` — it converts a typed error into a success value:
 
 ```dart
-getUserInput()
-  .abortWith([ContError.capture("Input required")])
-    .thenIf((input) => input.isNotEmpty)
-  .abort((input) {
-    if (input.length < 3) {
-      return [ContError.capture("Input too short: minimum 3 characters")];
-    }
-    if (!RegExp(r'^[a-zA-Z]+$').hasMatch(input)) {
-      return [ContError.capture("Input must contain only letters")];
-    }
-    return []; // Won't actually abort if empty list
-  })
-  .thenDo((validInput) => processInput(validInput))
-  .run(
-    (),
-    onElse: (errors) => print("Validation failed: ${errors.first.error}"),
-    onThen: (result) => print("Processed: $result"),
-  );
+Cont.error<void, String, int>('fallback needed')
+  .promote((error) => 0)
+  .run(null, onThen: print); // prints 0
 ```
+
+**Variants:** `promote0`, `promoteWithEnv`, `promoteWithEnv0`, `promoteWith`
 
 ### Looping with thenWhile
 
@@ -357,95 +314,40 @@ The `thenWhile` operator repeatedly executes a computation as long as the predic
 Cont.of(0)
   .thenMap((n) => Random().nextInt(10)) // generate random 0..9
   .thenWhile((value) => value <= 5)
-  .run((), onThen: (value) {
+  .run(null, onThen: (value) {
     print("Got value > 5: $value");
   });
 ```
 
-The loop is stack-safe and handles asynchronous continuations correctly. If the continuation terminates or the predicate throws, the loop stops and propagates the errors.
-
-Ideal for:
-- Retry logic with conditions
-- Polling until a state changes
-- Repeating operations while a condition holds
-
-**Variants:** `thenWhile0`, `thenWhileWithEnv`, `thenWhileWithEnv0`
+The loop is stack-safe and handles asynchronous continuations correctly. If the continuation crashes or the predicate throws, the loop stops.
 
 ### Looping with thenUntil
 
 If you want to loop until a condition is met (inverted logic), use `thenUntil`:
 
 ```dart
-// Retry getting a value until it's greater than 5
 Cont.of(0)
-  .thenMap((n) => Random().nextInt(10)) // generate random 0..9
+  .thenMap((n) => Random().nextInt(10))
   .thenUntil((value) => value > 5) // inverted condition
-  .run((), onThen: (value) {
+  .run(null, onThen: (value) {
     print("Got value > 5: $value");
   });
 ```
 
-**Variants:** `thenUntil0`, `thenUntilWithEnv`, `thenUntilWithEnv0`
-
 ### Looping forever
 
-Use `thenForever` to create an infinite loop that never terminates normally:
+Use `thenForever` to create an infinite loop that never succeeds normally:
 
 ```dart
 Cont.of(())
   .thenTap((_) => checkForMessages())
-  .thenTap((_) => delay(Duration(seconds: 1)))
   .thenForever()
-  .run((), onElse: (errors) {
-    print("Loop terminated: $errors");
+  .run(null, onElse: (error) {
+    print("Loop terminated with error: $error");
   });
 ```
 
-The `thenForever` operator returns `Cont<E, Never>`, indicating it never produces a value on the success channel. It can only terminate through errors or cancellation.
-
-### Working with Never-Producing Continuations
-
-Some operations produce `Cont<E, Never>`, meaning they can only terminate through errors, never through success. Jerelo provides special extensions for working with these:
-
-#### trap: Execute Termination-Only Continuation
-
-The `trap` method executes a `Cont<E, Never>` when you only care about errors:
-
-```dart
-final neverSucceeds = Cont.of(())
-  .thenDo((_) => Cont.stop([ContError.capture("always fails")]))
-  .thenForever();
-
-// Only provide error handler - no onThen needed
-final token = neverSucceeds.trap(
-  (),
-  onElse: (errors) => print("Terminated: ${errors.first.error}"),
-);
-```
-
-Since `Cont<E, Never>` can never succeed, `trap` doesn't require an `onThen` callback, making your intent clearer.
-
-#### absurd: Convert Never to Any Type
-
-The `absurd` method converts a `Cont<E, Never>` to any result type. This is safe because the continuation can never actually produce a value:
-
-```dart
-final Cont<(), Never> neverProduces = loopForever();
-
-// Convert to any type you need
-final Cont<(), String> asString = neverProduces.absurd<String>();
-final Cont<(), int> asInt = neverProduces.absurd<int>();
-
-// This is safe because if neverProduces actually terminates,
-// it will be through the error channel, not by producing a value
-```
-
-**Use cases for Never-producing continuations:**
-- Long-running services that should never exit normally
-- Event loops that only terminate on errors
-- Infinite retry mechanisms
-- Daemon processes
-- WebSocket listeners
+The `thenForever` operator returns `Cont<E, F, Never>`, indicating it never produces a value on the success channel. It can only terminate through errors, crashes, or cancellation.
 
 ### Error Retry Loops with elseWhile and elseUntil
 
@@ -453,68 +355,77 @@ Just as `thenWhile` and `thenUntil` loop on the success channel, `elseWhile` and
 
 #### elseWhile: Retry while predicate is true
 
-The `elseWhile` operator retries a computation as long as the error predicate returns `true`:
-
 ```dart
-// Retry while getting network timeouts, up to 3 times
-int attempts = 0;
 fetchFromApi()
-  .elseWhile((errors) {
-    attempts++;
-    final isTimeout = errors.any((e) => e.error.toString().contains('timeout'));
-    return isTimeout && attempts < 3;
+  .elseWhile((error) {
+    return error == 'timeout';
   })
   .run(
-    (),
-    onElse: (errors) => print("Failed after retries: ${errors.first.error}"),
+    null,
+    onElse: (error) => print("Failed: $error"),
     onThen: (data) => print("Success: $data"),
   );
 ```
-
-**Variants:** `elseWhile0`, `elseWhileWithEnv`, `elseWhileWithEnv0`
 
 #### elseUntil: Retry until predicate is true
 
-The `elseUntil` operator retries until the error predicate returns `true` (inverted logic):
-
 ```dart
-// Retry until we get a non-retryable error or succeed
 fetchFromApi()
-  .elseUntil((errors) {
-    // Stop retrying if error is not retryable
-    return errors.any((e) => e.error.toString().contains('unauthorized'));
+  .elseUntil((error) {
+    return error == 'unauthorized'; // stop retrying on auth errors
   })
   .run(
-    (),
-    onElse: (errors) => print("Stopped retrying: ${errors.first.error}"),
+    null,
+    onElse: (error) => print("Stopped retrying: $error"),
     onThen: (data) => print("Success: $data"),
   );
 ```
 
-**Variants:** `elseUntil0`, `elseUntilWithEnv`, `elseUntilWithEnv0`
-
-**Common use cases:**
-- Retry with exponential backoff (combine with `delay`)
-- Retry on transient errors (network timeouts, rate limits)
-- Circuit breaker patterns
-- Polling until success or non-retryable error
-
 #### elseForever: Retry indefinitely
-
-Use `elseForever` to retry a computation on termination indefinitely, never giving up:
 
 ```dart
 // A connection that automatically reconnects forever
 final connection = connectToServer()
     .elseForever();
-
-// A resilient worker that logs errors and always retries
-final worker = processJob()
-    .elseTap((errors) => logError(errors))
-    .elseForever();
 ```
 
-The `elseForever` operator is the error-channel counterpart to `thenForever`. While `thenForever` loops the success path indefinitely, `elseForever` retries on termination indefinitely. The loop only terminates if the continuation succeeds.
+### Crash Retry Loops
+
+The crash channel has its own loop operators:
+- `crashWhile`: Retry while crash predicate is true
+- `crashUntil`: Retry until crash predicate is true
+- `crashForever`: Retry indefinitely on crash
+
+### Working with Never-Producing Continuations
+
+Some operations produce `Cont<E, F, Never>` (e.g., `thenForever`), meaning they can only terminate through errors or crashes, never through success.
+
+#### thenAbsurd: Convert Never success to any type
+
+```dart
+final Cont<void, String, Never> neverProduces = loopForever();
+
+// Convert to any type you need
+final Cont<void, String, String> asString = neverProduces.thenAbsurd<String>();
+final Cont<void, String, int> asInt = neverProduces.thenAbsurd<int>();
+```
+
+#### elseAbsurd: Convert Never error to any type
+
+When a continuation has `Never` as its error type (meaning it can never fail with a business-logic error):
+
+```dart
+final Cont<void, Never, int> neverFails = Cont.of(42);
+
+// Widen to any error type
+final Cont<void, String, int> withStringError = neverFails.elseAbsurd<String>();
+```
+
+#### absurdify: Widen both Never channels
+
+```dart
+final cont = someNeverCont.absurdify(); // widens both then and else if either is Never
+```
 
 ---
 
