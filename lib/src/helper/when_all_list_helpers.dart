@@ -39,14 +39,14 @@ void _whenAllPar<P, S>({
       switch (seed) {
         case _Left<(), S>():
           crashes[index] = crash;
-          final resultCrash = CollectedCrash._(
+          final resultCrash = CollectedCrash(
             Map<int, ContCrash>.from(crashes),
           ); // defensive copy
           onCrash(resultCrash);
         case _Right<(), S>(value: final seedValue):
           if (shouldFavorCrash) {
             crashes[index] = crash;
-            final resultCrash = CollectedCrash._(
+            final resultCrash = CollectedCrash(
               Map<int, ContCrash>.from(crashes),
             ); // defensive copy
             onCrash(resultCrash);
@@ -77,7 +77,7 @@ void _whenAllPar<P, S>({
               results,
             ); // defensive copy
           } else {
-            final resultCrash = CollectedCrash._(
+            final resultCrash = CollectedCrash(
               Map<int, ContCrash>.from(crashes),
             ); // defensive copy
             onCrash(resultCrash);
@@ -85,7 +85,7 @@ void _whenAllPar<P, S>({
         case _Right<(), S>(value: final seedValue):
           if (crashes.isNotEmpty) {
             if (shouldFavorCrash) {
-              final resultCrash = CollectedCrash._(
+              final resultCrash = CollectedCrash(
                 Map<int, ContCrash>.from(crashes),
               ); // defensive copy
               onCrash(resultCrash);
@@ -118,7 +118,7 @@ void _whenAllPar<P, S>({
             onAnySecondary(s);
           } else {
             if (shouldFavorCrash) {
-              final resultCrash = CollectedCrash._(
+              final resultCrash = CollectedCrash(
                 Map<int, ContCrash>.from(crashes),
               ); // defensive copy
               onCrash(resultCrash);
@@ -140,7 +140,7 @@ void _whenAllPar<P, S>({
             });
           } else {
             if (shouldFavorCrash) {
-              final resultCrash = CollectedCrash._(
+              final resultCrash = CollectedCrash(
                 Map<int, ContCrash>.from(crashes),
               ); // defensive copy
               onCrash(resultCrash);
@@ -245,7 +245,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
-      observer.onCrash(CollectedCrash._({}));
+      observer.onCrash(CollectedCrash({}));
       return;
     }
 
@@ -259,7 +259,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
     void onAllFinished() {
       if (crashes.length >= total) {
         observer.onCrash(
-          CollectedCrash._(Map.from(crashes)),
+          CollectedCrash(Map.from(crashes)),
         );
         return;
       }

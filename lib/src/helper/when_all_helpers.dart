@@ -344,7 +344,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
                   ):
                   // C, C -> MC
                   observer.onCrash(
-                      MergedCrash._(crash, rightCrash));
+                      MergedCrash(crash, rightCrash));
               }
             case _Right<ContCrash, ContCrash>(
                 value: final crash
@@ -372,7 +372,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
                   ):
                   // C, C -> MC
                   observer.onCrash(
-                      MergedCrash._(leftCrash, crash));
+                      MergedCrash(leftCrash, crash));
                 case _Step1CaseLeftNullRightCrash<A, A, F,
                       F>():
                   break; // unreachable
@@ -667,7 +667,7 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
                 break; // we can't get left crash when we already have left crash - unreachable state
               case _Step1CaseLeftNullRightCrash<A1, A2, F1,
                     F2>(crash: final rightCrash):
-                onCrash(MergedCrash._(crash, rightCrash));
+                onCrash(MergedCrash(crash, rightCrash));
             }
           case _Right<ContCrash, ContCrash>(
               value: final crash
@@ -691,7 +691,7 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
                 break; // we can't get right crash when we already have right error - unreachable state
               case _Step1CaseLeftCrashRightNull<A1, A2, F1,
                     F2>(crash: final leftCrash):
-                onCrash(MergedCrash._(leftCrash, crash));
+                onCrash(MergedCrash(leftCrash, crash));
               case _Step1CaseLeftNullRightCrash<A1, A2, F1,
                     F2>():
                 break; // we can't get right crash when we already have right crash - unreachable state

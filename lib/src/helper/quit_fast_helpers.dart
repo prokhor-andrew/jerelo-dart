@@ -144,7 +144,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
             case _QuitFastLeftNullRightSecondary<ContCrash,
                   ContCrash>(f2: final c2):
               holder.state = null;
-              observer.onCrash(MergedCrash._(c1, c2));
+              observer.onCrash(MergedCrash(c1, c2));
           }
         case _Right<ContCrash, ContCrash>(value: final c2):
           switch (holder.state) {
@@ -156,7 +156,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
             case _QuitFastLeftSecondaryRightNull<ContCrash,
                   ContCrash>(f1: final c1):
               holder.state = null;
-              observer.onCrash(MergedCrash._(c1, c2));
+              observer.onCrash(MergedCrash(c1, c2));
             case _QuitFastLeftNullRightSecondary<ContCrash,
                   ContCrash>():
               break; // can't have right crash twice - unreachable state

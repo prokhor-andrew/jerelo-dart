@@ -109,7 +109,7 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
-      observer.onCrash(CollectedCrash._({}));
+      observer.onCrash(CollectedCrash({}));
       return;
     }
 
@@ -139,7 +139,7 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
       if (numberOfCrashed >= total) {
         isDone = true;
         observer.onCrash(
-          CollectedCrash._(Map.from(crashes)),
+          CollectedCrash(Map.from(crashes)),
         );
       }
     }

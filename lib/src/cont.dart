@@ -10,7 +10,6 @@ part 'api/then/while.dart';
 part 'api/else/while.dart';
 part 'api/crash/fork.dart';
 part 'api/crash/while.dart';
-part 'api/crash/zip.dart';
 part 'helper/utils.dart';
 
 part 'helper/sequence_helpers.dart';
@@ -436,7 +435,7 @@ final class Cont<E, F, A> {
         return left.crashDo((crash1) {
           return right.crashDo((crash2) {
             return Cont.crash(
-              MergedCrash._(crash1, crash2),
+              MergedCrash(crash1, crash2),
             );
           });
         });

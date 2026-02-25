@@ -104,7 +104,7 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
-      observer.onCrash(CollectedCrash._({}));
+      observer.onCrash(CollectedCrash({}));
       return;
     }
 
@@ -179,7 +179,7 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
             switch (triple) {
               case _Value1():
                 observer.onCrash(
-                  CollectedCrash._(Map.from(crashes)),
+                  CollectedCrash(Map.from(crashes)),
                 );
               case _Value2(b: final a):
                 observer.onThen(a);

@@ -34,6 +34,7 @@ export 'src/api/crash/tap.dart';
 export 'src/api/crash/unless.dart';
 export 'src/api/crash/until.dart';
 export 'src/api/crash/recover.dart';
+export 'src/api/crash/zip.dart';
 export 'src/api/crash/forever.dart';
 export 'src/api/env/env.dart';
 export 'src/api/extensions/never.dart';

@@ -21,6 +21,16 @@ sealed class ContCrash {
   /// the caught exception as a [NormalCrash].
   /// This helper is used internally to convert raw Dart exceptions into
   /// the [ContCrash] representation.
+  /// Creates a [MergedCrash] combining [left] and [right].
+  static ContCrash merge(ContCrash left, ContCrash right) {
+    return MergedCrash(left, right);
+  }
+
+  /// Creates a [CollectedCrash] from a map of [crashes].
+  static ContCrash collect(Map<int, ContCrash> crashes) {
+    return CollectedCrash(crashes);
+  }
+
   static CrashOr<T> tryCatch<T>(T Function() function) {
     try {
       final value = function();
@@ -75,7 +85,7 @@ final class MergedCrash extends ContCrash {
   /// The crash from the right (or second) operation.
   final ContCrash right;
 
-  const MergedCrash._(this.left, this.right);
+  const MergedCrash(this.left, this.right);
 
   @override
   String toString() {
@@ -108,7 +118,7 @@ final class CollectedCrash extends ContCrash {
   /// Map from operation index to the [ContCrash] produced by that operation.
   final Map<int, ContCrash> crashes;
 
-  const CollectedCrash._(this.crashes);
+  const CollectedCrash(this.crashes);
 
   @override
   String toString() {
