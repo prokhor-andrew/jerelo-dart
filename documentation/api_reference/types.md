@@ -82,20 +82,6 @@ A single exception with its stack trace.
 - `error: Object` — The exception that was thrown
 - `stackTrace: StackTrace` — The stack trace captured at the point of the exception
 
-**Constructors:**
-
-```dart
-const NormalCrash(Object error, StackTrace stackTrace)
-```
-
-```dart
-factory NormalCrash.current(Object error)
-```
-Creates a `NormalCrash` capturing the current stack trace.
-
-- **Parameters:**
-  - `error`: The error object to wrap
-
 ---
 
 ### MergedCrash
