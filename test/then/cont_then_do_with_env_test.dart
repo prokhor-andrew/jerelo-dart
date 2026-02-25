@@ -19,10 +19,9 @@ void main() {
 
       Cont.error<String, String, int>('err')
           .thenDoWithEnv<int>((env, a) {
-            chainCalled = true;
-            return Cont.of(a * 2);
-          })
-          .run('hello', onElse: (e) => error = e);
+        chainCalled = true;
+        return Cont.of(a * 2);
+      }).run('hello', onElse: (e) => error = e);
 
       expect(chainCalled, false);
       expect(error, 'err');
@@ -30,8 +29,8 @@ void main() {
 
     test('can be run multiple times', () {
       var callCount = 0;
-      final cont =
-          Cont.of<String, String, int>(5).thenDoWithEnv((env, a) {
+      final cont = Cont.of<String, String, int>(5)
+          .thenDoWithEnv((env, a) {
         callCount++;
         return Cont.of('$env: $a');
       });

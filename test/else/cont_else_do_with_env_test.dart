@@ -8,10 +8,9 @@ void main() {
 
       Cont.error<String, String, int>('err')
           .elseDoWithEnv((env, error) {
-            received = '$env: $error';
-            return Cont.of(42);
-          })
-          .run('hello', onThen: (_) {});
+        received = '$env: $error';
+        return Cont.of(42);
+      }).run('hello', onThen: (_) {});
 
       expect(received, 'hello: err');
     });
@@ -22,10 +21,9 @@ void main() {
 
       Cont.of<String, String, int>(42)
           .elseDoWithEnv<String>((env, error) {
-            chainCalled = true;
-            return Cont.of(0);
-          })
-          .run('hello', onThen: (val) => value = val);
+        chainCalled = true;
+        return Cont.of(0);
+      }).run('hello', onThen: (val) => value = val);
 
       expect(chainCalled, false);
       expect(value, 42);
@@ -33,8 +31,8 @@ void main() {
 
     test('can be run multiple times', () {
       var callCount = 0;
-      final cont =
-          Cont.error<String, String, int>('err').elseDoWithEnv((env, error) {
+      final cont = Cont.error<String, String, int>('err')
+          .elseDoWithEnv((env, error) {
         callCount++;
         return Cont.of(callCount);
       });
@@ -57,10 +55,9 @@ void main() {
 
       Cont.error<String, String, int>('err')
           .elseDoWithEnv0((env) {
-            received = 'env: $env';
-            return Cont.of(42);
-          })
-          .run('hello', onThen: (_) {});
+        received = 'env: $env';
+        return Cont.of(42);
+      }).run('hello', onThen: (_) {});
 
       expect(received, 'env: hello');
     });

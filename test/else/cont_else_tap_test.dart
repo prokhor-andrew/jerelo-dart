@@ -3,16 +3,15 @@ import 'package:test/test.dart';
 
 void main() {
   group('Cont.elseTap', () {
-    test('promotes to success when side-effect succeeds', () {
+    test('promotes to success when side-effect succeeds',
+        () {
       String? sideEffectError;
       int? value;
 
-      Cont.error<(), String, int>('err')
-          .elseTap((e) {
-            sideEffectError = e;
-            return Cont.of(99);
-          })
-          .run((), onThen: (val) => value = val);
+      Cont.error<(), String, int>('err').elseTap((e) {
+        sideEffectError = e;
+        return Cont.of(99);
+      }).run((), onThen: (val) => value = val);
 
       expect(sideEffectError, 'err');
       expect(value, 99);
@@ -22,12 +21,10 @@ void main() {
       bool tapCalled = false;
       int? value;
 
-      Cont.of<(), String, int>(42)
-          .elseTap((e) {
-            tapCalled = true;
-            return Cont.of(99);
-          })
-          .run((), onThen: (val) => value = val);
+      Cont.of<(), String, int>(42).elseTap((e) {
+        tapCalled = true;
+        return Cont.of(99);
+      }).run((), onThen: (val) => value = val);
 
       expect(tapCalled, false);
       expect(value, 42);
@@ -61,11 +58,9 @@ void main() {
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.error<(), String, int>('err')
-          .elseTap<int>((e) {
-            throw 'Tap Error';
-          })
-          .run((), onCrash: (c) => crash = c);
+      Cont.error<(), String, int>('err').elseTap<int>((e) {
+        throw 'Tap Error';
+      }).run((), onCrash: (c) => crash = c);
 
       expect(crash, isA<NormalCrash>());
       expect((crash! as NormalCrash).error, 'Tap Error');
@@ -73,16 +68,16 @@ void main() {
   });
 
   group('Cont.elseTap0', () {
-    test('promotes when side-effect succeeds ignoring error', () {
+    test(
+        'promotes when side-effect succeeds ignoring error',
+        () {
       bool called = false;
       int? value;
 
-      Cont.error<(), String, int>('err')
-          .elseTap0(() {
-            called = true;
-            return Cont.of(99);
-          })
-          .run((), onThen: (val) => value = val);
+      Cont.error<(), String, int>('err').elseTap0(() {
+        called = true;
+        return Cont.of(99);
+      }).run((), onThen: (val) => value = val);
 
       expect(called, true);
       expect(value, 99);

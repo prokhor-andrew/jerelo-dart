@@ -3,7 +3,8 @@ import 'package:test/test.dart';
 
 void main() {
   group('Cont.elseUnless', () {
-    test('recovers to fallback when predicate is false', () {
+    test('recovers to fallback when predicate is false',
+        () {
       int? value;
 
       Cont.error<(), String, int>('err')
@@ -27,12 +28,10 @@ void main() {
       bool predicateCalled = false;
       int? value;
 
-      Cont.of<(), String, int>(42)
-          .elseUnless((e) {
-            predicateCalled = true;
-            return true;
-          }, fallback: 0)
-          .run((), onThen: (val) => value = val);
+      Cont.of<(), String, int>(42).elseUnless((e) {
+        predicateCalled = true;
+        return true;
+      }, fallback: 0).run((), onThen: (val) => value = val);
 
       expect(predicateCalled, false);
       expect(value, 42);
@@ -40,8 +39,8 @@ void main() {
 
     test('can be run multiple times', () {
       var callCount = 0;
-      final cont =
-          Cont.error<(), String, int>('err').elseUnless((e) {
+      final cont = Cont.error<(), String, int>('err')
+          .elseUnless((e) {
         callCount++;
         return false;
       }, fallback: 42);
@@ -58,11 +57,9 @@ void main() {
     test('crashes when predicate throws', () {
       ContCrash? crash;
 
-      Cont.error<(), String, int>('err')
-          .elseUnless((e) {
-            throw 'Predicate Error';
-          }, fallback: 42)
-          .run((), onCrash: (c) => crash = c);
+      Cont.error<(), String, int>('err').elseUnless((e) {
+        throw 'Predicate Error';
+      }, fallback: 42).run((), onCrash: (c) => crash = c);
 
       expect(crash, isA<NormalCrash>());
       expect(

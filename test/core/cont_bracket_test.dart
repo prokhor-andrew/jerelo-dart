@@ -56,7 +56,8 @@ void main() {
       ContCrash? crash;
 
       Cont.bracket<String, (), String, int>(
-        acquire: Cont.fromRun<(), Never, String>((runtime, observer) {
+        acquire: Cont.fromRun<(), Never, String>(
+            (runtime, observer) {
           throw 'acquire error';
         }),
         release: (resource) {
@@ -72,7 +73,8 @@ void main() {
       expect(useCalled, false);
       expect(releaseCalled, false);
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'acquire error');
+      expect(
+          (crash! as NormalCrash).error, 'acquire error');
     });
 
     test('supports multiple runs', () {

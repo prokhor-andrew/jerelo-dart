@@ -22,13 +22,12 @@ void main() {
 
       Cont.error<String, String, int>('err')
           .thenZipWithEnv<int, String>(
-            (env, a) {
-              zipCalled = true;
-              return Cont.of(a * 2);
-            },
-            (a, b) => '$a + $b',
-          )
-          .run('hello', onElse: (e) => error = e);
+        (env, a) {
+          zipCalled = true;
+          return Cont.of(a * 2);
+        },
+        (a, b) => '$a + $b',
+      ).run('hello', onElse: (e) => error = e);
 
       expect(zipCalled, false);
       expect(error, 'err');

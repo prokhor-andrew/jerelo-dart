@@ -17,22 +17,20 @@ void main() {
       Cont.of<(), String, int>(42)
           .demote((a) => 'demoted')
           .run(
-            (),
-            onThen: (_) => fail('Should not be called'),
-            onElse: (_) {},
-          );
+        (),
+        onThen: (_) => fail('Should not be called'),
+        onElse: (_) {},
+      );
     });
 
     test('passes through original error', () {
       String? error;
       bool demoteCalled = false;
 
-      Cont.error<(), String, int>('original')
-          .demote((a) {
-            demoteCalled = true;
-            return 'demoted';
-          })
-          .run((), onElse: (e) => error = e);
+      Cont.error<(), String, int>('original').demote((a) {
+        demoteCalled = true;
+        return 'demoted';
+      }).run((), onElse: (e) => error = e);
 
       expect(demoteCalled, false);
       expect(error, 'original');
@@ -41,11 +39,9 @@ void main() {
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.of<(), String, int>(42)
-          .demote((a) {
-            throw 'Demote Error';
-          })
-          .run((), onCrash: (c) => crash = c);
+      Cont.of<(), String, int>(42).demote((a) {
+        throw 'Demote Error';
+      }).run((), onCrash: (c) => crash = c);
 
       expect(crash, isA<NormalCrash>());
       expect((crash! as NormalCrash).error, 'Demote Error');

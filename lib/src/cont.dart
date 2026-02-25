@@ -536,11 +536,11 @@ final class Cont<E, F, A> {
           void fireRelease() {
             ContCrash.tryCatch(() {
               release(r).absurdify().run(
-                runtime.env(),
-                onPanic: onReleasePanic,
-                onCrash: onReleaseCrash,
-                onThen: (_) => onReleaseThen(),
-              );
+                    runtime.env(),
+                    onPanic: onReleasePanic,
+                    onCrash: onReleaseCrash,
+                    onThen: (_) => onReleaseThen(),
+                  );
             }).match((_) {}, onReleasePanic);
           }
 

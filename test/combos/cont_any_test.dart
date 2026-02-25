@@ -28,7 +28,8 @@ void main() {
           thirdCalled = true;
           observer.onThen(30);
         }),
-      ], policy: OkPolicy.sequence()).run(());
+      ], policy: OkPolicy.sequence())
+          .run(());
 
       expect(thirdCalled, false);
     });

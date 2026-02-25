@@ -224,7 +224,8 @@ Cont<void, String, AuthToken> loginWithFallbackStrategy() {
     'wrong@test.com',
     'nope',
   );
-  final refreshLogin = Cont.fromRun<void, String, AuthToken>((
+  final refreshLogin =
+      Cont.fromRun<void, String, AuthToken>((
     runtime,
     observer,
   ) {

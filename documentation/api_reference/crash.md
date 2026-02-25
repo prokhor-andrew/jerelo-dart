@@ -274,20 +274,43 @@ Attempts a fallback on crash with access to the environment only, merging crashe
 ### crashFork
 
 ```dart
-Cont<E, F, A> crashFork<F2, A2>(Cont<E, F2, A2> Function(ContCrash crash) f)
+Cont<E, F, A> crashFork<F2, A2>(
+  Cont<E, F2, A2> Function(ContCrash crash) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Executes a side-effect on crash in a fire-and-forget manner.
 
-Does not wait for the side-effect to complete. The forked continuation may have different error and value types since its result is discarded.
+Does not wait for the side-effect to complete. The forked continuation may have different error and value types.
+
+Outcomes from the forked continuation are dispatched to optional callbacks:
+- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing.
+- `onCrash`: Called when the side-effect crashes. Defaults to ignoring.
+- `onElse`: Called when the side-effect terminates with an error. Defaults to ignoring.
+- `onThen`: Called when the side-effect succeeds. Defaults to ignoring.
 
 - **Parameters:**
   - `f`: Function that receives the crash and returns a side-effect continuation
+  - `onPanic`: *(optional)* Handler for panics in the side-effect
+  - `onCrash`: *(optional)* Handler for crashes in the side-effect
+  - `onElse`: *(optional)* Handler for errors in the side-effect
+  - `onThen`: *(optional)* Handler for success in the side-effect
 
 **Example:**
 ```dart
 final result = riskyOperation()
   .crashFork((crash) => reportCrash(crash));
+
+// With observation callbacks:
+final result2 = riskyOperation()
+  .crashFork(
+    (crash) => reportCrash(crash),
+    onElse: (error) => print('Report failed: $error'),
+  );
 ```
 
 ---
@@ -295,39 +318,66 @@ final result = riskyOperation()
 ### crashFork0
 
 ```dart
-Cont<E, F, A> crashFork0<F2, A2>(Cont<E, F2, A2> Function() f)
+Cont<E, F, A> crashFork0<F2, A2>(
+  Cont<E, F2, A2> Function() f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Zero-argument fire-and-forget on crash.
 
+Accepts the same optional observation callbacks as `crashFork`.
+
 - **Parameters:**
   - `f`: Zero-argument function that returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `crashFork`)
 
 ---
 
 ### crashForkWithEnv
 
 ```dart
-Cont<E, F, A> crashForkWithEnv<F2, A2>(Cont<E, F2, A2> Function(E env, ContCrash crash) f)
+Cont<E, F, A> crashForkWithEnv<F2, A2>(
+  Cont<E, F2, A2> Function(E env, ContCrash crash) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Fire-and-forget on crash with access to the environment.
 
+Accepts the same optional observation callbacks as `crashFork`.
+
 - **Parameters:**
   - `f`: Function that takes the environment and crash, and returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `crashFork`)
 
 ---
 
 ### crashForkWithEnv0
 
 ```dart
-Cont<E, F, A> crashForkWithEnv0<F2, A2>(Cont<E, F2, A2> Function(E env) f)
+Cont<E, F, A> crashForkWithEnv0<F2, A2>(
+  Cont<E, F2, A2> Function(E env) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Fire-and-forget on crash with access to the environment only.
 
+Accepts the same optional observation callbacks as `crashFork`.
+
 - **Parameters:**
   - `f`: Function that takes the environment and returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `crashFork`)
 
 ---
 

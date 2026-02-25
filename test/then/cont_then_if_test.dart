@@ -13,7 +13,8 @@ void main() {
       expect(value, 42);
     });
 
-    test('terminates with fallback when predicate is false', () {
+    test('terminates with fallback when predicate is false',
+        () {
       String? error;
 
       Cont.of<(), String, int>(42)
@@ -27,12 +28,11 @@ void main() {
       bool predicateCalled = false;
       String? error;
 
-      Cont.error<(), String, int>('original')
-          .thenIf((a) {
-            predicateCalled = true;
-            return a > 0;
-          }, fallback: 'fallback')
-          .run((), onElse: (e) => error = e);
+      Cont.error<(), String, int>('original').thenIf((a) {
+        predicateCalled = true;
+        return a > 0;
+      }, fallback: 'fallback').run((),
+          onElse: (e) => error = e);
 
       expect(predicateCalled, false);
       expect(error, 'original');
@@ -57,14 +57,14 @@ void main() {
     test('crashes when predicate throws', () {
       ContCrash? crash;
 
-      Cont.of<(), String, int>(42)
-          .thenIf((a) {
-            throw 'Predicate Error';
-          }, fallback: 'fallback')
-          .run((), onCrash: (c) => crash = c);
+      Cont.of<(), String, int>(42).thenIf((a) {
+        throw 'Predicate Error';
+      }, fallback: 'fallback').run((),
+          onCrash: (c) => crash = c);
 
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'Predicate Error');
+      expect(
+          (crash! as NormalCrash).error, 'Predicate Error');
     });
   });
 
@@ -79,7 +79,8 @@ void main() {
       expect(value, 42);
     });
 
-    test('terminates with fallback when predicate is false', () {
+    test('terminates with fallback when predicate is false',
+        () {
       String? error;
 
       Cont.of<(), String, int>(42)

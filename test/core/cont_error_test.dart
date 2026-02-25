@@ -5,7 +5,8 @@ void main() {
   group('Cont.error', () {
     test('Cont.error calls onElse with provided error', () {
       String? receivedError;
-      final cont = Cont.error<(), String, int>('test error');
+      final cont =
+          Cont.error<(), String, int>('test error');
 
       cont.run((), onElse: (e) => receivedError = e);
       expect(receivedError, 'test error');

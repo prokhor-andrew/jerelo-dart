@@ -9,10 +9,9 @@ void main() {
 
       Cont.of<String, String, int>(42)
           .thenForkWithEnv((env, a) {
-            received = '$env: $a';
-            return Cont.of('side');
-          })
-          .run('hello', onThen: (val) => value = val);
+        received = '$env: $a';
+        return Cont.of('side');
+      }).run('hello', onThen: (val) => value = val);
 
       expect(received, 'hello: 42');
       expect(value, 42);
@@ -24,10 +23,9 @@ void main() {
 
       Cont.error<String, String, int>('err')
           .thenForkWithEnv<String, String>((env, a) {
-            forkCalled = true;
-            return Cont.of('side');
-          })
-          .run('hello', onElse: (e) => error = e);
+        forkCalled = true;
+        return Cont.of('side');
+      }).run('hello', onElse: (e) => error = e);
 
       expect(forkCalled, false);
       expect(error, 'err');
@@ -35,8 +33,8 @@ void main() {
 
     test('can be run multiple times', () {
       var callCount = 0;
-      final cont =
-          Cont.of<String, String, int>(5).thenForkWithEnv((env, a) {
+      final cont = Cont.of<String, String, int>(5)
+          .thenForkWithEnv((env, a) {
         callCount++;
         return Cont.of('ok');
       });
@@ -56,10 +54,9 @@ void main() {
 
       Cont.of<String, String, int>(42)
           .thenForkWithEnv0((env) {
-            received = 'env: $env';
-            return Cont.of('side');
-          })
-          .run('hello', onThen: (val) => value = val);
+        received = 'env: $env';
+        return Cont.of('side');
+      }).run('hello', onThen: (val) => value = val);
 
       expect(received, 'env: hello');
       expect(value, 42);

@@ -26,7 +26,8 @@ void main() {
     test('passes through outer error', () {
       String? error;
 
-      Cont.error<(), String, Cont<(), String, int>>('outer err')
+      Cont.error<(), String, Cont<(), String, int>>(
+              'outer err')
           .flatten()
           .run((), onElse: (e) => error = e);
 
@@ -35,7 +36,8 @@ void main() {
 
     test('can be run multiple times', () {
       var callCount = 0;
-      final cont = Cont.of<(), String, Cont<(), String, int>>(
+      final cont =
+          Cont.of<(), String, Cont<(), String, int>>(
         Cont.fromRun((runtime, observer) {
           callCount++;
           observer.onThen(42);

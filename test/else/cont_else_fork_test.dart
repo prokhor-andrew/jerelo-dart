@@ -3,16 +3,15 @@ import 'package:test/test.dart';
 
 void main() {
   group('Cont.elseFork', () {
-    test('executes side-effect and returns original error', () {
+    test('executes side-effect and returns original error',
+        () {
       bool sideEffectRan = false;
       String? error;
 
-      Cont.error<(), String, int>('err')
-          .elseFork((e) {
-            sideEffectRan = true;
-            return Cont.of('side: $e');
-          })
-          .run((), onElse: (e) => error = e);
+      Cont.error<(), String, int>('err').elseFork((e) {
+        sideEffectRan = true;
+        return Cont.of('side: $e');
+      }).run((), onElse: (e) => error = e);
 
       expect(sideEffectRan, true);
       expect(error, 'err');
@@ -24,10 +23,9 @@ void main() {
 
       Cont.of<(), String, int>(42)
           .elseFork<String, String>((e) {
-            forkCalled = true;
-            return Cont.of('side');
-          })
-          .run((), onThen: (val) => value = val);
+        forkCalled = true;
+        return Cont.of('side');
+      }).run((), onThen: (val) => value = val);
 
       expect(forkCalled, false);
       expect(value, 42);
@@ -38,8 +36,8 @@ void main() {
 
       Cont.error<(), String, int>('original')
           .elseFork<String, String>(
-            (e) => Cont.error('side error'),
-          )
+        (e) => Cont.error('side error'),
+      )
           .run((), onElse: (e) => error = e);
 
       expect(error, 'original');
@@ -66,12 +64,10 @@ void main() {
       bool called = false;
       String? error;
 
-      Cont.error<(), String, int>('err')
-          .elseFork0(() {
-            called = true;
-            return Cont.of('side');
-          })
-          .run((), onElse: (e) => error = e);
+      Cont.error<(), String, int>('err').elseFork0(() {
+        called = true;
+        return Cont.of('side');
+      }).run((), onElse: (e) => error = e);
 
       expect(called, true);
       expect(error, 'err');

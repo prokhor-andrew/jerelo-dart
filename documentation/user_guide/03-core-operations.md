@@ -76,7 +76,7 @@ Cont.of(0).thenDo((zero) {
 Other success operators include:
 - `thenTap`: Execute side effects while preserving the original value
 - `thenZip`: Combine the original value with a new computation's result
-- `thenFork`: Run a computation in the background without blocking the chain (fire-and-forget)
+- `thenFork`: Run a computation in the background without blocking the chain (fire-and-forget). Accepts optional `onPanic`, `onCrash`, `onElse`, and `onThen` callbacks to observe outcomes of the forked continuation
 
 **Variants:** All success operators have `0`, `WithEnv`, and `WithEnv0` variants (e.g., `thenDo0`, `thenDoWithEnv`, `thenDoWithEnv0`)
 
@@ -145,7 +145,7 @@ Cont.fromRun<void, String, int>((runtime, observer) {
 
 - `elseTap`: Execute side effects on error while preserving the original error
 - `elseZip`: Run fallback and combine errors from both attempts
-- `elseFork`: Handle errors in the background without blocking (fire-and-forget)
+- `elseFork`: Handle errors in the background without blocking (fire-and-forget). Accepts optional observation callbacks for the forked continuation's outcomes
 - `promote`: Compute a replacement value from the error (convenience over `elseDo`)
 - `promote0`: Compute a replacement value ignoring the error
 - `promoteWith`: Provide a constant fallback value on error
@@ -155,7 +155,7 @@ Cont.fromRun<void, String, int>((runtime, observer) {
 
 - `crashTap`: Execute side effects on crash
 - `crashZip`: Run recovery and combine crashes from both attempts
-- `crashFork`: Handle crashes in the background without blocking
+- `crashFork`: Handle crashes in the background without blocking. Accepts optional observation callbacks for the forked continuation's outcomes
 - `crashRecoverThen`: Compute a success value from the crash
 - `crashRecoverThenWith`: Provide a constant fallback on crash
 - `crashRecoverElse`: Compute a typed error from the crash

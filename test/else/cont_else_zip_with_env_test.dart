@@ -8,7 +8,8 @@ void main() {
 
       Cont.error<String, String, int>('err1')
           .elseZipWithEnv(
-            (env, e) => Cont.error<String, String, int>('$env: $e'),
+            (env, e) =>
+                Cont.error<String, String, int>('$env: $e'),
             (a, b) => '$a + $b',
           )
           .run('hello', onElse: (e) => error = e);
@@ -22,13 +23,12 @@ void main() {
 
       Cont.of<String, String, int>(42)
           .elseZipWithEnv<String, String>(
-            (env, e) {
-              zipCalled = true;
-              return Cont.error('err2');
-            },
-            (a, b) => '$a + $b',
-          )
-          .run('hello', onThen: (val) => value = val);
+        (env, e) {
+          zipCalled = true;
+          return Cont.error('err2');
+        },
+        (a, b) => '$a + $b',
+      ).run('hello', onThen: (val) => value = val);
 
       expect(zipCalled, false);
       expect(value, 42);
@@ -36,8 +36,8 @@ void main() {
 
     test('can be run multiple times', () {
       var callCount = 0;
-      final cont =
-          Cont.error<String, String, int>('err1').elseZipWithEnv(
+      final cont = Cont.error<String, String, int>('err1')
+          .elseZipWithEnv(
         (env, e) {
           callCount++;
           return Cont.error<String, String, int>('err2');
@@ -63,7 +63,8 @@ void main() {
 
       Cont.error<String, String, int>('err1')
           .elseZipWithEnv0(
-            (env) => Cont.error<String, String, int>('$env'),
+            (env) =>
+                Cont.error<String, String, int>('$env'),
             (a, b) => '$a + $b',
           )
           .run('hello', onElse: (e) => error = e);

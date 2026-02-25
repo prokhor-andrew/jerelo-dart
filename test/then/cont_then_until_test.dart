@@ -12,9 +12,9 @@ void main() {
         count++;
         observer.onThen(count);
       }).thenUntil((a) => a >= 3).run(
-            (),
-            onThen: (val) => value = val,
-          );
+        (),
+        onThen: (val) => value = val,
+      );
 
       expect(count, 3);
       expect(value, 3);
@@ -28,9 +28,9 @@ void main() {
         callCount++;
         observer.onThen(100);
       }).thenUntil((a) => a >= 100).run(
-            (),
-            onThen: (val) => value = val,
-          );
+        (),
+        onThen: (val) => value = val,
+      );
 
       expect(callCount, 1);
       expect(value, 100);
@@ -48,9 +48,9 @@ void main() {
           observer.onThen(count);
         }
       }).thenUntil((a) => a >= 5).run(
-            (),
-            onElse: (e) => error = e,
-          );
+        (),
+        onElse: (e) => error = e,
+      );
 
       expect(count, 2);
       expect(error, 'err at 2');
@@ -58,8 +58,8 @@ void main() {
 
     test('can be run multiple times', () {
       var count = 0;
-      final cont =
-          Cont.fromRun<(), String, int>((runtime, observer) {
+      final cont = Cont.fromRun<(), String, int>(
+          (runtime, observer) {
         count++;
         observer.onThen(count);
       }).thenUntil((a) => a >= 2);

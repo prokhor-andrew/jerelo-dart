@@ -31,7 +31,8 @@ void main() {
           order.add(3);
           observer.onThen(3);
         }),
-      ], policy: OkPolicy.sequence()).run(
+      ], policy: OkPolicy.sequence())
+          .run(
         (),
         onThen: (val) => value = val,
       );

@@ -164,10 +164,10 @@ void main() {
 
       left
           .and(
-            right,
-            (a, b) => '$b: $a',
-            policy: OkPolicy.sequence(),
-          )
+        right,
+        (a, b) => '$b: $a',
+        policy: OkPolicy.sequence(),
+      )
           .run((), onThen: (val) => value2 = val);
 
       expect(value1, value2);
@@ -183,29 +183,29 @@ void main() {
 
       left
           .and(
-            right,
-            (a, b) => a + b,
-            policy: OkPolicy.sequence(),
-          )
+        right,
+        (a, b) => a + b,
+        policy: OkPolicy.sequence(),
+      )
           .run((), onThen: (val) => seqVal = val);
 
       left
           .and(
-            right,
-            (a, b) => a + b,
-            policy: OkPolicy.runAll(
-              (a, b) => '$a, $b',
-              shouldFavorCrash: false,
-            ),
-          )
+        right,
+        (a, b) => a + b,
+        policy: OkPolicy.runAll(
+          (a, b) => '$a, $b',
+          shouldFavorCrash: false,
+        ),
+      )
           .run((), onThen: (val) => mergeVal = val);
 
       left
           .and(
-            right,
-            (a, b) => a + b,
-            policy: OkPolicy.quitFast(),
-          )
+        right,
+        (a, b) => a + b,
+        policy: OkPolicy.quitFast(),
+      )
           .run((), onThen: (val) => fastVal = val);
 
       expect(seqVal, 3);
@@ -216,15 +216,16 @@ void main() {
     test('supports Cont<E, F, Never> operands', () {
       String? error;
 
-      final left = Cont.error<(), String, Never>('never err');
+      final left =
+          Cont.error<(), String, Never>('never err');
       final right = Cont.of<(), String, int>(2);
 
       left
           .and<int, int>(
-            right,
-            (a, b) => b,
-            policy: OkPolicy.sequence(),
-          )
+        right,
+        (a, b) => b,
+        policy: OkPolicy.sequence(),
+      )
           .run((), onElse: (e) => error = e);
 
       expect(error, 'never err');

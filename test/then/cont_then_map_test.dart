@@ -17,12 +17,10 @@ void main() {
       bool mapCalled = false;
       String? error;
 
-      Cont.error<(), String, int>('err')
-          .thenMap((a) {
-            mapCalled = true;
-            return a * 2;
-          })
-          .run((), onElse: (e) => error = e);
+      Cont.error<(), String, int>('err').thenMap((a) {
+        mapCalled = true;
+        return a * 2;
+      }).run((), onElse: (e) => error = e);
 
       expect(mapCalled, false);
       expect(error, 'err');
@@ -70,11 +68,9 @@ void main() {
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.of<(), String, int>(42)
-          .thenMap((a) {
-            throw 'Map Error';
-          })
-          .run((), onCrash: (c) => crash = c);
+      Cont.of<(), String, int>(42).thenMap((a) {
+        throw 'Map Error';
+      }).run((), onCrash: (c) => crash = c);
 
       expect(crash, isA<NormalCrash>());
       expect((crash! as NormalCrash).error, 'Map Error');

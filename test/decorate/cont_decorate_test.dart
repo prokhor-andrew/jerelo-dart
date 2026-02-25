@@ -52,14 +52,14 @@ void main() {
     test('can add behavior before run', () {
       final order = <String>[];
 
-      final cont =
-          Cont.fromRun<(), String, int>((runtime, observer) {
-            order.add('run');
-            observer.onThen(10);
-          }).decorate((run, runtime, observer) {
-            order.add('before');
-            run(runtime, observer);
-          });
+      final cont = Cont.fromRun<(), String, int>(
+          (runtime, observer) {
+        order.add('run');
+        observer.onThen(10);
+      }).decorate((run, runtime, observer) {
+        order.add('before');
+        run(runtime, observer);
+      });
 
       cont.run((), onThen: (_) => order.add('value'));
 
@@ -69,14 +69,14 @@ void main() {
     test('can add behavior after run', () {
       final order = <String>[];
 
-      final cont =
-          Cont.fromRun<(), String, int>((runtime, observer) {
-            order.add('run');
-            observer.onThen(10);
-          }).decorate((run, runtime, observer) {
-            run(runtime, observer);
-            order.add('after');
-          });
+      final cont = Cont.fromRun<(), String, int>(
+          (runtime, observer) {
+        order.add('run');
+        observer.onThen(10);
+      }).decorate((run, runtime, observer) {
+        run(runtime, observer);
+        order.add('after');
+      });
 
       cont.run((), onThen: (_) => order.add('value'));
 
@@ -175,13 +175,13 @@ void main() {
 
     test('preserves environment', () {
       int? envValue;
-      final cont =
-          Cont.fromRun<int, String, int>((runtime, observer) {
-            envValue = runtime.env();
-            observer.onThen(runtime.env());
-          }).decorate((run, runtime, observer) {
-            run(runtime, observer);
-          });
+      final cont = Cont.fromRun<int, String, int>(
+          (runtime, observer) {
+        envValue = runtime.env();
+        observer.onThen(runtime.env());
+      }).decorate((run, runtime, observer) {
+        run(runtime, observer);
+      });
 
       int? value;
       cont.run(99, onThen: (val) => value = val);
@@ -201,16 +201,16 @@ void main() {
         buffer.clear();
       }
 
-      final cont =
-          Cont.fromRun<(), String, int>((runtime, observer) {
-            buffer.add(() {
-              if (runtime.isCancelled()) return;
-              observer.onThen(10);
-            });
-          }).decorate((run, runtime, observer) {
-            decorCalled = true;
-            run(runtime, observer);
-          });
+      final cont = Cont.fromRun<(), String, int>(
+          (runtime, observer) {
+        buffer.add(() {
+          if (runtime.isCancelled()) return;
+          observer.onThen(10);
+        });
+      }).decorate((run, runtime, observer) {
+        decorCalled = true;
+        run(runtime, observer);
+      });
 
       int? value;
       final token = cont.run(
@@ -243,15 +243,15 @@ void main() {
     });
 
     test('can replace observer onThen', () {
-      final cont =
-          Cont.fromRun<(), String, int>((runtime, observer) {
-            observer.onThen(10);
-          }).decorate((run, runtime, observer) {
-            final newObserver = observer.copyUpdateOnThen<int>(
-              (val) => observer.onThen(val * 2),
-            );
-            run(runtime, newObserver);
-          });
+      final cont = Cont.fromRun<(), String, int>(
+          (runtime, observer) {
+        observer.onThen(10);
+      }).decorate((run, runtime, observer) {
+        final newObserver = observer.copyUpdateOnThen<int>(
+          (val) => observer.onThen(val * 2),
+        );
+        run(runtime, newObserver);
+      });
 
       int? value;
       cont.run((), onThen: (val) => value = val);
@@ -290,15 +290,14 @@ void main() {
 
       final cont = Cont.of<(), String, int>(1)
           .decorate((run, runtime, observer) {
-            order.add('outer-before');
-            run(runtime, observer);
-            order.add('outer-after');
-          })
-          .decorate((run, runtime, observer) {
-            order.add('inner-before');
-            run(runtime, observer);
-            order.add('inner-after');
-          });
+        order.add('outer-before');
+        run(runtime, observer);
+        order.add('outer-after');
+      }).decorate((run, runtime, observer) {
+        order.add('inner-before');
+        run(runtime, observer);
+        order.add('inner-after');
+      });
 
       cont.run((), onThen: (_) => order.add('value'));
 

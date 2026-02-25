@@ -48,12 +48,11 @@ void main() {
 
     test('can be run multiple times', () {
       var callCount = 0;
-      final cont = Cont.askThen<int, String>()
-          .thenMap((env) {
-            callCount++;
-            return 'env: $env';
-          })
-          .local<String>((s) => s.length);
+      final cont =
+          Cont.askThen<int, String>().thenMap((env) {
+        callCount++;
+        return 'env: $env';
+      }).local<String>((s) => s.length);
 
       String? value1;
       cont.run('hello', onThen: (val) => value1 = val);

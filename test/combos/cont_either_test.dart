@@ -154,10 +154,10 @@ void main() {
 
       left
           .or(
-            right,
-            (a, b) => '$a, $b',
-            policy: OkPolicy.sequence(),
-          )
+        right,
+        (a, b) => '$a, $b',
+        policy: OkPolicy.sequence(),
+      )
           .run((), onThen: (val) => value2 = val);
 
       expect(value1, value2);
@@ -166,7 +166,8 @@ void main() {
     test('supports Cont<E, F, Never> operands', () {
       int? value;
 
-      final left = Cont.error<(), String, Never>('never err');
+      final left =
+          Cont.error<(), String, Never>('never err');
       final right = Cont.of<(), String, int>(20);
 
       left

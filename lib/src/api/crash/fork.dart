@@ -4,8 +4,9 @@ part of '../../cont.dart';
 ///
 /// Runs [cont], and on crash starts the side-effect continuation
 /// produced by [f] without waiting for it. The original crash
-/// is forwarded to the observer immediately. Results from the side-effect
-/// are silently ignored.
+/// is forwarded to the observer immediately. Outcomes from the side-effect
+/// are dispatched to the provided callbacks: [onPanic] (defaults to
+/// rethrowing), [onCrash], [onElse], and [onThen] (all default to ignoring).
 Cont<E, F, A> _crashFork<E, F, F2, A, A2>(
   Cont<E, F, A> cont,
   Cont<E, F2, A2> Function(ContCrash crash) f, {
@@ -55,14 +56,30 @@ extension ContCrashForkExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// If the continuation crashes, starts the side-effect continuation without waiting
   /// for it to complete. Unlike [crashTap], this does not wait for the side-effect to
-  /// finish before propagating the crash. Any results from the side-effect are
-  /// silently ignored.
+  /// finish before propagating the crash.
+  ///
+  /// Outcomes from the forked continuation are dispatched to optional callbacks:
+  /// - [onPanic]: Called when the side-effect triggers a panic. Defaults to rethrowing.
+  /// - [onCrash]: Called when the side-effect crashes. Defaults to ignoring.
+  /// - [onElse]: Called when the side-effect terminates with an error. Defaults to ignoring.
+  /// - [onThen]: Called when the side-effect succeeds. Defaults to ignoring.
   ///
   /// - [f]: Function that returns a side-effect continuation.
   Cont<E, F, A> crashFork<F2, A2>(
-    Cont<E, F2, A2> Function(ContCrash crash) f,
-  ) {
-    return _crashFork(this, f);
+    Cont<E, F2, A2> Function(ContCrash crash) f, {
+    void Function(NormalCrash crash) onPanic = _panic,
+    void Function(ContCrash crash) onCrash = _ignore,
+    void Function(F2 error) onElse = _ignore,
+    void Function(A2 value) onThen = _ignore,
+  }) {
+    return _crashFork(
+      this,
+      f,
+      onPanic: onPanic,
+      onCrash: onCrash,
+      onElse: onElse,
+      onThen: onThen,
+    );
   }
 
   /// Executes a zero-argument side-effect continuation on crash in a fire-and-forget manner.
@@ -71,27 +88,48 @@ extension ContCrashForkExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Zero-argument function that returns a side-effect continuation.
   Cont<E, F, A> crashFork0<F2, A2>(
-    Cont<E, F2, A2> Function() f,
-  ) {
-    return crashFork((_) {
-      return f();
-    });
+    Cont<E, F2, A2> Function() f, {
+    void Function(NormalCrash crash) onPanic = _panic,
+    void Function(ContCrash crash) onCrash = _ignore,
+    void Function(F2 error) onElse = _ignore,
+    void Function(A2 value) onThen = _ignore,
+  }) {
+    return crashFork(
+      (_) {
+        return f();
+      },
+      onPanic: onPanic,
+      onCrash: onCrash,
+      onElse: onElse,
+      onThen: onThen,
+    );
   }
 
   /// Executes a side-effect continuation on crash in a fire-and-forget manner with access to the environment.
   ///
   /// Similar to [crashFork], but the side-effect function receives both the crash
-  /// and the environment. The side-effect is started without waiting for it to complete,
-  /// and any results from the side-effect are silently ignored.
+  /// and the environment. The side-effect is started without waiting for it to complete.
+  /// Outcomes are dispatched to the optional [onPanic], [onCrash], [onElse], and
+  /// [onThen] callbacks.
   ///
   /// - [f]: Function that takes the environment and crash, and returns a side-effect continuation.
   Cont<E, F, A> crashForkWithEnv<F2, A2>(
-    Cont<E, F2, A2> Function(E env, ContCrash crash) f,
-  ) {
+    Cont<E, F2, A2> Function(E env, ContCrash crash) f, {
+    void Function(NormalCrash crash) onPanic = _panic,
+    void Function(ContCrash crash) onCrash = _ignore,
+    void Function(F2 error) onElse = _ignore,
+    void Function(A2 value) onThen = _ignore,
+  }) {
     return Cont.askThen<E, F>().thenDo((e) {
-      return crashFork<F2, A2>((crash) {
-        return f(e, crash);
-      });
+      return crashFork<F2, A2>(
+        (crash) {
+          return f(e, crash);
+        },
+        onPanic: onPanic,
+        onCrash: onCrash,
+        onElse: onElse,
+        onThen: onThen,
+      );
     });
   }
 
@@ -102,10 +140,20 @@ extension ContCrashForkExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that takes the environment and returns a side-effect continuation.
   Cont<E, F, A> crashForkWithEnv0<F2, A2>(
-    Cont<E, F2, A2> Function(E env) f,
-  ) {
-    return crashForkWithEnv((e, _) {
-      return f(e);
-    });
+    Cont<E, F2, A2> Function(E env) f, {
+    void Function(NormalCrash crash) onPanic = _panic,
+    void Function(ContCrash crash) onCrash = _ignore,
+    void Function(F2 error) onElse = _ignore,
+    void Function(A2 value) onThen = _ignore,
+  }) {
+    return crashForkWithEnv(
+      (e, _) {
+        return f(e);
+      },
+      onPanic: onPanic,
+      onCrash: onCrash,
+      onElse: onElse,
+      onThen: onThen,
+    );
   }
 }

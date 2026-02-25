@@ -8,9 +8,9 @@ void main() {
 
       Cont.of<(), String, int>(10)
           .thenZip(
-            (a) => Cont.of(a * 2),
-            (a, b) => '$a + $b',
-          )
+        (a) => Cont.of(a * 2),
+        (a, b) => '$a + $b',
+      )
           .run((), onThen: (val) => value = val);
 
       expect(value, '10 + 20');
@@ -22,13 +22,12 @@ void main() {
 
       Cont.error<(), String, int>('err')
           .thenZip<int, String>(
-            (a) {
-              zipCalled = true;
-              return Cont.of(a * 2);
-            },
-            (a, b) => '$a + $b',
-          )
-          .run((), onElse: (e) => error = e);
+        (a) {
+          zipCalled = true;
+          return Cont.of(a * 2);
+        },
+        (a, b) => '$a + $b',
+      ).run((), onElse: (e) => error = e);
 
       expect(zipCalled, false);
       expect(error, 'err');
@@ -39,9 +38,9 @@ void main() {
 
       Cont.of<(), String, int>(10)
           .thenZip<int, String>(
-            (a) => Cont.error('zip error'),
-            (a, b) => '$a + $b',
-          )
+        (a) => Cont.error('zip error'),
+        (a, b) => '$a + $b',
+      )
           .run((), onElse: (e) => error = e);
 
       expect(error, 'zip error');
@@ -71,14 +70,12 @@ void main() {
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.of<(), String, int>(42)
-          .thenZip<int, String>(
-            (a) {
-              throw 'Zip Error';
-            },
-            (a, b) => '$a + $b',
-          )
-          .run((), onCrash: (c) => crash = c);
+      Cont.of<(), String, int>(42).thenZip<int, String>(
+        (a) {
+          throw 'Zip Error';
+        },
+        (a, b) => '$a + $b',
+      ).run((), onCrash: (c) => crash = c);
 
       expect(crash, isA<NormalCrash>());
       expect((crash! as NormalCrash).error, 'Zip Error');
@@ -86,14 +83,15 @@ void main() {
   });
 
   group('Cont.thenZip0', () {
-    test('combines values ignoring source value in factory', () {
+    test('combines values ignoring source value in factory',
+        () {
       String? value;
 
       Cont.of<(), String, int>(10)
           .thenZip0(
-            () => Cont.of(99),
-            (a, b) => '$a + $b',
-          )
+        () => Cont.of(99),
+        (a, b) => '$a + $b',
+      )
           .run((), onThen: (val) => value = val);
 
       expect(value, '10 + 99');

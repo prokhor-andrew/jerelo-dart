@@ -8,9 +8,9 @@ void main() {
 
       Cont.of<(), String, int>(42)
           .thenInject(
-            Cont.askThen<int, String>()
-                .thenMap((env) => 'env: $env'),
-          )
+        Cont.askThen<int, String>()
+            .thenMap((env) => 'env: $env'),
+      )
           .run((), onThen: (val) => value = val);
 
       expect(value, 'env: 42');
@@ -20,7 +20,8 @@ void main() {
       String? error;
 
       Cont.error<(), String, int>('source err')
-          .thenInject(Cont.of<int, String, String>('result'))
+          .thenInject(
+              Cont.of<int, String, String>('result'))
           .run((), onElse: (e) => error = e);
 
       expect(error, 'source err');
@@ -31,8 +32,8 @@ void main() {
 
       Cont.of<(), String, int>(42)
           .thenInject(
-            Cont.error<int, String, String>('target err'),
-          )
+        Cont.error<int, String, String>('target err'),
+      )
           .run((), onElse: (e) => error = e);
 
       expect(error, 'target err');
@@ -41,14 +42,13 @@ void main() {
     test('never executes target on source failure', () {
       bool targetCalled = false;
 
-      Cont.error<(), String, int>('err')
-          .thenInject(
-            Cont.fromRun<int, String, String>((runtime, observer) {
-              targetCalled = true;
-              observer.onThen('result');
-            }),
-          )
-          .run((), onElse: (_) {});
+      Cont.error<(), String, int>('err').thenInject(
+        Cont.fromRun<int, String, String>(
+            (runtime, observer) {
+          targetCalled = true;
+          observer.onThen('result');
+        }),
+      ).run((), onElse: (_) {});
 
       expect(targetCalled, false);
     });
@@ -58,9 +58,9 @@ void main() {
 
       Cont.of<(), String, int>(5)
           .thenInject(
-            Cont.askThen<int, String>()
-                .thenMap((n) => 'number is $n'),
-          )
+        Cont.askThen<int, String>()
+            .thenMap((n) => 'number is $n'),
+      )
           .run((), onThen: (val) => value = val);
 
       expect(value, 'number is 5');
@@ -70,7 +70,8 @@ void main() {
       var callCount = 0;
 
       final cont = Cont.of<(), String, int>(10).thenInject(
-        Cont.fromRun<int, String, String>((runtime, observer) {
+        Cont.fromRun<int, String, String>(
+            (runtime, observer) {
           callCount++;
           observer.onThen('env: ${runtime.env()}');
         }),

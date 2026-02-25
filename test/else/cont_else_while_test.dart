@@ -11,9 +11,9 @@ void main() {
         count++;
         observer.onElse('err$count');
       }).elseWhile((e) => count < 3).run(
-            (),
-            onElse: (e) => error = e,
-          );
+        (),
+        onElse: (e) => error = e,
+      );
 
       expect(count, 3);
       expect(error, 'err3');
@@ -27,9 +27,9 @@ void main() {
         callCount++;
         observer.onElse('done');
       }).elseWhile((e) => false).run(
-            (),
-            onElse: (e) => error = e,
-          );
+        (),
+        onElse: (e) => error = e,
+      );
 
       expect(callCount, 1);
       expect(error, 'done');
@@ -47,9 +47,9 @@ void main() {
           observer.onElse('err$count');
         }
       }).elseWhile((e) => count < 5).run(
-            (),
-            onThen: (val) => value = val,
-          );
+        (),
+        onThen: (val) => value = val,
+      );
 
       expect(count, 2);
       expect(value, 2);
@@ -57,8 +57,8 @@ void main() {
 
     test('can be run multiple times', () {
       var count = 0;
-      final cont =
-          Cont.fromRun<(), String, int>((runtime, observer) {
+      final cont = Cont.fromRun<(), String, int>(
+          (runtime, observer) {
         count++;
         observer.onElse('err$count');
       }).elseWhile((e) => count % 2 != 0);

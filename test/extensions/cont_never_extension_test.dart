@@ -30,7 +30,8 @@ void main() {
     test('thenAbsurd widens Never value type', () {
       String? error;
 
-      final neverValueCont = Cont.error<(), String, Never>('err');
+      final neverValueCont =
+          Cont.error<(), String, Never>('err');
       final widened = neverValueCont.thenAbsurd<int>();
 
       widened.run((), onElse: (e) => error = e);

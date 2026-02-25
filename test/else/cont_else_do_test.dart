@@ -16,24 +16,21 @@ void main() {
     test('receives original error', () {
       String? receivedError;
 
-      Cont.error<(), String, int>('err1')
-          .elseDo((error) {
-            receivedError = error;
-            return Cont.of(0);
-          })
-          .run(());
+      Cont.error<(), String, int>('err1').elseDo((error) {
+        receivedError = error;
+        return Cont.of(0);
+      }).run(());
 
       expect(receivedError, 'err1');
     });
 
-    test('propagates only fallback error when both fail', () {
+    test('propagates only fallback error when both fail',
+        () {
       String? error;
 
-      Cont.error<(), String, int>('original')
-          .elseDo((e) {
-            return Cont.error<(), String, int>('fallback');
-          })
-          .run((), onElse: (e) => error = e);
+      Cont.error<(), String, int>('original').elseDo((e) {
+        return Cont.error<(), String, int>('fallback');
+      }).run((), onElse: (e) => error = e);
 
       expect(error, 'fallback');
     });
@@ -42,20 +39,18 @@ void main() {
       bool elseCalled = false;
       int? value;
 
-      Cont.of<(), String, int>(42)
-          .elseDo((error) {
-            elseCalled = true;
-            return Cont.of(0);
-          })
-          .run((), onThen: (val) => value = val);
+      Cont.of<(), String, int>(42).elseDo((error) {
+        elseCalled = true;
+        return Cont.of(0);
+      }).run((), onThen: (val) => value = val);
 
       expect(elseCalled, false);
       expect(value, 42);
     });
 
     test('crashes when fallback builder throws', () {
-      final cont =
-          Cont.error<(), String, int>('err').elseDo((error) {
+      final cont = Cont.error<(), String, int>('err')
+          .elseDo((error) {
         throw 'Fallback Builder Error';
       });
 
@@ -81,8 +76,8 @@ void main() {
 
     test('can be run multiple times', () {
       var callCount = 0;
-      final cont =
-          Cont.error<(), String, int>('err').elseDo((error) {
+      final cont = Cont.error<(), String, int>('err')
+          .elseDo((error) {
         callCount++;
         return Cont.of(callCount);
       });

@@ -3,7 +3,8 @@ import 'package:test/test.dart';
 
 void main() {
   group('Cont.askThen', () {
-    test('Cont.askThen triggers onThen with same value', () {
+    test('Cont.askThen triggers onThen with same value',
+        () {
       final cont = Cont.askThen<int, String>();
 
       var value = 0;
@@ -87,7 +88,8 @@ void main() {
   });
 
   group('Cont.askElse', () {
-    test('Cont.askElse triggers onElse with environment', () {
+    test('Cont.askElse triggers onElse with environment',
+        () {
       final cont = Cont.askElse<int, int>();
 
       int? error;

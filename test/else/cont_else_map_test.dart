@@ -17,12 +17,10 @@ void main() {
       bool mapCalled = false;
       int? value;
 
-      Cont.of<(), String, int>(42)
-          .elseMap((e) {
-            mapCalled = true;
-            return 'mapped';
-          })
-          .run((), onThen: (val) => value = val);
+      Cont.of<(), String, int>(42).elseMap((e) {
+        mapCalled = true;
+        return 'mapped';
+      }).run((), onThen: (val) => value = val);
 
       expect(mapCalled, false);
       expect(value, 42);
@@ -51,7 +49,8 @@ void main() {
 
     test('can be run multiple times', () {
       var callCount = 0;
-      final cont = Cont.error<(), String, int>('err').elseMap((e) {
+      final cont =
+          Cont.error<(), String, int>('err').elseMap((e) {
         callCount++;
         return 'mapped: $e ($callCount)';
       });
@@ -70,11 +69,9 @@ void main() {
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.error<(), String, int>('err')
-          .elseMap((e) {
-            throw 'Map Error';
-          })
-          .run((), onCrash: (c) => crash = c);
+      Cont.error<(), String, int>('err').elseMap((e) {
+        throw 'Map Error';
+      }).run((), onCrash: (c) => crash = c);
 
       expect(crash, isA<NormalCrash>());
       expect((crash! as NormalCrash).error, 'Map Error');

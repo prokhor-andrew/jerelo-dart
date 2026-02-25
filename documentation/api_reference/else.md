@@ -443,20 +443,43 @@ final result = primaryOperation()
 ### elseFork
 
 ```dart
-Cont<E, F, A> elseFork<F2, A2>(Cont<E, F2, A2> Function(F error) f)
+Cont<E, F, A> elseFork<F2, A2>(
+  Cont<E, F2, A2> Function(F error) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Executes a side-effect continuation on error in a fire-and-forget manner.
 
-Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the error. The forked continuation may have different error and value types since its result is discarded.
+Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the error. The forked continuation may have different error and value types.
+
+Outcomes from the forked continuation are dispatched to optional callbacks:
+- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing.
+- `onCrash`: Called when the side-effect crashes. Defaults to ignoring.
+- `onElse`: Called when the side-effect terminates with an error. Defaults to ignoring.
+- `onThen`: Called when the side-effect succeeds. Defaults to ignoring.
 
 - **Parameters:**
   - `f`: Function that receives the error and returns a side-effect continuation
+  - `onPanic`: *(optional)* Handler for panics in the side-effect
+  - `onCrash`: *(optional)* Handler for crashes in the side-effect
+  - `onElse`: *(optional)* Handler for errors in the side-effect
+  - `onThen`: *(optional)* Handler for success in the side-effect
 
 **Example:**
 ```dart
 final result = fetchData()
   .elseFork((error) => logToRemote(error));
+
+// With observation callbacks:
+final result2 = fetchData()
+  .elseFork(
+    (error) => logToRemote(error),
+    onElse: (logError) => print('Logging failed: $logError'),
+  );
 ```
 
 ---
@@ -464,13 +487,22 @@ final result = fetchData()
 ### elseFork0
 
 ```dart
-Cont<E, F, A> elseFork0<F2, A2>(Cont<E, F2, A2> Function() f)
+Cont<E, F, A> elseFork0<F2, A2>(
+  Cont<E, F2, A2> Function() f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Executes a zero-argument side-effect continuation on error in a fire-and-forget manner.
 
+Accepts the same optional observation callbacks as `elseFork`.
+
 - **Parameters:**
   - `f`: Zero-argument function that returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `elseFork`)
 
 **Example:**
 ```dart
@@ -483,13 +515,22 @@ final result = fetchData()
 ### elseForkWithEnv
 
 ```dart
-Cont<E, F, A> elseForkWithEnv<F2, A2>(Cont<E, F2, A2> Function(E env, F error) f)
+Cont<E, F, A> elseForkWithEnv<F2, A2>(
+  Cont<E, F2, A2> Function(E env, F error) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Executes a side-effect on error in a fire-and-forget manner with access to the environment.
 
+Accepts the same optional observation callbacks as `elseFork`.
+
 - **Parameters:**
   - `f`: Function that takes the environment and error, and returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `elseFork`)
 
 **Example:**
 ```dart
@@ -502,13 +543,22 @@ final result = fetchData()
 ### elseForkWithEnv0
 
 ```dart
-Cont<E, F, A> elseForkWithEnv0<F2, A2>(Cont<E, F2, A2> Function(E env) f)
+Cont<E, F, A> elseForkWithEnv0<F2, A2>(
+  Cont<E, F2, A2> Function(E env) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Executes a side-effect on error in a fire-and-forget manner with access to the environment only.
 
+Accepts the same optional observation callbacks as `elseFork`.
+
 - **Parameters:**
   - `f`: Function that takes the environment and returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `elseFork`)
 
 **Example:**
 ```dart

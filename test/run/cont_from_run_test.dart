@@ -76,8 +76,8 @@ void main() {
 
     test('can be run multiple times', () {
       var callCount = 0;
-      final cont =
-          Cont.fromRun<(), String, int>((runtime, observer) {
+      final cont = Cont.fromRun<(), String, int>(
+          (runtime, observer) {
         callCount++;
         observer.onThen(callCount);
       });
@@ -104,8 +104,8 @@ void main() {
         buffer.clear();
       }
 
-      final cont =
-          Cont.fromRun<(), String, int>((runtime, observer) {
+      final cont = Cont.fromRun<(), String, int>(
+          (runtime, observer) {
         buffer.add(() {
           if (runtime.isCancelled()) return;
           observer.onThen(42);

@@ -17,12 +17,10 @@ void main() {
       bool chainCalled = false;
       String? error;
 
-      Cont.error<(), String, int>('err')
-          .thenDo((a) {
-            chainCalled = true;
-            return Cont.of(a * 2);
-          })
-          .run((), onElse: (e) => error = e);
+      Cont.error<(), String, int>('err').thenDo((a) {
+        chainCalled = true;
+        return Cont.of(a * 2);
+      }).run((), onElse: (e) => error = e);
 
       expect(chainCalled, false);
       expect(error, 'err');
@@ -80,11 +78,9 @@ void main() {
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.of<(), String, int>(42)
-          .thenDo<int>((a) {
-            throw 'Chain Error';
-          })
-          .run((), onCrash: (c) => crash = c);
+      Cont.of<(), String, int>(42).thenDo<int>((a) {
+        throw 'Chain Error';
+      }).run((), onCrash: (c) => crash = c);
 
       expect(crash, isA<NormalCrash>());
       expect((crash! as NormalCrash).error, 'Chain Error');

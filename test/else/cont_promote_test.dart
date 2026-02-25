@@ -18,10 +18,9 @@ void main() {
 
       Cont.error<(), String, int>('original error')
           .promote((e) {
-            receivedError = e;
-            return 0;
-          })
-          .run(());
+        receivedError = e;
+        return 0;
+      }).run(());
 
       expect(receivedError, 'original error');
     });
@@ -30,12 +29,10 @@ void main() {
       bool promoteCalled = false;
       int? value;
 
-      Cont.of<(), String, int>(42)
-          .promote((e) {
-            promoteCalled = true;
-            return 0;
-          })
-          .run((), onThen: (val) => value = val);
+      Cont.of<(), String, int>(42).promote((e) {
+        promoteCalled = true;
+        return 0;
+      }).run((), onThen: (val) => value = val);
 
       expect(promoteCalled, false);
       expect(value, 42);
@@ -44,14 +41,13 @@ void main() {
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.error<(), String, int>('err')
-          .promote((e) {
-            throw 'Promote Error';
-          })
-          .run((), onCrash: (c) => crash = c);
+      Cont.error<(), String, int>('err').promote((e) {
+        throw 'Promote Error';
+      }).run((), onCrash: (c) => crash = c);
 
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'Promote Error');
+      expect(
+          (crash! as NormalCrash).error, 'Promote Error');
     });
 
     test('can be run multiple times', () {
