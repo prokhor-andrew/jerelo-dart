@@ -1,6 +1,6 @@
 # Jerelo
 
-**Jerelo** is a Dart library for building cold, lazy, reusable computations using continuation-passing style. It provides a composable `Cont` type with operations for chaining, transforming, branching, merging, and error handling.
+**Jerelo** is a Dart library for building cold, lazy, reusable computations using continuation-passing style. It provides a composable `Cont` type with three outcome channels — success, typed errors, and crashes — plus operations for chaining, transforming, branching, merging, and error handling.
 
 The name "Jerelo" is Ukrainian for "source" or "spring" - each `Cont` is a source of results that can branch, merge, filter, and transform data through your workflows.
 
@@ -139,14 +139,6 @@ Cont<AppConfig, String, void> logAccess(User user) {
   });
 }
 
-// Simulated error logging
-Cont<AppConfig, String, void> logError(String error) {
-  return Cont.fromRun((runtime, observer) {
-    print('[ERROR] Failed: $error');
-    observer.onThen(null);
-  });
-}
-
 // Build a computation pipeline
 Cont<AppConfig, String, User> getUserData(String userId) {
   return fetchUserFromApi(userId)
@@ -161,10 +153,10 @@ Cont<AppConfig, String, User> getUserData(String userId) {
         ? loadUserFromCache(userId)
         : Cont.error(error);
     })
-    // Side effect: log access without blocking
+    // Side effect: log access without altering the value
     .thenTap((user) => logAccess(user))
-    // Error logging
-    .elseTap((error) => logError(error));
+    // Recover unexpected exceptions into typed errors
+    .crashRecoverElse((crash) => 'Unexpected error: $crash');
 }
 
 // Fetch multiple users in parallel
@@ -200,6 +192,7 @@ void main() {
   // Execute with production config — run returns a ContCancelToken
   final token1 = singleUserFlow.run(
     prodConfig,
+    onCrash: (crash) => print('Production crash: $crash'),
     onElse: (error) => print('Production failed: $error'),
     onThen: (user) => print('Production success: ${user.name}'),
   );
@@ -250,10 +243,11 @@ The example above showcases:
 
 - **Three-channel design**: Success (then), typed errors (else), and crashes for unexpected exceptions
 - **Environment Management**: Configuration threaded through computations via `AppConfig`
-- **Chaining**: Sequential operations with `thenDo`, `thenDoWithEnv`
-- **Error Handling**: Fallbacks with `elseDo`, error logging with `elseTap`
+- **Chaining**: Sequential operations with `thenDo`, `elseDoWithEnv`
+- **Error Handling**: Fallbacks with `elseDo`, conditional caching with `elseDoWithEnv`
+- **Crash Recovery**: Converting unexpected exceptions into typed errors with `crashRecoverElse`
 - **Conditional Logic**: Filtering with `thenIf` and typed `fallback` errors
-- **Side Effects**: Non-blocking logging with `thenTap`
+- **Side Effects**: Logging with `thenTap` while preserving the original value
 - **Parallel Execution**: Multiple computations with `Cont.all` and `OkPolicy`
 - **Racing**: Competing computations with `Cont.either` and error combining
 - **Reusability**: Same computation executed with different configurations
