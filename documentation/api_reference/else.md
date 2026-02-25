@@ -949,7 +949,7 @@ Cont<E, Never, A> elseForever()
 
 Repeatedly retries the continuation on error indefinitely.
 
-If the continuation terminates, retries it in an infinite loop. The loop only ends if the continuation succeeds. The return type `Cont<E, Never, A>` indicates that this continuation never produces an error — it either succeeds or retries forever.
+If the continuation terminates, retries it in an infinite loop. The loop only ends if the continuation succeeds or crashes. The return type `Cont<E, Never, A>` indicates that this continuation never produces an error — it either succeeds, or crashes, or retries forever.
 
 This is useful for resilient connections, self-healing systems, and operations that should never give up.
 
