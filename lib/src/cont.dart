@@ -535,7 +535,7 @@ final class Cont<E, F, A> {
         observer.copyUpdateOnThen<R>((r) {
           void fireRelease() {
             ContCrash.tryCatch(() {
-              release(r).run(
+              release(r).absurdify().run(
                 runtime.env(),
                 onPanic: onReleasePanic,
                 onCrash: onReleaseCrash,
