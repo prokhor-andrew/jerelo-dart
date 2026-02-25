@@ -145,18 +145,17 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
     }
 
     for (var i = 0; i < total; i++) {
-      final idx = i;
       ContCrash.tryCatch(() {
-        list[idx].absurdify().runWith(
+        list[i].absurdify().runWith(
               shared,
               observer.copyUpdate(
-                onCrash: (c) => handleCrash(idx, c),
+                onCrash: (c) => handleCrash(i, c),
                 onElse: handleElse,
                 onThen: handleThen,
               ),
             );
       }).match((_) {}, (crash) {
-        handleCrash(idx, crash);
+        handleCrash(i, crash);
       });
     }
   });
