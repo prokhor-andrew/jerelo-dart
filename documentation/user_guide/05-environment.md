@@ -169,7 +169,7 @@ class ApiConfig {
 }
 
 Cont<ApiConfig, String, User> fetchUser(String userId) {
-  return Cont.askThen<ApiConfig, String>().thenDoWithEnv((config, _) {
+  return Cont.askThen<ApiConfig, String>().thenDo((config) {
     return httpGet(
       '${config.baseUrl}/users/$userId',
       headers: {'Authorization': 'Bearer ${config.apiKey}'},
@@ -338,7 +338,7 @@ Cont.both(
   apiResult,
   (dbData, apiData) => merge(dbData, apiData),
   policy: OkPolicy.quitFast<String>(),
-).run(null, onThen: print);
+).run((), onThen: print);
 ```
 
 #### 4. Testing with mock dependencies
@@ -407,10 +407,10 @@ class RequestContext {
 
 Cont<RequestContext, String, Response> handleRequest(Request req) {
   return Cont.askThen<RequestContext, String>()
-    .thenDoWithEnv((ctx, _) {
+    .thenDo((ctx) {
       return logRequest(ctx.requestId, ctx.userId);
     })
-    .thenDo((_) => processRequest(req))
+    .thenDo0(() => processRequest(req))
     .thenTapWithEnv((ctx, response) {
       return logResponse(ctx.requestId, response);
     });
@@ -437,19 +437,15 @@ class Services {
 }
 
 Cont<Services, String, User> getUser(String userId) {
-  return Cont.askThen<Services, String>().thenDoWithEnv((services, _) {
-    return Cont.fromRun<Services, String, User>((runtime, observer) {
-      final cached = runtime.env().cache.get<User>(userId);
-      if (cached != null) {
-        observer.onThen(cached);
-      } else {
-        observer.onElse('cache miss');
-      }
-    }).elseDo((_) {
-      return Cont.askThen<Services, String>().thenDo((services) {
-        return services.database.query('SELECT * FROM users WHERE id = ?', [userId]);
-      });
-    });
+  return Cont.askThen<Services, String>().thenDo((services) {
+    final cached = services.cache.get<User>(userId);
+    if (cached != null) {
+      return Cont.of(cached);
+    } else {
+      return Cont.error('cache miss');
+    };
+  }).elseDoWithEnv0((services) {
+    return services.database.query('SELECT * FROM users WHERE id = ?', [userId]);
   });
 }
 ```
