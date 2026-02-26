@@ -38,7 +38,7 @@ Cont.both(
   Cont.of(20),
   (a, b) => a + b,
   policy: OkPolicy.quitFast<String>(),
-).run(null, onThen: print); // prints: 30
+).run((), onThen: print); // prints: 30
 ```
 
 Fluent alternative with `and`:
@@ -48,7 +48,7 @@ Cont.of(10).and(
   Cont.of(20),
   (a, b) => a + b,
   policy: OkPolicy.quitFast<String>(),
-).run(null, onThen: print); // prints: 30
+).run((), onThen: print); // prints: 30
 ```
 
 Note: The type parameter on `OkPolicy` is the **error type** `F` for `both`/`all` (since errors need to be combined when using `runAll`), and the **value type** `A` for `either`/`any` (since values need to be combined when using `runAll`).
@@ -59,9 +59,13 @@ When you have more than two computations, use `all` to merge an entire list. The
 
 ```dart
 Cont.all(
-  [Cont.of(1), Cont.of(2), Cont.of(3)],
+  [
+    Cont.of(1), 
+    Cont.of(2), 
+    Cont.of(3)
+  ],
   policy: OkPolicy.quitFast<String>(),
-).run(null, onThen: print); // prints: [1, 2, 3]
+).run((), onThen: print); // prints: [1, 2, 3]
 ```
 
 ---
@@ -80,7 +84,7 @@ Cont.either<void, String, String, String, int>(
   delayedCont(Duration(milliseconds: 100), 10),
   (e1, e2) => '$e1; $e2', // combine errors if both fail
   policy: OkPolicy.quitFast(),
-).run(null, onThen: print); // prints: 10 (fast wins)
+).run((), onThen: print); // prints: 10 (fast wins)
 ```
 
 Fluent alternative with `or`:
@@ -90,7 +94,7 @@ delayedCont(Duration(seconds: 2), 42).or(
   delayedCont(Duration(milliseconds: 100), 10),
   (e1, e2) => '$e1; $e2',
   policy: OkPolicy.quitFast(),
-).run(null, onThen: print); // prints: 10 (fast wins)
+).run((), onThen: print); // prints: 10 (fast wins)
 ```
 
 ### Many Computations (`any`)
@@ -105,7 +109,7 @@ Cont.any(
     delayedCont(Duration(seconds: 1), 3),
   ],
   policy: OkPolicy.quitFast(),
-).run(null, onThen: print); // prints: 2 (fastest)
+).run((), onThen: print); // prints: 2 (fastest)
 ```
 
 ---
@@ -123,7 +127,7 @@ Cont.coalesce(
   riskyOperation1(),
   riskyOperation2(),
   policy: CrashPolicy.sequence<String, int>(),
-).run(null, onThen: print);
+).run((), onThen: print);
 ```
 
 Fluent alternative:
@@ -132,7 +136,7 @@ Fluent alternative:
 riskyOperation1().coalesceWith(
   riskyOperation2(),
   policy: CrashPolicy.sequence<String, int>(),
-).run(null, onThen: print);
+).run((), onThen: print);
 ```
 
 ### Many Computations (`converge`)
@@ -141,9 +145,13 @@ Runs multiple continuations and converges their crash paths. If multiple crash, 
 
 ```dart
 Cont.converge(
-  [operation1(), operation2(), operation3()],
+  [
+    operation1(), 
+    operation2(), 
+    operation3()
+  ],
   policy: CrashPolicy.quitFast<String, int>(),
-).run(null, onThen: print);
+).run((), onThen: print);
 ```
 
 ---
@@ -156,7 +164,11 @@ Loading a dashboard often means fetching several resources at once. Using `all` 
 
 ```dart
 Cont.all(
-  [fetchUser(userId), fetchUserPosts(userId), fetchUserFriends(userId)],
+  [
+    fetchUser(userId), 
+    fetchUserPosts(userId), 
+    fetchUserFriends(userId)
+  ],
   policy: OkPolicy.quitFast<String>(),
 ).thenMap((results) {
   return DashboardData(
@@ -164,7 +176,7 @@ Cont.all(
     posts: results[1] as List<Post>,
     friends: results[2] as List<User>,
   );
-}).run(null, onThen: displayDashboard);
+}).run((), onThen: displayDashboard);
 ```
 
 ### Fallback Chain
@@ -175,7 +187,7 @@ Try the cache first, fall back to the network, and if all else fails, return a d
 fetchFromCache(key)
   .or(fetchFromNetwork(key), (e1, e2) => '$e1; $e2', policy: OkPolicy.sequence())
   .or(Cont.of(defaultValue), (e1, e2) => '$e1; $e2', policy: OkPolicy.sequence())
-  .run(null, onThen: print);
+  .run((), onThen: print);
 ```
 
 ### Race with Timeout
@@ -189,7 +201,7 @@ Cont.either(
   (e1, e2) => '$e1; $e2',
   policy: OkPolicy.quitFast(),
 ).run(
-  null,
+  (),
   onThen: (result) {
     if (result is TimeoutResult) {
       print("Operation timed out");
@@ -206,13 +218,17 @@ When validating user input, you typically want to report every problem at once. 
 
 ```dart
 Cont.all(
-  [validateEmail(email), validatePassword(password), validateAge(age)],
+  [
+    validateEmail(email), 
+    validatePassword(password), 
+    validateAge(age)
+  ],
   policy: OkPolicy.runAll<String>(
     (e1, e2) => '$e1; $e2',
     shouldFavorCrash: false,
   ),
 ).run(
-  null,
+  (),
   onElse: (error) => print("Validation errors: $error"),
   onThen: (_) => print("All validations passed"),
 );
