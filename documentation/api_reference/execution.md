@@ -13,9 +13,9 @@ Running continuations and specialized extensions.
   - [runWith](#runwith)
 - [Extensions](#extensions)
   - [flatten](#flatten)
-  - [absurdify](#absurdify)
   - [thenAbsurdify](#thenabsurdify)
   - [elseAbsurdify](#elseabsurdify)
+  - [absurdify](#absurdify)
   - [thenAbsurd](#thenabsurd)
   - [elseAbsurd](#elseabsurd)
 
@@ -52,7 +52,7 @@ Initiates execution of the continuation with separate handlers for panics, crash
 ```dart
 // Subscribe to all channels
 final token = computation.run(
-  env,
+  (),
   onPanic: (panic) => log('PANIC: ${panic.error}'),
   onCrash: (crash) => log('Crash: $crash'),
   onElse: (error) => print('Failed: $error'),
@@ -168,7 +168,7 @@ Checks if `F` and/or `A` are `Never` during execution and casts them to prevent 
 
 **Example:**
 ```dart
-final Cont.crash<(), String, int> neverBoth = ...
+final Cont<(), String, int> neverBoth = Cont.crash(crash);
 final Cont<(), String, int> widened = neverBoth.absurdify();
 ```
 
