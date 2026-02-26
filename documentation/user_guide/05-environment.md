@@ -28,15 +28,19 @@ final program = Cont.askThen<Config, String>().thenDo((config) {
 
 program.run(
   Config(apiUrl: "https://api.example.com"),
-  onThen: print,
 );
 ```
 
 Use `Cont.askElse` to retrieve the current environment on the else (error) channel:
 
 ```dart
-final program = Cont.askElse<Config, int>();
-// This immediately terminates with the environment as the error value
+final program = Cont.askElse<Config, int>().elseDo((config) { 
+  return fetchFromCache(config.cacheDir);
+});
+
+program.run(
+  Config(cacheDir: "..."),
+);
 ```
 
 ### Providing Environment with withEnv
@@ -107,16 +111,16 @@ Cont.of(42).thenDoWithEnv((env, value) {
 
 Available variants:
 
+**Transformations:**
+- `thenMapWithEnv`, `thenMapWithEnv0`
+- `elseMapWithEnv`, `elseMapWithEnv0`
+
 **Chaining:**
 - `thenDoWithEnv`, `thenDoWithEnv0`
 - `elseDoWithEnv`, `elseDoWithEnv0`
 - `crashDoWithEnv`, `crashDoWithEnv0`
 
-**Transformations:**
-- `thenMapWithEnv`, `thenMapWithEnv0`
-- `elseMapWithEnv`, `elseMapWithEnv0`
-
-**Side effects:**
+**Tapping:**
 - `thenTapWithEnv`, `thenTapWithEnv0`
 - `elseTapWithEnv`, `elseTapWithEnv0`
 - `crashTapWithEnv`, `crashTapWithEnv0`
@@ -124,6 +128,12 @@ Available variants:
 **Combining:**
 - `thenZipWithEnv`, `thenZipWithEnv0`
 - `elseZipWithEnv`, `elseZipWithEnv0`
+- `crashZipWithEnv`, `crashZipWithEnv0`
+
+**Forking:**
+- `thenForkWithEnv`, `thenForkWithEnv0`
+- `elseForkWithEnv`, `elseForkWithEnv0`
+- `crashForkWithEnv`, `crashForkWithEnv0`
 
 **Conditions:**
 - `thenIfWithEnv`, `thenIfWithEnv0`
@@ -188,7 +198,7 @@ The `thenInject` method takes the success value of this continuation and injects
 
 ```dart
 // Build a configuration and inject it into operations that need it
-final configCont = Cont.of<void, Never, DbConfig>(
+final configCont = Cont.of<(), Never, DbConfig>(
   DbConfig(host: 'localhost', port: 5432)
 );
 
@@ -199,9 +209,9 @@ final queryOp = Cont.askThen<DbConfig, String>().thenDo((config) {
 
 // Inject the config into the query operation
 final result = configCont.thenInject(queryOp);
-// Type: Cont<void, String, List<User>>
+// Type: Cont<(), String, List<User>>
 
-result.run(null, onThen: (users) {
+result.run((), onThen: (users) {
   print("Fetched ${users.length} users");
 });
 ```
@@ -210,6 +220,9 @@ result.run(null, onThen: (users) {
 - Input: `Cont<E, F, A>` (produces value of type `A`)
 - Target: `Cont<A, F, A2>` (needs environment of type `A`)
 - Output: `Cont<E, F, A2>` (produces value of type `A2` with original environment)
+
+We kinda "glue" `A`s together in `Cont<E, _, A>` and `Cont<A, _, A2>` and get 
+`Cont<E, _, A2>` ("_" is just to show that it can be anything).
 
 ### Using injectedByThen
 
@@ -222,13 +235,13 @@ final queryOp = Cont.askThen<DbConfig, String>().thenDo((config) {
 });
 
 // A provider that produces the config
-final configProvider = Cont.of<void, String, DbConfig>(
+final configProvider = Cont.of<(), String, DbConfig>(
   DbConfig(host: 'localhost', port: 5432)
 );
 
 // Express that queryOp is injected by configProvider
 final result = queryOp.injectedByThen(configProvider);
-// Type: Cont<void, String, List<User>>
+// Type: Cont<(), String, List<User>>
 ```
 
 ### Error-Channel Injection
