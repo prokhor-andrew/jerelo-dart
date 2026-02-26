@@ -271,6 +271,40 @@ Creates a new observer with all three handlers replaced.
   - `onElse`: The new error handler
   - `onThen`: The new value handler
 
+**Extension Methods:**
+
+The following extension methods widen `Never`-typed channels to arbitrary types. When an observer's success or error type is `Never` (meaning that channel can never fire), these methods replace the unreachable callback with a no-op so the observer can be used in a broader generic context.
+
+```dart
+// On ContObserver<F, A>:
+ContObserver<F, A> thenAbsurdify()
+```
+Widens the success channel if its type is `Never`. If this observer has type `ContObserver<F, Never>`, returns a copy typed as `ContObserver<F, A>` with a no-op `onThen` callback. Otherwise returns this observer unchanged.
+
+```dart
+// On ContObserver<F, A>:
+ContObserver<F, A> elseAbsurdify()
+```
+Widens the error channel if its type is `Never`. If this observer has type `ContObserver<Never, A>`, returns a copy typed as `ContObserver<F, A>` with a no-op `onElse` callback. Otherwise returns this observer unchanged.
+
+```dart
+// On ContObserver<F, A>:
+ContObserver<F, A> absurdify()
+```
+Widens both the success and error channels if either is `Never`. Equivalent to calling `thenAbsurdify()` followed by `elseAbsurdify()`.
+
+```dart
+// On ContObserver<F, Never>:
+ContObserver<F, A> thenAbsurd<A>()
+```
+Returns a copy of this observer with the success type widened to `A`. Because the original success type is `Never`, the `onThen` callback can never be reached, so it is replaced with a no-op.
+
+```dart
+// On ContObserver<Never, A>:
+ContObserver<F, A> elseAbsurd<F>()
+```
+Returns a copy of this observer with the error type widened to `F`. Because the original error type is `Never`, the `onElse` callback can never be reached, so it is replaced with a no-op.
+
 ---
 
 ### SafeObserver
