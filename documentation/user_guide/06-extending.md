@@ -20,13 +20,6 @@ Cont<E, F, T> myComputation<E, F, T>() {
 }
 ```
 
-### Key Rules for Using Observer
-
-1. **Call exactly once**: You must call exactly one of `observer.onThen`, `observer.onElse`, or `observer.onCrash`
-2. **Idempotent**: Calling more than once has no effect (the first call wins)
-3. **Mandatory**: Failing to call the observer results in undefined behavior and lost errors (with exception to cancellation cases)
-4. **Exception safety**: Exceptions thrown inside `Cont.fromRun` are automatically caught and routed to the crash channel — you don't need manual try-catch
-
 ### The SafeObserver
 
 The observer passed to `Cont.fromRun` is a `SafeObserver`, which provides:
@@ -49,7 +42,7 @@ Cont<E, F, T> delay<E, F, T>(Duration duration, T value) {
 
 // Usage
 delay(Duration(seconds: 2), 42).run(
-  null,
+  (),
   onThen: (value) => print("Got $value after 2 seconds"),
 );
 ```
@@ -158,7 +151,7 @@ extension TimingExtension<E, F, T> on Cont<E, F, T> {
 // Usage
 fetchData()
   .timed((d) => print("Took ${d.inMilliseconds}ms"))
-  .run(null, onThen: print);
+  .run((), onThen: print);
 ```
 
 **Example: Conditional execution**
@@ -255,59 +248,45 @@ Cancelled computations are effectively abandoned — they produce no result and 
 
 ### Checking Cancellation
 
-```dart
-Cont<E, F, List<T>> processLargeDataset<E, F, T>(List<T> items) {
-  return Cont.fromRun((runtime, observer) {
-    final results = <T>[];
+Cancellation can only take effect at **async boundaries** — points where Dart's event loop has a chance to run other code. Checking `isCancelled()` inside a plain synchronous loop is ineffective, because nothing can cancel the computation while it is running synchronously.
 
-    for (final item in items) {
-      // Check if computation was cancelled
-      if (runtime.isCancelled()) {
-        // Don't emit anything - just exit silently
+The canonical pattern is to check cancellation inside each async callback, after the event loop has had a chance to turn:
+
+```dart
+// Each call to processItemAsync yields to the event loop,
+// giving cancellation a real chance to take effect between items.
+Cont<E, F, List<R>> processItemsAsync<E, F, T, R>(
+  List<T> items,
+  Future<R> Function(T) processItemAsync,
+) {
+  return Cont.fromRun((runtime, observer) {
+    final results = <R>[];
+
+    void processNext(int index) {
+      if (index >= items.length) {
+        observer.onThen(results);
         return;
       }
 
-      results.add(processItem(item));
+      processItemAsync(items[index]).then((result) {
+        // This callback runs in a future microtask — cancellation
+        // may have been requested since the last item was processed.
+        if (runtime.isCancelled()) return;
+
+        results.add(result);
+        processNext(index + 1);
+      });
     }
 
-    observer.onThen(results);
+    processNext(0);
   });
 }
 ```
 
-### Cancellation with Asynchronous Work
-
-```dart
-Cont<E, String, String> longRunningFetch<E>(String url) {
-  return Cont.fromRun((runtime, observer) {
-    // Check before starting work
-    if (runtime.isCancelled()) {
-      return; // Exit without emitting anything
-    }
-
-    final request = http.get(Uri.parse(url));
-
-    request.then(
-      (response) {
-        // Check again before processing response
-        if (runtime.isCancelled()) {
-          return;
-        }
-        observer.onThen(response.body);
-      },
-      onError: (error, st) {
-        if (!runtime.isCancelled()) {
-          observer.onElse('Request failed: $error');
-        }
-      },
-    );
-  });
-}
-```
 
 ### Best Practices for Cancellation
 
-1. **Check frequently**: In long-running operations, check `runtime.isCancelled()` periodically
+1. **Check at async boundaries**: Dart is single-threaded, so cancellation can only take effect between event loop turns. Check `runtime.isCancelled()` inside async callbacks (`.then()`, `Timer`, etc.), not in synchronous loops
 2. **Don't emit on cancellation**: Never call observer methods when cancelled
 3. **Clean up resources**: Release any acquired resources before exiting
 4. **Exit silently**: Simply return from the function without emitting anything
