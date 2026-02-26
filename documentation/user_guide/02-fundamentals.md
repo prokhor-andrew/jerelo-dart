@@ -24,7 +24,7 @@ Cont<E, String, User> getUser<E>(String userId) {
 
 **Important notes about `observer`:**
 - It is idempotent. Calling `onThen`, `onElse`, or `onCrash` more than once will do nothing.
-- It is mandatory to call exactly one of `onThen`, `onElse`, or `onCrash` once the computation is over. Otherwise, errors will be lost, and behavior becomes undefined.
+- It is strongly advised to call exactly one of `onThen`, `onElse`, or `onCrash` once the computation is over, unless it is canceled.
 - The observer has an `isUsed` property that returns `true` once any callback has been invoked.
 - Exceptions thrown inside `Cont.fromRun` are automatically caught and routed to the crash channel — you don't need to wrap your code in try-catch blocks.
 
@@ -56,14 +56,17 @@ Cont<E, F, User> getUser<E, F>(String userId) {
 To represent a business-logic error:
 
 ```dart
-Cont.error<void, String, int>('User not found');
+Cont.error<(), String, int>('User not found');
 ```
 
 To represent a crash (unexpected exception):
 
 ```dart
-Cont.crash<void, String, int>(someCrash);
+Cont.crash<(), String, int>(someCrash);
 ```
+
+This constructor is used to thread an existing `ContCrash`. The construction of `ContCrash`
+manually is not possible. (More in **[Composing Computations](03-composing-computations.md)**)
 
 ### Resource Management
 
@@ -109,21 +112,21 @@ The `run` method returns a **`ContCancelToken`** that you can use to cooperative
 
 ```dart
 // constructing the program
-final Cont<void, String, int> program = getValueFromDatabase()
+final Cont<(), String, int> program = getValueFromDatabase()
   .thenDo(incrementValue)
   .thenDo(isEven)
   .thenDo(toString);
 
 // running the program with handlers
 final token = program.run(
-  null, // env
+  (), // env
   onCrash: (crash) => print("crash=$crash"),
   onElse: (error) => print("error=$error"),
   onThen: (value) => print("value=$value"),
 );
 
 // or subscribe only to the value channel
-final token = program.run(null, onThen: print);
+final token = program.run((), onThen: print);
 
 // cancel the computation when needed
 token.cancel();
@@ -203,7 +206,7 @@ Once the source computation completes and emits a value, error, or crash, execut
 Cont.of(0)                    // Emits: value(0)
   .thenMap((x) => x + 1)      // Processes: value(0) → value(1)
   .thenDo((x) => Cont.of(x * 2))  // Processes: value(1) → runs new Cont → value(2)
-  .run(null, onElse: onElse, onThen: onThen)  // Receives: value(2)
+  .run((), onElse: onElse, onThen: onThen)  // Receives: value(2)
 ```
 
 **Channel Routing and Switching**
@@ -221,17 +224,17 @@ Cont.of(0)
   .thenMap((x) => x + 1)    // Only processes values
   .thenDo((x) => throw "Error!")  // Throws → switches to crash channel
   .thenMap((x) => x * 2)    // Skipped! (crash channel active)
-  .run(null, onCrash: onCrash, onThen: onThen)  // onCrash called
+  .run((), onCrash: onCrash, onThen: onThen)  // onCrash called
 ```
 
 Similarly, `elseDo` only processes errors on the else channel, and `crashDo` only processes crashes:
 
 ```dart
-Cont.error<void, String, int>('not found')  // Else channel
+Cont.error<(), String, int>('not found')  // Else channel
   .thenMap((x) => x + 1)    // Skipped (no value to process)
   .elseDo((error) => Cont.of(42))     // Recovers → switches to then channel
   .thenMap((x) => x * 2)    // Processes value(42) → value(84)
-  .run(null, onThen: onThen)  // onThen(84) called
+  .run((), onThen: onThen)  // onThen(84) called
 ```
 
 **Key Behaviors**
@@ -244,7 +247,7 @@ Cont.error<void, String, int>('not found')  // Else channel
 
 ### The Environment Parameter
 
-You may have noticed the first parameter to `run` is an environment value (shown as `null` in examples above). This parameter serves a critical purpose in Jerelo's design.
+You may have noticed the first parameter to `run` is an environment value (shown as `()` in examples above). This parameter serves a critical purpose in Jerelo's design.
 
 **Why is environment needed?**
 
@@ -260,8 +263,8 @@ Without environment, you would need to manually pass these values through every 
 Environment is automatically threaded through the entire computation chain. Any computation in the chain can access it using `Cont.askThen<E, F>()`, and you can create local scopes with different environment values using `.local()` or `.withEnv()`.
 
 ```dart
-// Simple example: using void when you don't need environment
-Cont.of(42).run(null, onThen: print);
+// Simple example: using () when you don't need environment
+Cont.of(42).run((), onThen: print);
 
 // Using environment to share configuration
 class Config {
@@ -284,7 +287,7 @@ program.run(
 
 - **Type-safe**: The environment type `E` in `Cont<E, F, A>` ensures you can only run a computation with the correct environment type
 - **Composable**: Different parts of your computation can use different environment types via `.local()`
-- **Zero overhead when unused**: If you don't need environment, just use `void` as the type
+- **Zero overhead when unused**: If you don't need environment, just use `()` as the type
 - **Eliminates boilerplate**: No need to pass configuration through every function manually
 
 For detailed environment operations including `local`, `withEnv`, and advanced patterns, see the [Environment Management](05-environment.md) guide.
@@ -294,5 +297,5 @@ For detailed environment operations including `local`, `withEnv`, and advanced p
 ## Next Steps
 
 Now that you understand how to construct and run computations, continue to:
-- **[Core Operations](03-core-operations.md)** - Learn to transform, chain, and branch computations
+- **[Composing Computations](03-composing-computations.md)** - Master the operator toolkit
 - **[Environment Management](05-environment.md)** - Deep dive into environment handling

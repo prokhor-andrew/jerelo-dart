@@ -66,7 +66,7 @@ A comprehensive guide to understanding and using Jerelo:
 
 1. [Introduction & Core Concepts](documentation/user_guide/01-introduction.md) - Understanding computations and continuation-passing style
 2. [Fundamentals: Construct & Run](documentation/user_guide/02-fundamentals.md) - Learn to create and execute computations
-3. [Core Operations](documentation/user_guide/03-core-operations.md) - Master mapping, chaining, branching, and error handling
+3. [Composing Computations](documentation/user_guide/03-composing-computations.md) - Master mapping, chaining, branching, and error handling
 4. [Racing and Merging](documentation/user_guide/04-racing-and-merging.md) - Parallel execution, racing, and complex workflows
 5. [Environment Management](documentation/user_guide/05-environment.md) - Configuration and dependency injection patterns
 6. [Extending Jerelo](documentation/user_guide/06-extending.md) - Create custom operators and computations

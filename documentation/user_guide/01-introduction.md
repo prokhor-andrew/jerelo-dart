@@ -32,7 +32,8 @@ Composability guarantees many important features such as:
 - Reusability
 - Testability
 - Substitution
-- Observability
+- Local Reasoning
+- Extensibility
 - Refactorability (if that's a word)
 
 and many more.
@@ -70,7 +71,8 @@ The classic pure function can only be executed synchronously. By its encoding, i
 
 ### Why Not Future?
 
-Dart's `Future` is, in fact, CPS with syntactic sugar on top of it. But as it was mentioned above, `Future` starts running as soon as it is created, thus it is not composable.
+Dart's `Future` is, in fact, CPS with syntactic sugar on top of it. 
+But as it was mentioned above, `Future` starts running as soon as it is created, thus it is not composable.
 
 ```dart
 final getUserComputation = Future(() {
@@ -80,7 +82,29 @@ final getUserComputation = Future(() {
 // getUserComputation is already running.
 ```
 
-### The Problem of CPS
+**Functions** that return `Future` **are** composable, but they don't have default tools to compose them.
+
+```dart
+Future<int> getUserAge(User user) { ... }
+
+Future<bool> isUserAllowed(int age) { ... }
+
+Future<bool> checkIfUserAllowed(User user) async {
+  final age = await getUserAge(user);
+  final isAllowed = await isUserAllowed(age);
+  return isAllowed;
+}
+```
+To compose two functions above, we have to create a third one where we run both and then
+return the result. This is normal for two functions, but the more functions we have the more
+we create these "mediator" functions that do nothing but unite other ones. And by default,
+there is nothing that allows us to do something like this:
+
+```dart
+final checkIfUserAllowed = getUserAge.then(isUserAllowed);
+```
+
+### The Problem of raw CPS
 
 While normal functions and `Future`s compose nicely, CPS doesn't.
 
@@ -109,15 +133,27 @@ function1(value, (result1) {
 
 As you can see, the more functions we want to compose, the uglier it becomes.
 
+### Common issues
+
+Other things we cannot do with both `Future` and `CPS` are:
+- Parallel composition (or concurrent composition)
+  run two computations in parallel and combine their results
+
+- Typed / value-level errors (or first-class error channel)
+  errors as data, not exceptions
+
+- Cooperative cancellation (or structured cancellation)
+  cancellation as part of the type/contract, not an ad-hoc flag
+
+- Context propagation / dependency injection via environment (or Reader-style environment)
+  thread shared config/services through the computation without globals
+
 ### The Solution: Jerelo's Cont
 
-**Cont** is a type that represents an arbitrary computation. It has three result channels, and comes with a basic interface that allows you to do every fundamental operation:
+**Cont** is a type that represents an arbitrary computation. It has three result channels, and comes with a basic interface that allows you to:
 - Construct
+- Compose
 - Run
-- Transform
-- Chain
-- Branch
-- Merge
 
 Example of `Cont`'s composition:
 
@@ -133,7 +169,7 @@ final program = function1(value)
 
 ## Getting Started with Cont
 
-`Cont<E, F, A>` has three type parameters and three result channels:
+`Cont<E, F, A>` has three type parameters:
 
 - **`E`** — Environment type: configuration, dependencies, or context threaded through the chain
 - **`F`** — Error type: typed business-logic errors (e.g., `String`, a custom `AppError` enum, etc.)
@@ -148,13 +184,16 @@ Every `Cont` computation terminates on exactly one of three channels:
 3. **Crash channel** (unexpected exception) — carries a `ContCrash` value
 
 ```dart
-final program = getUserAge(userId).thenMap((age) {
+final program = getUserAge(userId).thenDo((age) {
   throw "Armageddon!"; // <- throws here → crash channel
 });
 
 // or
 
 final program = getUserAge(userId).thenDo((age) {
+  if (age >= 18) {
+    return Cont.of(age); // → then channel
+  }
   return Cont.error("Too young"); // → else channel
 });
 
@@ -171,7 +210,7 @@ final token = program.run(
   },
   onThen: (value) {
     // then channel: success
-    print("value=$value");
+    print("Success=$value");
   },
 );
 ```
@@ -211,4 +250,4 @@ Unlike the typed error on the else channel (type `F`), crashes are untyped and r
 
 Now that you understand the core concepts, continue to:
 - **[Fundamentals: Construct & Run](02-fundamentals.md)** - Learn to create and execute computations
-- **[Core Operations](03-core-operations.md)** - Master the essential operations
+- **[Composing Computations](03-composing-computations.md)** - Master the operator toolkit
