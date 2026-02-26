@@ -122,7 +122,7 @@ final class CollectedCrash extends ContCrash {
 
   @override
   String toString() {
-    return "CollectedCrash { crashes=$crashes }";
+    return "CollectedCrash { $crashes }";
   }
 
   @override
@@ -170,10 +170,53 @@ final class _ValueCrashOr<T> extends CrashOr<T> {
   final T value;
 
   const _ValueCrashOr(this.value);
+
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+
+    if (other is! _ValueCrashOr<T>) {
+      return false;
+    }
+
+    return other.value == value;
+  }
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() {
+    return value.toString();
+  }
 }
 
 final class _CrashCrashOr<T> extends CrashOr<T> {
   final NormalCrash crash;
 
   const _CrashCrashOr(this.crash);
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+
+    if (other is! _CrashCrashOr<T>) {
+      return false;
+    }
+
+    return other.crash == crash;
+  }
+
+  @override
+  int get hashCode => crash.hashCode;
+
+  @override
+  String toString() {
+    return crash.toString();
+  }
 }
