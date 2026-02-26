@@ -298,4 +298,4 @@ For detailed environment operations including `local`, `withEnv`, and advanced p
 
 Now that you understand how to construct and run computations, continue to:
 - **[Composing Computations](03-composing-computations.md)** - Master the operator toolkit
-- **[Environment Management](05-environment.md)** - Deep dive into environment handling
+- **[Racing and Merging](04-racing-and-merging.md)** - Parallel composition and concurrency 
