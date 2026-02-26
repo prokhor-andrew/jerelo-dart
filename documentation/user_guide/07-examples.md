@@ -20,19 +20,18 @@ class AppConfig {
 // Fetch user with retry and caching
 Cont<AppConfig, String, User> getUser(String userId) {
   return Cont.askThen<AppConfig, String>()
-    .thenDoWithEnv((config, _) {
-      // Try API first
-      return fetchFromApi(config.apiUrl, userId, config.timeout)
-        .thenIf((user) => user.isValid, fallback: 'invalid user')
-        .elseTapWithEnv((env, error) {
-          // Log errors in background
-          return logToFile(env.cacheDir, error);
-        })
-        .elseDoWithEnv((env, error) {
-          // Fallback to cache
-          return loadFromCache(env.cacheDir, userId);
-        });
+    .thenDo((config) {
+      return fetchFromApi(config.apiUrl, userId, config.timeout);
     })
+    .thenIf((user) => user.isValid, fallback: 'invalid user')
+    .elseTapWithEnv((env, error) {
+      // Log errors in background
+      return logToFile(env.cacheDir, error);
+    })
+    .elseDoWithEnv0((env) {
+      // Fallback to cache
+      return loadFromCache(env.cacheDir, userId);
+    });
     .thenTapWithEnv((env, user) {
       // Update cache in background
       return saveToCache(env.cacheDir, user);
