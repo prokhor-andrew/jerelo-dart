@@ -80,7 +80,7 @@ final deferred = Cont.fromDeferred(() {
 });
 
 // Prints "Creating continuation..." when run
-deferred.run(env, onThen: print);
+deferred.run((), onThen: print);
 ```
 
 ---
@@ -100,7 +100,7 @@ Identity operation that wraps a pure value in a continuation context.
 
 **Example:**
 ```dart
-final cont = Cont.of<(), Never, int>(42);
+final cont = Cont.of(42);
 cont.run((), onThen: print); // prints: 42
 ```
 
@@ -121,7 +121,7 @@ Creates a continuation that terminates without producing a value. Used to repres
 
 **Example:**
 ```dart
-final cont = Cont.error<(), String, int>('Not found');
+final cont = Cont.error('Not found');
 
 cont.run((), onElse: (error) {
   print('Failed: $error'); // prints: Failed: Not found
