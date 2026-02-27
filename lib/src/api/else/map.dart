@@ -1,75 +1,73 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
-extension ContElseMapExtension<E, A> on Cont<E, A> {
-  /// Transforms termination errors using a pure function.
+extension ContElseMapExtension<E, F, A> on Cont<E, F, A> {
+  /// Transforms the termination error using a pure function.
   ///
   /// If the continuation terminates, applies the transformation function to
-  /// the error list and terminates with the transformed errors. This is useful
-  /// for enriching, filtering, or transforming error information.
+  /// the error value and terminates with the transformed error. This is useful
+  /// for enriching or adapting error information.
   ///
-  /// - [f]: Function that transforms the error list.
-  Cont<E, A> elseMap(
-    List<ContError> Function(List<ContError> errors) f,
+  /// - [f]: Function that transforms the error value.
+  Cont<E, F2, A> elseMap<F2>(
+    F2 Function(F error) f,
   ) {
-    return elseDo((errors) {
-      return Cont.stop<E, A>(f(errors));
+    return elseDo((error) {
+      return Cont.error(f(error));
     });
   }
 
-  /// Transforms termination errors using a zero-argument function.
+  /// Transforms the termination error using a zero-argument function.
   ///
-  /// Similar to [elseMap] but replaces errors without examining the original
-  /// error list.
+  /// Similar to [elseMap] but replaces the error without examining the
+  /// original error value.
   ///
-  /// - [f]: Zero-argument function that produces new errors.
-  Cont<E, A> elseMap0(List<ContError> Function() f) {
+  /// - [f]: Zero-argument function that produces a new error value.
+  Cont<E, F2, A> elseMap0<F2>(F2 Function() f) {
     return elseMap((_) {
       return f();
     });
   }
 
-  /// Transforms termination errors with access to both errors and environment.
+  /// Transforms the termination error with access to both error and environment.
   ///
   /// Similar to [elseMap], but the transformation function receives both the
-  /// error list and the environment. This is useful when error transformation
+  /// error value and the environment. This is useful when error transformation
   /// needs access to configuration or context information.
   ///
-  /// - [f]: Function that takes the environment and errors, and produces transformed errors.
-  Cont<E, A> elseMapWithEnv(
-    List<ContError> Function(E env, List<ContError> errors)
-    f,
+  /// - [f]: Function that takes the environment and error value, and produces a transformed error.
+  Cont<E, F2, A> elseMapWithEnv<F2>(
+    F2 Function(E env, F error) f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
-      return elseMap((errors) {
-        return f(e, errors);
+    return Cont.askThen<E, F2>().thenDo((e) {
+      return elseMap((error) {
+        return f(e, error);
       });
     });
   }
 
-  /// Transforms termination errors with access to the environment only.
+  /// Transforms the termination error with access to the environment only.
   ///
   /// Similar to [elseMapWithEnv], but the transformation function only receives
-  /// the environment and ignores the original errors.
+  /// the environment and ignores the original error.
   ///
-  /// - [f]: Function that takes the environment and produces new errors.
-  Cont<E, A> elseMapWithEnv0(
-    List<ContError> Function(E env) f,
+  /// - [f]: Function that takes the environment and produces a new error value.
+  Cont<E, F2, A> elseMapWithEnv0<F2>(
+    F2 Function(E env) f,
   ) {
     return elseMapWithEnv((e, _) {
       return f(e);
     });
   }
 
-  /// Replaces termination errors with a fixed error list.
+  /// Replaces the termination error with a fixed error value.
   ///
-  /// If the continuation terminates, replaces the errors with the provided list.
+  /// If the continuation terminates, replaces the error with the provided value.
   /// This is the simplest form of error transformation.
   ///
-  /// - [errors]: The error list to replace with.
-  Cont<E, A> elseMapTo(List<ContError> errors) {
-    errors = errors.toList(); // defensive copy
+  /// - [error]: The error value to replace with.
+  Cont<E, F2, A> elseMapTo<F2>(F2 error) {
     return elseMap0(() {
-      return errors;
+      return error;
     });
   }
 }

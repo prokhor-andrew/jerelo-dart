@@ -1,44 +1,36 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
-extension ContThenIfExtension<E, A> on Cont<E, A> {
+extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// Conditionally succeeds only when the predicate is satisfied.
   ///
   /// Filters the continuation based on the predicate. If the predicate returns
   /// `true`, the continuation succeeds with the value. If the predicate returns
-  /// `false`, the continuation terminates with the provided errors (or no errors
-  /// if none are specified).
+  /// `false`, the continuation terminates on the else channel with [fallback].
   ///
   /// This is useful for conditional execution where you want to treat a
-  /// predicate failure as termination rather than an error.
+  /// predicate failure as a business-logic error.
   ///
   /// - [predicate]: Function that tests the value.
-  /// - [errors]: Optional list of errors to use when terminating on predicate failure.
+  /// - [fallback]: The error value to terminate with when the predicate returns `false`.
   ///
   /// Example:
   /// ```dart
-  /// final cont = Cont.of(42).thenIf((n) => n > 0);
+  /// final cont = Cont.of(42).thenIf((n) => n > 0, fallback: 'must be positive');
   /// // Succeeds with 42
   ///
-  /// final cont2 = Cont.of(-5).thenIf((n) => n > 0);
-  /// // Terminates without errors
-  ///
-  /// final cont3 = Cont.of(-5).thenIf(
-  ///   (n) => n > 0,
-  ///   [ContError.capture('Value must be positive')],
-  /// );
-  /// // Terminates with custom error
+  /// final cont2 = Cont.of(-5).thenIf((n) => n > 0, fallback: 'must be positive');
+  /// // Terminates with 'must be positive'
   /// ```
-  Cont<E, A> thenIf(
-    bool Function(A value) predicate, [
-    List<ContError> errors = const [],
-  ]) {
-    errors = errors.toList();
+  Cont<E, F, A> thenIf(
+    bool Function(A value) predicate, {
+    required F fallback,
+  }) {
     return thenDo((a) {
       if (predicate(a)) {
         return Cont.of(a);
       }
 
-      return Cont.stop<E, A>(errors);
+      return Cont.error<E, F, A>(fallback);
     });
   }
 
@@ -47,14 +39,14 @@ extension ContThenIfExtension<E, A> on Cont<E, A> {
   /// Similar to [thenIf] but the predicate doesn't examine the value.
   ///
   /// - [predicate]: Zero-argument function that determines success or termination.
-  /// - [errors]: Optional list of errors to use when terminating on predicate failure.
-  Cont<E, A> thenIf0(
-    bool Function() predicate, [
-    List<ContError> errors = const [],
-  ]) {
+  /// - [fallback]: The error value to terminate with when the predicate returns `false`.
+  Cont<E, F, A> thenIf0(
+    bool Function() predicate, {
+    required F fallback,
+  }) {
     return thenIf((_) {
       return predicate();
-    }, errors);
+    }, fallback: fallback);
   }
 
   /// Conditionally succeeds with access to both value and environment.
@@ -64,16 +56,15 @@ extension ContThenIfExtension<E, A> on Cont<E, A> {
   /// needs access to configuration or context information.
   ///
   /// - [predicate]: Function that takes the environment and value, and determines success or termination.
-  /// - [errors]: Optional list of errors to use when terminating on predicate failure.
-  Cont<E, A> thenIfWithEnv(
-    bool Function(E env, A value) predicate, [
-    List<ContError> errors = const [],
-  ]) {
-    errors = errors.toList();
-    return Cont.ask<E>().thenDo((e) {
+  /// - [fallback]: The error value to terminate with when the predicate returns `false`.
+  Cont<E, F, A> thenIfWithEnv(
+    bool Function(E env, A value) predicate, {
+    required F fallback,
+  }) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return thenIf((a) {
         return predicate(e, a);
-      }, errors);
+      }, fallback: fallback);
     });
   }
 
@@ -83,13 +74,13 @@ extension ContThenIfExtension<E, A> on Cont<E, A> {
   /// environment and ignores the current value.
   ///
   /// - [predicate]: Function that takes the environment and determines success or termination.
-  /// - [errors]: Optional list of errors to use when terminating on predicate failure.
-  Cont<E, A> thenIfWithEnv0(
-    bool Function(E env) predicate, [
-    List<ContError> errors = const [],
-  ]) {
+  /// - [fallback]: The error value to terminate with when the predicate returns `false`.
+  Cont<E, F, A> thenIfWithEnv0(
+    bool Function(E env) predicate, {
+    required F fallback,
+  }) {
     return thenIfWithEnv((e, _) {
       return predicate(e);
-    }, errors);
+    }, fallback: fallback);
   }
 }

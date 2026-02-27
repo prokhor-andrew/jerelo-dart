@@ -18,40 +18,38 @@ class AppConfig {
 }
 
 // Fetch user with retry and caching
-Cont<AppConfig, User> getUser(String userId) {
-  return Cont.ask<AppConfig>()
-    .thenDoWithEnv((config, _) {
-      // Try API first
-      return fetchFromApi(config.apiUrl, userId, config.timeout)
-        .thenIf((user) => user.isValid)
-        .elseTapWithEnv((env, errors) {
-          // Log errors in background
-          return logToFile(env.cacheDir, errors);
-        })
-        .elseDoWithEnv((env, errors) {
-          // Fallback to cache
-          return loadFromCache(env.cacheDir, userId);
-        });
+Cont<AppConfig, String, User> getUser(String userId) {
+  return Cont.askThen<AppConfig, String>()
+    .thenDo((config) {
+      return fetchFromApi(config.apiUrl, userId, config.timeout);
     })
+    .thenIf((user) => user.isValid, fallback: 'invalid user')
+    .elseTapWithEnv((env, error) {
+      // Log errors in background
+      return logToFile(env.cacheDir, error);
+    })
+    .elseDoWithEnv0((env) {
+      // Fallback to cache
+      return loadFromCache(env.cacheDir, userId);
+    });
     .thenTapWithEnv((env, user) {
       // Update cache in background
-      return saveToCache(env.cacheDir, user)
-        .elseFork((_) => Cont.of(())); // ignore cache failures
+      return saveToCache(env.cacheDir, user);
     });
 }
 
 // Fetch multiple users in parallel
-Cont<AppConfig, List<User>> getUsers(List<String> userIds) {
+Cont<AppConfig, String, List<User>> getUsers(List<String> userIds) {
   final continuations = userIds.map((id) => getUser(id)).toList();
   return Cont.all(
     continuations,
-    policy: ContBothPolicy.quitFast(), // Fails fast if any user fetch fails
+    policy: OkPolicy.quitFast<String>(),
   );
 }
 
 // Process users with resource management
-Cont<AppConfig, Report> processUsers(List<String> userIds) {
-  return Cont.bracket<AppConfig, Database, Report>(
+Cont<AppConfig, String, Report> processUsers(List<String> userIds) {
+  return Cont.bracket<Database, AppConfig, String, Report>(
     acquire: openDatabase(),
     release: (db) => closeDatabase(db),
     use: (db) {
@@ -75,11 +73,11 @@ final config = AppConfig(
 
 final token = processUsers(['user1', 'user2', 'user3']).run(
   config,
-  onElse: (errors) {
-    print("Failed: ${errors.length} error(s)");
-    for (final e in errors) {
-      print("  ${e.error}");
-    }
+  onCrash: (crash) {
+    print("Crash: $crash");
+  },
+  onElse: (error) {
+    print("Failed: $error");
   },
   onThen: (report) {
     print("Success: $report");
@@ -93,9 +91,9 @@ final token = processUsers(['user1', 'user2', 'user3']).run(
 This example demonstrates:
 - Environment management (AppConfig)
 - Error handling with fallbacks (elseDo)
-- Side effects (thenTap, elseFork)
-- Conditional execution (thenIf)
-- Parallel execution with policies (Cont.all with ContBothPolicy.quitFast)
+- Side effects (thenTap)
+- Conditional execution (thenIf with fallback)
+- Parallel execution with policies (Cont.all with OkPolicy.quitFast)
 - Resource management (bracket)
 - Looping (thenWhile)
 - WithEnv variants for accessing config
@@ -105,446 +103,246 @@ This example demonstrates:
 
 ## Common Patterns
 
-### Pattern 1: API Client with Retry and Timeout
+### Pattern 1: Wrapping an Async API
+
+`Cont.fromRun` is the bridge between callback-based code and Jerelo's composition model. Check cancellation inside every async callback before emitting.
 
 ```dart
-class ApiClient<E> {
-  final String baseUrl;
-  final Duration timeout;
-  final int maxRetries;
-
-  ApiClient(this.baseUrl, this.timeout, this.maxRetries);
-
-  Cont<E, T> get<T>(
-    String path,
-    T Function(Map<String, dynamic>) fromJson,
-  ) {
-    return _makeRequest(path)
-      .thenMap((response) => fromJson(response))
-      .timeout(timeout)
-      .retry(maxRetries);
-  }
-
-  Cont<E, Map<String, dynamic>> _makeRequest(String path) {
-    return Cont.fromRun((runtime, observer) {
-      http.get(Uri.parse('$baseUrl$path')).then(
-        (response) {
-          if (response.statusCode == 200) {
-            observer.onThen(jsonDecode(response.body));
-          } else {
-            observer.onElse([
-              ContError.capture('HTTP ${response.statusCode}')
-            ]);
-          }
-        },
-        onError: (error, st) {
-          observer.onElse([ContError.withStackTrace(error, st)]);
-        },
-      );
-    });
-  }
-}
-
-// Usage
-final client = ApiClient('https://api.example.com', Duration(seconds: 5), 3);
-
-client.get('/users/123', User.fromJson).run(
-  (),
-  onThen: (user) => print('User: $user'),
-  onElse: (errors) => print('Failed: $errors'),
-);
-```
-
-### Pattern 2: Cache-Then-Network Strategy
-
-```dart
-Cont<E, T> cacheFirst<E, T>(
-  String key,
-  Cont<E, T> network,
-  Cache cache,
-) {
-  return Cont.fromRun<E, T>((runtime, observer) {
-    // Try cache first
-    final cached = cache.get<T>(key);
-    if (cached != null) {
-      observer.onThen(cached);
-
-      // Update cache in background
-      network.run(
-        runtime.env(),
-        onThen: (fresh) => cache.set(key, fresh),
-      );
-      return;
-    }
-
-    // Cache miss - fetch from network
-    network.run(
-      runtime.env(),
-      onThen: (value) {
-        cache.set(key, value);
-        observer.onThen(value);
+Cont<E, String, List<Post>> fetchPosts<E>(String authorId) {
+  return Cont.fromRun((runtime, observer) {
+    http.get(Uri.parse('/posts?author=$authorId')).then(
+      (response) {
+        if (runtime.isCancelled()) return;
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as List;
+          observer.onThen(data.map(Post.fromJson).toList());
+        } else {
+          observer.onElse('HTTP ${response.statusCode}');
+        }
       },
-      onElse: observer.onElse,
+      onError: (e, _) {
+        if (!runtime.isCancelled()) observer.onElse('$e');
+      },
     );
   });
 }
 
 // Usage
-cacheFirst(
-  'user:123',
-  fetchUserFromApi('123'),
-  cache,
-).run((), onThen: displayUser);
+fetchPosts<()>(authorId)
+  .thenMap((posts) => posts.where((p) => p.published).toList())
+  .run((), onThen: displayPosts, onElse: showError);
 ```
+
+### Pattern 2: Error Fallback Chain
+
+`elseDo` recovers from failure with an alternative computation. Chaining it creates a prioritized sequence — each step is only attempted if the previous one failed.
+
+```dart
+Cont<E, String, User> getUser<E>(String id) {
+  return readFromCache(id)
+    .elseDo((_) => fetchFromNetwork(id)
+      .thenTap((user) => writeToCache(id, user)),
+    )
+    .elseDo((_) => Cont.of(User.guest()));
+}
+
+getUser<()>(userId).run((), onThen: display, onElse: showError);
+```
+
+Execution order: cache → network (write-through on success) → guest fallback.
 
 ### Pattern 3: Validation Pipeline
 
+Two strategies, depending on whether you want to stop at the first broken rule or surface every error at once.
+
+**Fail-fast** — `thenIf` short-circuits on the first failure; later rules never run:
+
 ```dart
-Cont<E, T> validate<E, T>(
-  T value,
-  List<bool Function(T)> validators,
-  List<String> errorMessages,
+Cont<E, String, UserInput> validateInput<E>(UserInput input) {
+  return Cont.of(input)
+    .thenIf((i) => i.email.contains('@'), fallback: 'Invalid email')
+    .thenIf((i) => i.password.length >= 8,  fallback: 'Password too short')
+    .thenIf((i) => i.age >= 18,             fallback: 'Must be 18 or older');
+}
+
+validateInput<()>(input).run(
+  (),
+  onThen: submitRegistration,
+  onElse: showValidationError,
+);
+```
+
+**Collect all** — `Cont.all` with `OkPolicy.runAll` runs every rule in parallel and merges every error into one report:
+
+```dart
+Cont<E, String, UserInput> validateInput<E>(UserInput input) {
+  Cont<E, String, UserInput> check(bool passes, String error) =>
+    passes ? Cont.of(input) : Cont.error(error);
+
+  return Cont.all(
+    [
+      check(input.email.contains('@'),  'Invalid email'),
+      check(input.password.length >= 8, 'Password too short'),
+      check(input.age >= 18,            'Must be 18 or older'),
+    ],
+    policy: OkPolicy.runAll(
+      (e1, e2) => '$e1\n$e2',
+      shouldFavorCrash: false,
+    ),
+  ).thenMap((results) => results.first);
+}
+
+validateInput<()>(input).run(
+  (),
+  onThen: submitRegistration,
+  onElse: showValidationError, // receives all errors joined by '\n'
+);
+```
+
+### Pattern 4: Parallel Execution
+
+`Cont.all` runs a list of computations concurrently and collects their results. Add `thenTap` to each task to observe progress as completions arrive.
+
+```dart
+Cont<(), F, List<T>> withProgress<F, T>(
+  List<Cont<(), F, T>> tasks,
+  void Function(int done, int total) onProgress,
 ) {
-  return Cont.of<E, T>(value).thenDo((val) {
-    final errors = <ContError>[];
-
-    for (var i = 0; i < validators.length; i++) {
-      if (!validators[i](val)) {
-        errors.add(ContError.capture(errorMessages[i]));
-      }
-    }
-
-    return errors.isEmpty
-      ? Cont.of<E, T>(val)
-      : Cont.stop<E, T>(errors);
+  return Cont.fromDeferred(() {
+    int done = 0;
+    final tracked = tasks.map((task) =>
+      task.thenTap((_) {
+        onProgress(++done, tasks.length);
+        return Cont.of(());
+      })
+    ).toList();
+    return Cont.all(tracked, policy: OkPolicy.quitFast());
   });
 }
 
 // Usage
-Cont<(), UserInput> validateUserInput(UserInput input) {
-  return validate(
-    input,
-    [
-      (i) => i.email.contains('@'),
-      (i) => i.password.length >= 8,
-      (i) => i.age >= 18,
-    ],
-    [
-      'Invalid email format',
-      'Password must be at least 8 characters',
-      'Must be 18 or older',
-    ],
+withProgress(
+  files.map(downloadFile).toList(),
+  (done, total) => updateProgressBar(done / total),
+).run((), onThen: processAll, onElse: handleError);
+```
+
+### Pattern 5: Racing Computations
+
+`Cont.either` runs two computations concurrently and takes the first to succeed. Use it to race a primary source against a fallback, or to implement timeouts.
+
+```dart
+// Race remote config against local — whichever resolves first wins.
+// If both fail, report the remote error.
+Cont<(), String, Config> loadConfig() {
+  return Cont.either(
+    fetchRemoteConfig(),
+    readLocalConfig(),
+    (remoteError, _) => remoteError,
+    policy: OkPolicy.quitFast(),
   );
 }
 
-validateUserInput(userInput).run(
-  (),
-  onThen: processRegistration,
-  onElse: (errors) {
-    for (final error in errors) {
-      print('Validation error: ${error.error}');
-    }
-  },
-);
+loadConfig().run((), onThen: applyConfig, onElse: showError);
 ```
 
-### Pattern 4: Parallel Task Execution with Progress
+### Pattern 6: Resource Management
+
+`Cont.bracket` guarantees that `release` runs regardless of whether `use` succeeds, fails, or crashes. It is the correct tool whenever a computation acquires a resource that must be released.
 
 ```dart
-class ProgressTracker {
-  int completed = 0;
-  final int total;
-  final void Function(double) onProgress;
-
-  ProgressTracker(this.total, this.onProgress);
-
-  void increment() {
-    completed++;
-    onProgress(completed / total);
-  }
+Cont<(), String, Report> generateReport(Query query) {
+  return Cont.bracket(
+    acquire: openDatabaseConnection(),
+    release: (conn) => closeConnection(conn),
+    use: (conn) => conn.execute(query).thenMap(Report.fromRows),
+  );
 }
 
-Cont<E, List<T>> parallelWithProgress<E, T>(
-  List<Cont<E, T>> tasks,
-  void Function(double) onProgress,
-) {
-  final tracker = ProgressTracker(tasks.length, onProgress);
-
-  final trackedTasks = tasks.map((task) {
-    return task.thenTap((result) {
-      tracker.increment();
-      return Cont.of(());
-    });
-  }).toList();
-
-  return Cont.all(trackedTasks, policy: ContBothPolicy.quitFast());
-}
-
-// Usage
-final downloadTasks = files.map((file) => downloadFile(file)).toList();
-
-parallelWithProgress(
-  downloadTasks,
-  (progress) => print('Progress: ${(progress * 100).toInt()}%'),
-).run(
-  (),
-  onThen: (results) => print('All downloads complete'),
-  onElse: (errors) => print('Download failed: $errors'),
-);
-```
-
-### Pattern 5: Circuit Breaker
-
-```dart
-class CircuitBreaker<E, T> {
-  final Duration resetTimeout;
-  final int failureThreshold;
-
-  int _failureCount = 0;
-  DateTime? _openedAt;
-  bool _isOpen = false;
-
-  CircuitBreaker({
-    required this.resetTimeout,
-    required this.failureThreshold,
-  });
-
-  Cont<E, T> protect(Cont<E, T> operation) {
-    return Cont.fromRun((runtime, observer) {
-      // Check if circuit is open
-      if (_isOpen) {
-        final now = DateTime.now();
-        if (_openedAt != null &&
-            now.difference(_openedAt!) > resetTimeout) {
-          // Try to close circuit
-          _isOpen = false;
-          _failureCount = 0;
-        } else {
-          // Circuit still open
-          observer.onElse([
-            ContError.capture('Circuit breaker is open')
-          ]);
-          return;
-        }
-      }
-
-      // Execute operation
-      operation.run(
-        runtime.env(),
-        onThen: (value) {
-          // Reset on success
-          _failureCount = 0;
-          observer.onThen(value);
-        },
-        onElse: (errors) {
-          // Increment failure count
-          _failureCount++;
-
-          if (_failureCount >= failureThreshold) {
-            _isOpen = true;
-            _openedAt = DateTime.now();
-          }
-
-          observer.onElse(errors);
-        },
-      );
-    });
-  }
-}
-
-// Usage
-final breaker = CircuitBreaker<(), Data>(
-  resetTimeout: Duration(seconds: 30),
-  failureThreshold: 3,
-);
-
-breaker.protect(fetchFromUnreliableService()).run(
-  (),
-  onThen: processData,
-  onElse: handleError,
-);
-```
-
-### Pattern 6: Request Deduplication
-
-```dart
-class RequestDeduplicator<K, E, T> {
-  final Map<K, List<ContObserver<T>>> _pending = {};
-
-  Cont<E, T> deduplicate(K key, Cont<E, T> operation) {
-    return Cont.fromRun((runtime, observer) {
-      // Check if request is already in flight
-      if (_pending.containsKey(key)) {
-        // Add observer to pending list
-        _pending[key]!.add(observer);
-        return;
-      }
-
-      // Start new request
-      _pending[key] = [observer];
-
-      operation.run(
-        runtime.env(),
-        onThen: (value) {
-          // Notify all waiting observers
-          for (final obs in _pending[key]!) {
-            obs.onThen(value);
-          }
-          _pending.remove(key);
-        },
-        onElse: (errors) {
-          // Notify all waiting observers
-          for (final obs in _pending[key]!) {
-            obs.onElse(errors);
-          }
-          _pending.remove(key);
-        },
-      );
-    });
-  }
-}
-
-// Usage
-final deduper = RequestDeduplicator<String, (), User>();
-
-// Multiple concurrent requests for same user
-deduper.deduplicate('user:123', fetchUser('123')).run((), onThen: display);
-deduper.deduplicate('user:123', fetchUser('123')).run((), onThen: display);
-deduper.deduplicate('user:123', fetchUser('123')).run((), onThen: display);
-// Only one actual API call is made
-```
-
-### Pattern 7: Rate Limiting
-
-```dart
-class RateLimiter<E, T> {
-  final int maxRequests;
-  final Duration window;
-  final Queue<DateTime> _timestamps = Queue();
-
-  RateLimiter(this.maxRequests, this.window);
-
-  Cont<E, T> limit(Cont<E, T> operation) {
-    return Cont.fromRun((runtime, observer) {
-      final now = DateTime.now();
-
-      // Remove old timestamps outside the window
-      while (_timestamps.isNotEmpty &&
-             now.difference(_timestamps.first) > window) {
-        _timestamps.removeFirst();
-      }
-
-      // Check if we're at the limit
-      if (_timestamps.length >= maxRequests) {
-        observer.onElse([
-          ContError.capture('Rate limit exceeded')
-        ]);
-        return;
-      }
-
-      // Record this request
-      _timestamps.add(now);
-
-      // Execute operation
-      operation.run(
-        runtime.env(),
-        onThen: observer.onThen,
-        onElse: observer.onElse,
-      );
-    });
-  }
-}
-
-// Usage
-final limiter = RateLimiter<(), Data>(
-  5, // max 5 requests
-  Duration(seconds: 1), // per second
-);
-
-limiter.limit(fetchData()).run(
-  (),
-  onThen: processData,
-  onElse: handleError,
-);
+generateReport(query).run((), onThen: publish, onElse: showError);
 ```
 
 ---
 
 ## Best Practices
 
-### 1. Prefer Composition Over Custom Implementation
+### 1. Prefer Composition to Custom Implementation
 
 ```dart
-// Good: Compose existing operators
-Cont<E, T> retryWithLogging<E, T>(Cont<E, T> operation, int maxRetries) {
-  return operation
-    .elseTap((errors) {
-      print('Operation failed: $errors');
-      return Cont.of(());
-    })
-    .retry(maxRetries)
-    .thenTap((result) {
-      print('Operation succeeded: $result');
-      return Cont.of(());
-    });
-}
-
-// Less ideal: Building everything from scratch
-// (unless you truly need custom behavior)
+// Build on existing operators rather than reaching for Cont.fromRun
+fetchData()
+  .elseTap((error) {
+    print('Attempt failed: $error');
+    return Cont.of(());
+  })
+  .retry(3)
+  .run((), onThen: process, onElse: showError);
 ```
 
 ### 2. Use Environment for Cross-Cutting Concerns
 
 ```dart
-// Good: Thread configuration through environment
-class AppServices {
-  final Logger logger;
-  final Analytics analytics;
-  final Database database;
-}
+// Thread dependencies through the environment rather than function parameters
+class AppEnv { final Logger logger; final Database db; }
 
-Cont<AppServices, T> operation() {
-  return Cont.ask<AppServices>().thenDoWithEnv((services, _) {
-    return services.database.query(...).thenTapWithEnv((services, result) {
-      return services.analytics.track('query_completed');
-    });
+Cont<AppEnv, String, List<Order>> fetchOrders(String userId) {
+  return Cont.askThen<AppEnv, String>().thenDo((env) {
+    return env.db.query('SELECT * FROM orders WHERE user = ?', [userId]);
+  }).thenTapWithEnv((env, orders) {
+    return env.logger.info('Loaded ${orders.length} orders');
   });
 }
-
-// Less ideal: Passing dependencies explicitly through every function
 ```
 
-### 3. Make Cancellation-Aware Long Operations
+### 3. Compose Cancellation Sources
+
+`runtime.extendCancellation` lets you add a local cancellation condition on top of the one inherited from the parent. The resulting runtime reports cancelled when either source is true — the inner computation never needs to know about the outer one.
 
 ```dart
-// Good: Check cancellation periodically
-Cont<E, List<T>> processLarge<E, T>(List<T> items) {
-  return Cont.fromRun((runtime, observer) {
-    final results = <T>[];
-
-    for (final item in items) {
-      if (runtime.isCancelled()) return; // Exit cleanly
-      results.add(process(item));
-    }
-
-    observer.onThen(results);
-  });
+// Cancel the inner computation when the deadline passes,
+// while still propagating the parent's cancellation signal.
+extension WithDeadline<E, F, T> on Cont<E, F, T> {
+  Cont<E, F, T> withDeadline(DateTime deadline) {
+    return decorate((run, runtime, observer) {
+      final extended = runtime.extendCancellation(
+        () => DateTime.now().isAfter(deadline),
+      );
+      run(extended, observer);
+    });
+  }
 }
+
+// Usage
+fetchReportData()
+  .withDeadline(DateTime.now().add(Duration(seconds: 5)))
+  .run((), onThen: display, onElse: showError);
 ```
 
 ### 4. Use Bracket for Resource Management
 
 ```dart
-// Good: Guaranteed cleanup
-Cont<E, T> withConnection<E, T>(Cont<Connection, T> operation) {
+// Guaranteed cleanup — release runs even if use crashes
+Cont<E, F, T> withConnection<E, F, T>(Cont<Connection, F, T> operation) {
   return Cont.bracket(
     acquire: openConnection(),
     release: (conn) => closeConnection(conn),
-    use: (conn) => operation.scope(conn),
+    use: (conn) => operation.withEnv(conn),
   );
 }
+```
 
-// Less ideal: Manual cleanup (easy to miss error paths)
+### 5. Use Typed Errors for Business Logic
+
+```dart
+enum UserError { notFound, unauthorized, invalidInput }
+
+Cont<(), UserError, User> getUser(String id) {
+  return fetchUser(id).elseMap((_) => UserError.notFound);
+}
+
+getUser(userId)
+  .elseUnless((e) => e == UserError.notFound, fallback: User.guest())
+  .run((), onThen: display, onElse: showError);
 ```
 
 ---

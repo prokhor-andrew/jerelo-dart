@@ -32,7 +32,8 @@ Composability guarantees many important features such as:
 - Reusability
 - Testability
 - Substitution
-- Observability
+- Local Reasoning
+- Extensibility
 - Refactorability (if that's a word)
 
 and many more.
@@ -70,7 +71,8 @@ The classic pure function can only be executed synchronously. By its encoding, i
 
 ### Why Not Future?
 
-Dart's `Future` is, in fact, CPS with syntactic sugar on top of it. But as it was mentioned above, `Future` starts running as soon as it is created, thus it is not composable.
+Dart's `Future` is, in fact, CPS with syntactic sugar on top of it. 
+But as it was mentioned above, `Future` starts running as soon as it is created, thus it is not composable.
 
 ```dart
 final getUserComputation = Future(() {
@@ -80,7 +82,29 @@ final getUserComputation = Future(() {
 // getUserComputation is already running.
 ```
 
-### The Problem of CPS
+**Functions** that return `Future` **are** composable, but they don't have default tools to compose them.
+
+```dart
+Future<int> getUserAge(User user) { ... }
+
+Future<bool> isUserAllowed(int age) { ... }
+
+Future<bool> checkIfUserAllowed(User user) async {
+  final age = await getUserAge(user);
+  final isAllowed = await isUserAllowed(age);
+  return isAllowed;
+}
+```
+To compose two functions above, we have to create a third one where we run both and then
+return the result. This is normal for two functions, but the more functions we have the more
+we create these "mediator" functions that do nothing but unite other ones. And by default,
+there is nothing that allows us to do something like this:
+
+```dart
+final checkIfUserAllowed = getUserAge.then(isUserAllowed);
+```
+
+### The Problem of raw CPS
 
 While normal functions and `Future`s compose nicely, CPS doesn't.
 
@@ -109,15 +133,27 @@ function1(value, (result1) {
 
 As you can see, the more functions we want to compose, the uglier it becomes.
 
+### Common issues
+
+Other things we cannot do with both `Future` and `CPS` are:
+- Parallel composition (or concurrent composition)
+  run two computations in parallel and combine their results
+
+- Typed / value-level errors (or first-class error channel)
+  errors as data, not exceptions
+
+- Cooperative cancellation (or structured cancellation)
+  cancellation as part of the type/contract, not an ad-hoc flag
+
+- Context propagation / dependency injection via environment (or Reader-style environment)
+  thread shared config/services through the computation without globals
+
 ### The Solution: Jerelo's Cont
 
-**Cont** is a type that represents an arbitrary computation. It has two result channels, and comes with a basic interface that allows you to do every fundamental operation:
+**Cont** is a type that represents an arbitrary computation. It has three result channels, and comes with a basic interface that allows you to:
 - Construct
+- Compose
 - Run
-- Transform
-- Chain
-- Branch
-- Merge
 
 Example of `Cont`'s composition:
 
@@ -133,57 +169,80 @@ final program = function1(value)
 
 ## Getting Started with Cont
 
-`Cont` has two result channels:
-- **Success channel**: Represented by the type parameter `T` in `Cont<E, T>`
-- **Termination channel**: Represented by `List<ContError>` for errors that caused termination
+`Cont<E, F, A>` has three type parameters:
+
+- **`E`** — Environment type: configuration, dependencies, or context threaded through the chain
+- **`F`** — Error type: typed business-logic errors (e.g., `String`, a custom `AppError` enum, etc.)
+- **`A`** — Value type: the success result
 
 ### Result Channels
 
-The termination channel is used when a computation crashes or when you manually terminate it.
+Every `Cont` computation terminates on exactly one of three channels:
+
+1. **Then channel** (success) — carries a value of type `A`
+2. **Else channel** (business error) — carries a typed error of type `F`
+3. **Crash channel** (unexpected exception) — carries a `ContCrash` value
 
 ```dart
-final program = getUserAge(userId).thenMap((age) {
-  throw "Armageddon!"; // <- throws here
+final program = getUserAge(userId).thenDo((age) {
+  throw "Armageddon!"; // <- throws here → crash channel
 });
 
 // or
 
 final program = getUserAge(userId).thenDo((age) {
-  return Cont.stop([ContError.capture("Armageddon!")]);
+  if (age >= 18) {
+    return Cont.of(age); // → then channel
+  }
+  return Cont.error("Too young"); // → else channel
 });
 
 // ignore `()` for now
 final token = program.run(
   (),
-  onElse: (errors) {
-    // will automatically catch thrown error here
+  onCrash: (crash) {
+    // crash channel: unexpected exceptions
+    print("Crash: ${crash}");
+  },
+  onElse: (error) {
+    // else channel: typed business-logic errors
+    print("Error: $error");
   },
   onThen: (value) {
-    // success channel. not called in this case
-    print("value=$value");
+    // then channel: success
+    print("Success=$value");
   },
 );
 ```
 
-### ContError Type
+### ContCrash Type
 
-The type of a thrown error is `ContError`. It is a holder for the original error and stack trace. Instances are created via static factory methods:
+When an exception is thrown inside a computation, it is automatically caught and wrapped in a `ContCrash`. The crash type hierarchy is:
 
 ```dart
-final class ContError {
+sealed class ContCrash {
+  // ...
+}
+
+// A single caught exception
+final class NormalCrash extends ContCrash {
   final Object error;
   final StackTrace stackTrace;
+}
 
-  // From a catch block — preserves the caught stack trace
-  ContError.withStackTrace(error, stackTrace);
+// Two crashes combined from parallel or sequential operations
+final class MergedCrash extends ContCrash {
+  final ContCrash left;
+  final ContCrash right;
+}
 
-  // When no stack trace is needed
-  ContError.withNoStackTrace(error);
-
-  // Captures the stack trace at the call site automatically
-  ContError.capture(error);
+// Multiple crashes collected from a list of operations
+final class CollectedCrash extends ContCrash {
+  final Map<int, ContCrash> crashes;
 }
 ```
+
+Unlike the typed error on the else channel (type `F`), crashes are untyped and represent unexpected failures — the equivalent of unhandled exceptions in traditional code.
 
 ---
 
@@ -191,4 +250,4 @@ final class ContError {
 
 Now that you understand the core concepts, continue to:
 - **[Fundamentals: Construct & Run](02-fundamentals.md)** - Learn to create and execute computations
-- **[Core Operations](03-core-operations.md)** - Master the essential operations
+- **[Composing Computations](03-composing-computations.md)** - Master the operator toolkit

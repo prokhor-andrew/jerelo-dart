@@ -1,13 +1,13 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
-extension ContThenMapExtension<E, A> on Cont<E, A> {
+extension ContThenMapExtension<E, F, A> on Cont<E, F, A> {
   /// Transforms the value inside a [Cont] using a pure function.
   ///
   /// Applies a function to the successful value of the continuation without
   /// affecting the termination case.
   ///
   /// - [f]: Transformation function to apply to the value.
-  Cont<E, A2> thenMap<A2>(A2 Function(A value) f) {
+  Cont<E, F, A2> thenMap<A2>(A2 Function(A value) f) {
     return thenDo((a) {
       final a2 = f(a);
       return Cont.of(a2);
@@ -19,7 +19,7 @@ extension ContThenMapExtension<E, A> on Cont<E, A> {
   /// Similar to [thenMap] but ignores the current value and computes a new one.
   ///
   /// - [f]: Zero-argument transformation function.
-  Cont<E, A2> thenMap0<A2>(A2 Function() f) {
+  Cont<E, F, A2> thenMap0<A2>(A2 Function() f) {
     return thenMap((_) {
       return f();
     });
@@ -32,10 +32,10 @@ extension ContThenMapExtension<E, A> on Cont<E, A> {
   /// needs access to configuration or context information.
   ///
   /// - [f]: Function that takes the environment and value, and returns a new value.
-  Cont<E, A2> thenMapWithEnv<A2>(
+  Cont<E, F, A2> thenMapWithEnv<A2>(
     A2 Function(E env, A value) f,
   ) {
-    return Cont.ask<E>().thenDo((e) {
+    return Cont.askThen<E, F>().thenDo((e) {
       return thenMap((a) {
         return f(e, a);
       });
@@ -48,7 +48,7 @@ extension ContThenMapExtension<E, A> on Cont<E, A> {
   /// the environment and ignores the current value.
   ///
   /// - [f]: Function that takes the environment and returns a new value.
-  Cont<E, A2> thenMapWithEnv0<A2>(A2 Function(E env) f) {
+  Cont<E, F, A2> thenMapWithEnv0<A2>(A2 Function(E env) f) {
     return thenMapWithEnv((e, _) {
       return f(e);
     });
@@ -59,7 +59,7 @@ extension ContThenMapExtension<E, A> on Cont<E, A> {
   /// Discards the current value and replaces it with a fixed value.
   ///
   /// - [value]: The constant value to replace with.
-  Cont<E, A2> thenMapTo<A2>(A2 value) {
+  Cont<E, F, A2> thenMapTo<A2>(A2 value) {
     return thenMap0(() {
       return value;
     });

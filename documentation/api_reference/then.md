@@ -34,12 +34,12 @@ Success path operations for transforming, chaining, and controlling flow.
   - [thenFork0](#thenfork0)
   - [thenForkWithEnv](#thenforkwithenv)
   - [thenForkWithEnv0](#thenforkwithenv0)
-- [Termination](#termination)
-  - [abort](#abort)
-  - [abort0](#abort0)
-  - [abortWithEnv](#abortwithenv)
-  - [abortWithEnv0](#abortwithenv0)
-  - [abortWith](#abortwith)
+- [Demotion](#demotion)
+  - [demote](#demote)
+  - [demote0](#demote0)
+  - [demoteWithEnv](#demotewithenv)
+  - [demoteWithEnv0](#demotewithenv0)
+  - [demoteWith](#demotewith)
 - [Conditionals](#conditionals)
   - [thenIf](#thenif)
   - [thenIf0](#thenif0)
@@ -63,19 +63,19 @@ Success path operations for transforming, chaining, and controlling flow.
 ### thenMap
 
 ```dart
-Cont<E, A2> thenMap<A2>(A2 Function(A value) f)
+Cont<E, F, A2> thenMap<A2>(A2 Function(A value) f)
 ```
 
 Transforms the value inside a `Cont` using a pure function.
 
-Applies a function to the successful value of the continuation without affecting the termination case.
+Applies a function to the successful value of the continuation without affecting the error or crash channels.
 
 - **Parameters:**
   - `f`: Transformation function to apply to the value
 
 **Example:**
 ```dart
-final cont = Cont.of(42).thenMap((n) => n * 2);
+final cont = Cont.of<(), Never, int>(42).thenMap((n) => n * 2);
 cont.run((), onThen: print); // prints: 84
 ```
 
@@ -84,10 +84,10 @@ cont.run((), onThen: print); // prints: 84
 ### thenMap0
 
 ```dart
-Cont<E, A2> thenMap0<A2>(A2 Function() f)
+Cont<E, F, A2> thenMap0<A2>(A2 Function() f)
 ```
 
-Transforms the value inside a `Cont` using a zero-argument function.
+Transforms the value using a zero-argument function.
 
 Similar to `thenMap` but ignores the current value and computes a new one.
 
@@ -96,7 +96,7 @@ Similar to `thenMap` but ignores the current value and computes a new one.
 
 **Example:**
 ```dart
-final cont = Cont.of(42).thenMap0(() => 'done');
+final cont = Cont.of<(), Never, int>(42).thenMap0(() => 'done');
 cont.run((), onThen: print); // prints: done
 ```
 
@@ -105,19 +105,17 @@ cont.run((), onThen: print); // prints: done
 ### thenMapWithEnv
 
 ```dart
-Cont<E, A2> thenMapWithEnv<A2>(A2 Function(E env, A value) f)
+Cont<E, F, A2> thenMapWithEnv<A2>(A2 Function(E env, A value) f)
 ```
 
 Transforms the value with access to both the value and environment.
-
-Similar to `thenMap`, but the transformation function receives both the current value and the environment. This is useful when the transformation needs access to configuration or context information.
 
 - **Parameters:**
   - `f`: Function that takes the environment and value, and returns a new value
 
 **Example:**
 ```dart
-final cont = Cont.of(42)
+final cont = Cont.of<Config, Never, int>(42)
   .thenMapWithEnv((env, n) => n * env.multiplier);
 ```
 
@@ -126,12 +124,10 @@ final cont = Cont.of(42)
 ### thenMapWithEnv0
 
 ```dart
-Cont<E, A2> thenMapWithEnv0<A2>(A2 Function(E env) f)
+Cont<E, F, A2> thenMapWithEnv0<A2>(A2 Function(E env) f)
 ```
 
 Transforms the value with access to the environment only.
-
-Similar to `thenMapWithEnv`, but the transformation function only receives the environment and ignores the current value.
 
 - **Parameters:**
   - `f`: Function that takes the environment and returns a new value
@@ -147,12 +143,10 @@ final cont = validateInput()
 ### thenMapTo
 
 ```dart
-Cont<E, A2> thenMapTo<A2>(A2 value)
+Cont<E, F, A2> thenMapTo<A2>(A2 value)
 ```
 
 Replaces the value inside a `Cont` with a constant.
-
-Discards the current value and replaces it with a fixed value.
 
 - **Parameters:**
   - `value`: The constant value to replace with
@@ -170,7 +164,7 @@ cont.run(env, onThen: print); // prints: User fetched
 ### thenDo
 
 ```dart
-Cont<E, A2> thenDo<A2>(Cont<E, A2> Function(A value) f)
+Cont<E, F, A2> thenDo<A2>(Cont<E, F, A2> Function(A value) f)
 ```
 
 Chains a `Cont`-returning function to create dependent computations.
@@ -192,7 +186,7 @@ final result = fetchUser(userId)
 ### thenDo0
 
 ```dart
-Cont<E, A2> thenDo0<A2>(Cont<E, A2> Function() f)
+Cont<E, F, A2> thenDo0<A2>(Cont<E, F, A2> Function() f)
 ```
 
 Chains a `Cont`-returning zero-argument function.
@@ -213,12 +207,10 @@ final result = validateUser()
 ### thenDoWithEnv
 
 ```dart
-Cont<E, A2> thenDoWithEnv<A2>(Cont<E, A2> Function(E env, A a) f)
+Cont<E, F, A2> thenDoWithEnv<A2>(Cont<E, F, A2> Function(E env, A a) f)
 ```
 
-Chains a continuation-returning function that has access to both the environment and the value.
-
-Similar to `thenDo`, but the function receives both the environment and the value. This is useful when the next computation needs access to configuration or context from the environment.
+Chains a continuation-returning function with access to both environment and value.
 
 - **Parameters:**
   - `f`: Function that takes the environment and value, and returns a continuation
@@ -226,10 +218,7 @@ Similar to `thenDo`, but the function receives both the environment and the valu
 **Example:**
 ```dart
 final result = fetchUser(userId)
-  .thenDoWithEnv((env, user) {
-    // Can access both env and user
-    return logActivity(env.logger, user);
-  });
+  .thenDoWithEnv((env, user) => logActivity(env.logger, user));
 ```
 
 ---
@@ -237,12 +226,10 @@ final result = fetchUser(userId)
 ### thenDoWithEnv0
 
 ```dart
-Cont<E, A2> thenDoWithEnv0<A2>(Cont<E, A2> Function(E env) f)
+Cont<E, F, A2> thenDoWithEnv0<A2>(Cont<E, F, A2> Function(E env) f)
 ```
 
 Chains a continuation-returning function with access to the environment only.
-
-Similar to `thenDoWithEnv`, but the function only receives the environment and ignores the current value. This is useful when the next computation needs access to configuration or context but doesn't depend on the previous value.
 
 - **Parameters:**
   - `f`: Function that takes the environment and returns a continuation
@@ -260,7 +247,7 @@ final result = validateInput()
 ### thenTap
 
 ```dart
-Cont<E, A> thenTap<A2>(Cont<E, A2> Function(A value) f)
+Cont<E, F, A> thenTap<A2>(Cont<E, F, A2> Function(A value) f)
 ```
 
 Chains a side-effect continuation while preserving the original value.
@@ -282,12 +269,10 @@ final result = fetchUser(userId)
 ### thenTap0
 
 ```dart
-Cont<E, A> thenTap0<A2>(Cont<E, A2> Function() f)
+Cont<E, F, A> thenTap0<A2>(Cont<E, F, A2> Function() f)
 ```
 
 Chains a zero-argument side-effect continuation.
-
-Similar to `thenTap` but with a zero-argument function.
 
 - **Parameters:**
   - `f`: Zero-argument side-effect function
@@ -303,12 +288,10 @@ final result = fetchData()
 ### thenTapWithEnv
 
 ```dart
-Cont<E, A> thenTapWithEnv<A2>(Cont<E, A2> Function(E env, A a) f)
+Cont<E, F, A> thenTapWithEnv<A2>(Cont<E, F, A2> Function(E env, A a) f)
 ```
 
-Chains a side-effect continuation with access to both the environment and the value.
-
-Similar to `thenTap`, but the side-effect function receives both the environment and the value. After executing the side-effect, returns the original value. This is useful for logging, monitoring, or other side-effects that need access to both the environment and configuration context.
+Chains a side-effect continuation with access to both environment and value.
 
 - **Parameters:**
   - `f`: Function that takes the environment and value, and returns a side-effect continuation
@@ -316,7 +299,7 @@ Similar to `thenTap`, but the side-effect function receives both the environment
 **Example:**
 ```dart
 final result = fetchUser(userId)
-  .thenTapWithEnv((env, user) => env.logger.info('Fetched user: ${user.id}'));
+  .thenTapWithEnv((env, user) => env.logger.info('Fetched: ${user.id}'));
 ```
 
 ---
@@ -324,12 +307,10 @@ final result = fetchUser(userId)
 ### thenTapWithEnv0
 
 ```dart
-Cont<E, A> thenTapWithEnv0<A2>(Cont<E, A2> Function(E env) f)
+Cont<E, F, A> thenTapWithEnv0<A2>(Cont<E, F, A2> Function(E env) f)
 ```
 
 Chains a side-effect continuation with access to the environment only.
-
-Similar to `thenTapWithEnv`, but the side-effect function only receives the environment and ignores the current value. After executing the side-effect, returns the original value.
 
 - **Parameters:**
   - `f`: Function that takes the environment and returns a side-effect continuation
@@ -347,7 +328,10 @@ final result = validateInput()
 ### thenZip
 
 ```dart
-Cont<E, A3> thenZip<A2, A3>(Cont<E, A2> Function(A value) f, A3 Function(A a1, A2 a2) combine)
+Cont<E, F, A3> thenZip<A2, A3>(
+  Cont<E, F, A2> Function(A value) f,
+  A3 Function(A a1, A2 a2) combine,
+)
 ```
 
 Chains and combines two continuation values.
@@ -372,12 +356,13 @@ final result = fetchUser(userId)
 ### thenZip0
 
 ```dart
-Cont<E, A3> thenZip0<A2, A3>(Cont<E, A2> Function() f, A3 Function(A a1, A2 a2) combine)
+Cont<E, F, A3> thenZip0<A2, A3>(
+  Cont<E, F, A2> Function() f,
+  A3 Function(A a1, A2 a2) combine,
+)
 ```
 
 Chains and combines with a zero-argument function.
-
-Similar to `thenZip` but the second continuation doesn't depend on the first value.
 
 - **Parameters:**
   - `f`: Zero-argument function to produce the second continuation
@@ -397,12 +382,13 @@ final result = fetchUser(userId)
 ### thenZipWithEnv
 
 ```dart
-Cont<E, A3> thenZipWithEnv<A2, A3>(Cont<E, A2> Function(E env, A value) f, A3 Function(A a1, A2 a2) combine)
+Cont<E, F, A3> thenZipWithEnv<A2, A3>(
+  Cont<E, F, A2> Function(E env, A value) f,
+  A3 Function(A a1, A2 a2) combine,
+)
 ```
 
 Chains and combines two continuations with access to the environment.
-
-Similar to `thenZip`, but the function producing the second continuation receives both the environment and the value. This is useful when the second computation needs access to configuration or context.
 
 - **Parameters:**
   - `f`: Function that takes the environment and value, and produces the second continuation
@@ -422,12 +408,13 @@ final result = fetchUser(userId)
 ### thenZipWithEnv0
 
 ```dart
-Cont<E, A3> thenZipWithEnv0<A2, A3>(Cont<E, A2> Function(E env) f, A3 Function(A a1, A2 a2) combine)
+Cont<E, F, A3> thenZipWithEnv0<A2, A3>(
+  Cont<E, F, A2> Function(E env) f,
+  A3 Function(A a1, A2 a2) combine,
+)
 ```
 
 Chains and combines with a continuation that has access to the environment only.
-
-Similar to `thenZipWithEnv`, but the function producing the second continuation only receives the environment and ignores the current value.
 
 - **Parameters:**
   - `f`: Function that takes the environment and produces the second continuation
@@ -449,21 +436,44 @@ final result = validateInput()
 ### thenFork
 
 ```dart
-Cont<E, A> thenFork<A2>(Cont<E, A2> Function(A a) f)
+Cont<E, F, A> thenFork<F2, A2>(
+  Cont<E, F2, A2> Function(A a) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Executes a side-effect continuation in a fire-and-forget manner.
 
-Unlike `thenTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started immediately, and the original value is returned without delay. Any errors from the side-effect are silently ignored.
+Unlike `thenTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started immediately, and the original value is returned without delay. The forked continuation may have different error and value types.
+
+Outcomes from the forked continuation are dispatched to optional callbacks:
+- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing.
+- `onCrash`: Called when the side-effect crashes. Defaults to ignoring.
+- `onElse`: Called when the side-effect terminates with an error. Defaults to ignoring.
+- `onThen`: Called when the side-effect succeeds. Defaults to ignoring.
 
 - **Parameters:**
   - `f`: Function that takes the current value and returns a side-effect continuation
+  - `onPanic`: *(optional)* Handler for panics in the side-effect
+  - `onCrash`: *(optional)* Handler for crashes in the side-effect
+  - `onElse`: *(optional)* Handler for errors in the side-effect
+  - `onThen`: *(optional)* Handler for success in the side-effect
 
 **Example:**
 ```dart
 final result = fetchUser(userId)
   .thenFork((user) => sendAnalytics(user.id))
   .thenDo((user) => processUser(user)); // Continues immediately
+
+// With observation callbacks:
+final result2 = fetchUser(userId)
+  .thenFork(
+    (user) => sendAnalytics(user.id),
+    onElse: (error) => print('Analytics failed: $error'),
+  );
 ```
 
 ---
@@ -471,15 +481,22 @@ final result = fetchUser(userId)
 ### thenFork0
 
 ```dart
-Cont<E, A> thenFork0<A2>(Cont<E, A2> Function() f)
+Cont<E, F, A> thenFork0<F2, A2>(
+  Cont<E, F2, A2> Function() f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Executes a zero-argument side-effect continuation in a fire-and-forget manner.
 
-Similar to `thenFork` but ignores the current value.
+Accepts the same optional observation callbacks as `thenFork`.
 
 - **Parameters:**
   - `f`: Zero-argument function that returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `thenFork`)
 
 **Example:**
 ```dart
@@ -492,15 +509,22 @@ final result = validateData()
 ### thenForkWithEnv
 
 ```dart
-Cont<E, A> thenForkWithEnv<A2>(Cont<E, A2> Function(E env, A a) f)
+Cont<E, F, A> thenForkWithEnv<F2, A2>(
+  Cont<E, F2, A2> Function(E env, A a) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Executes a side-effect continuation in a fire-and-forget manner with access to the environment.
 
-Similar to `thenFork`, but the side-effect function receives both the environment and the value. The side-effect is started immediately without waiting, and any errors are silently ignored.
+Accepts the same optional observation callbacks as `thenFork`.
 
 - **Parameters:**
   - `f`: Function that takes the environment and value, and returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `thenFork`)
 
 **Example:**
 ```dart
@@ -513,15 +537,22 @@ final result = fetchUser(userId)
 ### thenForkWithEnv0
 
 ```dart
-Cont<E, A> thenForkWithEnv0<A2>(Cont<E, A2> Function(E env) f)
+Cont<E, F, A> thenForkWithEnv0<F2, A2>(
+  Cont<E, F2, A2> Function(E env) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
 ```
 
 Executes a side-effect continuation in a fire-and-forget manner with access to the environment only.
 
-Similar to `thenForkWithEnv`, but the side-effect function only receives the environment and ignores the current value.
+Accepts the same optional observation callbacks as `thenFork`.
 
 - **Parameters:**
   - `f`: Function that takes the environment and returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `thenFork`)
 
 **Example:**
 ```dart
@@ -531,123 +562,104 @@ final result = processRequest()
 
 ---
 
-## Termination
+## Demotion
 
-### abort
+### demote
 
 ```dart
-Cont<E, A> abort(List<ContError> Function(A value) f)
+Cont<E, F, A> demote(F Function(A value) f)
 ```
 
-Unconditionally terminates the continuation with computed errors.
+Unconditionally demotes a successful value to a typed error.
 
-Takes a successful value and converts it into a termination with errors. This is useful for implementing validation logic where certain values should cause termination, or for custom error handling flows.
+Takes a successful value and converts it into a termination with a typed error. This is useful for implementing validation logic where certain values should cause termination.
 
 - **Parameters:**
-  - `f`: Function that computes the error list from the value
+  - `f`: Function that computes the error from the value
 
 **Example:**
 ```dart
-final cont = Cont.of(42)
-  .abort((n) => [ContError.capture('Value too large: $n')]);
-// Terminates with error
-
-final validated = fetchUser()
-  .abort((user) => user.age < 18
-    ? [ContError.capture('User must be 18+')]
-    : []);
+final cont = Cont.of<(), String, int>(42)
+  .demote((n) => 'Value too large: $n');
+// Terminates with error 'Value too large: 42'
 ```
 
 ---
 
-### abort0
+### demote0
 
 ```dart
-Cont<E, A> abort0(List<ContError> Function() f)
+Cont<E, F, A> demote0(F Function() f)
 ```
 
-Unconditionally terminates with errors computed from a zero-argument function.
-
-Similar to `abort` but the error computation doesn't depend on the value.
+Unconditionally demotes with an error computed from a zero-argument function.
 
 - **Parameters:**
-  - `f`: Zero-argument function that computes the error list
+  - `f`: Zero-argument function that computes the error
 
 **Example:**
 ```dart
-final cont = Cont.of(42)
-  .abort0(() => [ContError.capture('Operation cancelled')]);
+final cont = Cont.of<(), String, int>(42)
+  .demote0(() => 'Operation cancelled');
 ```
 
 ---
 
-### abortWithEnv
+### demoteWithEnv
 
 ```dart
-Cont<E, A> abortWithEnv(List<ContError> Function(E env, A value) f)
+Cont<E, F, A> demoteWithEnv(F Function(E env, A value) f)
 ```
 
-Unconditionally terminates with errors computed from both value and environment.
-
-Similar to `abort`, but the error computation function receives both the current value and the environment. This is useful when error creation needs access to configuration or context information.
+Unconditionally demotes with an error computed from both value and environment.
 
 - **Parameters:**
-  - `f`: Function that takes the environment and value, and computes the error list
+  - `f`: Function that takes the environment and value, and computes the error
 
 **Example:**
 ```dart
 final validated = fetchValue()
-  .abortWithEnv((env, value) {
-    return value > env.maxAllowed
-      ? [ContError.capture('Exceeds limit: ${env.maxAllowed}')]
-      : [];
-  });
+  .demoteWithEnv((env, value) => 'Exceeds limit: ${env.maxAllowed}');
 ```
 
 ---
 
-### abortWithEnv0
+### demoteWithEnv0
 
 ```dart
-Cont<E, A> abortWithEnv0(List<ContError> Function(E env) f)
+Cont<E, F, A> demoteWithEnv0(F Function(E env) f)
 ```
 
-Unconditionally terminates with errors computed from the environment only.
-
-Similar to `abortWithEnv`, but the error computation function only receives the environment and ignores the current value.
+Unconditionally demotes with an error computed from the environment only.
 
 - **Parameters:**
-  - `f`: Function that takes the environment and computes the error list
+  - `f`: Function that takes the environment and computes the error
 
 **Example:**
 ```dart
 final cont = processData()
-  .abortWithEnv0((env) {
-    return env.isMaintenanceMode
-      ? [ContError.capture('System in maintenance')]
-      : [];
-  });
+  .demoteWithEnv0((env) => 'Maintenance mode: ${env.reason}');
 ```
 
 ---
 
-### abortWith
+### demoteWith
 
 ```dart
-Cont<E, A> abortWith(List<ContError> errors)
+Cont<E, F, A> demoteWith(F error)
 ```
 
-Unconditionally terminates with a fixed list of errors.
+Unconditionally demotes with a fixed error value.
 
-Replaces any successful value with a termination containing the provided errors. This is the simplest form of forced termination.
+Replaces any successful value with a termination containing the provided error.
 
 - **Parameters:**
-  - `errors`: The error list to terminate with
+  - `error`: The error value to terminate with
 
 **Example:**
 ```dart
-final cont = Cont.of(42)
-  .abortWith([ContError.capture('Forced termination')]);
+final cont = Cont.of<(), String, int>(42)
+  .demoteWith('Forced termination');
 ```
 
 ---
@@ -657,40 +669,29 @@ final cont = Cont.of(42)
 ### thenIf
 
 ```dart
-Cont<E, A> thenIf(bool Function(A value) predicate, [List<ContError> errors = const []])
+Cont<E, F, A> thenIf(
+  bool Function(A value) predicate, {
+  required F fallback,
+})
 ```
 
 Conditionally succeeds only when the predicate is satisfied.
 
-Filters the continuation based on the predicate. If the predicate returns `true`, the continuation succeeds with the value. If the predicate returns `false`, the continuation terminates with the provided errors (or no errors if none are specified).
-
-This is useful for conditional execution where you want to treat a predicate failure as termination rather than an error.
+If the predicate returns `true`, the continuation succeeds with the value. If `false`, the continuation terminates with the `fallback` error.
 
 - **Parameters:**
   - `predicate`: Function that tests the value
-  - `errors`: Optional list of errors to use when terminating on predicate failure
+  - `fallback`: The error to use when the predicate returns `false`
 
 **Example:**
 ```dart
-final cont = Cont.of(42).thenIf((n) => n > 0);
+final cont = Cont.of<(), String, int>(42)
+  .thenIf((n) => n > 0, fallback: 'Value must be positive');
 // Succeeds with 42
 
-final cont2 = Cont.of(-5).thenIf((n) => n > 0);
-// Terminates without errors
-
-final cont3 = Cont.of(-5).thenIf(
-  (n) => n > 0,
-  [ContError.capture('Value must be positive')],
-);
-// Terminates with custom error
-
-// Real-world usage
-final result = fetchUser(userId)
-  .thenIf(
-    (user) => user.isActive,
-    [ContError.capture('User account is not active')],
-  )
-  .thenDo((user) => processActiveUser(user));
+final cont2 = Cont.of<(), String, int>(-5)
+  .thenIf((n) => n > 0, fallback: 'Value must be positive');
+// Terminates with 'Value must be positive'
 ```
 
 ---
@@ -698,29 +699,23 @@ final result = fetchUser(userId)
 ### thenIf0
 
 ```dart
-Cont<E, A> thenIf0(bool Function() predicate, [List<ContError> errors = const []])
+Cont<E, F, A> thenIf0(
+  bool Function() predicate, {
+  required F fallback,
+})
 ```
 
 Conditionally succeeds based on a zero-argument predicate.
 
-Similar to `thenIf` but the predicate doesn't examine the value.
-
 - **Parameters:**
   - `predicate`: Zero-argument function that determines success or termination
-  - `errors`: Optional list of errors to use when terminating on predicate failure
+  - `fallback`: The error to use when the predicate returns `false`
 
 **Example:**
 ```dart
 var shouldProceed = true;
-final cont = Cont.of(42)
-  .thenIf0(() => shouldProceed);
-
-// With custom errors
-final cont2 = Cont.of(42)
-  .thenIf0(
-    () => shouldProceed,
-    [ContError.capture('Execution not allowed')],
-  );
+final cont = Cont.of<(), String, int>(42)
+  .thenIf0(() => shouldProceed, fallback: 'Execution not allowed');
 ```
 
 ---
@@ -728,27 +723,24 @@ final cont2 = Cont.of(42)
 ### thenIfWithEnv
 
 ```dart
-Cont<E, A> thenIfWithEnv(bool Function(E env, A value) predicate, [List<ContError> errors = const []])
+Cont<E, F, A> thenIfWithEnv(
+  bool Function(E env, A value) predicate, {
+  required F fallback,
+})
 ```
 
 Conditionally succeeds with access to both value and environment.
 
-Similar to `thenIf`, but the predicate function receives both the current value and the environment. This is useful when conditional logic needs access to configuration or context information.
-
 - **Parameters:**
   - `predicate`: Function that takes the environment and value, and determines success or termination
-  - `errors`: Optional list of errors to use when terminating on predicate failure
+  - `fallback`: The error to use when the predicate returns `false`
 
 **Example:**
 ```dart
 final cont = fetchUser(userId)
-  .thenIfWithEnv((env, user) => user.level >= env.minRequiredLevel);
-
-// With custom errors
-final cont2 = fetchUser(userId)
   .thenIfWithEnv(
     (env, user) => user.level >= env.minRequiredLevel,
-    [ContError.capture('User level below minimum requirement')],
+    fallback: 'User level below minimum requirement',
   );
 ```
 
@@ -757,27 +749,24 @@ final cont2 = fetchUser(userId)
 ### thenIfWithEnv0
 
 ```dart
-Cont<E, A> thenIfWithEnv0(bool Function(E env) predicate, [List<ContError> errors = const []])
+Cont<E, F, A> thenIfWithEnv0(
+  bool Function(E env) predicate, {
+  required F fallback,
+})
 ```
 
 Conditionally succeeds with access to the environment only.
 
-Similar to `thenIfWithEnv`, but the predicate only receives the environment and ignores the current value.
-
 - **Parameters:**
   - `predicate`: Function that takes the environment and determines success or termination
-  - `errors`: Optional list of errors to use when terminating on predicate failure
+  - `fallback`: The error to use when the predicate returns `false`
 
 **Example:**
 ```dart
 final cont = processData()
-  .thenIfWithEnv0((env) => env.featureEnabled);
-
-// With custom errors
-final cont2 = processData()
   .thenIfWithEnv0(
     (env) => env.featureEnabled,
-    [ContError.capture('Feature is disabled')],
+    fallback: 'Feature is disabled',
   );
 ```
 
@@ -788,27 +777,21 @@ final cont2 = processData()
 ### thenWhile
 
 ```dart
-Cont<E, A> thenWhile(bool Function(A value) predicate)
+Cont<E, F, A> thenWhile(bool Function(A value) predicate)
 ```
 
-Repeatedly executes the continuation as long as the predicate returns `true`, stopping when it returns `false`.
+Repeatedly executes the continuation as long as the predicate returns `true`.
 
-Runs the continuation in a loop, testing each result with the predicate. The loop continues as long as the predicate returns `true`, and stops successfully when the predicate returns `false`.
+Runs the continuation in a loop. The loop continues while the predicate returns `true` and stops successfully when it returns `false`.
 
-The loop is stack-safe and handles asynchronous continuations correctly. If the continuation terminates or if the predicate throws an exception, the loop stops and propagates the errors.
-
-This is useful for retry logic, polling, or repeating an operation while a condition holds.
+The loop is stack-safe. If the continuation terminates with an error or crashes, the loop stops and propagates the outcome.
 
 - **Parameters:**
-  - `predicate`: Function that tests the value. Returns `true` to continue looping, or `false` to stop and succeed with the value
+  - `predicate`: Function that tests the value. Returns `true` to continue, `false` to stop
 
 **Example:**
 ```dart
-// Poll an API while data is not ready
 final result = fetchData().thenWhile((response) => !response.isReady);
-
-// Retry while value is below threshold
-final value = computation().thenWhile((n) => n < 100);
 ```
 
 ---
@@ -816,12 +799,10 @@ final value = computation().thenWhile((n) => n < 100);
 ### thenWhile0
 
 ```dart
-Cont<E, A> thenWhile0(bool Function() predicate)
+Cont<E, F, A> thenWhile0(bool Function() predicate)
 ```
 
 Repeatedly executes based on a zero-argument predicate.
-
-Similar to `thenWhile` but the predicate doesn't examine the value.
 
 - **Parameters:**
   - `predicate`: Zero-argument function that determines whether to continue looping
@@ -829,8 +810,7 @@ Similar to `thenWhile` but the predicate doesn't examine the value.
 **Example:**
 ```dart
 var shouldContinue = true;
-final result = operation()
-  .thenWhile0(() => shouldContinue);
+final result = operation().thenWhile0(() => shouldContinue);
 ```
 
 ---
@@ -838,15 +818,13 @@ final result = operation()
 ### thenWhileWithEnv
 
 ```dart
-Cont<E, A> thenWhileWithEnv(bool Function(E env, A value) predicate)
+Cont<E, F, A> thenWhileWithEnv(bool Function(E env, A value) predicate)
 ```
 
 Repeatedly executes with access to both value and environment.
 
-Similar to `thenWhile`, but the predicate function receives both the current value and the environment. This is useful when loop logic needs access to configuration or context information.
-
 - **Parameters:**
-  - `predicate`: Function that takes the environment and value, and determines whether to continue looping
+  - `predicate`: Function that takes the environment and value, and determines whether to continue
 
 **Example:**
 ```dart
@@ -859,15 +837,13 @@ final result = fetchData()
 ### thenWhileWithEnv0
 
 ```dart
-Cont<E, A> thenWhileWithEnv0(bool Function(E env) predicate)
+Cont<E, F, A> thenWhileWithEnv0(bool Function(E env) predicate)
 ```
 
 Repeatedly executes with access to the environment only.
 
-Similar to `thenWhileWithEnv`, but the predicate only receives the environment and ignores the current value.
-
 - **Parameters:**
-  - `predicate`: Function that takes the environment and determines whether to continue looping
+  - `predicate`: Function that takes the environment and determines whether to continue
 
 **Example:**
 ```dart
@@ -880,25 +856,19 @@ final result = processData()
 ### thenUntil
 
 ```dart
-Cont<E, A> thenUntil(bool Function(A value) predicate)
+Cont<E, F, A> thenUntil(bool Function(A value) predicate)
 ```
 
 Repeatedly executes the continuation until the predicate returns `true`.
 
-Runs the continuation in a loop, testing each result with the predicate. The loop continues while the predicate returns `false`, and stops successfully when the predicate returns `true`.
-
-This is the inverse of `thenWhile` - implemented as `thenWhile((a) => !predicate(a))`. Use this when you want to retry until a condition is met.
+The inverse of `thenWhile`. The loop continues while the predicate returns `false` and stops when it returns `true`.
 
 - **Parameters:**
-  - `predicate`: Function that tests the value. Returns `true` to stop the loop and succeed, or `false` to continue looping
+  - `predicate`: Function that tests the value. Returns `true` to stop, `false` to continue
 
 **Example:**
 ```dart
-// Retry until a condition is met
 final result = fetchStatus().thenUntil((status) => status == 'complete');
-
-// Poll until a threshold is reached
-final value = checkProgress().thenUntil((progress) => progress >= 100);
 ```
 
 ---
@@ -906,21 +876,18 @@ final value = checkProgress().thenUntil((progress) => progress >= 100);
 ### thenUntil0
 
 ```dart
-Cont<E, A> thenUntil0(bool Function() predicate)
+Cont<E, F, A> thenUntil0(bool Function() predicate)
 ```
 
 Repeatedly executes until a zero-argument predicate returns `true`.
 
-Similar to `thenUntil` but the predicate doesn't examine the value.
-
 - **Parameters:**
-  - `predicate`: Zero-argument function that determines when to stop looping
+  - `predicate`: Zero-argument function that determines when to stop
 
 **Example:**
 ```dart
 var targetReached = false;
-final result = operation()
-  .thenUntil0(() => targetReached);
+final result = operation().thenUntil0(() => targetReached);
 ```
 
 ---
@@ -928,12 +895,10 @@ final result = operation()
 ### thenUntilWithEnv
 
 ```dart
-Cont<E, A> thenUntilWithEnv(bool Function(E env, A value) predicate)
+Cont<E, F, A> thenUntilWithEnv(bool Function(E env, A value) predicate)
 ```
 
 Repeatedly executes with access to both value and environment.
-
-Similar to `thenUntil`, but the predicate function receives both the current value and the environment. This is useful when loop logic needs access to configuration or context information.
 
 - **Parameters:**
   - `predicate`: Function that takes the environment and value, and determines when to stop
@@ -949,12 +914,10 @@ final result = fetchData()
 ### thenUntilWithEnv0
 
 ```dart
-Cont<E, A> thenUntilWithEnv0(bool Function(E env) predicate)
+Cont<E, F, A> thenUntilWithEnv0(bool Function(E env) predicate)
 ```
 
 Repeatedly executes with access to the environment only.
-
-Similar to `thenUntilWithEnv`, but the predicate only receives the environment and ignores the current value.
 
 - **Parameters:**
   - `predicate`: Function that takes the environment and determines when to stop
@@ -970,36 +933,23 @@ final result = pollService()
 ### thenForever
 
 ```dart
-Cont<E, Never> thenForever()
+Cont<E, F, Never> thenForever()
 ```
 
 Repeatedly executes the continuation indefinitely.
 
-Runs the continuation in an infinite loop that never stops on its own. The loop only terminates if the underlying continuation terminates with an error.
+Runs the continuation in an infinite loop. The loop only terminates if the continuation terminates with an error or crashes.
 
-The return type `Cont<E, Never>` indicates that this continuation never produces a value - it either runs forever or terminates with errors.
+The return type `Cont<E, F, Never>` indicates that this continuation never produces a value.
 
-This is useful for:
-- Daemon-like processes that run continuously
-- Server loops that handle requests indefinitely
-- Event loops that continuously process events
-- Background tasks that should never stop
+This is useful for daemon-like processes, server loops, and event loops.
 
 **Example:**
 ```dart
-// A server that handles requests forever
 final server = acceptConnection()
-    .thenDo((conn) => handleConnection(conn))
-    .thenForever();
+  .thenDo((conn) => handleConnection(conn))
+  .thenForever();
 
-// Run with only a termination handler (using trap extension)
-final token = server.trap(env, onElse: (errors) => print('Server stopped: $errors'));
-
-// Can cancel the server when needed
-// token.cancel();
-
-// Event loop
-final eventLoop = pollEvents()
-    .thenDo((event) => handleEvent(event))
-    .thenForever();
+final token = server.run(env, onElse: (error) => print('Server stopped: $error'));
+token.cancel();
 ```

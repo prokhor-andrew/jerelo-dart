@@ -1,6 +1,6 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
-extension ContEnvExtension<E, A> on Cont<E, A> {
+extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   /// Runs this continuation with a transformed environment.
   ///
   /// Transforms the environment from [E2] to [E] using the provided function,
@@ -9,11 +9,11 @@ extension ContEnvExtension<E, A> on Cont<E, A> {
   /// different environment type.
   ///
   /// - [f]: Function that transforms the outer environment to the inner environment.
-  Cont<E2, A> local<E2>(E Function(E2) f) {
+  Cont<E2, F, A> local<E2>(E Function(E2) f) {
     return Cont.fromRun((runtime, observer) {
       final env = f(runtime.env());
 
-      _run(runtime.copyUpdateEnv(env), observer);
+      runWith(runtime.copyUpdateEnv(env), observer);
     });
   }
 
@@ -23,7 +23,7 @@ extension ContEnvExtension<E, A> on Cont<E, A> {
   /// instead of transforming the existing environment.
   ///
   /// - [f]: Zero-argument function that provides the new environment.
-  Cont<E2, A> local0<E2>(E Function() f) {
+  Cont<E2, F, A> local0<E2>(E Function() f) {
     return local((_) {
       return f();
     });
@@ -36,96 +36,58 @@ extension ContEnvExtension<E, A> on Cont<E, A> {
   /// configuration, dependencies, or context to a continuation.
   ///
   /// - [value]: The environment value to use.
-  Cont<E2, A> scope<E2>(E value) {
+  Cont<E2, F, A> withEnv<E2>(E value) {
     return local0(() {
       return value;
     });
   }
 
-  /// Injects the value produced by this continuation as the environment for another continuation.
+  /// Runs [cont] using the success value of this continuation as its environment.
   ///
-  /// This method enables dependency injection patterns where the result of one
-  /// continuation becomes the environment (context) for another. It sequences
-  /// this continuation with [cont], passing the produced value as [cont]'s environment.
+  /// When this continuation succeeds with value [a], [cont] is executed with [a]
+  /// as its environment. Effectively threads the success value into the environment
+  /// of the inner continuation.
   ///
-  /// The transformation changes the environment type from [E] to [A], and the
-  /// value type from [A] to [A2]. This is useful when you want to:
-  /// - Build a configuration/dependency and run operations with it
-  /// - Create resources and inject them into computations that need them
-  /// - Chain operations where output becomes context for the next stage
-  ///
-  /// Type parameters:
-  /// - [A2]: The value type produced by the target continuation.
-  ///
-  /// Parameters:
-  /// - [cont]: The continuation that will receive this continuation's value as its environment.
-  ///
-  /// Returns a continuation that:
-  /// 1. Executes this continuation to produce a value of type [A]
-  /// 2. Uses that value as the environment for [cont]
-  /// 3. Produces [cont]'s result of type [A2]
-  ///
-  /// Example:
-  /// ```dart
-  /// // Create a database configuration
-  /// final configCont = Cont.of<(), DbConfig>(DbConfig('localhost', 5432));
-  ///
-  /// // Define an operation that needs the config as environment
-  /// final queryOp = Cont.ask<DbConfig>().thenDo((config) {
-  ///   return executeQuery(config, 'SELECT * FROM users');
-  /// });
-  ///
-  /// // Inject the config into the query operation
-  /// final result = configCont.injectInto(queryOp);
-  /// // Type: Cont<(), List<User>>
-  /// ```
-  Cont<E, A2> injectInto<A2>(Cont<A, A2> cont) {
+  /// - [cont]: A continuation whose environment type matches this continuation's
+  ///   success type [A].
+  Cont<E, F, A2> thenInject<A2>(Cont<A, F, A2> cont) {
     return thenDo((a) {
-      Cont<A, A2> contA2 = cont;
-      if (contA2 is Cont<A, Never>) {
-        contA2 = contA2.absurd<A2>();
-      }
-      return contA2.scope(a);
+      return cont.absurdify().withEnv(a);
     });
   }
 
-  /// Receives the environment for this continuation from another continuation's value.
+  /// Runs this continuation using the success value of [cont] as its environment.
   ///
-  /// This method is the inverse of [injectInto]. It allows this continuation to
-  /// obtain its required environment from the result of another continuation.
-  /// The outer continuation [cont] produces a value of type [E] which becomes
-  /// the environment for this continuation.
+  /// Flipped version of [thenInject]: when [cont] succeeds with value [e], this
+  /// continuation is executed with [e] as its environment.
   ///
-  /// This is equivalent to `cont.injectInto(this)` but provides a more intuitive
-  /// syntax when you want to express that this continuation is being supplied
-  /// with dependencies from another source.
+  /// - [cont]: A continuation that produces the environment value for this continuation.
+  Cont<E0, F, A> injectedByThen<E0>(Cont<E0, F, E> cont) {
+    return cont.thenInject(this);
+  }
+
+  /// Runs [cont] using the error value of this continuation as its environment.
   ///
-  /// Type parameters:
-  /// - [E0]: The environment type of the outer continuation.
+  /// When this continuation terminates on the else channel with error [f], [cont]
+  /// is executed with [f] as its environment. Effectively threads the error value
+  /// into the environment of the inner continuation.
   ///
-  /// Parameters:
-  /// - [cont]: The continuation that produces the environment value this continuation needs.
+  /// - [cont]: A continuation whose environment type matches this continuation's
+  ///   error type [F].
+  Cont<E, F2, A> elseInject<F2>(Cont<F, F2, A> cont) {
+    return elseDo((f) {
+      return cont.absurdify().withEnv(f);
+    });
+  }
+
+  /// Runs this continuation using the error value of [cont] as its environment.
   ///
-  /// Returns a continuation that:
-  /// 1. Executes [cont] to produce a value of type [E]
-  /// 2. Uses that value as the environment for this continuation
-  /// 3. Produces this continuation's result of type [A]
+  /// Flipped version of [elseInject]: when [cont] terminates on the else channel
+  /// with error [e], this continuation is executed with [e] as its environment.
   ///
-  /// Example:
-  /// ```dart
-  /// // Define an operation that needs a database config
-  /// final queryOp = Cont.ask<DbConfig>().thenDo((config) {
-  ///   return executeQuery(config, 'SELECT * FROM users');
-  /// });
-  ///
-  /// // Create a continuation that produces the config
-  /// final configProvider = Cont.of<(), DbConfig>(DbConfig('localhost', 5432));
-  ///
-  /// // Express that queryOp receives its environment from configProvider
-  /// final result = queryOp.injectedBy(configProvider);
-  /// // Type: Cont<(), List<User>>
-  /// ```
-  Cont<E0, A> injectedBy<E0>(Cont<E0, E> cont) {
-    return cont.injectInto(this);
+  /// - [cont]: A continuation whose error type matches this continuation's
+  ///   environment type [E].
+  Cont<E0, F, A> injectedByElse<E0>(Cont<E0, E, A> cont) {
+    return cont.elseInject(this);
   }
 }

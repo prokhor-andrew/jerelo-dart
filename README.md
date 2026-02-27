@@ -1,6 +1,6 @@
 # Jerelo
 
-**Jerelo** is a Dart library for building cold, lazy, reusable computations using continuation-passing style. It provides a composable `Cont` type with operations for chaining, transforming, branching, merging, and error handling.
+**Jerelo** is a Dart library for building cold, lazy, reusable computations using continuation-passing style. It provides a composable `Cont` type with three outcome channels — success, typed errors, and crashes — plus operations for chaining, transforming, branching, merging, and error handling.
 
 The name "Jerelo" is Ukrainian for "source" or "spring" - each `Cont` is a source of results that can branch, merge, filter, and transform data through your workflows.
 
@@ -22,9 +22,9 @@ This makes `Cont` ideal for defining complex business logic that needs to be tes
 import 'package:jerelo/jerelo.dart';
 
 // Define a computation (doesn't execute yet)
-final getUserData = Cont.of(userId)
+final getUserData = Cont.of<AppConfig, String, String>(userId)
   .thenDo((id) => fetchUserFromApi(id))
-  .thenIf((user) => user.isActive)
+  .thenIf((user) => user.isActive, fallback: 'User is inactive')
   .elseDo((_) => loadUserFromCache(userId))
   .thenTap((user) => logAccess(user));
 
@@ -36,13 +36,14 @@ getUserData.run(testConfig, onElse: handleError, onThen: handleSuccess);
 ## What is Cont?
 
 ```dart
-final class Cont<E, A>
+final class Cont<E, F, A>
 ```
 
-A continuation monad representing a computation that will eventually produce a value of type `A` or terminate with errors.
+A continuation monad representing a computation that will eventually produce a value of type `A`, terminate with a typed error of type `F`, or crash with an unexpected exception.
 
 **Type Parameters:**
 - `E`: The environment type providing context for the continuation execution
+- `F`: The error type for expected, typed failures on the else channel
 - `A`: The value type that the continuation produces upon success
 
 ---
@@ -65,7 +66,7 @@ A comprehensive guide to understanding and using Jerelo:
 
 1. [Introduction & Core Concepts](documentation/user_guide/01-introduction.md) - Understanding computations and continuation-passing style
 2. [Fundamentals: Construct & Run](documentation/user_guide/02-fundamentals.md) - Learn to create and execute computations
-3. [Core Operations](documentation/user_guide/03-core-operations.md) - Master mapping, chaining, branching, and error handling
+3. [Composing Computations](documentation/user_guide/03-composing-computations.md) - Master mapping, chaining, branching, and error handling
 4. [Racing and Merging](documentation/user_guide/04-racing-and-merging.md) - Parallel execution, racing, and complex workflows
 5. [Environment Management](documentation/user_guide/05-environment.md) - Configuration and dependency injection patterns
 6. [Extending Jerelo](documentation/user_guide/06-extending.md) - Create custom operators and computations
@@ -75,13 +76,14 @@ A comprehensive guide to understanding and using Jerelo:
 
 Complete reference for all public APIs:
 
-- **[Types](documentation/api_reference/types.md)** - ContError, ContRuntime, ContObserver
+- **[Types](documentation/api_reference/types.md)** - ContCrash, CrashOr, ContRuntime, ContObserver, ContCancelToken
 - **[Construction](documentation/api_reference/construction.md)** - Creating continuations with constructors and decorators
-- **[Execution](documentation/api_reference/execution.md)** - Running continuations: ContCancelToken, run, ff
-- **[Then Channel](documentation/api_reference/then.md)** - Success path operations: mapping, chaining, tapping, zipping, forking, loops, conditionals
-- **[Else Channel](documentation/api_reference/else.md)** - Error path operations: recovery, fallback, error handling
-- **[Combining](documentation/api_reference/combining.md)** - Parallel execution: ContBothPolicy, ContEitherPolicy, both, all, either, any
-- **[Environment](documentation/api_reference/env.md)** - Environment management: local, scope, ask, injection
+- **[Execution](documentation/api_reference/execution.md)** - Running continuations: run, runWith, extensions
+- **[Then Channel](documentation/api_reference/then.md)** - Success path operations: mapping, chaining, tapping, zipping, forking, demotion, loops, conditionals
+- **[Else Channel](documentation/api_reference/else.md)** - Error path operations: fallback, promotion, transformation, error handling
+- **[Crash Channel](documentation/api_reference/crash.md)** - Crash recovery operations: recovery, side effects, conditionals, retry loops
+- **[Combining](documentation/api_reference/combining.md)** - Parallel execution: OkPolicy, CrashPolicy, both, all, either, any, coalesce, converge
+- **[Environment](documentation/api_reference/env.md)** - Environment management: local, withEnv, injection
 
 ## Full Example
 
@@ -110,8 +112,8 @@ class User {
 }
 
 // Simulated API call
-Cont<AppConfig, User> fetchUserFromApi(String userId) {
-  return Cont.ask<AppConfig>().thenDo((config) {
+Cont<AppConfig, String, User> fetchUserFromApi(String userId) {
+  return Cont.askThen<AppConfig, String>().thenDo((config) {
     return Cont.fromRun((runtime, observer) {
       // Simulate async API call
       Future.delayed(config.timeout, () {
@@ -125,56 +127,45 @@ Cont<AppConfig, User> fetchUserFromApi(String userId) {
 }
 
 // Simulated cache fallback
-Cont<AppConfig, User> loadUserFromCache(String userId) {
+Cont<AppConfig, String, User> loadUserFromCache(String userId) {
   return Cont.of(User(userId, 'Cached User', true));
 }
 
 // Simulated logging side effect
-Cont<AppConfig, void> logAccess(User user) {
+Cont<AppConfig, String, void> logAccess(User user) {
   return Cont.fromRun((runtime, observer) {
     print('[LOG] User accessed: ${user.name}');
     observer.onThen(null);
   });
 }
 
-// Simulated error logging
-Cont<AppConfig, void> logError(List<ContError> errors) {
-  return Cont.fromRun((runtime, observer) {
-    print('[ERROR] Failed with ${errors.length} error(s)');
-    for (final e in errors) {
-      print('  - ${e.error}');
-    }
-    observer.onThen(null);
-  });
-}
-
 // Build a computation pipeline
-Cont<AppConfig, User> getUserData(String userId) {
+Cont<AppConfig, String, User> getUserData(String userId) {
   return fetchUserFromApi(userId)
     // Filter: only proceed if user is active, with custom error
     .thenIf(
       (user) => user.isActive,
-      [ContError.capture('User account is not active')],
+      fallback: 'User account is not active',
     )
     // Fallback: if API fails or user inactive, try cache
-    .elseDoWithEnv((config, errors) {
+    .elseDoWithEnv((config, error) {
       return config.enableCache
         ? loadUserFromCache(userId)
-        : Cont.stop(errors);
+        : Cont.error(error);
     })
-    // Side effect: log access without blocking
+    // Side effect: log access without altering the value
     .thenTap((user) => logAccess(user))
-    // Error logging
-    .elseTap((errors) => logError(errors));
+    // Recover unexpected exceptions into typed errors
+    .crashRecoverElse((crash) => 'Unexpected error: $crash');
 }
 
 // Fetch multiple users in parallel
-Cont<AppConfig, List<User>> getMultipleUsers(List<String> userIds) {
+Cont<AppConfig, String, List<User>> getMultipleUsers(List<String> userIds) {
   final computations = userIds.map(getUserData).toList();
 
   return Cont.all(
     computations,
-    policy: ContBothPolicy.quitFast(), // Fail fast on first error
+    policy: OkPolicy.quitFast(), // Fail fast on first error
   );
 }
 
@@ -201,14 +192,15 @@ void main() {
   // Execute with production config — run returns a ContCancelToken
   final token1 = singleUserFlow.run(
     prodConfig,
-    onElse: (errors) => print('Production failed: ${errors.length} error(s)'),
+    onCrash: (crash) => print('Production crash: $crash'),
+    onElse: (error) => print('Production failed: $error'),
     onThen: (user) => print('Production success: ${user.name}'),
   );
 
   // Execute the same computation with test config
   final token2 = singleUserFlow.run(
     testConfig,
-    onElse: (errors) => print('Test failed: ${errors.length} error(s)'),
+    onElse: (error) => print('Test failed: $error'),
     onThen: (user) => print('Test success: ${user.name}'),
   );
 
@@ -219,7 +211,7 @@ void main() {
 
   multiUserFlow.run(
     prodConfig,
-    onElse: (errors) => print('Failed to fetch users'),
+    onElse: (error) => print('Failed to fetch users: $error'),
     onThen: (users) => print('Fetched ${users.length} users: ${users.map((u) => u.name).join(', ')}'),
   );
 
@@ -229,12 +221,13 @@ void main() {
   final racingFlow = Cont.either(
     fetchUserFromApi('user456'),
     loadUserFromCache('user456'),
-    policy: ContEitherPolicy.quitFast(), // Return first success
+    (e1, e2) => '$e1; $e2', // Combine errors if both fail
+    policy: OkPolicy.quitFast(), // Return first success
   );
 
   racingFlow.run(
     prodConfig,
-    onElse: (errors) => print('Both sources failed'),
+    onElse: (error) => print('Both sources failed: $error'),
     onThen: (user) => print('Got user from fastest source: ${user.name}'),
   );
 
@@ -248,13 +241,15 @@ void main() {
 
 The example above showcases:
 
+- **Three-channel design**: Success (then), typed errors (else), and crashes for unexpected exceptions
 - **Environment Management**: Configuration threaded through computations via `AppConfig`
-- **Chaining**: Sequential operations with `thenDo`, `thenDoWithEnv`
-- **Error Handling**: Fallbacks with `elseDo`, error logging with `elseTap`
-- **Conditional Logic**: Filtering with `thenIf`
-- **Side Effects**: Non-blocking logging with `thenTap`
-- **Parallel Execution**: Multiple computations with `Cont.all` and `ContBothPolicy`
-- **Racing**: Competing computations with `Cont.either` and `ContEitherPolicy`
+- **Chaining**: Sequential operations with `thenDo`, `elseDoWithEnv`
+- **Error Handling**: Fallbacks with `elseDo`, conditional caching with `elseDoWithEnv`
+- **Crash Recovery**: Converting unexpected exceptions into typed errors with `crashRecoverElse`
+- **Conditional Logic**: Filtering with `thenIf` and typed `fallback` errors
+- **Side Effects**: Logging with `thenTap` while preserving the original value
+- **Parallel Execution**: Multiple computations with `Cont.all` and `OkPolicy`
+- **Racing**: Competing computations with `Cont.either` and error combining
 - **Reusability**: Same computation executed with different configurations
 - **Cancellation**: Cooperative cancellation via `ContCancelToken` returned by `run`
 

@@ -1,6 +1,7 @@
-part of '../../cont.dart';
+import 'package:jerelo/jerelo.dart';
 
-extension ContElseForeverExtension<E, A> on Cont<E, A> {
+extension ContElseForeverExtension<E, F, A>
+    on Cont<E, F, A> {
   /// Repeatedly retries the continuation on termination indefinitely.
   ///
   /// If the continuation terminates, retries it in an infinite loop that never
@@ -11,7 +12,7 @@ extension ContElseForeverExtension<E, A> on Cont<E, A> {
   /// on termination indefinitely.
   ///
   /// This is useful for:
-  /// - Services that must always recover from errors
+  /// - Services that must always promote past errors
   /// - Resilient connections that automatically reconnect
   /// - Operations that should never give up on transient failures
   /// - Self-healing systems that retry on any error
@@ -24,12 +25,14 @@ extension ContElseForeverExtension<E, A> on Cont<E, A> {
   ///
   /// // A resilient worker that never stops retrying
   /// final worker = processJob()
-  ///     .elseTap((errors) => logError(errors))
+  ///     .elseTap((error) => logError(error))
   ///     .elseForever();
   /// ```
-  Cont<E, A> elseForever() {
+  Cont<E, Never, A> elseForever() {
     return elseUntil((_) {
       return false;
+    }).elseMap((value) {
+      return value as Never;
     });
   }
 }

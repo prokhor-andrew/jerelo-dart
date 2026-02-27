@@ -14,20 +14,9 @@ final class ContRuntime<E> {
   /// Continuations should check this regularly to support cooperative cancellation.
   final bool Function() isCancelled;
 
-  /// Callback invoked when a fatal, unrecoverable error occurs during
-  /// continuation execution.
-  ///
-  /// Unlike [ContObserver.onElse], which handles expected termination
-  /// errors within the normal control flow, [onPanic] is reserved for
-  /// situations that violate internal invariants (e.g. an observer callback
-  /// throwing an exception). The default implementation re-throws the error
-  /// inside a microtask so it surfaces as an unhandled exception.
-  final void Function(ContError fatal) onPanic;
-
   const ContRuntime._(
     this._env,
     this.isCancelled,
-    this.onPanic,
   );
 
   /// Returns the environment value of type [E].
@@ -46,6 +35,23 @@ final class ContRuntime<E> {
   ///
   /// - [env]: The new environment value to use.
   ContRuntime<E2> copyUpdateEnv<E2>(E2 env) {
-    return ContRuntime._(env, isCancelled, onPanic);
+    return ContRuntime._(env, isCancelled);
+  }
+
+  /// Creates a copy of this runtime with an additional cancellation source.
+  ///
+  /// Returns a new [ContRuntime] whose [isCancelled] returns `true` if either
+  /// the original cancellation function or [anotherIsCancelled] returns `true`.
+  /// Used internally to compose independent cancellation tokens when running
+  /// continuations in parallel.
+  ///
+  /// - [anotherIsCancelled]: Additional cancellation predicate to combine with
+  ///   the existing one.
+  ContRuntime<E> extendCancellation(
+    bool Function() anotherIsCancelled,
+  ) {
+    return ContRuntime._(_env, () {
+      return isCancelled() || anotherIsCancelled();
+    });
   }
 }
