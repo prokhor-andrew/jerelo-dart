@@ -2,7 +2,7 @@ name: jerelo
 description: >
   A minimal, lawful Dart functional toolkit for composing synchronous and
   asynchronous workflows using continuation-passing style (CPS).
-version: 1.0.3
+version: 2.0.0
 repository: https://github.com/prokhor-andrew/jerelo-dart
 homepage: https://github.com/prokhor-andrew/jerelo-dart
 issue_tracker: https://github.com/prokhor-andrew/jerelo-dart/issues
