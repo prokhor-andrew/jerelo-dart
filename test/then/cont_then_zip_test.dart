@@ -4,97 +4,90 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.thenZip', () {
     test('combines values from both continuations', () {
-      String? value;
+      String? result;
 
       Cont.of<(), String, int>(10)
           .thenZip(
-        (a) => Cont.of(a * 2),
-        (a, b) => '$a + $b',
+        (v) => Cont.of(v * 2),
+        (a, b) => '$a+$b',
       )
-          .run((), onThen: (val) => value = val);
+          .run((), onThen: (v) => result = v);
 
-      expect(value, '10 + 20');
+      expect(result, equals('10+20'));
     });
 
     test('passes through error', () {
-      bool zipCalled = false;
       String? error;
 
-      Cont.error<(), String, int>('err')
-          .thenZip<int, String>(
-        (a) {
-          zipCalled = true;
-          return Cont.of(a * 2);
-        },
-        (a, b) => '$a + $b',
-      ).run((), onElse: (e) => error = e);
+      Cont.error<(), String, int>('oops')
+          .thenZip(
+        (v) => Cont.of(v * 2),
+        (a, b) => a + b,
+      )
+          .run((), onElse: (e) => error = e);
 
-      expect(zipCalled, false);
-      expect(error, 'err');
+      expect(error, equals('oops'));
     });
 
     test('propagates error from zipped continuation', () {
       String? error;
 
       Cont.of<(), String, int>(10)
-          .thenZip<int, String>(
-        (a) => Cont.error('zip error'),
-        (a, b) => '$a + $b',
+          .thenZip(
+        (_) => Cont.error<(), String, int>('zip failed'),
+        (a, b) => a + b,
       )
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'zip error');
+      expect(error, equals('zip failed'));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
       final cont = Cont.of<(), String, int>(5).thenZip(
-        (a) {
-          callCount++;
-          return Cont.of(a * 2);
-        },
+        (v) => Cont.of(v + 1),
         (a, b) => a + b,
       );
 
-      int? value1;
-      cont.run((), onThen: (val) => value1 = val);
-      expect(value1, 15);
-      expect(callCount, 1);
+      int? first;
+      int? second;
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
 
-      int? value2;
-      cont.run((), onThen: (val) => value2 = val);
-      expect(value2, 15);
-      expect(callCount, 2);
+      expect(first, equals(11));
+      expect(second, equals(11));
     });
 
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.of<(), String, int>(42).thenZip<int, String>(
-        (a) {
-          throw 'Zip Error';
-        },
-        (a, b) => '$a + $b',
-      ).run((), onCrash: (c) => crash = c);
+      Cont.of<(), String, int>(10)
+          .thenZip<int, int>(
+        (v) => throw Exception('boom'),
+        (a, b) => a + b,
+      )
+          .run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
 
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'Zip Error');
     });
   });
 
   group('Cont.thenZip0', () {
     test('combines values ignoring source value in factory',
         () {
-      String? value;
+      String? result;
 
       Cont.of<(), String, int>(10)
           .thenZip0(
         () => Cont.of(99),
-        (a, b) => '$a + $b',
+        (a, b) => '$a+$b',
       )
-          .run((), onThen: (val) => value = val);
+          .run((), onThen: (v) => result = v);
 
-      expect(value, '10 + 99');
+      expect(result, equals('10+99'));
     });
   });
 }

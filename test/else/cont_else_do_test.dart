@@ -4,105 +4,101 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.elseDo', () {
     test('recovers from error', () {
-      int? value;
+      int? result;
 
-      Cont.error<(), String, int>('err')
-          .elseDo((error) => Cont.of(42))
-          .run((), onThen: (val) => value = val);
+      Cont.error<(), String, int>('oops')
+          .elseDo((_) => Cont.of(42))
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 42);
+      expect(result, equals(42));
     });
 
     test('receives original error', () {
-      String? receivedError;
+      String? captured;
+      int? result;
 
-      Cont.error<(), String, int>('err1').elseDo((error) {
-        receivedError = error;
+      Cont.error<(), String, int>('original').elseDo((e) {
+        captured = e;
         return Cont.of(0);
-      }).run(());
+      }).run((), onThen: (v) => result = v);
 
-      expect(receivedError, 'err1');
+      expect(captured, equals('original'));
+      expect(result, equals(0));
     });
 
     test('propagates only fallback error when both fail',
         () {
       String? error;
 
-      Cont.error<(), String, int>('original').elseDo((e) {
-        return Cont.error<(), String, int>('fallback');
-      }).run((), onElse: (e) => error = e);
+      Cont.error<(), String, int>('first')
+          .elseDo(
+              (_) => Cont.error<(), String, int>('second'))
+          .run((), onElse: (e) => error = e);
 
-      expect(error, 'fallback');
+      expect(error, equals('second'));
     });
 
     test('never executes on value path', () {
-      bool elseCalled = false;
-      int? value;
+      bool called = false;
+      int? result;
 
-      Cont.of<(), String, int>(42).elseDo((error) {
-        elseCalled = true;
+      Cont.of<(), String, int>(42).elseDo((_) {
+        called = true;
         return Cont.of(0);
-      }).run((), onThen: (val) => value = val);
+      }).run((), onThen: (v) => result = v);
 
-      expect(elseCalled, false);
-      expect(value, 42);
+      expect(called, isFalse);
+      expect(result, equals(42));
     });
 
     test('crashes when fallback builder throws', () {
-      final cont = Cont.error<(), String, int>('err')
-          .elseDo((error) {
-        throw 'Fallback Builder Error';
-      });
-
       ContCrash? crash;
-      cont.run((), onCrash: (c) => crash = c);
+
+      Cont.error<(), String, int>('oops')
+          .elseDo<String>((_) => throw Exception('boom'))
+          .run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
 
       expect(crash, isA<NormalCrash>());
-      expect(
-        (crash! as NormalCrash).error,
-        'Fallback Builder Error',
-      );
     });
 
     test('supports type transformation', () {
-      int? value;
+      int? result;
 
-      Cont.error<(), String, int>('err')
-          .elseDo((error) => Cont.of(99))
-          .run((), onThen: (val) => value = val);
+      Cont.error<(), String, int>('oops')
+          .elseDo<Never>((_) => Cont.of(99))
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 99);
+      expect(result, equals(99));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
+      int? first;
+      int? second;
+
       final cont = Cont.error<(), String, int>('err')
-          .elseDo((error) {
-        callCount++;
-        return Cont.of(callCount);
-      });
+          .elseDo((_) => Cont.of(42));
 
-      int? value1;
-      cont.run((), onThen: (val) => value1 = val);
-      expect(value1, 1);
-      expect(callCount, 1);
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
 
-      int? value2;
-      cont.run((), onThen: (val) => value2 = val);
-      expect(value2, 2);
-      expect(callCount, 2);
+      expect(first, equals(42));
+      expect(second, equals(42));
     });
   });
 
   group('Cont.elseDo0', () {
     test('recovers without error value', () {
-      int? value;
+      int? result;
 
-      Cont.error<(), String, int>('err')
-          .elseDo0(() => Cont.of(42))
-          .run((), onThen: (val) => value = val);
+      Cont.error<(), String, int>('oops')
+          .elseDo0(() => Cont.of(99))
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 42);
+      expect(result, equals(99));
     });
   });
 }

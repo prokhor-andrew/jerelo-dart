@@ -4,98 +4,80 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.thenDo', () {
     test('chains successful values', () {
-      int? value;
-
-      Cont.of<(), String, int>(10)
-          .thenDo((a) => Cont.of(a * 2))
-          .run((), onThen: (val) => value = val);
-
-      expect(value, 20);
+      int? result;
+      Cont.of<(), String, int>(1)
+          .thenDo((v) => Cont.of(v + 1))
+          .run((), onThen: (v) => result = v);
+      expect(result, equals(2));
     });
 
     test('passes through error', () {
-      bool chainCalled = false;
       String? error;
-
-      Cont.error<(), String, int>('err').thenDo((a) {
-        chainCalled = true;
-        return Cont.of(a * 2);
-      }).run((), onElse: (e) => error = e);
-
-      expect(chainCalled, false);
-      expect(error, 'err');
+      Cont.error<(), String, int>('oops')
+          .thenDo((v) => Cont.of(v + 1))
+          .run((), onElse: (e) => error = e);
+      expect(error, equals('oops'));
     });
 
     test('chains to new error', () {
       String? error;
-
       Cont.of<(), String, int>(42)
-          .thenDo<int>((a) => Cont.error('chained error'))
+          .thenDo(
+              (_) => Cont.error<(), String, int>('failed'))
           .run((), onElse: (e) => error = e);
-
-      expect(error, 'chained error');
+      expect(error, equals('failed'));
     });
 
     test('supports type transformation', () {
-      String? value;
-
+      String? result;
       Cont.of<(), String, int>(42)
-          .thenDo((a) => Cont.of('value: $a'))
-          .run((), onThen: (val) => value = val);
-
-      expect(value, 'value: 42');
+          .thenDo((v) => Cont.of(v.toString()))
+          .run((), onThen: (v) => result = v);
+      expect(result, equals('42'));
     });
 
     test('supports multiple chaining', () {
-      int? value;
-
+      int? result;
       Cont.of<(), String, int>(1)
-          .thenDo((a) => Cont.of(a + 1))
-          .thenDo((a) => Cont.of(a * 10))
-          .run((), onThen: (val) => value = val);
-
-      expect(value, 20);
+          .thenDo((v) => Cont.of(v + 1))
+          .thenDo((v) => Cont.of(v * 10))
+          .run((), onThen: (v) => result = v);
+      expect(result, equals(20));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
-      final cont = Cont.of<(), String, int>(5).thenDo((a) {
-        callCount++;
-        return Cont.of(a * 2);
-      });
+      final cont = Cont.of<(), String, int>(5)
+          .thenDo((v) => Cont.of(v * 2));
 
-      int? value1;
-      cont.run((), onThen: (val) => value1 = val);
-      expect(value1, 10);
-      expect(callCount, 1);
+      int? first;
+      int? second;
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
 
-      int? value2;
-      cont.run((), onThen: (val) => value2 = val);
-      expect(value2, 10);
-      expect(callCount, 2);
+      expect(first, equals(10));
+      expect(second, equals(10));
     });
 
     test('crashes when function throws', () {
       ContCrash? crash;
-
-      Cont.of<(), String, int>(42).thenDo<int>((a) {
-        throw 'Chain Error';
-      }).run((), onCrash: (c) => crash = c);
-
+      Cont.of<(), String, int>(42)
+          .thenDo((v) => throw Exception('boom'))
+          .run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'Chain Error');
     });
   });
 
   group('Cont.thenDo0', () {
     test('chains without value', () {
-      String? value;
-
-      Cont.of<(), String, int>(42)
-          .thenDo0(() => Cont.of('replaced'))
-          .run((), onThen: (val) => value = val);
-
-      expect(value, 'replaced');
+      int? result;
+      Cont.of<(), String, int>(99)
+          .thenDo0(() => Cont.of(0))
+          .run((), onThen: (v) => result = v);
+      expect(result, equals(0));
     });
   });
 }

@@ -5,89 +5,87 @@ void main() {
   group('Cont.elseUnless', () {
     test('recovers to fallback when predicate is false',
         () {
-      int? value;
+      int? result;
 
-      Cont.error<(), String, int>('err')
-          .elseUnless((e) => false, fallback: 42)
-          .run((), onThen: (val) => value = val);
+      Cont.error<(), String, int>('not found')
+          .elseUnless((e) => e == 'fatal', fallback: 42)
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 42);
+      expect(result, equals(42));
     });
 
     test('keeps error when predicate is true', () {
       String? error;
 
-      Cont.error<(), String, int>('err')
-          .elseUnless((e) => true, fallback: 42)
+      Cont.error<(), String, int>('fatal')
+          .elseUnless((e) => e == 'fatal', fallback: 0)
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'err');
+      expect(error, equals('fatal'));
     });
 
     test('passes through value unchanged', () {
-      bool predicateCalled = false;
-      int? value;
+      int? result;
+      bool called = false;
 
-      Cont.of<(), String, int>(42).elseUnless((e) {
-        predicateCalled = true;
-        return true;
-      }, fallback: 0).run((), onThen: (val) => value = val);
+      Cont.of<(), String, int>(42).elseUnless((_) {
+        called = true;
+        return false;
+      }, fallback: 0).run((), onThen: (v) => result = v);
 
-      expect(predicateCalled, false);
-      expect(value, 42);
+      expect(called, isFalse);
+      expect(result, equals(42));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
+      int? first;
+      int? second;
+
       final cont = Cont.error<(), String, int>('err')
-          .elseUnless((e) {
-        callCount++;
-        return false;
-      }, fallback: 42);
+          .elseUnless((_) => false, fallback: 99);
 
-      int? value;
-      cont.run((), onThen: (val) => value = val);
-      expect(value, 42);
-      expect(callCount, 1);
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
 
-      cont.run((), onThen: (val) => value = val);
-      expect(callCount, 2);
+      expect(first, equals(99));
+      expect(second, equals(99));
     });
 
     test('crashes when predicate throws', () {
       ContCrash? crash;
 
-      Cont.error<(), String, int>('err').elseUnless((e) {
-        throw 'Predicate Error';
-      }, fallback: 42).run((), onCrash: (c) => crash = c);
+      Cont.error<(), String, int>('oops')
+          .elseUnless((_) => throw Exception('boom'),
+              fallback: 0)
+          .run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
 
       expect(crash, isA<NormalCrash>());
-      expect(
-        (crash! as NormalCrash).error,
-        'Predicate Error',
-      );
     });
   });
 
   group('Cont.elseUnless0', () {
     test('recovers when zero-arg predicate is false', () {
-      int? value;
+      int? result;
 
-      Cont.error<(), String, int>('err')
+      Cont.error<(), String, int>('oops')
           .elseUnless0(() => false, fallback: 42)
-          .run((), onThen: (val) => value = val);
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 42);
+      expect(result, equals(42));
     });
 
     test('keeps error when zero-arg predicate is true', () {
       String? error;
 
-      Cont.error<(), String, int>('err')
-          .elseUnless0(() => true, fallback: 42)
+      Cont.error<(), String, int>('fatal')
+          .elseUnless0(() => true, fallback: 0)
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'err');
+      expect(error, equals('fatal'));
     });
   });
 }

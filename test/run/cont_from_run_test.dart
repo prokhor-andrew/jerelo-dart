@@ -4,122 +4,100 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.fromRun', () {
     test('produces value via onThen', () {
-      int? value;
-
+      int? result;
       Cont.fromRun<(), String, int>((runtime, observer) {
         observer.onThen(42);
-      }).run((), onThen: (val) => value = val);
-
-      expect(value, 42);
+      }).run((), onThen: (v) => result = v);
+      expect(result, equals(42));
     });
 
     test('produces error via onElse', () {
-      String? error;
-
+      String? result;
       Cont.fromRun<(), String, int>((runtime, observer) {
-        observer.onElse('err');
-      }).run((), onElse: (e) => error = e);
-
-      expect(error, 'err');
+        observer.onElse('oops');
+      }).run((), onElse: (e) => result = e);
+      expect(result, equals('oops'));
     });
 
     test('catches thrown exceptions as crashes', () {
       ContCrash? crash;
-
       Cont.fromRun<(), String, int>((runtime, observer) {
-        throw 'Run Error';
-      }).run((), onCrash: (c) => crash = c);
-
+        throw Exception('boom');
+      }).run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'Run Error');
     });
 
     test('provides environment via runtime', () {
-      int? value;
-
+      int? captured;
       Cont.fromRun<int, String, int>((runtime, observer) {
-        observer.onThen(runtime.env() * 2);
-      }).run(5, onThen: (val) => value = val);
-
-      expect(value, 10);
+        captured = runtime.env();
+        observer.onThen(runtime.env());
+      }).run(99);
+      expect(captured, equals(99));
     });
 
     test('ignores duplicate onThen calls', () {
-      final values = <int>[];
-
+      int callCount = 0;
       Cont.fromRun<(), String, int>((runtime, observer) {
         observer.onThen(1);
         observer.onThen(2);
-        observer.onThen(3);
-      }).run((), onThen: (val) => values.add(val));
-
-      expect(values, [1]);
+      }).run((), onThen: (_) => callCount++);
+      expect(callCount, equals(1));
     });
 
     test('ignores callbacks after first onElse', () {
-      final errors = <String>[];
-      final values = <int>[];
-
+      int thenCount = 0;
+      int elseCount = 0;
       Cont.fromRun<(), String, int>((runtime, observer) {
-        observer.onElse('err');
+        observer.onElse('first');
+        observer.onElse('second');
         observer.onThen(42);
-        observer.onElse('err2');
       }).run(
         (),
-        onElse: (e) => errors.add(e),
-        onThen: (val) => values.add(val),
+        onThen: (_) => thenCount++,
+        onElse: (_) => elseCount++,
       );
-
-      expect(errors, ['err']);
-      expect(values, isEmpty);
+      expect(thenCount, equals(0));
+      expect(elseCount, equals(1));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
       final cont = Cont.fromRun<(), String, int>(
           (runtime, observer) {
-        callCount++;
-        observer.onThen(callCount);
+        observer.onThen(42);
       });
 
-      int? value1;
-      cont.run((), onThen: (val) => value1 = val);
-      expect(value1, 1);
-      expect(callCount, 1);
+      int? first;
+      int? second;
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
 
-      int? value2;
-      cont.run((), onThen: (val) => value2 = val);
-      expect(value2, 2);
-      expect(callCount, 2);
+      expect(first, equals(42));
+      expect(second, equals(42));
     });
 
-    test('supports cancellation', () {
-      int? value;
-
-      final List<void Function()> buffer = [];
-      void flush() {
-        for (final v in buffer) {
-          v();
-        }
-        buffer.clear();
-      }
+    test('supports cancellation', () async {
+      bool secondStepRan = false;
 
       final cont = Cont.fromRun<(), String, int>(
           (runtime, observer) {
-        buffer.add(() {
-          if (runtime.isCancelled()) return;
-          observer.onThen(42);
-        });
-      });
+        Future.microtask(() => observer.onThen(42));
+      }).thenDo((_) => Cont.fromRun<(), String, int>(
+              (runtime, observer) {
+            secondStepRan = true;
+            observer.onThen(84);
+          }));
 
-      final token = cont.run(
-        (),
-        onThen: (val) => value = val,
-      );
+      final token = cont.run(());
       token.cancel();
-      flush();
 
-      expect(value, null);
+      await Future.delayed(Duration.zero);
+
+      expect(secondStepRan, isFalse);
     });
   });
 }

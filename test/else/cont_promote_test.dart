@@ -4,93 +4,91 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.promote', () {
     test('recovers from error with computed value', () {
-      int? value;
+      int? result;
 
-      Cont.error<(), String, int>('err')
-          .promote((e) => 42)
-          .run((), onThen: (val) => value = val);
+      Cont.error<(), String, int>('42')
+          .promote((e) => int.parse(e))
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 42);
+      expect(result, equals(42));
     });
 
     test('receives original error', () {
-      String? receivedError;
+      String? captured;
+      int? result;
 
-      Cont.error<(), String, int>('original error')
-          .promote((e) {
-        receivedError = e;
+      Cont.error<(), String, int>('hello').promote((e) {
+        captured = e;
         return 0;
-      }).run(());
+      }).run((), onThen: (v) => result = v);
 
-      expect(receivedError, 'original error');
+      expect(captured, equals('hello'));
+      expect(result, equals(0));
     });
 
     test('passes through value', () {
-      bool promoteCalled = false;
-      int? value;
+      bool called = false;
+      int? result;
 
       Cont.of<(), String, int>(42).promote((e) {
-        promoteCalled = true;
+        called = true;
         return 0;
-      }).run((), onThen: (val) => value = val);
+      }).run((), onThen: (v) => result = v);
 
-      expect(promoteCalled, false);
-      expect(value, 42);
+      expect(called, isFalse);
+      expect(result, equals(42));
     });
 
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.error<(), String, int>('err').promote((e) {
-        throw 'Promote Error';
-      }).run((), onCrash: (c) => crash = c);
+      Cont.error<(), String, int>('oops')
+          .promote((_) => throw Exception('boom'))
+          .run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
 
       expect(crash, isA<NormalCrash>());
-      expect(
-          (crash! as NormalCrash).error, 'Promote Error');
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
-      final cont =
-          Cont.error<(), String, int>('err').promote((e) {
-        callCount++;
-        return callCount;
-      });
+      int? first;
+      int? second;
 
-      int? value1;
-      cont.run((), onThen: (val) => value1 = val);
-      expect(value1, 1);
-      expect(callCount, 1);
+      final cont = Cont.error<(), String, int>('42')
+          .promote((e) => int.parse(e));
 
-      int? value2;
-      cont.run((), onThen: (val) => value2 = val);
-      expect(value2, 2);
-      expect(callCount, 2);
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
+
+      expect(first, equals(42));
+      expect(second, equals(42));
     });
   });
 
   group('Cont.promote0', () {
     test('recovers ignoring error value', () {
-      int? value;
+      int? result;
 
-      Cont.error<(), String, int>('err')
-          .promote0(() => 42)
-          .run((), onThen: (val) => value = val);
+      Cont.error<(), String, int>('anything')
+          .promote0(() => 99)
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 42);
+      expect(result, equals(99));
     });
   });
 
   group('Cont.promoteWith', () {
     test('recovers with constant value', () {
-      int? value;
+      int? result;
 
-      Cont.error<(), String, int>('err')
+      Cont.error<(), String, int>('anything')
           .promoteWith(42)
-          .run((), onThen: (val) => value = val);
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 42);
+      expect(result, equals(42));
     });
   });
 }

@@ -4,62 +4,65 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.elseForkWithEnv', () {
     test('receives environment and error', () {
-      String? received;
+      String? capturedEnv;
+      String? capturedError;
       String? error;
 
-      Cont.error<String, String, int>('err')
+      Cont.error<String, String, int>('oops')
           .elseForkWithEnv((env, e) {
-        received = '$env: $e';
-        return Cont.of('side');
-      }).run('hello', onElse: (e) => error = e);
+        capturedEnv = env;
+        capturedError = e;
+        return Cont.of(0);
+      }).run('myEnv', onElse: (e) => error = e);
 
-      expect(received, 'hello: err');
-      expect(error, 'err');
+      expect(capturedEnv, equals('myEnv'));
+      expect(capturedError, equals('oops'));
+      expect(error, equals('oops'));
     });
 
     test('passes through value', () {
-      bool forkCalled = false;
-      int? value;
+      bool called = false;
+      int? result;
 
       Cont.of<String, String, int>(42)
-          .elseForkWithEnv<String, String>((env, e) {
-        forkCalled = true;
-        return Cont.of('side');
-      }).run('hello', onThen: (val) => value = val);
+          .elseForkWithEnv((env, e) {
+        called = true;
+        return Cont.of(0);
+      }).run('myEnv', onThen: (v) => result = v);
 
-      expect(forkCalled, false);
-      expect(value, 42);
+      expect(called, isFalse);
+      expect(result, equals(42));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
+      int forkCount = 0;
+
       final cont = Cont.error<String, String, int>('err')
-          .elseForkWithEnv((env, e) {
-        callCount++;
-        return Cont.of('ok');
+          .elseForkWithEnv((env, _) {
+        forkCount++;
+        return Cont.of(0);
       });
 
-      cont.run('env1');
-      expect(callCount, 1);
+      cont.run('env');
+      cont.run('env');
 
-      cont.run('env2');
-      expect(callCount, 2);
+      expect(forkCount, equals(2));
     });
   });
 
   group('Cont.elseForkWithEnv0', () {
     test('receives environment only', () {
-      String? received;
+      String? capturedEnv;
       String? error;
 
-      Cont.error<String, String, int>('err')
+      Cont.error<String, String, int>('oops')
           .elseForkWithEnv0((env) {
-        received = 'env: $env';
-        return Cont.of('side');
-      }).run('hello', onElse: (e) => error = e);
+        capturedEnv = env;
+        return Cont.of(0);
+      }).run('myEnv', onElse: (e) => error = e);
 
-      expect(received, 'env: hello');
-      expect(error, 'err');
+      expect(capturedEnv, equals('myEnv'));
+      expect(error, equals('oops'));
     });
   });
 }

@@ -4,70 +4,71 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.thenZipWithEnv', () {
     test('receives environment and value', () {
-      String? value;
+      String? capturedEnv;
+      int? capturedValue;
+      String? result;
 
-      Cont.of<String, String, int>(10)
-          .thenZipWithEnv(
-            (env, a) => Cont.of('$env: $a'),
-            (a, b) => '$a -> $b',
-          )
-          .run('hello', onThen: (val) => value = val);
+      Cont.of<String, Never, int>(10).thenZipWithEnv(
+        (env, v) {
+          capturedEnv = env;
+          capturedValue = v;
+          return Cont.of(v * 2);
+        },
+        (a, b) => '$a+$b',
+      ).run('myEnv', onThen: (v) => result = v);
 
-      expect(value, '10 -> hello: 10');
+      expect(capturedEnv, equals('myEnv'));
+      expect(capturedValue, equals(10));
+      expect(result, equals('10+20'));
     });
 
     test('passes through error', () {
-      bool zipCalled = false;
+      bool called = false;
       String? error;
 
-      Cont.error<String, String, int>('err')
-          .thenZipWithEnv<int, String>(
-        (env, a) {
-          zipCalled = true;
-          return Cont.of(a * 2);
+      Cont.error<String, String, int>('oops')
+          .thenZipWithEnv(
+        (env, v) {
+          called = true;
+          return Cont.of(v);
         },
-        (a, b) => '$a + $b',
-      ).run('hello', onElse: (e) => error = e);
+        (a, b) => a + b,
+      ).run('myEnv', onElse: (e) => error = e);
 
-      expect(zipCalled, false);
-      expect(error, 'err');
+      expect(called, isFalse);
+      expect(error, equals('oops'));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
+      int? first;
+      int? second;
+
       final cont =
-          Cont.of<String, String, int>(5).thenZipWithEnv(
-        (env, a) {
-          callCount++;
-          return Cont.of(a * 2);
-        },
+          Cont.of<int, Never, int>(5).thenZipWithEnv(
+        (env, v) => Cont.of(env),
         (a, b) => a + b,
       );
 
-      int? value1;
-      cont.run('env1', onThen: (val) => value1 = val);
-      expect(value1, 15);
-      expect(callCount, 1);
+      cont.run(10, onThen: (v) => first = v);
+      cont.run(20, onThen: (v) => second = v);
 
-      int? value2;
-      cont.run('env2', onThen: (val) => value2 = val);
-      expect(value2, 15);
-      expect(callCount, 2);
+      expect(first, equals(15));
+      expect(second, equals(25));
     });
   });
 
   group('Cont.thenZipWithEnv0', () {
     test('receives environment only', () {
-      String? value;
+      int? result;
 
-      Cont.of<String, String, int>(10)
+      Cont.of<int, Never, int>(5)
           .thenZipWithEnv0(
-            (env) => Cont.of('$env'),
-            (a, b) => '$a -> $b',
+            (env) => Cont.of(env * 2),
+            (a, b) => a + b,
           )
-          .run('hello', onThen: (val) => value = val);
+          .run(10, onThen: (v) => result = v);
 
-      expect(value, '10 -> hello');
+      expect(result, equals(25));
     });
   });
 }

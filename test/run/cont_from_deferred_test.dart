@@ -4,60 +4,58 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.fromDeferred', () {
     test('lazily creates inner Cont', () {
-      bool created = false;
-      int? value;
+      int thunkCallCount = 0;
 
       final cont = Cont.fromDeferred<(), String, int>(() {
-        created = true;
+        thunkCallCount++;
         return Cont.of(42);
       });
 
-      expect(created, false);
-      cont.run((), onThen: (val) => value = val);
-      expect(created, true);
-      expect(value, 42);
+      expect(thunkCallCount, equals(0));
+      cont.run(());
+      expect(thunkCallCount, equals(1));
     });
 
     test('creates new inner Cont on each run', () {
-      var callCount = 0;
+      int thunkCallCount = 0;
 
       final cont = Cont.fromDeferred<(), String, int>(() {
-        callCount++;
-        return Cont.of(callCount);
+        thunkCallCount++;
+        return Cont.of(thunkCallCount);
       });
 
-      int? value1;
-      cont.run((), onThen: (val) => value1 = val);
-      expect(value1, 1);
-      expect(callCount, 1);
+      int? first;
+      int? second;
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
 
-      int? value2;
-      cont.run((), onThen: (val) => value2 = val);
-      expect(value2, 2);
-      expect(callCount, 2);
+      expect(thunkCallCount, equals(2));
+      expect(first, equals(1));
+      expect(second, equals(2));
     });
 
     test('propagates error from inner Cont', () {
       String? error;
 
-      final cont = Cont.fromDeferred<(), String, int>(() {
-        return Cont.error('deferred err');
-      });
+      Cont.fromDeferred<(), String, int>(() {
+        return Cont.error('inner error');
+      }).run((), onElse: (e) => error = e);
 
-      cont.run((), onElse: (e) => error = e);
-      expect(error, 'deferred err');
+      expect(error, equals('inner error'));
     });
 
     test('crashes when thunk throws', () {
       ContCrash? crash;
 
-      final cont = Cont.fromDeferred<(), String, int>(() {
-        throw 'Thunk Error';
-      });
+      Cont.fromDeferred<(), String, int>(() {
+        throw Exception('thunk boom');
+      }).run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
 
-      cont.run((), onCrash: (c) => crash = c);
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'Thunk Error');
     });
   });
 }

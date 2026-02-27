@@ -4,62 +4,69 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.thenTapWithEnv', () {
     test('receives environment and value', () {
-      String? received;
-      int? value;
+      String? capturedEnv;
+      int? capturedValue;
+      int? result;
 
-      Cont.of<String, String, int>(42)
-          .thenTapWithEnv((env, a) {
-        received = '$env: $a';
-        return Cont.of('side');
-      }).run('hello', onThen: (val) => value = val);
+      Cont.of<String, Never, int>(10)
+          .thenTapWithEnv((env, v) {
+        capturedEnv = env;
+        capturedValue = v;
+        return Cont.of(v * 2);
+      }).run('myEnv', onThen: (v) => result = v);
 
-      expect(received, 'hello: 42');
-      expect(value, 42);
+      expect(capturedEnv, equals('myEnv'));
+      expect(capturedValue, equals(10));
+      expect(result, equals(10));
     });
 
     test('passes through error', () {
-      bool tapCalled = false;
+      bool called = false;
       String? error;
 
-      Cont.error<String, String, int>('err')
-          .thenTapWithEnv<String>((env, a) {
-        tapCalled = true;
-        return Cont.of('side');
-      }).run('hello', onElse: (e) => error = e);
+      Cont.error<String, String, int>('oops')
+          .thenTapWithEnv((env, v) {
+        called = true;
+        return Cont.of(v);
+      }).run('myEnv', onElse: (e) => error = e);
 
-      expect(tapCalled, false);
-      expect(error, 'err');
+      expect(called, isFalse);
+      expect(error, equals('oops'));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
-      final cont = Cont.of<String, String, int>(5)
-          .thenTapWithEnv((env, a) {
-        callCount++;
-        return Cont.of('ok');
-      });
+      int tapCount = 0;
+      int? result;
 
-      cont.run('env1');
-      expect(callCount, 1);
+      final cont =
+          Cont.of<String, Never, int>(42).thenTapWithEnv(
+        (env, v) {
+          tapCount++;
+          return Cont.of(v);
+        },
+      );
 
-      cont.run('env2');
-      expect(callCount, 2);
+      cont.run('env', onThen: (v) => result = v);
+      cont.run('env', onThen: (v) => result = v);
+
+      expect(tapCount, equals(2));
+      expect(result, equals(42));
     });
   });
 
   group('Cont.thenTapWithEnv0', () {
     test('receives environment only', () {
-      String? received;
-      int? value;
+      String? capturedEnv;
+      int? result;
 
-      Cont.of<String, String, int>(42)
+      Cont.of<String, Never, int>(42)
           .thenTapWithEnv0((env) {
-        received = 'env: $env';
-        return Cont.of('side');
-      }).run('hello', onThen: (val) => value = val);
+        capturedEnv = env;
+        return Cont.of(0);
+      }).run('myEnv', onThen: (v) => result = v);
 
-      expect(received, 'env: hello');
-      expect(value, 42);
+      expect(capturedEnv, equals('myEnv'));
+      expect(result, equals(42));
     });
   });
 }

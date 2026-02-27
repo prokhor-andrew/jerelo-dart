@@ -4,87 +4,86 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.thenUntil', () {
     test('repeats until predicate is true', () {
-      var count = 0;
-
-      int? value;
+      int count = 0;
+      int? result;
 
       Cont.fromRun<(), String, int>((runtime, observer) {
         count++;
         observer.onThen(count);
-      }).thenUntil((a) => a >= 3).run(
-        (),
-        onThen: (val) => value = val,
-      );
+      })
+          .thenUntil((v) => v >= 3)
+          .run((), onThen: (v) => result = v);
 
-      expect(count, 3);
-      expect(value, 3);
+      expect(count, equals(3));
+      expect(result, equals(3));
     });
 
     test('executes at least once', () {
-      var callCount = 0;
-      int? value;
+      int count = 0;
+      int? result;
 
       Cont.fromRun<(), String, int>((runtime, observer) {
-        callCount++;
-        observer.onThen(100);
-      }).thenUntil((a) => a >= 100).run(
-        (),
-        onThen: (val) => value = val,
-      );
+        count++;
+        observer.onThen(count);
+      })
+          .thenUntil((_) => true)
+          .run((), onThen: (v) => result = v);
 
-      expect(callCount, 1);
-      expect(value, 100);
+      expect(count, equals(1));
+      expect(result, equals(1));
     });
 
     test('stops on error', () {
-      var count = 0;
+      int count = 0;
       String? error;
 
       Cont.fromRun<(), String, int>((runtime, observer) {
         count++;
-        if (count == 2) {
-          observer.onElse('err at $count');
+        if (count >= 2) {
+          observer.onElse('stopped');
         } else {
           observer.onThen(count);
         }
-      }).thenUntil((a) => a >= 5).run(
-        (),
-        onElse: (e) => error = e,
-      );
+      })
+          .thenUntil((_) => false)
+          .run((), onElse: (e) => error = e);
 
-      expect(count, 2);
-      expect(error, 'err at 2');
+      expect(count, equals(2));
+      expect(error, equals('stopped'));
     });
 
     test('can be run multiple times', () {
-      var count = 0;
+      int totalCount = 0;
+      int? lastResult;
+
       final cont = Cont.fromRun<(), String, int>(
           (runtime, observer) {
-        count++;
-        observer.onThen(count);
-      }).thenUntil((a) => a >= 2);
+        totalCount++;
+        observer.onThen(totalCount);
+      }).thenUntil((v) => v % 3 == 0);
 
-      int? value1;
-      cont.run((), onThen: (val) => value1 = val);
-      expect(value1, 2);
+      cont.run((), onThen: (v) => lastResult = v);
+      expect(lastResult, equals(3));
 
-      // Second run: count starts at 2, increments to 3, 3 >= 2 is true, returns 3
-      int? value2;
-      cont.run((), onThen: (val) => value2 = val);
-      expect(value2, 3);
+      cont.run((), onThen: (v) => lastResult = v);
+      expect(lastResult, equals(6));
     });
   });
 
   group('Cont.thenUntil0', () {
     test('repeats until zero-arg predicate is true', () {
-      var count = 0;
+      int count = 0;
+      int? result;
 
       Cont.fromRun<(), String, int>((runtime, observer) {
         count++;
         observer.onThen(count);
-      }).thenUntil0(() => count >= 3).run(());
+      })
+          .thenUntil0(() => count >= 3)
+          .run((), onThen: (v) => result = v);
 
-      expect(count, 3);
+      expect(count, equals(3));
+      expect(result, equals(3));
     });
   });
 }

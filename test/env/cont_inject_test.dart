@@ -4,27 +4,23 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.thenInject', () {
     test('injects value as environment', () {
-      String? value;
+      int? result;
 
       Cont.of<(), String, int>(42)
-          .thenInject(
-        Cont.askThen<int, String>()
-            .thenMap((env) => 'env: $env'),
-      )
-          .run((), onThen: (val) => value = val);
+          .thenInject(Cont.askThen<int, String>())
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 'env: 42');
+      expect(result, equals(42));
     });
 
     test('passes through source error', () {
       String? error;
 
-      Cont.error<(), String, int>('source err')
-          .thenInject(
-              Cont.of<int, String, String>('result'))
+      Cont.error<(), String, int>('source error')
+          .thenInject(Cont.askThen<int, String>())
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'source err');
+      expect(error, equals('source error'));
     });
 
     test('passes through target error', () {
@@ -32,60 +28,52 @@ void main() {
 
       Cont.of<(), String, int>(42)
           .thenInject(
-        Cont.error<int, String, String>('target err'),
-      )
+              Cont.error<int, String, int>('target error'))
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'target err');
+      expect(error, equals('target error'));
     });
 
     test('never executes target on source failure', () {
-      bool targetCalled = false;
+      bool targetExecuted = false;
 
-      Cont.error<(), String, int>('err').thenInject(
-        Cont.fromRun<int, String, String>(
-            (runtime, observer) {
-          targetCalled = true;
-          observer.onThen('result');
+      Cont.error<(), String, int>('source error')
+          .thenInject(
+        Cont.fromRun<int, String, int>((runtime, observer) {
+          targetExecuted = true;
+          observer.onThen(0);
         }),
-      ).run((), onElse: (_) {});
+      ).run(());
 
-      expect(targetCalled, false);
+      expect(targetExecuted, isFalse);
     });
 
     test('supports type transformation', () {
-      String? value;
+      String? result;
 
-      Cont.of<(), String, int>(5)
-          .thenInject(
-        Cont.askThen<int, String>()
-            .thenMap((n) => 'number is $n'),
-      )
-          .run((), onThen: (val) => value = val);
+      Cont.of<(), Never, int>(42).thenInject(
+        Cont.fromRun<int, Never, String>(
+            (runtime, observer) {
+          observer.onThen('value:${runtime.env()}');
+        }),
+      ).run((), onThen: (v) => result = v);
 
-      expect(value, 'number is 5');
+      expect(result, equals('value:42'));
     });
 
     test('supports multiple runs', () {
-      var callCount = 0;
+      int? first;
+      int? second;
 
-      final cont = Cont.of<(), String, int>(10).thenInject(
-        Cont.fromRun<int, String, String>(
-            (runtime, observer) {
-          callCount++;
-          observer.onThen('env: ${runtime.env()}');
-        }),
-      );
+      final source = Cont.of<(), Never, int>(5);
+      final target = Cont.askThen<int, Never>();
+      final cont = source.thenInject(target);
 
-      String? value1;
-      cont.run((), onThen: (val) => value1 = val);
-      expect(value1, 'env: 10');
-      expect(callCount, 1);
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
 
-      String? value2;
-      cont.run((), onThen: (val) => value2 = val);
-      expect(value2, 'env: 10');
-      expect(callCount, 2);
+      expect(first, equals(5));
+      expect(second, equals(5));
     });
   });
 }

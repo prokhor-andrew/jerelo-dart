@@ -4,85 +4,95 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.elseWhile', () {
     test('repeats while predicate is true', () {
-      var count = 0;
-      String? error;
+      int count = 0;
+      int? result;
 
       Cont.fromRun<(), String, int>((runtime, observer) {
         count++;
-        observer.onElse('err$count');
-      }).elseWhile((e) => count < 3).run(
+        if (count < 3) {
+          observer.onElse('retry:$count');
+        } else {
+          observer.onThen(count);
+        }
+      }).elseWhile((e) => e.startsWith('retry')).run(
         (),
-        onElse: (e) => error = e,
+        onThen: (v) => result = v,
       );
 
-      expect(count, 3);
-      expect(error, 'err3');
+      expect(count, equals(3));
+      expect(result, equals(3));
     });
 
     test('executes at least once', () {
-      var callCount = 0;
+      int count = 0;
       String? error;
 
       Cont.fromRun<(), String, int>((runtime, observer) {
-        callCount++;
-        observer.onElse('done');
-      }).elseWhile((e) => false).run(
-        (),
-        onElse: (e) => error = e,
-      );
+        count++;
+        observer.onElse('stop');
+      })
+          .elseWhile((_) => false)
+          .run((), onElse: (e) => error = e);
 
-      expect(callCount, 1);
-      expect(error, 'done');
+      expect(count, equals(1));
+      expect(error, equals('stop'));
     });
 
     test('stops on value', () {
-      var count = 0;
-      int? value;
+      int count = 0;
+      int? result;
 
       Cont.fromRun<(), String, int>((runtime, observer) {
         count++;
-        if (count == 2) {
-          observer.onThen(count);
-        } else {
-          observer.onElse('err$count');
-        }
-      }).elseWhile((e) => count < 5).run(
-        (),
-        onThen: (val) => value = val,
-      );
+        observer.onThen(count);
+      })
+          .elseWhile((_) => true)
+          .run((), onThen: (v) => result = v);
 
-      expect(count, 2);
-      expect(value, 2);
+      expect(count, equals(1));
+      expect(result, equals(1));
     });
 
     test('can be run multiple times', () {
-      var count = 0;
+      int totalCount = 0;
+      String? lastError;
+
       final cont = Cont.fromRun<(), String, int>(
           (runtime, observer) {
-        count++;
-        observer.onElse('err$count');
-      }).elseWhile((e) => count % 2 != 0);
+        totalCount++;
+        if (totalCount % 3 == 0) {
+          observer.onElse('done:$totalCount');
+        } else {
+          observer.onElse('retry');
+        }
+      }).elseWhile((e) => e == 'retry');
 
-      String? error1;
-      cont.run((), onElse: (e) => error1 = e);
-      expect(error1, 'err2');
+      cont.run((), onElse: (e) => lastError = e);
+      expect(lastError, equals('done:3'));
 
-      String? error2;
-      cont.run((), onElse: (e) => error2 = e);
-      expect(error2, 'err4');
+      cont.run((), onElse: (e) => lastError = e);
+      expect(lastError, equals('done:6'));
     });
   });
 
   group('Cont.elseWhile0', () {
     test('repeats while zero-arg predicate is true', () {
-      var count = 0;
+      int count = 0;
+      int? result;
 
       Cont.fromRun<(), String, int>((runtime, observer) {
         count++;
-        observer.onElse('err$count');
-      }).elseWhile0(() => count < 3).run(());
+        if (count < 3) {
+          observer.onElse('retry');
+        } else {
+          observer.onThen(count);
+        }
+      })
+          .elseWhile0(() => count < 3)
+          .run((), onThen: (v) => result = v);
 
-      expect(count, 3);
+      expect(count, equals(3));
+      expect(result, equals(3));
     });
   });
 }

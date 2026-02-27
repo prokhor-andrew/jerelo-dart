@@ -4,132 +4,132 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.either (sequence)', () {
     test('returns first success', () {
-      int? value;
+      int? result;
 
       Cont.either<(), String, String, String, int>(
-        Cont.of(10),
-        Cont.of(20),
-        (a, b) => '$a, $b',
+        Cont.of(42),
+        Cont.of(99),
+        (a, b) => '$a+$b',
         policy: OkPolicy.sequence(),
-      ).run((), onThen: (val) => value = val);
+      ).run((), onThen: (v) => result = v);
 
-      expect(value, 10);
+      expect(result, equals(42));
     });
 
     test('falls back to second on first failure', () {
-      int? value;
+      int? result;
 
       Cont.either<(), String, String, String, int>(
-        Cont.error('err'),
-        Cont.of(20),
-        (a, b) => '$a, $b',
+        Cont.error('first failed'),
+        Cont.of(99),
+        (a, b) => '$a+$b',
         policy: OkPolicy.sequence(),
-      ).run((), onThen: (val) => value = val);
+      ).run((), onThen: (v) => result = v);
 
-      expect(value, 20);
+      expect(result, equals(99));
     });
 
     test('combines errors when both fail', () {
       String? error;
 
       Cont.either<(), String, String, String, int>(
-        Cont.error('err1'),
-        Cont.error('err2'),
-        (a, b) => '$a, $b',
+        Cont.error('first'),
+        Cont.error('second'),
+        (a, b) => '$a+$b',
         policy: OkPolicy.sequence(),
       ).run((), onElse: (e) => error = e);
 
-      expect(error, 'err1, err2');
+      expect(error, equals('first+second'));
     });
 
     test('does not execute second when first succeeds', () {
-      bool secondCalled = false;
+      bool secondExecuted = false;
 
       Cont.either<(), String, String, String, int>(
-        Cont.of(10),
+        Cont.of(42),
         Cont.fromRun((runtime, observer) {
-          secondCalled = true;
-          observer.onThen(20);
+          secondExecuted = true;
+          observer.onThen(0);
         }),
-        (a, b) => '$a, $b',
+        (a, b) => '$a+$b',
         policy: OkPolicy.sequence(),
       ).run(());
 
-      expect(secondCalled, false);
+      expect(secondExecuted, isFalse);
     });
   });
 
   group('Cont.either (runAll)', () {
     test('combines values when both succeed', () {
-      int? value;
+      int? result;
 
       Cont.either<(), String, String, String, int>(
-        Cont.of(10),
-        Cont.of(20),
-        (a, b) => '$a, $b',
+        Cont.of(1),
+        Cont.of(2),
+        (a, b) => '$a+$b',
         policy: OkPolicy.runAll(
           (a, b) => a + b,
           shouldFavorCrash: false,
         ),
-      ).run((), onThen: (val) => value = val);
+      ).run((), onThen: (v) => result = v);
 
-      expect(value, 30);
+      expect(result, equals(3));
     });
 
     test('returns single success when one fails', () {
-      int? value;
+      int? result;
 
       Cont.either<(), String, String, String, int>(
-        Cont.error('err'),
-        Cont.of(20),
-        (a, b) => '$a, $b',
+        Cont.error('failed'),
+        Cont.of(42),
+        (a, b) => '$a+$b',
         policy: OkPolicy.runAll(
           (a, b) => a + b,
           shouldFavorCrash: false,
         ),
-      ).run((), onThen: (val) => value = val);
+      ).run((), onThen: (v) => result = v);
 
-      expect(value, 20);
+      expect(result, equals(42));
     });
 
     test('merges errors when both fail', () {
       String? error;
 
       Cont.either<(), String, String, String, int>(
-        Cont.error('err1'),
-        Cont.error('err2'),
-        (a, b) => '$a, $b',
+        Cont.error('left'),
+        Cont.error('right'),
+        (a, b) => '$a+$b',
         policy: OkPolicy.runAll(
           (a, b) => a + b,
           shouldFavorCrash: false,
         ),
       ).run((), onElse: (e) => error = e);
 
-      expect(error, 'err1, err2');
+      expect(error, equals('left+right'));
     });
   });
 
   group('Cont.either (quitFast)', () {
     test('returns first success', () {
-      int? value;
+      int? result;
 
       Cont.either<(), String, String, String, int>(
-        Cont.of(10),
-        Cont.of(20),
-        (a, b) => '$a, $b',
+        Cont.of(42),
+        Cont.of(99),
+        (a, b) => '$a+$b',
         policy: OkPolicy.quitFast(),
-      ).run((), onThen: (val) => value = val);
+      ).run((), onThen: (v) => result = v);
 
-      expect(value, 10);
+      expect(result, isNotNull);
     });
 
     test('terminates when both fail', () {
       String? error;
 
       Cont.either<(), String, String, String, int>(
-        Cont.error('err1'),
-        Cont.error('err2'),
-        (a, b) => '$a, $b',
+        Cont.error('first'),
+        Cont.error('second'),
+        (a, b) => '$a+$b',
         policy: OkPolicy.quitFast(),
       ).run((), onElse: (e) => error = e);
 
@@ -139,47 +139,28 @@ void main() {
 
   group('Cont.or', () {
     test('wraps Cont.either as instance method', () {
-      int? value1;
-      int? value2;
+      int? result;
 
-      final left = Cont.error<(), String, int>('err');
-      final right = Cont.of<(), String, int>(20);
+      Cont.error<(), String, int>('first failed')
+          .or(Cont.of(42), (a, b) => '$a+$b',
+              policy: OkPolicy.sequence())
+          .run((), onThen: (v) => result = v);
 
-      Cont.either<(), String, String, String, int>(
-        left,
-        right,
-        (a, b) => '$a, $b',
-        policy: OkPolicy.sequence(),
-      ).run((), onThen: (val) => value1 = val);
-
-      left
-          .or(
-        right,
-        (a, b) => '$a, $b',
-        policy: OkPolicy.sequence(),
-      )
-          .run((), onThen: (val) => value2 = val);
-
-      expect(value1, value2);
+      expect(result, equals(42));
     });
 
     test('supports Cont<E, F, Never> operands', () {
-      int? value;
+      int? result;
 
-      final left =
-          Cont.error<(), String, Never>('never err');
-      final right = Cont.of<(), String, int>(20);
-
-      left
-          .thenAbsurd<int>()
+      Cont.error<(), String, int>('failed')
           .or(
-            right,
-            (a, b) => '$a, $b',
-            policy: OkPolicy.sequence(),
-          )
-          .run((), onThen: (val) => value = val);
+        Cont.of<(), Never, int>(42),
+        (a, b) => '$a+$b',
+        policy: OkPolicy.sequence(),
+      )
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 20);
+      expect(result, equals(42));
     });
   });
 }

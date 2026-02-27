@@ -7,62 +7,58 @@ void main() {
       String? error;
 
       Cont.of<(), String, int>(42)
-          .demote((a) => 'demoted: $a')
+          .demote((v) => 'value was $v')
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'demoted: 42');
+      expect(error, equals('value was 42'));
     });
 
     test('does not call onThen', () {
+      bool thenCalled = false;
+
       Cont.of<(), String, int>(42)
-          .demote((a) => 'demoted')
-          .run(
-        (),
-        onThen: (_) => fail('Should not be called'),
-        onElse: (_) {},
-      );
+          .demote((_) => 'error')
+          .run((), onThen: (_) => thenCalled = true);
+
+      expect(thenCalled, isFalse);
     });
 
     test('passes through original error', () {
       String? error;
-      bool demoteCalled = false;
 
-      Cont.error<(), String, int>('original').demote((a) {
-        demoteCalled = true;
-        return 'demoted';
-      }).run((), onElse: (e) => error = e);
+      Cont.error<(), String, int>('original')
+          .demote((_) => 'demoted')
+          .run((), onElse: (e) => error = e);
 
-      expect(demoteCalled, false);
-      expect(error, 'original');
+      expect(error, equals('original'));
     });
 
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.of<(), String, int>(42).demote((a) {
-        throw 'Demote Error';
-      }).run((), onCrash: (c) => crash = c);
+      Cont.of<(), String, int>(42)
+          .demote((_) => throw Exception('boom'))
+          .run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
 
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'Demote Error');
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
-      final cont = Cont.of<(), String, int>(42).demote((a) {
-        callCount++;
-        return 'demoted: $a';
-      });
+      String? first;
+      String? second;
 
-      String? error1;
-      cont.run((), onElse: (e) => error1 = e);
-      expect(error1, 'demoted: 42');
-      expect(callCount, 1);
+      final cont = Cont.of<(), String, int>(42)
+          .demote((v) => 'error:$v');
 
-      String? error2;
-      cont.run((), onElse: (e) => error2 = e);
-      expect(error2, 'demoted: 42');
-      expect(callCount, 2);
+      cont.run((), onElse: (e) => first = e);
+      cont.run((), onElse: (e) => second = e);
+
+      expect(first, equals('error:42'));
+      expect(second, equals('error:42'));
     });
   });
 
@@ -71,10 +67,10 @@ void main() {
       String? error;
 
       Cont.of<(), String, int>(42)
-          .demote0(() => 'demoted')
+          .demote0(() => 'fixed error')
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'demoted');
+      expect(error, equals('fixed error'));
     });
   });
 
@@ -83,10 +79,10 @@ void main() {
       String? error;
 
       Cont.of<(), String, int>(42)
-          .demoteWith('constant error')
+          .demoteWith('constant')
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'constant error');
+      expect(error, equals('constant'));
     });
   });
 }

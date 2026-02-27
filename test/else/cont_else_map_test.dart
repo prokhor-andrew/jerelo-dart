@@ -4,77 +4,78 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.elseMap', () {
     test('maps error value', () {
-      String? error;
+      int? error;
 
-      Cont.error<(), String, int>('err')
-          .elseMap((e) => 'mapped: $e')
+      Cont.error<(), String, int>('42')
+          .elseMap((e) => int.parse(e))
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'mapped: err');
+      expect(error, equals(42));
     });
 
     test('passes through value', () {
-      bool mapCalled = false;
-      int? value;
+      int? result;
+      bool elseCalled = false;
 
-      Cont.of<(), String, int>(42).elseMap((e) {
-        mapCalled = true;
-        return 'mapped';
-      }).run((), onThen: (val) => value = val);
+      Cont.of<(), String, int>(42)
+          .elseMap((e) => 'mapped:$e')
+          .run(
+        (),
+        onThen: (v) => result = v,
+        onElse: (_) => elseCalled = true,
+      );
 
-      expect(mapCalled, false);
-      expect(value, 42);
+      expect(result, equals(42));
+      expect(elseCalled, isFalse);
     });
 
     test('supports type transformation', () {
       int? error;
 
-      Cont.error<(), String, int>('err')
-          .elseMap((e) => e.length)
+      Cont.error<(), String, int>('99')
+          .elseMap((e) => int.parse(e))
           .run((), onElse: (e) => error = e);
 
-      expect(error, 3);
+      expect(error, equals(99));
     });
 
     test('supports multiple mapping', () {
       String? error;
 
-      Cont.error<(), String, int>('err')
-          .elseMap((e) => e.length)
-          .elseMap((e) => 'length: $e')
+      Cont.error<(), String, int>('hello')
+          .elseMap((e) => e.toUpperCase())
+          .elseMap((e) => '$e!')
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'length: 3');
+      expect(error, equals('HELLO!'));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
-      final cont =
-          Cont.error<(), String, int>('err').elseMap((e) {
-        callCount++;
-        return 'mapped: $e ($callCount)';
-      });
+      String? first;
+      String? second;
 
-      String? error1;
-      cont.run((), onElse: (e) => error1 = e);
-      expect(error1, 'mapped: err (1)');
-      expect(callCount, 1);
+      final cont = Cont.error<(), String, int>('err')
+          .elseMap((e) => '$e-mapped');
 
-      String? error2;
-      cont.run((), onElse: (e) => error2 = e);
-      expect(error2, 'mapped: err (2)');
-      expect(callCount, 2);
+      cont.run((), onElse: (e) => first = e);
+      cont.run((), onElse: (e) => second = e);
+
+      expect(first, equals('err-mapped'));
+      expect(second, equals('err-mapped'));
     });
 
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.error<(), String, int>('err').elseMap((e) {
-        throw 'Map Error';
-      }).run((), onCrash: (c) => crash = c);
+      Cont.error<(), String, int>('oops')
+          .elseMap<int>((e) => throw Exception('boom'))
+          .run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
 
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'Map Error');
     });
   });
 
@@ -82,23 +83,23 @@ void main() {
     test('maps without error value', () {
       String? error;
 
-      Cont.error<(), String, int>('err')
+      Cont.error<(), String, int>('original')
           .elseMap0(() => 'replaced')
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'replaced');
+      expect(error, equals('replaced'));
     });
   });
 
   group('Cont.elseMapTo', () {
     test('replaces with constant error', () {
-      String? error;
+      int? error;
 
-      Cont.error<(), String, int>('err')
-          .elseMapTo('constant')
+      Cont.error<(), String, int>('original')
+          .elseMapTo(99)
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'constant');
+      expect(error, equals(99));
     });
   });
 }

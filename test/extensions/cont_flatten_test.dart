@@ -4,55 +4,52 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.flatten', () {
     test('unwraps nested Cont with value', () {
-      int? value;
+      int? result;
 
       Cont.of<(), String, Cont<(), String, int>>(
-        Cont.of(42),
-      ).flatten().run((), onThen: (val) => value = val);
+              Cont.of(42))
+          .flatten()
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 42);
+      expect(result, equals(42));
     });
 
     test('unwraps nested Cont with error', () {
       String? error;
 
       Cont.of<(), String, Cont<(), String, int>>(
-        Cont.error('inner err'),
-      ).flatten().run((), onElse: (e) => error = e);
+              Cont.error('inner error'))
+          .flatten()
+          .run((), onElse: (e) => error = e);
 
-      expect(error, 'inner err');
+      expect(error, equals('inner error'));
     });
 
     test('passes through outer error', () {
       String? error;
 
       Cont.error<(), String, Cont<(), String, int>>(
-              'outer err')
+              'outer error')
           .flatten()
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'outer err');
+      expect(error, equals('outer error'));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
+      int? first;
+      int? second;
+
       final cont =
           Cont.of<(), String, Cont<(), String, int>>(
-        Cont.fromRun((runtime, observer) {
-          callCount++;
-          observer.onThen(42);
-        }),
-      ).flatten();
+                  Cont.of(42))
+              .flatten();
 
-      int? value1;
-      cont.run((), onThen: (val) => value1 = val);
-      expect(value1, 42);
-      expect(callCount, 1);
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
 
-      int? value2;
-      cont.run((), onThen: (val) => value2 = val);
-      expect(value2, 42);
-      expect(callCount, 2);
+      expect(first, equals(42));
+      expect(second, equals(42));
     });
   });
 }

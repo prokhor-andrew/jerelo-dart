@@ -171,7 +171,6 @@ final class _ValueCrashOr<T> extends CrashOr<T> {
 
   const _ValueCrashOr(this.value);
 
-
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) {

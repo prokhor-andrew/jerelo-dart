@@ -4,50 +4,46 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.absurdify', () {
     test('widens Cont with Never types via absurdify', () {
-      final neverCont = Cont.fromRun<(), Never, Never>(
-        (runtime, observer) {
-          // never completes
-        },
-      );
+      int? result;
 
-      // absurdify is a no-op when types are already widened
-      final widened = neverCont.absurdify();
+      // Cont<(), Never, int> used where Cont<(), String, int> is expected
+      final Cont<(), String, int> widened =
+          Cont.of<(), Never, int>(42).absurdify();
+      widened.run((), onThen: (v) => result = v);
 
-      expect(widened, isA<Cont<(), Never, Never>>());
+      expect(result, equals(42));
     });
 
     test('elseAbsurd widens Never error type', () {
-      int? value;
+      int? result;
 
-      final neverErrorCont = Cont.of<(), Never, int>(42);
-      final widened = neverErrorCont.elseAbsurd<String>();
+      // Cont<(), Never, int>.elseAbsurd<String>() = Cont<(), String, int>
+      Cont.of<(), Never, int>(42)
+          .elseAbsurd<String>()
+          .run((), onThen: (v) => result = v);
 
-      widened.run((), onThen: (val) => value = val);
-
-      expect(value, 42);
+      expect(result, equals(42));
     });
 
     test('thenAbsurd widens Never value type', () {
       String? error;
 
-      final neverValueCont =
-          Cont.error<(), String, Never>('err');
-      final widened = neverValueCont.thenAbsurd<int>();
+      // Cont<(), String, Never>.thenAbsurd<int>() = Cont<(), String, int>
+      Cont.error<(), String, Never>('oops')
+          .thenAbsurd<int>()
+          .run((), onElse: (e) => error = e);
 
-      widened.run((), onElse: (e) => error = e);
-
-      expect(error, 'err');
+      expect(error, equals('oops'));
     });
 
     test('absurdify is idempotent on normal types', () {
-      int? value;
+      int? result;
 
-      final cont = Cont.of<(), String, int>(42);
-      final absurdified = cont.absurdify();
+      Cont.of<(), String, int>(42)
+          .absurdify()
+          .run((), onThen: (v) => result = v);
 
-      absurdified.run((), onThen: (val) => value = val);
-
-      expect(value, 42);
+      expect(result, equals(42));
     });
   });
 }

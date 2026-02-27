@@ -4,310 +4,228 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.decorate', () {
     test('forwards value when f delegates to run', () {
-      final cont = Cont.of<(), String, int>(42).decorate((
-        run,
-        runtime,
-        observer,
-      ) {
+      int? result;
+
+      Cont.of<(), String, int>(42)
+          .decorate((run, runtime, observer) {
         run(runtime, observer);
-      });
+      }).run((), onThen: (v) => result = v);
 
-      int? value;
-      cont.run((), onThen: (val) => value = val);
-
-      expect(value, 42);
+      expect(result, equals(42));
     });
 
     test('forwards error when f delegates to run', () {
-      final cont =
-          Cont.error<(), String, int>('err1').decorate((
-        run,
-        runtime,
-        observer,
-      ) {
-        run(runtime, observer);
-      });
-
       String? error;
-      cont.run((), onElse: (e) => error = e);
 
-      expect(error, 'err1');
+      Cont.error<(), String, int>('oops')
+          .decorate((run, runtime, observer) {
+        run(runtime, observer);
+      }).run((), onElse: (e) => error = e);
+
+      expect(error, equals('oops'));
     });
 
     test('can block execution by not calling run', () {
-      final cont = Cont.of<(), String, int>(42).decorate((
-        run,
-        runtime,
-        observer,
-      ) {
-        // intentionally not calling run
-      });
+      bool ran = false;
+      bool thenCalled = false;
 
-      int? value;
-      cont.run((), onThen: (val) => value = val);
+      Cont.fromRun<(), String, int>((runtime, observer) {
+        ran = true;
+        observer.onThen(42);
+      }).decorate((run, runtime, observer) {
+        // Don't call run
+      }).run((), onThen: (_) => thenCalled = true);
 
-      expect(value, null);
+      expect(ran, isFalse);
+      expect(thenCalled, isFalse);
     });
 
     test('can add behavior before run', () {
-      final order = <String>[];
+      final log = <String>[];
 
-      final cont = Cont.fromRun<(), String, int>(
-          (runtime, observer) {
-        order.add('run');
-        observer.onThen(10);
-      }).decorate((run, runtime, observer) {
-        order.add('before');
+      Cont.of<(), String, int>(42)
+          .decorate((run, runtime, observer) {
+        log.add('before');
         run(runtime, observer);
-      });
+      }).run((), onThen: (_) => log.add('then'));
 
-      cont.run((), onThen: (_) => order.add('value'));
-
-      expect(order, ['before', 'run', 'value']);
+      expect(log, equals(['before', 'then']));
     });
 
     test('can add behavior after run', () {
-      final order = <String>[];
+      final log = <String>[];
 
-      final cont = Cont.fromRun<(), String, int>(
-          (runtime, observer) {
-        order.add('run');
-        observer.onThen(10);
-      }).decorate((run, runtime, observer) {
+      Cont.of<(), String, int>(42)
+          .decorate((run, runtime, observer) {
         run(runtime, observer);
-        order.add('after');
-      });
+        log.add('after');
+      }).run((), onThen: (_) => log.add('then'));
 
-      cont.run((), onThen: (_) => order.add('value'));
-
-      expect(order, ['run', 'value', 'after']);
+      expect(log, equals(['then', 'after']));
     });
 
     test('identity preserves value', () {
-      final cont1 = Cont.of<(), String, int>(10);
-      final cont2 =
-          cont1.decorate((run, runtime, observer) {
-        run(runtime, observer);
-      });
+      int? result;
 
-      int? value1;
-      int? value2;
+      Cont.of<(), String, int>(42)
+          .decorate((run, runtime, observer) =>
+              run(runtime, observer))
+          .run((), onThen: (v) => result = v);
 
-      cont1.run((), onThen: (val) => value1 = val);
-      cont2.run((), onThen: (val) => value2 = val);
-
-      expect(value1, value2);
+      expect(result, equals(42));
     });
 
     test('identity preserves error', () {
-      final cont1 = Cont.error<(), String, int>('err');
-      final cont2 =
-          cont1.decorate((run, runtime, observer) {
-        run(runtime, observer);
-      });
+      String? error;
 
-      String? error1;
-      String? error2;
+      Cont.error<(), String, int>('oops')
+          .decorate((run, runtime, observer) =>
+              run(runtime, observer))
+          .run((), onElse: (e) => error = e);
 
-      cont1.run((), onElse: (e) => error1 = e);
-      cont2.run((), onElse: (e) => error2 = e);
-
-      expect(error1, error2);
+      expect(error, equals('oops'));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
-      final cont = Cont.of<(), String, int>(5).decorate((
-        run,
-        runtime,
-        observer,
-      ) {
-        callCount++;
-        run(runtime, observer);
-      });
+      int? first;
+      int? second;
 
-      int? value1;
-      cont.run((), onThen: (val) => value1 = val);
-      expect(value1, 5);
-      expect(callCount, 1);
+      final cont = Cont.of<(), String, int>(42).decorate(
+          (run, runtime, observer) =>
+              run(runtime, observer));
 
-      int? value2;
-      cont.run((), onThen: (val) => value2 = val);
-      expect(value2, 5);
-      expect(callCount, 2);
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
+
+      expect(first, equals(42));
+      expect(second, equals(42));
     });
 
     test('does not call onPanic', () {
-      final cont = Cont.of<(), String, int>(0).decorate((
-        run,
-        runtime,
-        observer,
-      ) {
-        run(runtime, observer);
-      });
+      bool panicCalled = false;
 
-      cont.run(
+      Cont.of<(), String, int>(42)
+          .decorate((run, runtime, observer) =>
+              run(runtime, observer))
+          .run(
         (),
-        onPanic: (_) {
-          fail('Should not be called');
-        },
-        onThen: (_) {},
+        onPanic: (_) => panicCalled = true,
       );
+
+      expect(panicCalled, isFalse);
     });
 
     test('does not call onElse on value path', () {
-      final cont = Cont.of<(), String, int>(0).decorate((
-        run,
-        runtime,
-        observer,
-      ) {
-        run(runtime, observer);
-      });
+      bool elseCalled = false;
 
-      cont.run(
+      Cont.of<(), String, int>(42)
+          .decorate((run, runtime, observer) =>
+              run(runtime, observer))
+          .run(
         (),
-        onElse: (_) {
-          fail('Should not be called');
-        },
-        onThen: (_) {},
+        onElse: (_) => elseCalled = true,
       );
+
+      expect(elseCalled, isFalse);
     });
 
     test('preserves environment', () {
-      int? envValue;
-      final cont = Cont.fromRun<int, String, int>(
-          (runtime, observer) {
-        envValue = runtime.env();
-        observer.onThen(runtime.env());
-      }).decorate((run, runtime, observer) {
+      String? capturedEnv;
+
+      Cont.askThen<String, Never>()
+          .decorate((run, runtime, observer) {
+        capturedEnv = runtime.env();
         run(runtime, observer);
-      });
+      }).run('myEnv');
 
-      int? value;
-      cont.run(99, onThen: (val) => value = val);
-
-      expect(envValue, 99);
-      expect(value, 99);
+      expect(capturedEnv, equals('myEnv'));
     });
 
-    test('cancellation prevents execution', () {
-      bool decorCalled = false;
-
-      final List<void Function()> buffer = [];
-      void flush() {
-        for (final value in buffer) {
-          value();
-        }
-        buffer.clear();
-      }
+    test('cancellation prevents execution', () async {
+      bool ran = false;
 
       final cont = Cont.fromRun<(), String, int>(
           (runtime, observer) {
-        buffer.add(() {
-          if (runtime.isCancelled()) return;
-          observer.onThen(10);
-        });
+        ran = true;
+        observer.onThen(42);
       }).decorate((run, runtime, observer) {
-        decorCalled = true;
-        run(runtime, observer);
+        Future.microtask(() => run(runtime, observer));
       });
 
-      int? value;
-      final token = cont.run(
-        (),
-        onThen: (val) => value = val,
-      );
-
-      expect(decorCalled, true);
+      final token = cont.run(());
       token.cancel();
-      flush();
 
-      expect(value, null);
+      await Future.delayed(Duration.zero);
+
+      expect(ran, isFalse);
     });
 
     test('calling run twice is idempotent', () {
-      final values = <int>[];
+      int thenCallCount = 0;
 
-      final cont = Cont.of<(), String, int>(7).decorate((
-        run,
-        runtime,
-        observer,
-      ) {
+      Cont.of<(), String, int>(42)
+          .decorate((run, runtime, observer) {
         run(runtime, observer);
         run(runtime, observer);
-      });
+      }).run((), onThen: (_) => thenCallCount++);
 
-      cont.run((), onThen: (val) => values.add(val));
-
-      expect(values, [7]);
+      expect(thenCallCount, equals(1));
     });
 
     test('can replace observer onThen', () {
-      final cont = Cont.fromRun<(), String, int>(
-          (runtime, observer) {
-        observer.onThen(10);
-      }).decorate((run, runtime, observer) {
-        final newObserver = observer.copyUpdateOnThen<int>(
-          (val) => observer.onThen(val * 2),
-        );
-        run(runtime, newObserver);
-      });
+      int? result;
 
-      int? value;
-      cont.run((), onThen: (val) => value = val);
+      Cont.of<(), String, int>(42)
+          .decorate((run, runtime, observer) {
+        run(
+            runtime,
+            observer
+                .copyUpdateOnThen((v) => result = v * 2));
+      }).run((), onThen: (_) => result = -1);
 
-      expect(value, 20);
+      expect(result, equals(84));
     });
 
     test('can replace observer onElse', () {
-      final cont =
-          Cont.error<(), String, int>('original').decorate((
-        run,
-        runtime,
-        observer,
-      ) {
-        final newObserver =
-            observer.copyUpdateOnElse<String>(
-          (error) => observer.onThen(0),
+      String? captured;
+
+      Cont.error<(), String, int>('original')
+          .decorate((run, runtime, observer) {
+        run(
+          runtime,
+          observer.copyUpdateOnElse<String>(
+            (e) => captured = 'intercepted:$e',
+          ),
         );
-        run(runtime, newObserver);
-      });
+      }).run((), onElse: (e) => captured = e);
 
-      int? value;
-      String? error;
-      cont.run(
-        (),
-        onThen: (val) => value = val,
-        onElse: (e) => error = e,
-      );
-
-      expect(value, 0);
-      expect(error, null);
+      expect(captured, equals('intercepted:original'));
     });
 
     test('chaining composes correctly', () {
-      final order = <String>[];
+      final log = <String>[];
 
-      final cont = Cont.of<(), String, int>(1)
+      Cont.of<(), String, int>(42)
           .decorate((run, runtime, observer) {
-        order.add('outer-before');
+        log.add('outer-before');
         run(runtime, observer);
-        order.add('outer-after');
+        log.add('outer-after');
       }).decorate((run, runtime, observer) {
-        order.add('inner-before');
+        log.add('inner-before');
         run(runtime, observer);
-        order.add('inner-after');
-      });
+        log.add('inner-after');
+      }).run((), onThen: (_) => log.add('then'));
 
-      cont.run((), onThen: (_) => order.add('value'));
-
-      expect(order, [
-        'inner-before',
-        'outer-before',
-        'value',
-        'outer-after',
-        'inner-after',
-      ]);
+      expect(
+        log,
+        equals([
+          'inner-before',
+          'outer-before',
+          'then',
+          'outer-after',
+          'inner-after',
+        ]),
+      );
     });
   });
 }

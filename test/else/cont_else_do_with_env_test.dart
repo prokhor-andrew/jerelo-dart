@@ -4,62 +4,64 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.elseDoWithEnv', () {
     test('receives environment and error', () {
-      String? received;
+      String? capturedEnv;
+      String? capturedError;
+      int? result;
 
-      Cont.error<String, String, int>('err')
+      Cont.error<String, String, int>('oops')
           .elseDoWithEnv((env, error) {
-        received = '$env: $error';
+        capturedEnv = env;
+        capturedError = error;
         return Cont.of(42);
-      }).run('hello', onThen: (_) {});
+      }).run('myEnv', onThen: (v) => result = v);
 
-      expect(received, 'hello: err');
+      expect(capturedEnv, equals('myEnv'));
+      expect(capturedError, equals('oops'));
+      expect(result, equals(42));
     });
 
     test('passes through value path', () {
-      bool chainCalled = false;
-      int? value;
+      bool called = false;
+      int? result;
 
       Cont.of<String, String, int>(42)
-          .elseDoWithEnv<String>((env, error) {
-        chainCalled = true;
+          .elseDoWithEnv((env, error) {
+        called = true;
         return Cont.of(0);
-      }).run('hello', onThen: (val) => value = val);
+      }).run('myEnv', onThen: (v) => result = v);
 
-      expect(chainCalled, false);
-      expect(value, 42);
+      expect(called, isFalse);
+      expect(result, equals(42));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
-      final cont = Cont.error<String, String, int>('err')
-          .elseDoWithEnv((env, error) {
-        callCount++;
-        return Cont.of(callCount);
-      });
+      int? first;
+      int? second;
 
-      int? value1;
-      cont.run('env1', onThen: (val) => value1 = val);
-      expect(value1, 1);
-      expect(callCount, 1);
+      final cont = Cont.error<int, String, int>('err')
+          .elseDoWithEnv((env, _) => Cont.of(env));
 
-      int? value2;
-      cont.run('env2', onThen: (val) => value2 = val);
-      expect(value2, 2);
-      expect(callCount, 2);
+      cont.run(10, onThen: (v) => first = v);
+      cont.run(20, onThen: (v) => second = v);
+
+      expect(first, equals(10));
+      expect(second, equals(20));
     });
   });
 
   group('Cont.elseDoWithEnv0', () {
     test('receives environment only', () {
-      String? received;
+      String? capturedEnv;
+      int? result;
 
-      Cont.error<String, String, int>('err')
+      Cont.error<String, String, int>('oops')
           .elseDoWithEnv0((env) {
-        received = 'env: $env';
-        return Cont.of(42);
-      }).run('hello', onThen: (_) {});
+        capturedEnv = env;
+        return Cont.of(0);
+      }).run('myEnv', onThen: (v) => result = v);
 
-      expect(received, 'env: hello');
+      expect(capturedEnv, equals('myEnv'));
+      expect(result, equals(0));
     });
   });
 }

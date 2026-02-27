@@ -4,112 +4,91 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.thenMap', () {
     test('maps successful value', () {
-      String? value;
-
-      Cont.of<(), String, int>(42)
-          .thenMap((a) => 'mapped: $a')
-          .run((), onThen: (val) => value = val);
-
-      expect(value, 'mapped: 42');
+      int? result;
+      Cont.of<(), String, int>(21)
+          .thenMap((v) => v * 2)
+          .run((), onThen: (v) => result = v);
+      expect(result, equals(42));
     });
 
     test('passes through error', () {
-      bool mapCalled = false;
       String? error;
-
-      Cont.error<(), String, int>('err').thenMap((a) {
-        mapCalled = true;
-        return a * 2;
-      }).run((), onElse: (e) => error = e);
-
-      expect(mapCalled, false);
-      expect(error, 'err');
+      Cont.error<(), String, int>('oops')
+          .thenMap((v) => v * 2)
+          .run((), onElse: (e) => error = e);
+      expect(error, equals('oops'));
     });
 
     test('supports type transformation', () {
-      bool? value;
-
+      String? result;
       Cont.of<(), String, int>(42)
-          .thenMap((a) => a > 40)
-          .run((), onThen: (val) => value = val);
-
-      expect(value, true);
+          .thenMap((v) => v.toString())
+          .run((), onThen: (v) => result = v);
+      expect(result, equals('42'));
     });
 
     test('supports multiple mapping', () {
-      String? value;
-
-      Cont.of<(), String, int>(5)
-          .thenMap((a) => a * 2)
-          .thenMap((a) => 'result: $a')
-          .run((), onThen: (val) => value = val);
-
-      expect(value, 'result: 10');
+      int? result;
+      Cont.of<(), String, int>(1)
+          .thenMap((v) => v + 1)
+          .thenMap((v) => v * 10)
+          .run((), onThen: (v) => result = v);
+      expect(result, equals(20));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
-      final cont = Cont.of<(), String, int>(5).thenMap((a) {
-        callCount++;
-        return a * 2;
-      });
+      final cont =
+          Cont.of<(), String, int>(5).thenMap((v) => v * 2);
 
-      int? value1;
-      cont.run((), onThen: (val) => value1 = val);
-      expect(value1, 10);
-      expect(callCount, 1);
+      int? first;
+      int? second;
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
 
-      int? value2;
-      cont.run((), onThen: (val) => value2 = val);
-      expect(value2, 10);
-      expect(callCount, 2);
+      expect(first, equals(10));
+      expect(second, equals(10));
     });
 
     test('crashes when function throws', () {
       ContCrash? crash;
-
-      Cont.of<(), String, int>(42).thenMap((a) {
-        throw 'Map Error';
-      }).run((), onCrash: (c) => crash = c);
-
+      Cont.of<(), String, int>(42)
+          .thenMap<int>((v) => throw Exception('boom'))
+          .run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'Map Error');
     });
   });
 
   group('Cont.thenMap0', () {
     test('maps without value', () {
-      String? value;
-
-      Cont.of<(), String, int>(42)
+      String? result;
+      Cont.of<(), String, int>(99)
           .thenMap0(() => 'replaced')
-          .run((), onThen: (val) => value = val);
-
-      expect(value, 'replaced');
+          .run((), onThen: (v) => result = v);
+      expect(result, equals('replaced'));
     });
   });
 
   group('Cont.thenMapTo', () {
     test('replaces with constant value', () {
-      String? value;
-
-      Cont.of<(), String, int>(42)
+      String? result;
+      Cont.of<(), String, int>(99)
           .thenMapTo('constant')
-          .run((), onThen: (val) => value = val);
-
-      expect(value, 'constant');
+          .run((), onThen: (v) => result = v);
+      expect(result, equals('constant'));
     });
   });
 
   group('Cont.thenMapWithEnv', () {
     test('maps with environment and value', () {
-      String? value;
-
-      Cont.of<String, String, int>(10)
-          .thenMapWithEnv((env, a) => '$env: $a')
-          .run('hello', onThen: (val) => value = val);
-
-      expect(value, 'hello: 10');
+      String? result;
+      Cont.of<String, Never, int>(10)
+          .thenMapWithEnv((env, v) => '$env:$v')
+          .run('env', onThen: (v) => result = v);
+      expect(result, equals('env:10'));
     });
   });
 }

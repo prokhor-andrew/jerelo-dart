@@ -5,114 +5,87 @@ void main() {
   group('Cont.askThen', () {
     test('Cont.askThen triggers onThen with same value',
         () {
-      final cont = Cont.askThen<int, String>();
-
-      var value = 0;
-
-      expect(value, 0);
-
-      cont.run(
-        5,
-        onThen: (val) {
-          value = val;
-        },
+      int? result;
+      Cont.askThen<int, String>().run(
+        42,
+        onThen: (v) => result = v,
       );
-
-      expect(value, 5);
+      expect(result, equals(42));
     });
 
     test('Cont.askThen triggers onThen with same null', () {
-      final cont = Cont.askThen<int?, String>();
-
-      int? value = 0;
-
-      expect(value, 0);
-
-      cont.run(
+      int? result;
+      bool called = false;
+      Cont.askThen<int?, String>().run(
         null,
-        onThen: (val) {
-          value = val;
+        onThen: (v) {
+          called = true;
+          result = v;
         },
       );
-
-      expect(value, null);
+      expect(called, isTrue);
+      expect(result, isNull);
     });
 
     test('Cont.askThen preserves environment identity', () {
-      final env = [1, 2, 3];
-      final cont = Cont.askThen<List<int>, String>();
-
-      Object? received;
-
-      cont.run(
+      final env = Object();
+      Object? captured;
+      Cont.askThen<Object, Never>().run(
         env,
-        onThen: (val) {
-          received = val;
-        },
+        onThen: (v) => captured = v,
       );
-
-      expect(identical(env, received), isTrue);
+      expect(identical(captured, env), isTrue);
     });
 
     test('Cont.askThen does not trigger onElse', () {
-      final cont = Cont.askThen<int, String>();
-
-      cont.run(
-        5,
-        onElse: (_) {
-          fail('Must not be called');
-        },
+      bool elseCalled = false;
+      Cont.askThen<int, String>().run(
+        42,
+        onElse: (_) => elseCalled = true,
       );
+      expect(elseCalled, isFalse);
     });
 
     test('Cont.askThen does not trigger onPanic', () {
-      final cont = Cont.askThen<int, String>();
-
-      cont.run(
-        5,
-        onPanic: (_) {
-          fail('Must not be called');
-        },
+      bool panicCalled = false;
+      Cont.askThen<int, String>().run(
+        42,
+        onPanic: (_) => panicCalled = true,
       );
+      expect(panicCalled, isFalse);
     });
 
     test('Cont.askThen can be run multiple times', () {
-      var callCount = 0;
       final cont = Cont.askThen<int, String>();
 
-      cont.run(0, onThen: (_) => callCount++);
-      cont.run(0, onThen: (_) => callCount++);
+      int? first;
+      int? second;
+      cont.run(1, onThen: (v) => first = v);
+      cont.run(2, onThen: (v) => second = v);
 
-      expect(callCount, 2);
+      expect(first, equals(1));
+      expect(second, equals(2));
     });
   });
 
   group('Cont.askElse', () {
     test('Cont.askElse triggers onElse with environment',
         () {
-      final cont = Cont.askElse<int, int>();
-
-      int? error;
-
-      cont.run(
-        5,
-        onElse: (val) {
-          error = val;
-        },
+      int? result;
+      Cont.askElse<int, Never>().run(
+        42,
+        onElse: (e) => result = e,
       );
-
-      expect(error, 5);
+      expect(result, equals(42));
     });
 
     test('Cont.askElse does not trigger onThen', () {
-      final cont = Cont.askElse<int, int>();
-
-      cont.run(
-        5,
-        onThen: (_) {
-          fail('Must not be called');
-        },
+      bool thenCalled = false;
+      Cont.askElse<int, Never>().run(
+        42,
+        onThen: (_) => thenCalled = true,
       );
+      expect(thenCalled, isFalse);
     });
   });
 }

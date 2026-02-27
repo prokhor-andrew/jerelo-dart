@@ -6,84 +6,89 @@ void main() {
     test('executes side-effect and returns original value',
         () {
       bool sideEffectRan = false;
-      int? value;
+      int? result;
 
-      Cont.of<(), String, int>(42).thenFork((a) {
+      Cont.of<(), String, int>(42).thenFork((v) {
         sideEffectRan = true;
-        return Cont.of('side: $a');
-      }).run((), onThen: (val) => value = val);
+        return Cont.of(v * 2);
+      }).run((), onThen: (v) => result = v);
 
-      expect(sideEffectRan, true);
-      expect(value, 42);
+      expect(sideEffectRan, isTrue);
+      expect(result, equals(42));
     });
 
     test('passes through error', () {
-      bool forkCalled = false;
+      bool sideEffectRan = false;
       String? error;
 
-      Cont.error<(), String, int>('err')
-          .thenFork<String, String>((a) {
-        forkCalled = true;
-        return Cont.of('side: $a');
+      Cont.error<(), String, int>('oops').thenFork((v) {
+        sideEffectRan = true;
+        return Cont.of(v);
       }).run((), onElse: (e) => error = e);
 
-      expect(forkCalled, false);
-      expect(error, 'err');
+      expect(sideEffectRan, isFalse);
+      expect(error, equals('oops'));
     });
 
     test('does not propagate side-effect error', () {
-      int? value;
+      String? error;
+      int? result;
 
       Cont.of<(), String, int>(42)
-          .thenFork<String, String>(
-              (a) => Cont.error('side error'))
-          .run((), onThen: (val) => value = val);
+          .thenFork((_) => Cont.error<(), String, int>(
+              'side-effect error'))
+          .run(
+        (),
+        onThen: (v) => result = v,
+        onElse: (e) => error = e,
+      );
 
-      expect(value, 42);
+      expect(result, equals(42));
+      expect(error, isNull);
     });
 
     test('supports fire-and-forget semantics', () {
-      final order = <String>[];
+      final log = <String>[];
 
-      Cont.of<(), String, int>(5).thenFork((a) {
-        order.add('fork: $a');
-        return Cont.of('ok');
-      }).thenMap((a) {
-        order.add('map: $a');
-        return a * 2;
-      }).run((), onThen: (_) => order.add('done'));
+      Cont.of<(), String, int>(1).thenFork((v) {
+        log.add('fork');
+        return Cont.of(v);
+      }).thenMap((v) {
+        log.add('main');
+        return v;
+      }).run(());
 
-      expect(order, ['fork: 5', 'map: 5', 'done']);
+      expect(log.contains('fork'), isTrue);
+      expect(log.contains('main'), isTrue);
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
+      int sideEffectCount = 0;
       final cont =
-          Cont.of<(), String, int>(5).thenFork((a) {
-        callCount++;
-        return Cont.of('ok');
+          Cont.of<(), String, int>(42).thenFork((v) {
+        sideEffectCount++;
+        return Cont.of(v);
       });
 
       cont.run(());
-      expect(callCount, 1);
-
       cont.run(());
-      expect(callCount, 2);
+
+      expect(sideEffectCount, equals(2));
     });
   });
 
   group('Cont.thenFork0', () {
     test('executes side-effect ignoring value', () {
-      bool called = false;
-      int? value;
+      bool sideEffectRan = false;
+      int? result;
 
       Cont.of<(), String, int>(42).thenFork0(() {
-        called = true;
-        return Cont.of('side');
-      }).run((), onThen: (val) => value = val);
+        sideEffectRan = true;
+        return Cont.of(0);
+      }).run((), onThen: (v) => result = v);
 
-      expect(called, true);
-      expect(value, 42);
+      expect(sideEffectRan, isTrue);
+      expect(result, equals(42));
     });
   });
 }

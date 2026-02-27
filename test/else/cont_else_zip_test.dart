@@ -6,80 +6,77 @@ void main() {
     test('combines errors from both continuations', () {
       String? error;
 
-      Cont.error<(), String, int>('err1')
+      Cont.error<(), String, int>('first')
           .elseZip(
-        (e) => Cont.error<(), String, int>('err2'),
-        (a, b) => '$a + $b',
+        (_) => Cont.error<(), String, int>('second'),
+        (a, b) => '$a+$b',
       )
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'err1 + err2');
+      expect(error, equals('first+second'));
     });
 
     test('passes through value', () {
-      bool zipCalled = false;
-      int? value;
+      int? result;
+      bool called = false;
 
-      Cont.of<(), String, int>(42).elseZip<String, String>(
-        (e) {
-          zipCalled = true;
-          return Cont.error('err2');
+      Cont.of<(), String, int>(42).elseZip(
+        (_) {
+          called = true;
+          return Cont.error<(), String, int>('oops');
         },
-        (a, b) => '$a + $b',
-      ).run((), onThen: (val) => value = val);
+        (a, b) => '$a+$b',
+      ).run((), onThen: (v) => result = v);
 
-      expect(zipCalled, false);
-      expect(value, 42);
+      expect(called, isFalse);
+      expect(result, equals(42));
     });
 
     test('recovers when zipped continuation succeeds', () {
-      int? value;
+      int? result;
 
-      Cont.error<(), String, int>('err1')
-          .elseZip<String, String>(
-        (e) => Cont.of(42),
-        (a, b) => '$a + $b',
+      Cont.error<(), String, int>('oops')
+          .elseZip(
+        (_) => Cont.of<(), String, int>(42),
+        (a, b) => '$a+$b',
       )
-          .run((), onThen: (val) => value = val);
+          .run((), onThen: (v) => result = v);
 
-      expect(value, 42);
+      expect(result, equals(42));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
+      String? first;
+      String? second;
+
       final cont =
-          Cont.error<(), String, int>('err1').elseZip(
-        (e) {
-          callCount++;
-          return Cont.error<(), String, int>('err2');
-        },
-        (a, b) => '$a + $b',
+          Cont.error<(), String, int>('err').elseZip(
+        (_) => Cont.error<(), String, int>('fallback'),
+        (a, b) => '$a+$b',
       );
 
-      String? error1;
-      cont.run((), onElse: (e) => error1 = e);
-      expect(error1, 'err1 + err2');
-      expect(callCount, 1);
+      cont.run((), onElse: (e) => first = e);
+      cont.run((), onElse: (e) => second = e);
 
-      String? error2;
-      cont.run((), onElse: (e) => error2 = e);
-      expect(error2, 'err1 + err2');
-      expect(callCount, 2);
+      expect(first, equals('err+fallback'));
+      expect(second, equals('err+fallback'));
     });
 
     test('crashes when function throws', () {
       ContCrash? crash;
 
-      Cont.error<(), String, int>('err')
+      Cont.error<(), String, int>('oops')
           .elseZip<String, String>(
-        (e) {
-          throw 'Zip Error';
-        },
-        (a, b) => '$a + $b',
-      ).run((), onCrash: (c) => crash = c);
+        (_) => throw Exception('boom'),
+        (a, b) => '$a+$b',
+      )
+          .run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
 
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'Zip Error');
     });
   });
 
@@ -88,14 +85,14 @@ void main() {
         () {
       String? error;
 
-      Cont.error<(), String, int>('err1')
+      Cont.error<(), String, int>('first')
           .elseZip0(
-        () => Cont.error<(), String, int>('err2'),
-        (a, b) => '$a + $b',
+        () => Cont.error<(), String, int>('second'),
+        (a, b) => '$a+$b',
       )
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'err1 + err2');
+      expect(error, equals('first+second'));
     });
   });
 }

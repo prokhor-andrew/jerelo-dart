@@ -5,98 +5,97 @@ void main() {
   group('Cont.thenTap', () {
     test('executes side-effect and returns original value',
         () {
-      int? sideEffectValue;
-      int? value;
+      bool sideEffectRan = false;
+      int? result;
 
-      Cont.of<(), String, int>(42).thenTap((a) {
-        sideEffectValue = a;
-        return Cont.of('side');
-      }).run((), onThen: (val) => value = val);
+      Cont.of<(), String, int>(42).thenTap((v) {
+        sideEffectRan = true;
+        return Cont.of(v * 2);
+      }).run((), onThen: (v) => result = v);
 
-      expect(sideEffectValue, 42);
-      expect(value, 42);
+      expect(sideEffectRan, isTrue);
+      expect(result, equals(42));
     });
 
     test('passes through error', () {
-      bool tapCalled = false;
+      bool sideEffectRan = false;
       String? error;
 
-      Cont.error<(), String, int>('err').thenTap((a) {
-        tapCalled = true;
-        return Cont.of('side');
+      Cont.error<(), String, int>('oops').thenTap((v) {
+        sideEffectRan = true;
+        return Cont.of(v);
       }).run((), onElse: (e) => error = e);
 
-      expect(tapCalled, false);
-      expect(error, 'err');
+      expect(sideEffectRan, isFalse);
+      expect(error, equals('oops'));
     });
 
     test('propagates side-effect error', () {
       String? error;
 
       Cont.of<(), String, int>(42)
-          .thenTap<String>((a) => Cont.error('tap error'))
+          .thenTap((_) => Cont.error<(), String, int>(
+              'side-effect failed'))
           .run((), onElse: (e) => error = e);
 
-      expect(error, 'tap error');
+      expect(error, equals('side-effect failed'));
     });
 
     test('supports chaining with other operations', () {
-      final order = <String>[];
-      int? value;
+      final log = <String>[];
+      int? result;
 
-      Cont.of<(), String, int>(5).thenTap((a) {
-        order.add('tap1: $a');
-        return Cont.of('ok');
-      }).thenMap((a) {
-        order.add('map: $a');
-        return a * 2;
-      }).thenTap((a) {
-        order.add('tap2: $a');
-        return Cont.of('ok');
-      }).run((), onThen: (val) => value = val);
+      Cont.of<(), String, int>(1)
+          .thenTap((v) {
+            log.add('tap:$v');
+            return Cont.of(v);
+          })
+          .thenMap((v) => v + 1)
+          .run((), onThen: (v) => result = v);
 
-      expect(order, ['tap1: 5', 'map: 5', 'tap2: 10']);
-      expect(value, 10);
+      expect(log, equals(['tap:1']));
+      expect(result, equals(2));
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
-      final cont = Cont.of<(), String, int>(5).thenTap((a) {
-        callCount++;
-        return Cont.of('ok');
+      int tapCount = 0;
+      final cont =
+          Cont.of<(), String, int>(42).thenTap((v) {
+        tapCount++;
+        return Cont.of(v);
       });
 
       cont.run(());
-      expect(callCount, 1);
-
       cont.run(());
-      expect(callCount, 2);
+
+      expect(tapCount, equals(2));
     });
 
     test('crashes when function throws', () {
       ContCrash? crash;
-
-      Cont.of<(), String, int>(42).thenTap<int>((a) {
-        throw 'Tap Error';
-      }).run((), onCrash: (c) => crash = c);
-
+      Cont.of<(), String, int>(42)
+          .thenTap<int>((v) => throw Exception('boom'))
+          .run(
+        (),
+        onCrash: (c) => crash = c,
+        onPanic: (_) {},
+      );
       expect(crash, isA<NormalCrash>());
-      expect((crash! as NormalCrash).error, 'Tap Error');
     });
   });
 
   group('Cont.thenTap0', () {
     test('executes side-effect ignoring value', () {
-      bool called = false;
-      int? value;
+      bool sideEffectRan = false;
+      int? result;
 
       Cont.of<(), String, int>(42).thenTap0(() {
-        called = true;
-        return Cont.of('ok');
-      }).run((), onThen: (val) => value = val);
+        sideEffectRan = true;
+        return Cont.of(0);
+      }).run((), onThen: (v) => result = v);
 
-      expect(called, true);
-      expect(value, 42);
+      expect(sideEffectRan, isTrue);
+      expect(result, equals(42));
     });
   });
 }

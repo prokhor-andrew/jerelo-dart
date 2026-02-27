@@ -4,69 +4,60 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.error', () {
     test('Cont.error calls onElse with provided error', () {
-      String? receivedError;
-      final cont =
-          Cont.error<(), String, int>('test error');
-
-      cont.run((), onElse: (e) => receivedError = e);
-      expect(receivedError, 'test error');
+      String? result;
+      Cont.error<(), String, int>('oops').run(
+        (),
+        onElse: (e) => result = e,
+      );
+      expect(result, equals('oops'));
     });
 
     test('Cont.error does not call onThen', () {
-      final cont = Cont.error<(), String, int>('err');
-
-      cont.run(
+      bool thenCalled = false;
+      Cont.error<(), String, int>('oops').run(
         (),
-        onThen: (_) {
-          fail('Should not be called');
-        },
+        onThen: (_) => thenCalled = true,
       );
+      expect(thenCalled, isFalse);
     });
 
     test('Cont.error does not call onCrash', () {
-      final cont = Cont.error<(), String, int>('err');
-
-      cont.run(
+      bool crashCalled = false;
+      Cont.error<(), String, int>('oops').run(
         (),
-        onCrash: (_) {
-          fail('Should not be called');
-        },
+        onCrash: (_) => crashCalled = true,
       );
+      expect(crashCalled, isFalse);
     });
 
     test('Cont.error does not call onPanic', () {
-      final cont = Cont.error<(), String, int>('err');
-
-      cont.run(
+      bool panicCalled = false;
+      Cont.error<(), String, int>('oops').run(
         (),
-        onPanic: (_) {
-          fail('Should not be called');
-        },
+        onPanic: (_) => panicCalled = true,
       );
+      expect(panicCalled, isFalse);
     });
 
     test('Cont.error can be run multiple times', () {
-      var callCount = 0;
-      final cont = Cont.error<(), String, int>('err');
+      final cont = Cont.error<(), String, int>('oops');
 
-      cont.run((), onElse: (_) => callCount++);
-      cont.run((), onElse: (_) => callCount++);
+      String? first;
+      String? second;
+      cont.run((), onElse: (e) => first = e);
+      cont.run((), onElse: (e) => second = e);
 
-      expect(callCount, 2);
+      expect(first, equals('oops'));
+      expect(second, equals('oops'));
     });
 
     test('Cont.error works with Never value type', () {
-      String? receivedError;
-      final cont = Cont.error<(), String, Never>('err');
-
-      cont.run(
+      String? result;
+      Cont.error<(), String, Never>('oops').run(
         (),
-        onElse: (e) => receivedError = e,
-        onThen: (_) {
-          fail('Should not be called');
-        },
+        onElse: (e) => result = e,
       );
-      expect(receivedError, 'err');
+      expect(result, equals('oops'));
     });
   });
 }

@@ -8,69 +8,73 @@ void main() {
       bool sideEffectRan = false;
       String? error;
 
-      Cont.error<(), String, int>('err').elseFork((e) {
+      Cont.error<(), String, int>('oops').elseFork((e) {
         sideEffectRan = true;
-        return Cont.of('side: $e');
+        return Cont.of(0);
       }).run((), onElse: (e) => error = e);
 
-      expect(sideEffectRan, true);
-      expect(error, 'err');
+      expect(sideEffectRan, isTrue);
+      expect(error, equals('oops'));
     });
 
     test('passes through value', () {
-      bool forkCalled = false;
-      int? value;
+      bool called = false;
+      int? result;
 
-      Cont.of<(), String, int>(42)
-          .elseFork<String, String>((e) {
-        forkCalled = true;
-        return Cont.of('side');
-      }).run((), onThen: (val) => value = val);
+      Cont.of<(), String, int>(42).elseFork((_) {
+        called = true;
+        return Cont.of(0);
+      }).run((), onThen: (v) => result = v);
 
-      expect(forkCalled, false);
-      expect(value, 42);
+      expect(called, isFalse);
+      expect(result, equals(42));
     });
 
     test('does not propagate side-effect error', () {
       String? error;
+      int? result;
 
       Cont.error<(), String, int>('original')
-          .elseFork<String, String>(
-        (e) => Cont.error('side error'),
-      )
-          .run((), onElse: (e) => error = e);
+          .elseFork((_) => Cont.error<(), String, int>(
+              'side-effect error'))
+          .run(
+        (),
+        onElse: (e) => error = e,
+        onThen: (v) => result = v,
+      );
 
-      expect(error, 'original');
+      expect(error, equals('original'));
+      expect(result, isNull);
     });
 
     test('can be run multiple times', () {
-      var callCount = 0;
+      int sideEffectCount = 0;
+
       final cont =
           Cont.error<(), String, int>('err').elseFork((e) {
-        callCount++;
-        return Cont.of('ok');
+        sideEffectCount++;
+        return Cont.of(0);
       });
 
       cont.run(());
-      expect(callCount, 1);
-
       cont.run(());
-      expect(callCount, 2);
+
+      expect(sideEffectCount, equals(2));
     });
   });
 
   group('Cont.elseFork0', () {
     test('executes side-effect ignoring error', () {
-      bool called = false;
+      bool sideEffectRan = false;
       String? error;
 
-      Cont.error<(), String, int>('err').elseFork0(() {
-        called = true;
-        return Cont.of('side');
+      Cont.error<(), String, int>('oops').elseFork0(() {
+        sideEffectRan = true;
+        return Cont.of(0);
       }).run((), onElse: (e) => error = e);
 
-      expect(called, true);
-      expect(error, 'err');
+      expect(sideEffectRan, isTrue);
+      expect(error, equals('oops'));
     });
   });
 }

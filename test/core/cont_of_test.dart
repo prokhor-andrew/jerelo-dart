@@ -4,60 +4,51 @@ import 'package:test/test.dart';
 void main() {
   group('Cont.of', () {
     test('Cont.of is run correctly', () {
-      var value = 15;
-      final cont = Cont.of<(), String, int>(0);
-
-      expect(value, 15);
-      cont.run((), onThen: (val) => value = val);
-      expect(value, 0);
+      int? result;
+      Cont.of<(), String, int>(42).run(
+        (),
+        onThen: (v) => result = v,
+      );
+      expect(result, equals(42));
     });
 
     test('Cont.of does not call onElse', () {
-      final cont = Cont.of<(), String, int>(0);
-
-      cont.run(
+      bool elseCalled = false;
+      Cont.of<(), String, int>(42).run(
         (),
-        onElse: (_) {
-          fail('Should not be called');
-        },
-        onThen: (_) {},
+        onElse: (_) => elseCalled = true,
       );
+      expect(elseCalled, isFalse);
     });
 
     test('Cont.of does not call onCrash', () {
-      final cont = Cont.of<(), String, int>(0);
-
-      cont.run(
+      bool crashCalled = false;
+      Cont.of<(), String, int>(42).run(
         (),
-        onCrash: (_) {
-          fail('Should not be called');
-        },
-        onThen: (_) {},
+        onCrash: (_) => crashCalled = true,
       );
+      expect(crashCalled, isFalse);
     });
 
     test('Cont.of does not call onPanic', () {
-      final cont = Cont.of<(), String, int>(0);
-
-      cont.run(
+      bool panicCalled = false;
+      Cont.of<(), String, int>(42).run(
         (),
-        onPanic: (_) {
-          fail('Should not be called');
-        },
-        onThen: (_) {},
+        onPanic: (_) => panicCalled = true,
       );
+      expect(panicCalled, isFalse);
     });
 
     test('Cont.of can be run multiple times', () {
-      var value = 0;
-      final cont = Cont.of<(), String, int>(15);
+      final cont = Cont.of<(), String, int>(42);
 
-      cont.run((), onThen: (val) => value = val);
-      expect(value, 15);
+      int? first;
+      int? second;
+      cont.run((), onThen: (v) => first = v);
+      cont.run((), onThen: (v) => second = v);
 
-      value = 0;
-      cont.run((), onThen: (val) => value = val);
-      expect(value, 15);
+      expect(first, equals(42));
+      expect(second, equals(42));
     });
   });
 }
