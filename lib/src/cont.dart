@@ -179,7 +179,7 @@ final class Cont<E, F, A> {
     Cont<E, F, A> Function() thunk,
   ) {
     return Cont.fromRun((runtime, observer) {
-      Cont<E, F, A> contA = thunk().absurdify();
+      Cont<E, F, A> contA = thunk();
       contA.runWith(runtime, observer);
     });
   }
@@ -264,9 +264,6 @@ final class Cont<E, F, A> {
     A3 Function(A1 a, A2 a2) combine, {
     required OkPolicy<F> policy,
   }) {
-    left = left.absurdify();
-    right = right.absurdify();
-
     switch (policy) {
       case SequenceOkPolicy():
         return left.thenDo((a) {
@@ -341,9 +338,6 @@ final class Cont<E, F, A> {
     F3 Function(F1, F2) combine, {
     required OkPolicy<A> policy,
   }) {
-    left = left.absurdify();
-    right = right.absurdify();
-
     switch (policy) {
       case SequenceOkPolicy<A>():
         return left.elseDo((error1) {
@@ -421,9 +415,6 @@ final class Cont<E, F, A> {
     Cont<E, F, A> right, {
     required CrashPolicy<F, A> policy,
   }) {
-    left = left.absurdify();
-    right = right.absurdify();
-
     switch (policy) {
       case SequenceCrashPolicy():
         return left.crashDo((crash1) {
@@ -524,17 +515,17 @@ final class Cont<E, F, A> {
     void Function() onReleaseThen = _voidIgnore,
   }) {
     return Cont.fromRun((runtime, observer) {
-      acquire.absurdify().elseAbsurd<F>().runWith(
+      acquire.elseAbsurd<F>().runWith(
         runtime,
         observer.copyUpdateOnThen<R>((r) {
           void fireRelease() {
             ContCrash.tryCatch(() {
-              release(r).absurdify().run(
-                    runtime.env(),
-                    onPanic: onReleasePanic,
-                    onCrash: onReleaseCrash,
-                    onThen: (_) => onReleaseThen(),
-                  );
+              release(r).run(
+                runtime.env(),
+                onPanic: onReleasePanic,
+                onCrash: onReleaseCrash,
+                onThen: (_) => onReleaseThen(),
+              );
             }).match((_) {}, onReleasePanic);
           }
 
@@ -544,35 +535,35 @@ final class Cont<E, F, A> {
           }
 
           ContCrash.tryCatch(() {
-            use(r).absurdify().runWith(
-                  runtime,
-                  observer.copyUpdate(
-                    onCrash: (crash) {
-                      if (runtime.isCancelled()) {
-                        fireRelease();
-                        return;
-                      }
-                      observer.onCrash(crash);
-                      fireRelease();
-                    },
-                    onElse: (error) {
-                      if (runtime.isCancelled()) {
-                        fireRelease();
-                        return;
-                      }
-                      observer.onElse(error);
-                      fireRelease();
-                    },
-                    onThen: (a) {
-                      if (runtime.isCancelled()) {
-                        fireRelease();
-                        return;
-                      }
-                      observer.onThen(a);
-                      fireRelease();
-                    },
-                  ),
-                );
+            use(r).runWith(
+              runtime,
+              observer.copyUpdate(
+                onCrash: (crash) {
+                  if (runtime.isCancelled()) {
+                    fireRelease();
+                    return;
+                  }
+                  observer.onCrash(crash);
+                  fireRelease();
+                },
+                onElse: (error) {
+                  if (runtime.isCancelled()) {
+                    fireRelease();
+                    return;
+                  }
+                  observer.onElse(error);
+                  fireRelease();
+                },
+                onThen: (a) {
+                  if (runtime.isCancelled()) {
+                    fireRelease();
+                    return;
+                  }
+                  observer.onThen(a);
+                  fireRelease();
+                },
+              ),
+            );
           }).match((_) {}, (crash) {
             observer.onCrash(crash);
             fireRelease();

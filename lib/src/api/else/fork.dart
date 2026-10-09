@@ -24,7 +24,7 @@ Cont<E, F, A> _elseFork<E, F, F2, A, A2>(
         }
         // if this crashes, it should crash the computation
         ContCrash.tryCatch(() {
-          final contA2 = f(error).absurdify();
+          final contA2 = f(error);
           try {
             contA2.run(
               runtime.env(),
