@@ -10,7 +10,7 @@
 - Fixed `CollectedCrash` equality: `==` and `hashCode` now compare the collected crashes by value instead of by map identity.
 - Fixed `MergedCrash.hashCode` ignoring the order of `left` and `right`.
 - Fork side effects (`thenFork`, `elseFork`, `crashFork`) now run under the parent's runtime and are cancelled together with it.
-- Documentation: fixed `elseTap` and `elseUnless` docs and examples, stale names in doc comments, environment injection examples and the `retryWithBackoff` guide helper; removed the `absurdify` family; documented `onCancel`, `withCancellation` and cancellation of `bracket` and forks.
+- Documentation: fixed `elseTap` and `elseUnless` docs and examples, stale names in doc comments, environment injection examples and the `retryWithBackoff` guide helper; removed the `absurdify` family; documented `onCancel`, `withCancellation` and cancellation of `bracket` and forks; described combinator policies by their own channel and exits (including `CrashPolicy.quitFast`, `shouldFavorCrash`, empty lists and `runAll` completion order), crash types, fork ordering, observer guarantees, the `onPanic` default and `fromRun` catching; made the `retry` guide helper stack safe; added a note against upcasting the environment type.
 
 ## 2.0.0
 - Split previous Else channel into Crash and Else channels
