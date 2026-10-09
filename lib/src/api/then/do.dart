@@ -19,7 +19,7 @@ extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
           }
 
           ContCrash.tryCatch(() {
-            final contA2 = f(a).absurdify();
+            final contA2 = f(a);
             contA2.runWith(runtime, observer);
           }).match((_) {}, observer.onCrash);
         }),

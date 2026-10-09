@@ -15,7 +15,7 @@ Cont<E, F, List<A>> _allSequence<E, F, A>(
         updatePrimary,
         updateSecondary,
       ) {
-        final Cont<E, F, A> cont = list[index].absurdify();
+        final Cont<E, F, A> cont = list[index];
         cont.runWith(
           runtime,
           observer.copyUpdate(
@@ -65,7 +65,7 @@ Cont<E, List<F>, A> _anySequence<E, F, A>(
         updatePrimary,
         updateSecondary,
       ) {
-        final Cont<E, F, A> cont = list[index].absurdify();
+        final Cont<E, F, A> cont = list[index];
         cont.runWith(
           runtime,
           observer.copyUpdate(onCrash: (crash) {
@@ -139,33 +139,33 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
       },
       computation: (i, update) {
         ContCrash.tryCatch(() {
-          list[i].absurdify().runWith(
-                runtime,
-                observer.copyUpdate(
-                  onCrash: (c) {
-                    if (runtime.isCancelled()) {
-                      update(_Left(()));
-                      return;
-                    }
-                    crashes[i] = c;
-                    update(_Right(_Value1(i + 1)));
-                  },
-                  onElse: (f) {
-                    if (runtime.isCancelled()) {
-                      update(_Left(()));
-                      return;
-                    }
-                    update(_Right(_Value3(f)));
-                  },
-                  onThen: (a) {
-                    if (runtime.isCancelled()) {
-                      update(_Left(()));
-                      return;
-                    }
-                    update(_Right(_Value2(a)));
-                  },
-                ),
-              );
+          list[i].runWith(
+            runtime,
+            observer.copyUpdate(
+              onCrash: (c) {
+                if (runtime.isCancelled()) {
+                  update(_Left(()));
+                  return;
+                }
+                crashes[i] = c;
+                update(_Right(_Value1(i + 1)));
+              },
+              onElse: (f) {
+                if (runtime.isCancelled()) {
+                  update(_Left(()));
+                  return;
+                }
+                update(_Right(_Value3(f)));
+              },
+              onThen: (a) {
+                if (runtime.isCancelled()) {
+                  update(_Left(()));
+                  return;
+                }
+                update(_Right(_Value2(a)));
+              },
+            ),
+          );
         }).match((_) {}, (crash) {
           crashes[i] = crash;
           update(_Right(_Value1(i + 1)));

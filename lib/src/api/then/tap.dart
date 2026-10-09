@@ -10,7 +10,7 @@ extension ContThenTapExtension<E, F, A> on Cont<E, F, A> {
     Cont<E, F, A2> Function(A value) f,
   ) {
     return thenDo((a) {
-      final Cont<E, F, A2> contA2 = f(a).absurdify();
+      final Cont<E, F, A2> contA2 = f(a);
       return contA2.thenMapTo(a);
     });
   }
