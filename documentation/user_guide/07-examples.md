@@ -24,15 +24,15 @@ Cont<AppConfig, String, User> getUser(String userId) {
       return fetchFromApi(config.apiUrl, userId, config.timeout);
     })
     .thenIf((user) => user.isValid, fallback: 'invalid user')
-    .elseTapWithEnv((env, error) {
+    .elseForkWithEnv((env, error) {
       // Log errors in background
       return logToFile(env.cacheDir, error);
     })
     .elseDoWithEnv0((env) {
       // Fallback to cache
       return loadFromCache(env.cacheDir, userId);
-    });
-    .thenTapWithEnv((env, user) {
+    })
+    .thenForkWithEnv((env, user) {
       // Update cache in background
       return saveToCache(env.cacheDir, user);
     });
@@ -271,7 +271,7 @@ generateReport(query).run((), onThen: publish, onElse: showError);
 ```dart
 // Build on existing operators rather than reaching for Cont.fromRun
 fetchData()
-  .elseTap((error) {
+  .elseFork((error) {
     print('Attempt failed: $error');
     return Cont.of(());
   })
@@ -341,7 +341,7 @@ Cont<(), UserError, User> getUser(String id) {
 }
 
 getUser(userId)
-  .elseUnless((e) => e == UserError.notFound, fallback: User.guest())
+  .elseUnless((e) => e != UserError.notFound, fallback: User.guest())
   .run((), onThen: display, onElse: showError);
 ```
 
