@@ -154,7 +154,7 @@ Cont<E, F, A> crashTap(Cont<E, F, A> Function(ContCrash crash) f)
 
 Executes a side-effect continuation on crash, with conditional recovery.
 
-If the side-effect succeeds, recovers from the crash. If the side-effect itself crashes, the original crash propagates.
+If the side-effect succeeds, recovers from the crash. If the side-effect itself crashes, the original crash propagates. If the side-effect terminates with an error, that error propagates on the else channel.
 
 - **Parameters:**
   - `f`: Function that receives the crash and returns a side-effect continuation

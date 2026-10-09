@@ -76,7 +76,7 @@ result.match(
 final class NormalCrash extends ContCrash
 ```
 
-A single exception with its stack trace.
+A single exception with its stack trace. It has no public constructor; it is created when an exception is caught, for example by `ContCrash.tryCatch`.
 
 **Fields:**
 - `error: Object` — The exception that was thrown
@@ -90,7 +90,7 @@ A single exception with its stack trace.
 final class MergedCrash extends ContCrash
 ```
 
-Two crashes combined from a two-way parallel operation (e.g., `both`, `either`).
+Two crashes combined from a two-way operation (e.g., `coalesce`, `crashZip`, or `both`/`either` with `runAll`).
 
 **Fields:**
 - `left: ContCrash` — The crash from the left continuation
@@ -110,7 +110,9 @@ const MergedCrash(ContCrash left, ContCrash right)
 final class CollectedCrash extends ContCrash
 ```
 
-Multiple crashes from a list operation (e.g., `all`, `any`), indexed by position.
+Multiple crashes from a list operation, indexed by position. It is produced by:
+- `converge` with any policy, when every input crashes; an empty `converge` gives an empty `CollectedCrash`
+- `all` and `any` with `runAll`, whenever a crash is reported, even if only one input crashed
 
 **Fields:**
 - `crashes: Map<int, ContCrash>` — A map from the index in the original list to the crash
