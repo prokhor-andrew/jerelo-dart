@@ -100,7 +100,8 @@ Key details about `bracket`:
 - `acquire` and `release` have error type `Never` — they can only succeed or crash, never produce a business-logic error.
 - The `use` outcome (then, else, or crash) is propagated immediately; `release` runs independently afterward.
 - Release outcomes are routed to the optional `onReleasePanic`, `onReleaseCrash`, and `onReleaseThen` callbacks.
-- If the computation is cancelled before `use`, release fires and the observer receives nothing.
+- `acquire` always runs to completion. If the computation is cancelled before `use` starts, release fires as soon as `acquire` completes and the observer receives nothing.
+- If the computation is cancelled while `use` runs, release fires immediately, without waiting for `use`; `use`'s outcome is dropped.
 
 ---
 
@@ -108,7 +109,7 @@ Key details about `bracket`:
 
 Constructing a computation is only the first step. To actually trigger its execution, call `run` on it. All callbacks (`onPanic`, `onCrash`, `onElse`, `onThen`) are optional named parameters with sensible defaults, so you only subscribe to the channels you care about.
 
-The `run` method returns a **`ContCancelToken`** that you can use to cooperatively cancel the execution. Calling `token.cancel()` sets an internal flag that the runtime polls via `isCancelled()`, signalling that the computation should stop. You can also query the cancellation state at any time via `token.isCancelled()`.
+The `run` method returns a **`ContCancelToken`** that you can use to cooperatively cancel the execution. Calling `token.cancel()` sets an internal flag that the runtime polls via `isCancelled()`, signalling that the computation should stop. It also runs the callbacks registered with `runtime.onCancel`, which is how `bracket` releases its resource immediately. After cancellation, the computation delivers no result. You can also query the cancellation state at any time via `token.isCancelled()`.
 
 ```dart
 // constructing the program
