@@ -21,8 +21,9 @@ sealed class ContEitherPolicy<A> {
 
   /// Creates a merge-when-all policy with a custom combiner.
   ///
-  /// All operations are executed in parallel. If multiple operations succeed,
-  /// their results are combined using the provided [combine] function.
+  /// All operations are executed in parallel, and all must complete before
+  /// a result is returned. If multiple operations succeed, their results are
+  /// combined using the provided [combine] function, in completion order.
   /// The function receives the accumulated value and the new value, returning
   /// the combined result.
   ///

@@ -77,8 +77,11 @@ Creates a merge-when-all policy. All operations are executed in parallel and all
 When used with `both` or `all`:
 - All continuations start executing in parallel
 - Waits for all continuations to complete (success or failure)
-- If multiple continuations fail, all their errors are collected and concatenated
+- If multiple continuations fail, all their errors are collected and concatenated in completion order: the errors of the continuation that failed first come first
+- With `all`, successful values are also collected in completion order, so the first element is the value that arrived first, not the value of the first continuation in the list. With `both`, `combine` always receives the value of `left` first and the value of `right` second
 - All operations run to completion regardless of failures
+
+> **Note:** Completion order is intended. If you need to know which continuation produced which value or error, tag the results before merging (for example `cont.thenMap((value) => (index, value))`), or use `sequence()` or `quitFast()`, which keep list order.
 
 Use this when:
 - You want to collect all errors from all failed operations
@@ -106,6 +109,7 @@ When used with `both` or `all`:
 - All continuations start executing in parallel
 - Returns immediately when the first continuation fails
 - Only the errors from the first failing continuation are propagated
+- With `all`, successful values are collected in list order
 - Other operations may continue running in the background
 
 Use this when:
@@ -188,7 +192,7 @@ When used with `either` or `any`:
 - Continuations execute sequentially in the order provided
 - If a continuation succeeds, returns immediately with that value
 - If a continuation fails, tries the next one
-- If all continuations fail, all errors are collected and concatenated
+- If all continuations fail, all errors are collected and concatenated in list order
 
 Use this when:
 - You want to try fallback options one at a time
@@ -214,10 +218,13 @@ Creates a merge-when-all policy with a custom combiner. All operations are execu
 
 When used with `either` or `any`:
 - All continuations start executing in parallel
-- Waits for all continuations to complete
+- Waits for all continuations to complete, even after one has succeeded: there is no early return on the first success
+- If exactly one continuation succeeds, its value is the result
 - If multiple continuations succeed, combines their values using the `combine` function
-- The combine function is called sequentially: `combine(combine(a1, a2), a3)` for three values
-- If all continuations fail, all errors are collected and concatenated
+- The combine function is called sequentially in completion order: `combine(combine(a1, a2), a3)` for three values, where `a1` is the value that arrived first, `a2` the second and `a3` the third (not the values of the first, second and third continuation in the list)
+- If all continuations fail, all errors are collected and concatenated: in completion order for `any`, and the errors of `left` before those of `right` for `either`
+
+> **Note:** Completion order is intended. If you need to know which continuation produced which value or error, tag the results before racing (for example `cont.thenMap((value) => (index, value))`).
 
 Use this when:
 - You want to execute all operations and merge their results
@@ -253,7 +260,7 @@ When used with `either` or `any`:
 - All continuations start executing in parallel
 - Returns immediately when the first continuation succeeds
 - Other operations may continue running in the background
-- If all fail before any success, collects all errors
+- If all fail before any success, collects all errors in list order
 
 Use this when:
 - You want the fastest possible success feedback
@@ -328,7 +335,7 @@ Executes both continuations. Both must succeed for the result to be successful; 
 The execution behavior depends on the provided `policy`:
 
 - **BothSequencePolicy**: Runs `left` then `right` sequentially
-- **BothMergeWhenAllPolicy**: Runs both in parallel, waits for both to complete, and merges errors if both fail
+- **BothMergeWhenAllPolicy**: Runs both in parallel, waits for both to complete, and merges errors if both fail (the errors of the side that failed first come first)
 - **BothQuitFastPolicy**: Runs both in parallel, terminates immediately if either fails
 
 - **Parameters:**
@@ -372,7 +379,7 @@ Runs multiple continuations and collects all results according to the specified 
 Executes all continuations in `list` and collects their values into a list. The execution behavior depends on the provided `policy`:
 
 - **BothSequencePolicy**: Runs continuations one by one in order, stops at first failure
-- **BothMergeWhenAllPolicy**: Runs all in parallel, waits for all to complete, and merges errors if any fail
+- **BothMergeWhenAllPolicy**: Runs all in parallel, waits for all to complete, and merges errors if any fail. Values and errors are collected in completion order, not list order
 - **BothQuitFastPolicy**: Runs all in parallel, terminates immediately on first failure
 
 - **Parameters:**
@@ -412,10 +419,10 @@ static Cont<E, A> either<E, A>(
 
 Races two continuations, returning the first successful value.
 
-Executes both continuations and returns the result from whichever succeeds first. If both fail, concatenates their errors. The execution behavior depends on the provided `policy`:
+Executes both continuations and returns a successful value if either succeeds. If both fail, concatenates their errors, those of `left` first. The execution behavior depends on the provided `policy`:
 
 - **EitherSequencePolicy**: Tries `left` first, then `right` if `left` fails
-- **EitherMergeWhenAllPolicy**: Runs both in parallel, returns first success or merges multiple successes using the policy's combine function if both succeed
+- **EitherMergeWhenAllPolicy**: Runs both in parallel and waits for both to complete. If only one succeeds, returns its value; if both succeed, merges them using the policy's combine function, with the value that arrived first as the first argument
 - **EitherQuitFastPolicy**: Runs both in parallel, returns immediately on first success
 
 - **Parameters:**
@@ -453,11 +460,11 @@ static Cont<E, A> any<E, A>(
 
 Races multiple continuations, returning the first successful value.
 
-Executes all continuations in `list` and returns the first one that succeeds. If all fail, collects all errors. The execution behavior depends on the provided `policy`:
+Executes all continuations in `list` and returns a successful value if any succeeds. If all fail, collects all errors. The execution behavior depends on the provided `policy`:
 
-- **EitherSequencePolicy**: Tries continuations one by one in order until one succeeds
-- **EitherMergeWhenAllPolicy**: Runs all in parallel, returns first success or merges multiple successes using the policy's combine function
-- **EitherQuitFastPolicy**: Runs all in parallel, returns immediately on first success
+- **EitherSequencePolicy**: Tries continuations one by one in order until one succeeds; if all fail, errors are in list order
+- **EitherMergeWhenAllPolicy**: Runs all in parallel and waits for all to complete. Merges the successful values using the policy's combine function in completion order; if all fail, errors are in completion order
+- **EitherQuitFastPolicy**: Runs all in parallel, returns immediately on first success; if all fail, errors are in list order
 
 - **Parameters:**
   - `list`: List of continuations to race

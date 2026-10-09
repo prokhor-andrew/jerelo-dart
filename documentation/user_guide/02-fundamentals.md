@@ -282,7 +282,7 @@ Cont.either(slow, fast, policy: ContEitherPolicy.quitFast())  // Both start exec
 During this pause:
 - Multiple computation chains run concurrently
 - The racing operator monitors all channels (both value and termination)
-- As soon as one chain produces a decisive result (first success for `either`, first failure for `both`), others may be cancelled
+- With `quitFast()`, as soon as one chain produces a decisive result (first success for `either`, first failure for `both`), others may be cancelled. With `mergeWhenAll()`, the operator waits for every chain to finish, even after a success
 - The winning result continues down the remaining operator chain
 
 **Key Behaviors**
