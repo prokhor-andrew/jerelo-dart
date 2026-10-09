@@ -12,7 +12,7 @@ extension ContThenZipExtension<E, F, A> on Cont<E, F, A> {
     A3 Function(A a1, A2 a2) combine,
   ) {
     return thenDo((a1) {
-      final Cont<E, F, A2> contA2 = f(a1).absurdify();
+      final Cont<E, F, A2> contA2 = f(a1);
       return contA2.thenMap((a2) {
         return combine(a1, a2);
       });

@@ -11,7 +11,7 @@ Cont<E, F, A> _crashZip<E, F, A>(
 ) {
   return cont.crashDo((crash1) {
     return ContCrash.tryCatch(() {
-      return f(crash1).absurdify().crashDo((crash2) {
+      return f(crash1).crashDo((crash2) {
         return Cont.crash(MergedCrash(crash1, crash2));
       });
     }).match((cont) => cont, (crash2) {

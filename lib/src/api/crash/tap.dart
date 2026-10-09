@@ -7,7 +7,7 @@ Cont<E, F, A> _crashTap<E, F, A>(
   return cont.crashDo((crash) {
     final Cont<E, F, A> cont2;
     try {
-      cont2 = f(crash).absurdify();
+      cont2 = f(crash);
     } catch (_, __) {
       return Cont.crash(crash);
     }

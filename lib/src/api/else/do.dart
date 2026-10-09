@@ -22,7 +22,7 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
           }
 
           ContCrash.tryCatch(() {
-            final contA = f(error).absurdify();
+            final contA = f(error);
             contA.runWith(runtime, observer);
           }).match((_) {}, observer.onCrash);
         }),

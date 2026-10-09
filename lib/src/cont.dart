@@ -31,9 +31,17 @@ part 'helper/when_all_list_helpers.dart';
 /// - [F]: The error type that the continuation may terminate with on the else channel.
 /// - [A]: The value type that the continuation produces upon success.
 final class Cont<E, F, A> {
+  // The callbacks are passed as plain function types rather than as a
+  // ContObserver<F, A>. Dart treats class type parameters as covariant,
+  // but checks function types soundly, so this keeps Cont safely
+  // covariant in F and A: a Cont<E, String, int> can be used as a
+  // Cont<E, Object?, int>.
   final void Function(
     ContRuntime<E> runtime,
-    ContObserver<F, A> observer,
+    void Function(NormalCrash crash) onPanic,
+    void Function(ContCrash crash) onCrash,
+    void Function(F error) onElse,
+    void Function(A value) onThen,
   ) _run;
 
   const Cont._(this._run);
@@ -70,24 +78,6 @@ final class Cont<E, F, A> {
     return cancelToken;
   }
 
-  /// Executes the continuation with the given runtime and observer directly.
-  ///
-  /// Lower-level alternative to [run]. Useful when composing continuations
-  /// internally or when a [ContRuntime] and [ContObserver] are already
-  /// available from an enclosing computation.
-  ///
-  /// - [runtime]: The runtime context providing the environment and cancellation state.
-  /// - [observer]: The observer whose callbacks receive the computation's outcome.
-  void runWith(
-    ContRuntime<E> runtime,
-    ContObserver<F, A> observer,
-  ) {
-    _run(
-      runtime,
-      observer,
-    );
-  }
-
   /// Creates a [Cont] from a run function that accepts an observer.
   ///
   /// Constructs a continuation with guaranteed idempotence and exception catching.
@@ -102,16 +92,20 @@ final class Cont<E, F, A> {
       SafeObserver<F, A> observer,
     ) run,
   ) {
-    return Cont._((runtime, observer) {
+    return Cont._((
+      runtime,
+      onUnsafePanic,
+      onCrash,
+      onElse,
+      onThen,
+    ) {
       if (runtime.isCancelled()) {
         return;
       }
 
-      observer = observer.absurdify();
-
       void onPanic(NormalCrash crash) {
         ContCrash.tryCatch(() {
-          observer._onUnsafePanic(crash);
+          onUnsafePanic(crash);
         }).match((_) {}, (panic) {
           // the important part here is that if onPanic crashes,
           // we don't push the crash that was sent there,
@@ -130,7 +124,7 @@ final class Cont<E, F, A> {
         isDone = true;
 
         ContCrash.tryCatch(() {
-          observer.onCrash(crash);
+          onCrash(crash);
         }).match((_) {}, onPanic);
       }
 
@@ -142,7 +136,7 @@ final class Cont<E, F, A> {
         isDone = true;
 
         ContCrash.tryCatch(() {
-          observer.onElse(error);
+          onElse(error);
         }).match((_) {}, onPanic);
       }
 
@@ -154,7 +148,7 @@ final class Cont<E, F, A> {
         isDone = true;
 
         ContCrash.tryCatch(() {
-          observer.onThen(a);
+          onThen(a);
         }).match((_) {}, onPanic);
       }
 
@@ -185,7 +179,7 @@ final class Cont<E, F, A> {
     Cont<E, F, A> Function() thunk,
   ) {
     return Cont.fromRun((runtime, observer) {
-      Cont<E, F, A> contA = thunk().absurdify();
+      Cont<E, F, A> contA = thunk();
       contA.runWith(runtime, observer);
     });
   }
@@ -270,9 +264,6 @@ final class Cont<E, F, A> {
     A3 Function(A1 a, A2 a2) combine, {
     required OkPolicy<F> policy,
   }) {
-    left = left.absurdify();
-    right = right.absurdify();
-
     switch (policy) {
       case SequenceOkPolicy():
         return left.thenDo((a) {
@@ -347,9 +338,6 @@ final class Cont<E, F, A> {
     F3 Function(F1, F2) combine, {
     required OkPolicy<A> policy,
   }) {
-    left = left.absurdify();
-    right = right.absurdify();
-
     switch (policy) {
       case SequenceOkPolicy<A>():
         return left.elseDo((error1) {
@@ -427,9 +415,6 @@ final class Cont<E, F, A> {
     Cont<E, F, A> right, {
     required CrashPolicy<F, A> policy,
   }) {
-    left = left.absurdify();
-    right = right.absurdify();
-
     switch (policy) {
       case SequenceCrashPolicy():
         return left.crashDo((crash1) {
@@ -530,17 +515,17 @@ final class Cont<E, F, A> {
     void Function() onReleaseThen = _voidIgnore,
   }) {
     return Cont.fromRun((runtime, observer) {
-      acquire.absurdify().elseAbsurd<F>().runWith(
+      acquire.elseAbsurd<F>().runWith(
         runtime,
         observer.copyUpdateOnThen<R>((r) {
           void fireRelease() {
             ContCrash.tryCatch(() {
-              release(r).absurdify().run(
-                    runtime.env(),
-                    onPanic: onReleasePanic,
-                    onCrash: onReleaseCrash,
-                    onThen: (_) => onReleaseThen(),
-                  );
+              release(r).run(
+                runtime.env(),
+                onPanic: onReleasePanic,
+                onCrash: onReleaseCrash,
+                onThen: (_) => onReleaseThen(),
+              );
             }).match((_) {}, onReleasePanic);
           }
 
@@ -550,35 +535,35 @@ final class Cont<E, F, A> {
           }
 
           ContCrash.tryCatch(() {
-            use(r).absurdify().runWith(
-                  runtime,
-                  observer.copyUpdate(
-                    onCrash: (crash) {
-                      if (runtime.isCancelled()) {
-                        fireRelease();
-                        return;
-                      }
-                      observer.onCrash(crash);
-                      fireRelease();
-                    },
-                    onElse: (error) {
-                      if (runtime.isCancelled()) {
-                        fireRelease();
-                        return;
-                      }
-                      observer.onElse(error);
-                      fireRelease();
-                    },
-                    onThen: (a) {
-                      if (runtime.isCancelled()) {
-                        fireRelease();
-                        return;
-                      }
-                      observer.onThen(a);
-                      fireRelease();
-                    },
-                  ),
-                );
+            use(r).runWith(
+              runtime,
+              observer.copyUpdate(
+                onCrash: (crash) {
+                  if (runtime.isCancelled()) {
+                    fireRelease();
+                    return;
+                  }
+                  observer.onCrash(crash);
+                  fireRelease();
+                },
+                onElse: (error) {
+                  if (runtime.isCancelled()) {
+                    fireRelease();
+                    return;
+                  }
+                  observer.onElse(error);
+                  fireRelease();
+                },
+                onThen: (a) {
+                  if (runtime.isCancelled()) {
+                    fireRelease();
+                    return;
+                  }
+                  observer.onThen(a);
+                  fireRelease();
+                },
+              ),
+            );
           }).match((_) {}, (crash) {
             observer.onCrash(crash);
             fireRelease();
@@ -586,5 +571,35 @@ final class Cont<E, F, A> {
         }),
       );
     });
+  }
+}
+
+/// Provides [runWith], the low-level way to run a [Cont].
+///
+/// It is an extension rather than a method of [Cont] so that Dart does
+/// not check the observer against the [Cont]'s runtime type arguments.
+/// That check would reject a valid observer when the [Cont] is used
+/// through a wider type, for example a `Cont<E, String, int>` used as a
+/// `Cont<E, Object?, int>`.
+extension ContRunWithExtension<E, F, A> on Cont<E, F, A> {
+  /// Executes the continuation with the given runtime and observer directly.
+  ///
+  /// Lower-level alternative to [Cont.run]. Useful when composing continuations
+  /// internally or when a [ContRuntime] and [ContObserver] are already
+  /// available from an enclosing computation.
+  ///
+  /// - [runtime]: The runtime context providing the environment and cancellation state.
+  /// - [observer]: The observer whose callbacks receive the computation's outcome.
+  void runWith(
+    ContRuntime<E> runtime,
+    ContObserver<F, A> observer,
+  ) {
+    _run(
+      runtime,
+      observer._onUnsafePanic,
+      observer.onCrash,
+      observer.onElse,
+      observer.onThen,
+    );
   }
 }

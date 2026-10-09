@@ -84,14 +84,14 @@ Cont<E, F, List<A>> _quitFastAll<E, F, A>(
       total: list.length,
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
         ContCrash.tryCatch(() {
-          list[i].absurdify().runWith(
-                shared,
-                observer.copyUpdate(
-                  onCrash: onCrash,
-                  onElse: onQuitFast,
-                  onThen: onCollect,
-                ),
-              );
+          list[i].runWith(
+            shared,
+            observer.copyUpdate(
+              onCrash: onCrash,
+              onElse: onQuitFast,
+              onThen: onCollect,
+            ),
+          );
         }).match((_) {}, onCrash);
       },
       onFirstQuitFast: observer.onElse,
@@ -146,14 +146,14 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
 
     for (var i = 0; i < total; i++) {
       ContCrash.tryCatch(() {
-        list[i].absurdify().runWith(
-              shared,
-              observer.copyUpdate(
-                onCrash: (c) => handleCrash(i, c),
-                onElse: handleElse,
-                onThen: handleThen,
-              ),
-            );
+        list[i].runWith(
+          shared,
+          observer.copyUpdate(
+            onCrash: (c) => handleCrash(i, c),
+            onElse: handleElse,
+            onThen: handleThen,
+          ),
+        );
       }).match((_) {}, (crash) {
         handleCrash(i, crash);
       });
@@ -172,14 +172,14 @@ Cont<E, List<F>, A> _quitFastAny<E, F, A>(
       total: list.length,
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
         ContCrash.tryCatch(() {
-          list[i].absurdify().runWith(
-                shared,
-                observer.copyUpdate(
-                  onCrash: onCrash,
-                  onThen: onQuitFast,
-                  onElse: onCollect,
-                ),
-              );
+          list[i].runWith(
+            shared,
+            observer.copyUpdate(
+              onCrash: onCrash,
+              onThen: onQuitFast,
+              onElse: onCollect,
+            ),
+          );
         }).match((_) {}, onCrash);
       },
       onFirstQuitFast: observer.onThen,

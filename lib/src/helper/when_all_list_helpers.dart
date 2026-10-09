@@ -199,7 +199,7 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
       shouldFavorCrash: shouldFavorCrash,
       total: list.length,
       onRun: (index, onCrash, onPrimary, onSecondary) {
-        final cont = list[index].absurdify();
+        final cont = list[index];
         ContCrash.tryCatch(() {
           cont.runWith(
             runtime,
@@ -333,23 +333,23 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
     for (var i = 0; i < total; i++) {
       final idx = i;
       ContCrash.tryCatch(() {
-        list[idx].absurdify().runWith(
-              runtime,
-              observer.copyUpdate(
-                onCrash: (crash) {
-                  if (runtime.isCancelled()) return;
-                  handleCrash(idx, crash);
-                },
-                onElse: (f) {
-                  if (runtime.isCancelled()) return;
-                  handleElse(idx, f);
-                },
-                onThen: (a) {
-                  if (runtime.isCancelled()) return;
-                  handleThen(idx, a);
-                },
-              ),
-            );
+        list[idx].runWith(
+          runtime,
+          observer.copyUpdate(
+            onCrash: (crash) {
+              if (runtime.isCancelled()) return;
+              handleCrash(idx, crash);
+            },
+            onElse: (f) {
+              if (runtime.isCancelled()) return;
+              handleElse(idx, f);
+            },
+            onThen: (a) {
+              if (runtime.isCancelled()) return;
+              handleThen(idx, a);
+            },
+          ),
+        );
       }).match((_) {}, (crash) {
         handleCrash(idx, crash);
       });
@@ -369,7 +369,7 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
       shouldFavorCrash: shouldFavorCrash,
       total: list.length,
       onRun: (index, onCrash, onPrimary, onSecondary) {
-        final cont = list[index].absurdify();
+        final cont = list[index];
 
         ContCrash.tryCatch(() {
           cont.runWith(

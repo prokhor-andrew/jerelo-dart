@@ -6,6 +6,9 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// This is a type-safe no-op that allows a `Cont<E, F, Never>` to be used
   /// where a `Cont<E, F, A>` is expected.
+  @Deprecated(
+      'No longer needed: Cont is covariant, so a Never-typed Cont can be used '
+      'directly where a wider type is expected. Will be removed in 3.0.0.')
   Cont<E, F, A> thenAbsurdify() {
     Cont<E, F, A> cont = this;
 
@@ -21,6 +24,9 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// This is a type-safe no-op that allows a `Cont<E, Never, A>` to be used
   /// where a `Cont<E, F, A>` is expected.
+  @Deprecated(
+      'No longer needed: Cont is covariant, so a Never-typed Cont can be used '
+      'directly where a wider type is expected. Will be removed in 3.0.0.')
   Cont<E, F, A> elseAbsurdify() {
     Cont<E, F, A> cont = this;
 
@@ -35,6 +41,9 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
   /// respectively, if needed; otherwise returns `this` unchanged.
   ///
   /// Combines [thenAbsurdify] and [elseAbsurdify] in a single call.
+  @Deprecated(
+      'No longer needed: Cont is covariant, so a Never-typed Cont can be used '
+      'directly where a wider type is expected. Will be removed in 3.0.0.')
   Cont<E, F, A> absurdify() {
     Cont<E, F, A> cont = this;
 
