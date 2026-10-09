@@ -17,8 +17,16 @@ Cont<E, A> _thenFork<E, A, A2>(
           return;
         }
 
-        // if this crashes, it should crash the computation
-        Cont<E, A2> contA2 = f(a);
+        // if building the side-effect throws, terminate the computation
+        Cont<E, A2> contA2;
+        try {
+          contA2 = f(a);
+        } catch (error, st) {
+          observer.onElse([
+            ContError.withStackTrace(error, st),
+          ]);
+          return;
+        }
 
         if (contA2 is Cont<E, Never>) {
           contA2 = contA2.absurd<A2>();
