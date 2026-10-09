@@ -65,8 +65,10 @@ To represent a crash (unexpected exception):
 Cont.crash<(), String, int>(someCrash);
 ```
 
-This constructor is used to thread an existing `ContCrash`. The construction of `ContCrash`
-manually is not possible. (More in **[Composing Computations](03-composing-computations.md)**)
+This constructor is used to thread an existing `ContCrash`. A `NormalCrash` has no public
+constructor: it is created when an exception is caught (for example by `ContCrash.tryCatch`).
+`MergedCrash` and `CollectedCrash` have public constructors (also available as `ContCrash.merge`
+and `ContCrash.collect`). (More in **[Composing Computations](03-composing-computations.md)**)
 
 ### Resource Management
 
