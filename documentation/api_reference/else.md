@@ -384,33 +384,27 @@ final result = fetchData()
 ### elseZip
 
 ```dart
-Cont<E, A> elseZip(Cont<E, A> Function(List<ContError>) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+Cont<E, A> elseZip(Cont<E, A> Function(List<ContError>) f)
 ```
 
 Attempts a fallback continuation and combines errors from both attempts.
 
-If the continuation terminates, executes the fallback. If the fallback also terminates, combines errors from both attempts using the provided `combine` function before terminating.
+If the continuation terminates, executes the fallback. If the fallback also terminates, concatenates errors from both attempts before terminating.
 
 Unlike `elseDo`, which only keeps the second error list, this method accumulates and combines errors from both attempts.
 
 - **Parameters:**
   - `f`: Function that receives original errors and produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
 
 **Example:**
 ```dart
 final result = attempt1()
-  .elseZip(
-    (errors1) => attempt2(),
-    (errors1, errors2) => [...errors1, ...errors2],
-  );
+  .elseZip((errors1) => attempt2());
+// If both terminate: errors from attempt1 followed by errors from attempt2
 
 // Collect all validation errors
 final validated = validatePrimary()
-  .elseZip(
-    (errors) => validateSecondary(),
-    (e1, e2) => [...e1, ...e2],
-  );
+  .elseZip((errors) => validateSecondary());
 ```
 
 ---
@@ -418,7 +412,7 @@ final validated = validatePrimary()
 ### elseZip0
 
 ```dart
-Cont<E, A> elseZip0(Cont<E, A> Function() f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+Cont<E, A> elseZip0(Cont<E, A> Function() f)
 ```
 
 Zero-argument version of `elseZip`.
@@ -427,15 +421,11 @@ Similar to `elseZip` but doesn't use the original error information when produci
 
 - **Parameters:**
   - `f`: Zero-argument function that produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
 
 **Example:**
 ```dart
 final result = primaryAttempt()
-  .elseZip0(
-    () => secondaryAttempt(),
-    (e1, e2) => [...e1, ...e2],
-  );
+  .elseZip0(() => secondaryAttempt());
 ```
 
 ---
@@ -443,24 +433,20 @@ final result = primaryAttempt()
 ### elseZipWithEnv
 
 ```dart
-Cont<E, A> elseZipWithEnv(Cont<E, A> Function(E env, List<ContError>) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+Cont<E, A> elseZipWithEnv(Cont<E, A> Function(E env, List<ContError>) f)
 ```
 
 Attempts a fallback continuation with access to the environment and combines errors.
 
-Similar to `elseZip`, but the fallback function receives both the environment and the original errors. If both the original attempt and fallback fail, their errors are combined using the `combine` function. This is useful when error recovery strategies need access to configuration or context.
+Similar to `elseZip`, but the fallback function receives both the environment and the original errors. If both the original attempt and fallback fail, their errors are concatenated. This is useful when error recovery strategies need access to configuration or context.
 
 - **Parameters:**
   - `f`: Function that takes the environment and errors, and produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
 
 **Example:**
 ```dart
 final result = fetchData()
-  .elseZipWithEnv(
-    (env, errors) => fetchFromUrl(env.backupUrl),
-    (e1, e2) => [...e1, ...e2],
-  );
+  .elseZipWithEnv((env, errors) => fetchFromUrl(env.backupUrl));
 ```
 
 ---
@@ -468,7 +454,7 @@ final result = fetchData()
 ### elseZipWithEnv0
 
 ```dart
-Cont<E, A> elseZipWithEnv0(Cont<E, A> Function(E env) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+Cont<E, A> elseZipWithEnv0(Cont<E, A> Function(E env) f)
 ```
 
 Attempts a fallback continuation with access to the environment only and combines errors.
@@ -477,15 +463,11 @@ Similar to `elseZipWithEnv`, but the fallback function only receives the environ
 
 - **Parameters:**
   - `f`: Function that takes the environment and produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
 
 **Example:**
 ```dart
 final result = primaryOperation()
-  .elseZipWithEnv0(
-    (env) => fallbackOperation(env),
-    (e1, e2) => [...e1, ...e2],
-  );
+  .elseZipWithEnv0((env) => fallbackOperation(env));
 ```
 
 ---

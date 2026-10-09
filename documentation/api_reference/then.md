@@ -543,6 +543,8 @@ Unconditionally terminates the continuation with computed errors.
 
 Takes a successful value and converts it into a termination with errors. This is useful for implementing validation logic where certain values should cause termination, or for custom error handling flows.
 
+`abort` always terminates, even when `f` returns an empty list. To terminate only when a condition holds, use `thenIf` with an error list.
+
 - **Parameters:**
   - `f`: Function that computes the error list from the value
 
@@ -552,10 +554,12 @@ final cont = Cont.of(42)
   .abort((n) => [ContError.capture('Value too large: $n')]);
 // Terminates with error
 
+// Conditional termination: use thenIf instead
 final validated = fetchUser()
-  .abort((user) => user.age < 18
-    ? [ContError.capture('User must be 18+')]
-    : []);
+  .thenIf(
+    (user) => user.age >= 18,
+    [ContError.capture('User must be 18+')],
+  );
 ```
 
 ---
@@ -596,11 +600,9 @@ Similar to `abort`, but the error computation function receives both the current
 
 **Example:**
 ```dart
-final validated = fetchValue()
+final rejected = fetchValue()
   .abortWithEnv((env, value) {
-    return value > env.maxAllowed
-      ? [ContError.capture('Exceeds limit: ${env.maxAllowed}')]
-      : [];
+    return [ContError.capture('Rejected $value (limit: ${env.maxAllowed})')];
   });
 ```
 
@@ -623,9 +625,7 @@ Similar to `abortWithEnv`, but the error computation function only receives the 
 ```dart
 final cont = processData()
   .abortWithEnv0((env) {
-    return env.isMaintenanceMode
-      ? [ContError.capture('System in maintenance')]
-      : [];
+    return [ContError.capture('System in maintenance: ${env.maintenanceMessage}')];
   });
 ```
 
