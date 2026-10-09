@@ -34,7 +34,9 @@ static Cont<E, F, A> fromRun<E, F, A>(
 
 Creates a `Cont` from a run function that accepts an observer.
 
-Constructs a continuation with guaranteed idempotence and exception catching. The run function receives a `SafeObserver` with `onCrash`, `onElse`, and `onThen` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later. The `SafeObserver` ensures that only the first callback invocation takes effect; subsequent calls are ignored.
+Constructs a continuation with guaranteed idempotence and exception catching. The run function receives a `SafeObserver` with `onCrash`, `onElse`, and `onThen` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later. The `SafeObserver` ensures that only the first callback invocation takes effect; subsequent calls are ignored. This guard covers only the observer handed to `run`: observers derived from it with `copyUpdate*` call their new callbacks every time.
+
+Exceptions thrown synchronously by `run` are caught and routed to the crash channel. An exception thrown later, for example inside a `Timer` or `Future` callback, is not caught: it escapes to the zone and the observer is never called. Wrap such callback bodies in `ContCrash.tryCatch` and pass the crash to `observer.onCrash`.
 
 - **Parameters:**
   - `run`: Function that executes the continuation and calls observer callbacks
@@ -45,9 +47,8 @@ final cont = Cont.fromRun<MyEnv, String, int>((runtime, observer) {
   // Access environment
   final config = runtime.env();
 
-  // Check cancellation
+  // Check cancellation: a cancelled computation emits nothing
   if (runtime.isCancelled()) {
-    observer.onElse('Cancelled');
     return;
   }
 
@@ -232,8 +233,8 @@ Note that `acquire` and `release` use `Never` as their error type, meaning they 
 - `release` runs at most once, on a runtime that is never cancelled
 
 **Optional release callbacks:**
-- `onReleasePanic`: Called if the release crashes with a panic-level failure. Defaults to re-throwing
-- `onReleaseCrash`: Called if the release crashes. Defaults to ignoring
+- `onReleasePanic`: Called if the `release` function itself throws while building the release continuation (`release(resource)`), or if a release callback throws. Defaults to re-throwing in a microtask, so a `try`/`catch` around `run()` never sees it
+- `onReleaseCrash`: Called if the release continuation returned by `release` crashes. Defaults to ignoring
 - `onReleaseThen`: Called when release succeeds. Defaults to no-op
 
 - **Parameters:**

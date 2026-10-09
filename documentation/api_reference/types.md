@@ -302,7 +302,7 @@ final class SafeObserver<F, A> extends ContObserver<F, A>
 
 An observer that tracks whether any callback has already been invoked, preventing duplicate invocations.
 
-Used by `Cont.fromRun` to wrap user-provided callbacks with idempotence and exception safety.
+Used by `Cont.fromRun` to wrap user-provided callbacks with idempotence and exception safety. Only the observer handed to the `fromRun` run function is guarded: observers derived from it with `copyUpdate*` share its `isUsed`, but their new callbacks run every time they are called.
 
 **Fields:**
 - `isUsed: bool Function()` — Returns `true` if any callback on this observer has already been invoked

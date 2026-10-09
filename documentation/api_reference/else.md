@@ -473,7 +473,7 @@ The side-effect runs under this computation's runtime, so it is cancelled togeth
 Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the error. The forked continuation may have different error and value types.
 
 Outcomes from the forked continuation are dispatched to optional callbacks:
-- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing.
+- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing in a microtask, so a `try`/`catch` around `run()` never sees it.
 - `onCrash`: Called when the side-effect crashes. Defaults to ignoring.
 - `onElse`: Called when the side-effect terminates with an error. Defaults to ignoring.
 - `onThen`: Called when the side-effect succeeds. Defaults to ignoring.
