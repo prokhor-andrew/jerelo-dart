@@ -196,15 +196,6 @@ Creates a copy of this runtime with a different environment. Returns a new `Cont
 - **Parameters:**
   - `env`: The new environment value to use
 
-```dart
-ContRuntime<E> extendCancellation(bool Function() anotherIsCancelled) // deprecated
-```
-> **Deprecated.** A predicate cannot notify `onCancel` callbacks, so work such as `bracket` is not cleaned up when it becomes `true`. Use `withCancellation` and call `cancel` instead. Will be removed in 3.0.0.
-
-Creates a copy of this runtime with an additional cancellation source. The resulting runtime reports cancelled if either the original or the new cancellation function returns `true`.
-
-- **Parameters:**
-  - `anotherIsCancelled`: An additional cancellation check to combine with the existing one
 
 ---
 

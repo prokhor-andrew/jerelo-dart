@@ -80,28 +80,6 @@ final class ContRuntime<E> {
     );
   }
 
-  /// Returns a new [ContRuntime] whose [isCancelled] returns `true` if either
-  /// this runtime is cancelled or [anotherIsCancelled] returns `true`.
-  ///
-  /// A predicate cannot notify: callbacks registered with [onCancel] on the
-  /// returned runtime run when this runtime is cancelled, not when
-  /// [anotherIsCancelled] becomes `true`.
-  ///
-  /// - [anotherIsCancelled]: Additional cancellation predicate to combine with
-  ///   the existing one.
-  @Deprecated(
-      'A predicate cannot notify onCancel callbacks, so work such as '
-      'Cont.bracket is not cleaned up when it becomes true. Use '
-      'withCancellation and call cancel instead. Will be removed in 3.0.0.')
-  ContRuntime<E> extendCancellation(
-    bool Function() anotherIsCancelled,
-  ) {
-    return ContRuntime._(
-      _env,
-      _CancelNode._view(_cancellation, anotherIsCancelled),
-    );
-  }
-
   /// Returns a runtime with the same environment that is never cancelled.
   ContRuntime<E> _uncancellable() {
     return ContRuntime._(_env, _CancelNode._root());

@@ -40,50 +40,28 @@ final class ContCancelToken {
 /// derived from it.
 ///
 /// A node is cancelled when [cancel] is called on it, or when its parent is
-/// cancelled. A view node (see [_CancelNode._view]) is also cancelled while
-/// its predicate returns `true`, but it cannot notify for that predicate: its
-/// [onCancel] callbacks are registered on the parent.
+/// cancelled.
 final class _CancelNode {
   final _CancelNode? _parent;
-  final bool Function()? _predicate;
-  final bool _isView;
 
   bool _isCancelled = false;
   List<_CancelListener>? _listeners;
   void Function()? _unlinkFromParent;
 
   /// Receives exceptions thrown by [onCancel] callbacks. Set on the root
-  /// node by [Cont.run]; child and view nodes use their parent's.
+  /// node by [Cont.run]; child nodes use their parent's.
   void Function(NormalCrash crash)? _onPanic;
 
-  _CancelNode._root()
-      : _parent = null,
-        _predicate = null,
-        _isView = false;
+  _CancelNode._root() : _parent = null;
 
   /// A node that is cancelled with its parent, or explicitly via [cancel].
   _CancelNode._child(_CancelNode parent)
-      : _parent = parent,
-        _predicate = null,
-        _isView = false {
+      : _parent = parent {
     _unlinkFromParent = parent.onCancel(cancel);
   }
 
-  /// A read-only node that reports cancellation when its parent is
-  /// cancelled or [predicate] returns `true`.
-  _CancelNode._view(
-      _CancelNode parent, bool Function() predicate)
-      : _parent = parent,
-        _predicate = predicate,
-        _isView = true;
-
   bool isCancelled() {
     if (_isCancelled) {
-      return true;
-    }
-
-    final predicate = _predicate;
-    if (predicate != null && predicate()) {
       return true;
     }
 
@@ -95,10 +73,6 @@ final class _CancelNode {
     if (isCancelled()) {
       _runCallback(callback);
       return _voidIgnore;
-    }
-
-    if (_isView) {
-      return _parent!.onCancel(callback);
     }
 
     final listener = _CancelListener(callback);
