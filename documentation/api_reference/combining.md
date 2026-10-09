@@ -103,7 +103,7 @@ final result = Cont.all(
 ```dart
 static ContBothPolicy quitFast()
 ```
-Creates a quit-fast policy. Terminates immediately on the first failure. Provides the fastest feedback but may leave other operations running.
+Creates a quit-fast policy. Terminates immediately on the first failure. Provides the fastest feedback; the other operations are cancelled once the result is decided.
 
 When used with `both` or `all`:
 - All continuations start executing in parallel
@@ -236,7 +236,7 @@ Use this when:
 
 **Example:**
 ```dart
-final result = Cont.any(
+final result = Cont.any<(), User>(
   [fetchUserFromDb1, fetchUserFromDb2, fetchUserFromDb3],
   policy: ContEitherPolicy.mergeWhenAll((user1, user2) {
     // Merge user data, preferring non-null fields
@@ -254,7 +254,7 @@ final result = Cont.any(
 ```dart
 static ContEitherPolicy<A> quitFast<A>()
 ```
-Creates a quit-fast policy. Terminates immediately on the first success. Provides the fastest feedback but may leave other operations running.
+Creates a quit-fast policy. Terminates immediately on the first success. Provides the fastest feedback; the other operations are cancelled once the result is decided.
 
 When used with `either` or `any`:
 - All continuations start executing in parallel
@@ -489,7 +489,7 @@ final data = Cont.any(
 );
 
 // Merge results from all sources
-final merged = Cont.any(
+final merged = Cont.any<(), int>(
   [db1, db2, db3],
   policy: ContEitherPolicy.mergeWhenAll((a, b) => a + b),
 );

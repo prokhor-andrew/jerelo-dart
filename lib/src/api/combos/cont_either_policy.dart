@@ -38,7 +38,8 @@ sealed class ContEitherPolicy<A> {
   ///
   /// Terminates immediately on the first success.
   ///
-  /// Provides the fastest feedback but may leave other operations running.
+  /// Provides the fastest feedback; the other operations are cancelled
+  /// once the result is decided.
   static ContEitherPolicy<A> quitFast<A>() {
     return EitherQuitFastPolicy();
   }
