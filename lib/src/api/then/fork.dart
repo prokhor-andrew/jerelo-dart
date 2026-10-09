@@ -7,6 +7,9 @@ extension ContThenForkExtension<E, A> on Cont<E, A> {
   /// The side-effect continuation is started immediately, and the original value
   /// is returned without delay. Any errors from the side-effect are silently ignored.
   ///
+  /// The side-effect runs under this computation's runtime, so it is
+  /// cancelled together with this computation.
+  ///
   /// - [f]: Function that takes the current value and returns a side-effect continuation.
   Cont<E, A> thenFork<A2>(Cont<E, A2> Function(A a) f) {
     return _thenFork(this, f);

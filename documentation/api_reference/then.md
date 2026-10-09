@@ -454,6 +454,8 @@ Cont<E, A> thenFork<A2>(Cont<E, A2> Function(A a) f)
 
 Executes a side-effect continuation in a fire-and-forget manner.
 
+The side-effect runs under this computation's runtime, so it is cancelled together with this computation.
+
 Unlike `thenTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started immediately, and the original value is returned without delay. Any errors from the side-effect are silently ignored.
 
 - **Parameters:**

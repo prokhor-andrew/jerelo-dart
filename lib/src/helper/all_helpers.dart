@@ -230,19 +230,17 @@ Cont<E, List<A>> _allQuitFast<E, A>(List<Cont<E, A>> list) {
 
     int amountOfFinishedContinuations = 0;
 
-    final ContRuntime<E> sharedContRuntime = ContRuntime._(
-      runtime.env(),
-      () {
-        return runtime.isCancelled() || isDone;
-      },
-      runtime.onPanic,
-    );
+    // a child scope, cancelled once the result is decided, so that
+    // callbacks registered with onCancel (e.g. by bracket) still run
+    final shared = runtime.withCancellation();
+    final ContRuntime<E> sharedContRuntime = shared.runtime;
 
     void handleTerminate(List<ContError> errors) {
       if (isDone) {
         return;
       }
       isDone = true;
+      shared.cancel();
 
       observer.onElse(errors);
     }
@@ -273,6 +271,7 @@ Cont<E, List<A>> _allQuitFast<E, A>(List<Cont<E, A>> list) {
                 return;
               }
 
+              shared.cancel();
               observer.onThen(results.cast<A>());
             },
           ),
