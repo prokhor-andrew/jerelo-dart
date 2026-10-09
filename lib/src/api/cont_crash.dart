@@ -106,7 +106,7 @@ final class MergedCrash extends ContCrash {
   }
 
   @override
-  int get hashCode => left.hashCode ^ right.hashCode;
+  int get hashCode => Object.hash(left, right);
 }
 
 /// A crash that collects multiple crashes from a list of operations.
@@ -135,11 +135,28 @@ final class CollectedCrash extends ContCrash {
       return false;
     }
 
-    return crashes == other.crashes;
+    if (crashes.length != other.crashes.length) {
+      return false;
+    }
+
+    for (final MapEntry(:key, :value) in crashes.entries) {
+      if (!other.crashes.containsKey(key) ||
+          other.crashes[key] != value) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   @override
-  int get hashCode => crashes.hashCode;
+  int get hashCode {
+    return Object.hashAllUnordered(
+      crashes.entries.map((entry) {
+        return Object.hash(entry.key, entry.value);
+      }),
+    );
+  }
 }
 
 /// The result of [ContCrash.tryCatch] — either a successfully computed
