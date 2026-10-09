@@ -54,7 +54,9 @@ final class Cont<E, F, A> {
   ///
   /// - [env]: The environment value to provide to the computation.
   /// - [onPanic]: Called when an unexpected exception escapes all crash handlers.
-  ///   Defaults to rethrowing the panic.
+  ///   Defaults to rethrowing the panic in a microtask, so it surfaces as an
+  ///   unhandled error in the current zone; a `try`/`catch` around [run]
+  ///   never sees it.
   /// - [onCrash]: Called when the computation terminates on the crash channel.
   ///   Defaults to silently ignoring the crash.
   /// - [onElse]: Called when the computation terminates on the else (error) channel.
@@ -85,6 +87,16 @@ final class Cont<E, F, A> {
   /// The run function receives an observer with `onThen` and `onElse` callbacks.
   /// The callbacks should be called as the last instruction in the run function
   /// or saved to be called later.
+  ///
+  /// Only the observer handed to [run] is guarded against duplicate calls;
+  /// observers derived from it with `copyUpdate*` call their new callbacks
+  /// every time.
+  ///
+  /// Only exceptions thrown synchronously by [run] are caught and routed to
+  /// the crash channel. An exception thrown later, for example inside a
+  /// `Timer` or `Future` callback, escapes to the zone and the observer is
+  /// not called; wrap such callbacks in [ContCrash.tryCatch] and pass the
+  /// crash to `observer.onCrash`.
   ///
   /// - [run]: Function that executes the continuation and calls observer callbacks.
   static Cont<E, F, A> fromRun<E, F, A>(
@@ -529,7 +541,10 @@ final class Cont<E, F, A> {
   ///   fire-and-forget: the [use] outcome is propagated immediately and
   ///   [release] runs independently. Release outcomes are routed to the
   ///   optional [onReleasePanic], [onReleaseCrash], and [onReleaseThen]
-  ///   callbacks, following the same pattern as fork handlers.
+  ///   callbacks, following the same pattern as fork handlers: a throw
+  ///   from [release] itself (while building the release continuation)
+  ///   goes to [onReleasePanic], and a crash inside the returned
+  ///   continuation goes to [onReleaseCrash].
   /// - [use]: Uses the resource; may succeed with [A], fail with [F], or crash.
   ///
   /// Outcome rules:

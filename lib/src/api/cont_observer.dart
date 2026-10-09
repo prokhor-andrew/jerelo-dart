@@ -3,8 +3,9 @@ part of '../cont.dart';
 /// Receives the outcome of a [Cont] computation.
 ///
 /// [ContObserver] is the callback container passed to [Cont.runWith]. It holds
-/// three outcome callbacks — [onCrash], [onElse], and [onThen] — exactly one
-/// of which will be invoked when the continuation completes.
+/// three outcome callbacks — [onCrash], [onElse], and [onThen] — at most one
+/// of which will be invoked: exactly one when the continuation completes,
+/// none when it is cancelled or runs forever.
 ///
 /// Use the `copyUpdate*` family of methods to derive observers with selectively
 /// overridden callbacks while preserving the rest of the original observer's state.
@@ -313,6 +314,10 @@ final class _UnsafeObserver<F, A>
 /// Provided to the user-supplied run function in [Cont.fromRun]. The [isUsed]
 /// predicate returns `true` once any outcome callback has already been called,
 /// allowing downstream operators to detect and ignore redundant invocations.
+///
+/// Only the observer handed to the run function is guarded. Observers derived
+/// from it with the `copyUpdate*` methods keep the same [isUsed] predicate,
+/// but their new callbacks run every time they are called.
 final class SafeObserver<F, A> extends ContObserver<F, A> {
   /// Returns `true` if an outcome callback has already been invoked.
   final bool Function() isUsed;

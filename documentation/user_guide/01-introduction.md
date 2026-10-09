@@ -217,7 +217,7 @@ final token = program.run(
 
 ### ContCrash Type
 
-When an exception is thrown inside a computation, it is automatically caught and wrapped in a `ContCrash`. The crash type hierarchy is:
+When an exception is thrown synchronously inside a computation, it is automatically caught and wrapped in a `ContCrash`. (Inside `Cont.fromRun`, an exception thrown later from a `Timer` or `Future` callback is not caught; see [Fundamentals](02-fundamentals.md).) The crash type hierarchy is:
 
 ```dart
 sealed class ContCrash {
