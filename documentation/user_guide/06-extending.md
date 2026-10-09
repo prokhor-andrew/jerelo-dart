@@ -76,14 +76,13 @@ Most custom operators can be built by composing existing ones:
 
 ```dart
 extension MyContExtensions<E, F, T> on Cont<E, F, T> {
-  // Retry a computation N times on failure
+  // Retry a computation up to maxAttempts times on failure.
+  // elseWhile loops without growing the stack, so even many
+  // synchronous failures are safe. Fails with the last error.
   Cont<E, F, T> retry(int maxAttempts) {
-    if (maxAttempts <= 1) return this;
-
-    return this.elseDo((error) {
-      return retry(maxAttempts - 1).elseDo((_) {
-        return Cont.error(error);
-      });
+    return Cont.fromDeferred(() {
+      var attempts = 1; // fresh counter for every run
+      return elseWhile((_) => attempts++ < maxAttempts);
     });
   }
 
