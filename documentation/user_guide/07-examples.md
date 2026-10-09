@@ -118,15 +118,15 @@ class ApiClient<E> {
     String path,
     T Function(Map<String, dynamic>) fromJson,
   ) {
+    // `retry` is the helper from the Extending Jerelo guide
     return _makeRequest(path)
       .thenMap((response) => fromJson(response))
-      .timeout(timeout)
       .retry(maxRetries);
   }
 
   Cont<E, Map<String, dynamic>> _makeRequest(String path) {
     return Cont.fromRun((runtime, observer) {
-      http.get(Uri.parse('$baseUrl$path')).then(
+      http.get(Uri.parse('$baseUrl$path')).timeout(timeout).then(
         (response) {
           if (response.statusCode == 200) {
             observer.onThen(jsonDecode(response.body));

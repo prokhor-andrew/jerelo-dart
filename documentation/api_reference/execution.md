@@ -14,8 +14,8 @@ Running continuations and specialized extensions.
   - [ff](#ff)
 - [Extensions](#extensions)
   - [ContFlattenExtension](#contflattenextension)
-  - [ContRunExtension](#contrunextension)
-  - [ContAbsurdExtension](#contabsurdextension)
+  - [ContNeverExtension (trap)](#contneverextension-trap)
+  - [ContNeverExtension (absurd)](#contneverextension-absurd)
 
 ---
 
@@ -163,10 +163,10 @@ final flattened = nested.flatten();
 
 ---
 
-### ContRunExtension
+### ContNeverExtension (trap)
 
 ```dart
-extension ContRunExtension<E> on Cont<E, Never>
+extension ContNeverExtension<E> on Cont<E, Never>
 ```
 
 Extension for running continuations that never produce a value.
@@ -207,10 +207,10 @@ print(token.isCancelled()); // true
 
 ---
 
-### ContAbsurdExtension
+### ContNeverExtension (absurd)
 
 ```dart
-extension ContAbsurdExtension<E> on Cont<E, Never>
+extension ContNeverExtension<E> on Cont<E, Never>
 ```
 
 Extension providing type conversion for continuations that never produce a value.

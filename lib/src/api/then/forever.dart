@@ -20,11 +20,14 @@ extension ContThenForeverExtension<E, A> on Cont<E, A> {
   /// ```dart
   /// // A server that handles requests forever
   /// final server = acceptConnection()
-  ///     .then((conn) => handleConnection(conn))
+  ///     .thenDo((conn) => handleConnection(conn))
   ///     .thenForever();
   ///
   /// // Run with only a termination handler (using trap extension)
-  /// server.trap(env, (errors) => print('Server stopped: $errors'));
+  /// server.trap(
+  ///   env,
+  ///   onElse: (errors) => print('Server stopped: $errors'),
+  /// );
   /// ```
   Cont<E, Never> thenForever() {
     return thenUntil((_) {
