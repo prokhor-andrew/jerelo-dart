@@ -213,7 +213,7 @@ extension AdvancedExtensions<E, T> on Cont<E, String, T> {
     Duration initialDelay = const Duration(milliseconds: 100),
   }) {
     Cont<E, String, T> attempt(int attemptsLeft, Duration currentDelay) {
-      if (attemptsLeft <= 0) return this;
+      if (attemptsLeft <= 1) return this;
 
       return this.elseDo((error) {
         return delay<E, String, void>(currentDelay, null)
