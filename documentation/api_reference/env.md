@@ -128,7 +128,7 @@ This method enables dependency injection patterns where the result of one contin
 **Example:**
 ```dart
 // Create a database configuration
-final configCont = Cont.of<(), Never, DbConfig>(DbConfig('localhost', 5432));
+final configCont = Cont.of<(), String, DbConfig>(DbConfig('localhost', 5432));
 
 // Define an operation that needs the config as environment
 final queryOp = Cont.askThen<DbConfig, String>()
@@ -136,7 +136,7 @@ final queryOp = Cont.askThen<DbConfig, String>()
 
 // Inject the config into the query operation
 final result = configCont.thenInject(queryOp);
-// Type: Cont<(), Never, List<User>>
+// Type: Cont<(), String, List<User>>
 
 result.run((), onThen: print);
 ```
@@ -173,11 +173,11 @@ final queryOp = Cont.askThen<DbConfig, String>()
   .thenDo((config) => executeQuery(config, 'SELECT * FROM users'));
 
 // Create a continuation that produces the config
-final configProvider = Cont.of<(), Never, DbConfig>(DbConfig('localhost', 5432));
+final configProvider = Cont.of<(), String, DbConfig>(DbConfig('localhost', 5432));
 
 // Express that queryOp receives its environment from configProvider
 final result = queryOp.injectedByThen(configProvider);
-// Type: Cont<(), Never, List<User>>
+// Type: Cont<(), String, List<User>>
 
 result.run((), onThen: print);
 ```
@@ -266,7 +266,7 @@ class UserService {
 }
 
 // Build the dependency
-final dbCont = Cont.of<(), Never, Database>(Database('localhost'));
+final dbCont = Cont.of<(), String, Database>(Database('localhost'));
 
 // Inject it into the service operation
 final service = UserService();

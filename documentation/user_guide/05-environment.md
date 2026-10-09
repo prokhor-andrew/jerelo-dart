@@ -198,7 +198,7 @@ The `thenInject` method takes the success value of this continuation and injects
 
 ```dart
 // Build a configuration and inject it into operations that need it
-final configCont = Cont.of<(), Never, DbConfig>(
+final configCont = Cont.of<(), String, DbConfig>(
   DbConfig(host: 'localhost', port: 5432)
 );
 

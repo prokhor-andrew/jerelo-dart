@@ -222,7 +222,7 @@ void main() {
     fetchUserFromApi('user456'),
     loadUserFromCache('user456'),
     (e1, e2) => '$e1; $e2', // Combine errors if both fail
-    policy: OkPolicy.quitFast(), // Return first success
+    policy: OkPolicy.quitFast<User>(), // Return first success
   );
 
   racingFlow.run(
