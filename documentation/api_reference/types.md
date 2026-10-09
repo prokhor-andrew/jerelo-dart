@@ -273,25 +273,7 @@ Creates a new observer with all three handlers replaced.
 
 **Extension Methods:**
 
-The following extension methods widen `Never`-typed channels to arbitrary types. When an observer's success or error type is `Never` (meaning that channel can never fire), these methods replace the unreachable callback with a no-op so the observer can be used in a broader generic context.
-
-```dart
-// On ContObserver<F, A>:
-ContObserver<F, A> thenAbsurdify()
-```
-Widens the success channel if its type is `Never`. If this observer has type `ContObserver<F, Never>`, returns a copy typed as `ContObserver<F, A>` with a no-op `onThen` callback. Otherwise returns this observer unchanged.
-
-```dart
-// On ContObserver<F, A>:
-ContObserver<F, A> elseAbsurdify()
-```
-Widens the error channel if its type is `Never`. If this observer has type `ContObserver<Never, A>`, returns a copy typed as `ContObserver<F, A>` with a no-op `onElse` callback. Otherwise returns this observer unchanged.
-
-```dart
-// On ContObserver<F, A>:
-ContObserver<F, A> absurdify()
-```
-Widens both the success and error channels if either is `Never`. Equivalent to calling `thenAbsurdify()` followed by `elseAbsurdify()`.
+The following extension methods widen a `Never`-typed channel to an arbitrary type. When an observer's success or error type is `Never` (meaning that channel can never fire), these methods replace the unreachable callback with a no-op. Since `ContObserver` can also be used directly where a wider type is expected, they are mainly a convenience for spelling out the target type.
 
 ```dart
 // On ContObserver<F, Never>:

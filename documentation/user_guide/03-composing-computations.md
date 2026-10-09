@@ -161,7 +161,11 @@ final Cont<(), String, Never> loop = server().thenForever();
 final Cont<(), String, int> widened = loop.thenAbsurd<int>();
 ```
 
-`absurdify` widens whichever channels are `Never` and is safe to call on any `Cont`.
+A `Never`-typed `Cont` can also be assigned to a wider type directly, because `Cont` is covariant in its error and value types:
+
+```dart
+final Cont<(), String, int> widened = loop;
+```
 
 ---
 

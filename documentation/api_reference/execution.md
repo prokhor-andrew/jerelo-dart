@@ -13,9 +13,6 @@ Running continuations and specialized extensions.
   - [runWith](#runwith)
 - [Extensions](#extensions)
   - [flatten](#flatten)
-  - [thenAbsurdify](#thenabsurdify)
-  - [elseAbsurdify](#elseabsurdify)
-  - [absurdify](#absurdify)
   - [thenAbsurd](#thenabsurd)
   - [elseAbsurd](#elseabsurd)
 
@@ -110,66 +107,6 @@ final result = nested.thenDo((inner) => inner);
 
 // With flatten
 final flattened = nested.flatten();
-```
-
----
-
-### thenAbsurdify
-
-```dart
-extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
-```
-
-```dart
-Cont<E, F, A> thenAbsurdify()
-```
-
-Checks if `A` is `Never` during execution and casts it to `A` to prevent runtime crashes.
-
-**Example:**
-```dart
-final Cont<(), String, int> neverSucceeds = Cont.error<(), String, Never>('fail');
-final Cont<(), String, int> runtimeSafe = neverSucceeds.thenAbsurdify();
-```
-
----
-
-### elseAbsurdify
-
-```dart
-extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
-```
-
-```dart
-Cont<E, F, A> elseAbsurdify()
-```
-
-Checks if `F` is `Never` during execution and casts it to `F` to prevent runtime crashes.
-
-**Example:**
-```dart
-final Cont<(), String, int> neverFails = Cont.of<(), Never, int>(42);
-final Cont<(), String, int> widened = neverFails.elseAbsurdify();
-```
-
----
-
-### absurdify
-
-```dart
-extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
-```
-
-```dart
-Cont<E, F, A> absurdify()
-```
-
-Checks if `F` and/or `A` are `Never` during execution and casts them to prevent runtime crashes. Equivalent to calling `thenAbsurdify()` and `elseAbsurdify()`.
-
-**Example:**
-```dart
-final Cont<(), String, int> neverBoth = Cont.crash(crash);
-final Cont<(), String, int> widened = neverBoth.absurdify();
 ```
 
 ---
