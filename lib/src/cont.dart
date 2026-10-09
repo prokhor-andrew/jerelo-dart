@@ -58,13 +58,19 @@ part 'helper/then_helpers.dart';
 /// - [E]: The environment type providing context for the continuation execution.
 /// - [A]: The value type that the continuation produces upon success.
 final class Cont<E, A> {
+  // The callbacks are passed as plain function types rather than as a
+  // ContObserver<A>. Dart treats class type parameters as covariant,
+  // but checks function types soundly, so this keeps Cont safely
+  // covariant in A: a Cont<E, int> can be used as a Cont<E, Object?>.
+  // Use the [_run] extension method to run it with an observer.
   final void Function(
     ContRuntime<E> runtime,
-    ContObserver<A> observer,
+    void Function(List<ContError> errors) onElse,
+    void Function(A value) onThen,
   )
-  _run;
+  _runCallbacks;
 
-  const Cont._(this._run);
+  const Cont._(this._runCallbacks);
 
   /// Creates a [Cont] from a run function that accepts an observer.
   ///
@@ -352,5 +358,21 @@ final class Cont<E, A> {
       release: release,
       use: use,
     );
+  }
+}
+
+/// Runs a [Cont] with an observer.
+///
+/// It is an extension rather than a method of [Cont] so that Dart does
+/// not check the observer against the [Cont]'s runtime type arguments.
+/// That check would reject a valid observer when the [Cont] is used
+/// through a wider type, for example a `Cont<E, int>` used as a
+/// `Cont<E, Object?>`.
+extension _ContRunExtension<E, A> on Cont<E, A> {
+  void _run(
+    ContRuntime<E> runtime,
+    ContObserver<A> observer,
+  ) {
+    _runCallbacks(runtime, observer._onElse, observer.onThen);
   }
 }
