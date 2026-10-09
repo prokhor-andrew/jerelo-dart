@@ -1,3 +1,16 @@
+## 3.0.0
+- **Breaking:** `OkPolicy.sequence`/`OkPolicy.quitFast` now return `OkPolicy<Never>`, and `CrashPolicy.sequence`/`CrashPolicy.quitFast` return `CrashPolicy<Never, Never>`. They no longer take type arguments: remove them, e.g. `OkPolicy.quitFast<String>()` becomes `OkPolicy.quitFast()`. Combinators now infer their error and value types from their continuations instead of `dynamic`.
+- **Breaking:** removed `absurdify`, `thenAbsurdify` and `elseAbsurdify` from `Cont` and `ContObserver`. A `Never`-typed `Cont` can be used directly where a wider type is expected. `thenAbsurd` and `elseAbsurd` remain.
+- **Breaking:** removed `ContRuntime.extendCancellation`. Use `ContRuntime.withCancellation` and call `cancel`.
+- Added `ContRuntime.onCancel`: `ContCancelToken.cancel()` now also runs the registered callbacks, so work that is waiting (for example on a request) can react to cancellation immediately.
+- Added `ContRuntime.withCancellation`, which creates a child runtime that is cancelled with its parent or on its own.
+- Fixed `Cont` used through a wider error or value type (an upcast or a `Never`-typed `Cont`) crashing with a `TypeError` at run time. `runWith` is now an extension method with the same signature.
+- Fixed operators delivering results after the run was cancelled. No result reaches `run`'s callbacks after `cancel()`, on any channel.
+- Fixed `Cont.bracket` not releasing its resource when the run is cancelled while `use` runs. `release` now runs immediately on cancel and at most once; `acquire` always runs to completion so an acquired resource is never lost.
+- Fixed `MergedCrash.hashCode` ignoring the order of `left` and `right`.
+- Fork side effects (`thenFork`, `elseFork`, `crashFork`) now run under the parent's runtime and are cancelled together with it.
+- Documentation: removed the `absurdify` family; documented `onCancel`, `withCancellation` and cancellation of `bracket` and forks.
+
 ## 2.0.0
 - Split previous Else channel into Crash and Else channels
 - Added new operators for Else and Crash channels
