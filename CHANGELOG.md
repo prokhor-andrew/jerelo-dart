@@ -1,3 +1,10 @@
+## 1.0.4
+
+- Fixed `Cont` used through a wider value type (an upcast, an untyped `ContEitherPolicy`, or a `Never`-typed `Cont`) terminating with a `TypeError` at run time.
+- Fixed `thenFork` and `elseFork` never completing when the fork builder throws. The computation now terminates with the thrown error.
+- Fixed test files not being picked up by `dart test`.
+- Documentation: fixed `elseTap`, `elseZip` and `abort` docs and examples, non-compiling examples and stale names; documented the `elseForkWithEnv` value-type restriction; added a note recommending an upgrade to the latest major version.
+
 ## 1.0.3
 
 - Fixed `trap` function interface. 
