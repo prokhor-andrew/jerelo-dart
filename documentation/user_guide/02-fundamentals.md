@@ -155,6 +155,8 @@ logAnalytics(userId, action).run(());
 The `ff` method:
 - Does not provide success or error callbacks
 - Only accepts `onPanic` for fatal errors
+- Runs synchronously, like `run`: it does not defer the work, so a synchronous continuation completes before `ff` returns
+- Returns no cancel token, so the run can never be cancelled
 - Useful for side-effect-only operations like logging, metrics, or fire-and-forget notifications
 - More concise than `run` when you don't need to handle results
 

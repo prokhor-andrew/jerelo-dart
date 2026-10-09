@@ -456,7 +456,7 @@ Executes a side-effect continuation in a fire-and-forget manner.
 
 The side-effect runs under this computation's runtime, so it is cancelled together with this computation.
 
-Unlike `thenTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started immediately, and the original value is returned without delay. Any errors from the side-effect are silently ignored.
+Unlike `thenTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started first, and then the original value is forwarded. A synchronous side-effect therefore runs to completion before the value is forwarded, while an asynchronous one does not delay it. The outcome of the side-effect, including any errors, is silently ignored. If `f` itself throws, the computation terminates with that error.
 
 - **Parameters:**
   - `f`: Function that takes the current value and returns a side-effect continuation
@@ -465,7 +465,7 @@ Unlike `thenTap`, this method does not wait for the side-effect to complete. The
 ```dart
 final result = fetchUser(userId)
   .thenFork((user) => sendAnalytics(user.id))
-  .thenDo((user) => processUser(user)); // Continues immediately
+  .thenDo((user) => processUser(user)); // Doesn't wait for asynchronous work in sendAnalytics
 ```
 
 ---
@@ -499,7 +499,7 @@ Cont<E, A> thenForkWithEnv<A2>(Cont<E, A2> Function(E env, A a) f)
 
 Executes a side-effect continuation in a fire-and-forget manner with access to the environment.
 
-Similar to `thenFork`, but the side-effect function receives both the environment and the value. The side-effect is started immediately without waiting, and any errors are silently ignored.
+Similar to `thenFork`, but the side-effect function receives both the environment and the value. The side-effect is started without waiting for it to complete, and its outcome is silently ignored, as with `thenFork`.
 
 - **Parameters:**
   - `f`: Function that takes the environment and value, and returns a side-effect continuation

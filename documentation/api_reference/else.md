@@ -484,14 +484,14 @@ Executes a side-effect continuation on termination in a fire-and-forget manner.
 
 The side-effect runs under this computation's runtime, so it is cancelled together with this computation.
 
-If the continuation terminates, starts the side-effect continuation without waiting for it to complete. Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the termination. Any errors from the side-effect are silently ignored.
+If the continuation terminates, starts the side-effect continuation without waiting for it to complete. Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the termination. The side-effect is started first, and then the original errors are forwarded, so a synchronous side-effect runs to completion before them, while an asynchronous one does not delay them. The outcome of the side-effect, including any errors, is silently ignored. If `f` itself throws, the computation terminates with that error instead of the original errors.
 
 - **Parameters:**
   - `f`: Function that returns a side-effect continuation
 
 **Example:**
 ```dart
-// Log errors asynchronously without blocking
+// Log errors without waiting for the remote call to finish
 final result = fetchData()
   .elseFork((errors) => logToRemote(errors));
 
@@ -531,7 +531,7 @@ Cont<E, A> elseForkWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f)
 
 Executes a side-effect continuation on termination in a fire-and-forget manner with access to the environment.
 
-Similar to `elseFork`, but the side-effect function receives both the environment and the errors. The side-effect is started without waiting for it to complete, and any errors from the side-effect are silently ignored.
+Similar to `elseFork`, but the side-effect function receives both the environment and the errors. The side-effect is started without waiting for it to complete, and its outcome is silently ignored, as with `elseFork`.
 
 > **Note:** unlike `elseFork`, the side-effect continuation must have the same value type `A` as the continuation it is attached to. To fork a side-effect of another value type, use `elseFork` and read the environment with `Cont.ask`. This restriction is removed in jerelo 2.0.0 and later, where every fork variant accepts a side-effect of any type.
 

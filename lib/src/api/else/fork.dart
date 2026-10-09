@@ -5,8 +5,11 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   ///
   /// If the continuation terminates, starts the side-effect continuation without waiting
   /// for it to complete. Unlike [elseTap], this does not wait for the side-effect to
-  /// finish before propagating the termination. Any errors from the side-effect are
-  /// silently ignored.
+  /// finish before propagating the termination. The side-effect is started first,
+  /// and then the original errors are forwarded: a synchronous side-effect runs
+  /// to completion before that, while an asynchronous one does not delay it. The
+  /// outcome of the side-effect, including any errors, is silently ignored. If
+  /// [f] itself throws, the computation terminates with that error instead.
   ///
   /// The side-effect runs under this computation's runtime, so it is
   /// cancelled together with this computation.
@@ -33,7 +36,7 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   ///
   /// Similar to [elseFork], but the side-effect function receives both the errors
   /// and the environment. The side-effect is started without waiting for it to complete,
-  /// and any errors from the side-effect are silently ignored.
+  /// and its outcome is silently ignored, as with [elseFork].
   ///
   /// Unlike [elseFork], the side-effect continuation must have the same value
   /// type [A] as this continuation. To fork a side-effect of another value

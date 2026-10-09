@@ -74,7 +74,11 @@ final class Cont<E, A> {
 
   /// Creates a [Cont] from a run function that accepts an observer.
   ///
-  /// Constructs a continuation with guaranteed idempotence and exception catching.
+  /// Constructs a continuation with guaranteed idempotence. If [run] throws
+  /// synchronously, the error is caught and the continuation terminates with
+  /// it. A throw in a callback that runs later, such as a `Timer` or `Future`
+  /// callback, is not caught: it escapes as an unhandled exception and the
+  /// observer is never called, so catch such errors and pass them to `onElse`.
   /// The run function receives an observer with `onThen` and `onElse` callbacks.
   /// The callbacks should be called as the last instruction in the run function
   /// or saved to be called later.

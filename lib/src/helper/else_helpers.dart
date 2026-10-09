@@ -142,8 +142,10 @@ Cont<E, A> _elseZip<E, A>(
 ///
 /// Runs [cont], and on termination starts the side-effect continuation
 /// produced by [f] without waiting for it. The original termination errors
-/// are forwarded to the observer immediately. Errors from the side-effect
-/// are silently ignored.
+/// are forwarded to the observer once the side-effect has been started, so a
+/// synchronous side-effect runs to completion first. The side-effect's
+/// outcome is ignored; if [f] itself throws, the computation terminates with
+/// that error.
 Cont<E, A> _elseFork<E, A, A2>(
   Cont<E, A> cont,
   Cont<E, A2> Function(List<ContError> errors) f,
