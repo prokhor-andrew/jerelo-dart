@@ -14,13 +14,6 @@ part of '../cont.dart';
 sealed class ContCrash {
   const ContCrash();
 
-  /// Runs [function] and wraps the outcome in a [CrashOr].
-  ///
-  /// If [function] completes without throwing, returns a [CrashOr] carrying
-  /// the computed value. If [function] throws, returns a [CrashOr] carrying
-  /// the caught exception as a [NormalCrash].
-  /// This helper is used internally to convert raw Dart exceptions into
-  /// the [ContCrash] representation.
   /// Creates a [MergedCrash] combining [left] and [right].
   static ContCrash merge(ContCrash left, ContCrash right) {
     return MergedCrash(left, right);
@@ -31,6 +24,13 @@ sealed class ContCrash {
     return CollectedCrash(crashes);
   }
 
+  /// Runs [function] and wraps the outcome in a [CrashOr].
+  ///
+  /// If [function] completes without throwing, returns a [CrashOr] carrying
+  /// the computed value. If [function] throws, returns a [CrashOr] carrying
+  /// the caught exception as a [NormalCrash].
+  /// This helper is used internally to convert raw Dart exceptions into
+  /// the [ContCrash] representation.
   static CrashOr<T> tryCatch<T>(T Function() function) {
     try {
       final value = function();

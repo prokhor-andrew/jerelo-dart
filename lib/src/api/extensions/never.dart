@@ -85,7 +85,7 @@ extension ContThenNeverExtension<E, F>
   ///
   /// The absurd method implements the principle of "ex falso quodlibet" (from
   /// falsehood, anything follows) from type theory. It allows converting a
-  /// `Cont<E, Never>` to `Cont<E, A>` for any type `A`.
+  /// `Cont<E, F, Never>` to `Cont<E, F, A>` for any type `A`.
   ///
   /// Since `Never` is an uninhabited type with no possible values, the mapping
   /// function `(Never never) => never` can never actually execute. However, the
@@ -106,11 +106,11 @@ extension ContThenNeverExtension<E, F>
   ///
   /// Example:
   /// ```dart
-  /// // A server that runs forever has type Cont<Env, Never>
+  /// // A server that runs forever has type Cont<Env, F, Never>
   /// final server = handleRequests().thenForever();
   ///
-  /// // Convert to Cont<Env, String> to match other continuation types
-  /// final serverAsString = server.absurd<String>();
+  /// // Convert to Cont<Env, F, String> to match other continuation types
+  /// final serverAsString = server.thenAbsurd<String>();
   /// ```
   Cont<E, F, A> thenAbsurd<A>() {
     return thenMap<A>(
