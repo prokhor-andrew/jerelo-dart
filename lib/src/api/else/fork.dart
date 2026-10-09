@@ -3,10 +3,12 @@ part of '../../cont.dart';
 /// Implementation of the fire-and-forget fork on the termination path.
 ///
 /// Runs [cont], and on termination starts the side-effect continuation
-/// produced by [f] without waiting for it. The original termination error
-/// is forwarded to the observer immediately. Outcomes from the side-effect
-/// are dispatched to the provided callbacks: [onPanic] (defaults to
-/// rethrowing), [onCrash], [onElse], and [onThen] (all default to ignoring).
+/// produced by [f] without waiting for it, then forwards the original
+/// termination error to the observer. A synchronous side-effect runs to
+/// completion before the error is forwarded; an asynchronous one does not
+/// delay it. Outcomes from the side-effect are dispatched to the provided
+/// callbacks: [onPanic] (defaults to rethrowing), [onCrash], [onElse], and
+/// [onThen] (all default to ignoring).
 Cont<E, F, A> _elseFork<E, F, F2, A, A2>(
   Cont<E, F, A> cont,
   Cont<E, F2, A2> Function(F error) f, {
@@ -54,7 +56,9 @@ extension ContElseForkExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// If the continuation terminates, starts the side-effect continuation without waiting
   /// for it to complete. Unlike [elseTap], this does not wait for the side-effect to
-  /// finish before propagating the termination.
+  /// finish before propagating the termination. A synchronous side-effect still runs
+  /// to completion before the error is forwarded. If [f] itself throws, the
+  /// computation crashes.
   ///
   /// Outcomes from the forked continuation are dispatched to optional callbacks:
   /// - [onPanic]: Called when the side-effect triggers a panic. Defaults to rethrowing.
