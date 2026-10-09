@@ -180,50 +180,6 @@ sealed class ContObserver<F, A> {
   }
 }
 
-/// Convenience methods that widen [Never]-typed channels to an arbitrary type.
-///
-/// When an observer's success or error type is [Never] (meaning that channel
-/// can never actually fire), these methods replace the unreachable callback
-/// with a no-op so the observer can be used in a broader generic context.
-extension ContObserverAbsurdifyExtension<F, A>
-    on ContObserver<F, A> {
-  /// Widens the success channel if its type is [Never].
-  ///
-  /// If this observer has type `ContObserver<F, Never>`, returns a copy typed
-  /// as `ContObserver<F, A>` with a no-op [ContObserver.onThen] callback.
-  /// Otherwise returns this observer unchanged.
-  ContObserver<F, A> thenAbsurdify() {
-    ContObserver<F, A> cont = this;
-
-    if (cont is ContObserver<F, Never>) {
-      cont = cont.thenAbsurd<A>();
-    }
-    return cont;
-  }
-
-  /// Widens the error channel if its type is [Never].
-  ///
-  /// If this observer has type `ContObserver<Never, A>`, returns a copy typed
-  /// as `ContObserver<F, A>` with a no-op [ContObserver.onElse] callback.
-  /// Otherwise returns this observer unchanged.
-  ContObserver<F, A> elseAbsurdify() {
-    ContObserver<F, A> cont = this;
-
-    if (cont is ContObserver<Never, A>) {
-      cont = cont.elseAbsurd<F>();
-    }
-
-    return cont;
-  }
-
-  /// Widens both the success and error channels if either is [Never].
-  ///
-  /// Equivalent to calling [thenAbsurdify] followed by [elseAbsurdify].
-  ContObserver<F, A> absurdify() {
-    return thenAbsurdify().elseAbsurdify();
-  }
-}
-
 /// Provides [thenAbsurd] for observers whose success type is [Never].
 extension ContObserverThenNeverExtension<F>
     on ContObserver<F, Never> {

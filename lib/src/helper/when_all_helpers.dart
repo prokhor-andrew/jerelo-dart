@@ -7,7 +7,6 @@ Cont<E, F, A3> _bothWhenAll<E, F, A1, A2, A3>(
   F Function(F, F) combineErrors,
   bool shouldFavorCrash,
 ) {
-  // no absurdify, as they were absurdified before
   return Cont.fromRun((runtime, observer) {
     final (
       handleCrash,
