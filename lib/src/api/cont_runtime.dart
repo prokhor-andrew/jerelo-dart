@@ -51,7 +51,7 @@ final class ContRuntime<E> {
   /// Creates a copy of this runtime with a different environment.
   ///
   /// Returns a new [ContRuntime] with the provided environment while preserving
-  /// the cancellation function. This is used by [local] and related methods
+  /// the cancellation scope. This is used by [local] and related methods
   /// to modify the environment context.
   ///
   /// - [env]: The new environment value to use.
