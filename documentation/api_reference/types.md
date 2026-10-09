@@ -275,21 +275,23 @@ Creates a new observer with all three handlers replaced.
 
 The following extension methods widen `Never`-typed channels to arbitrary types. When an observer's success or error type is `Never` (meaning that channel can never fire), these methods replace the unreachable callback with a no-op so the observer can be used in a broader generic context.
 
+> **Deprecated:** `thenAbsurdify`, `elseAbsurdify` and `absurdify` are no longer needed, because a `Never`-typed `ContObserver` can be used directly where a wider type is expected. They will be removed in 3.0.0. `thenAbsurd` and `elseAbsurd` are not deprecated.
+
 ```dart
 // On ContObserver<F, A>:
-ContObserver<F, A> thenAbsurdify()
+ContObserver<F, A> thenAbsurdify() // deprecated
 ```
 Widens the success channel if its type is `Never`. If this observer has type `ContObserver<F, Never>`, returns a copy typed as `ContObserver<F, A>` with a no-op `onThen` callback. Otherwise returns this observer unchanged.
 
 ```dart
 // On ContObserver<F, A>:
-ContObserver<F, A> elseAbsurdify()
+ContObserver<F, A> elseAbsurdify() // deprecated
 ```
 Widens the error channel if its type is `Never`. If this observer has type `ContObserver<Never, A>`, returns a copy typed as `ContObserver<F, A>` with a no-op `onElse` callback. Otherwise returns this observer unchanged.
 
 ```dart
 // On ContObserver<F, A>:
-ContObserver<F, A> absurdify()
+ContObserver<F, A> absurdify() // deprecated
 ```
 Widens both the success and error channels if either is `Never`. Equivalent to calling `thenAbsurdify()` followed by `elseAbsurdify()`.
 
