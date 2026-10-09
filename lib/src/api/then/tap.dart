@@ -4,6 +4,8 @@ extension ContThenTapExtension<E, F, A> on Cont<E, F, A> {
   /// Chains a side-effect continuation while preserving the original value.
   ///
   /// Executes a continuation for its side effects, then returns the original value.
+  /// If the side-effect terminates with an error, that error propagates; if it
+  /// crashes, the crash propagates.
   ///
   /// - [f]: Side-effect function that returns a continuation.
   Cont<E, F, A> thenTap<A2>(
