@@ -337,7 +337,7 @@ Cont.both(
   dbResult,
   apiResult,
   (dbData, apiData) => merge(dbData, apiData),
-  policy: OkPolicy.quitFast<String>(),
+  policy: OkPolicy.quitFast(),
 ).run((), onThen: print);
 ```
 

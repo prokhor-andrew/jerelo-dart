@@ -133,7 +133,7 @@ void main() {
       expect(error, equals('oops'));
     });
 
-    test('explicitly typed policy still works', () {
+    test('policy without type arguments infers types', () {
       final Cont<(), String, int> left = Cont.of(1);
       final Cont<(), String, int> right = Cont.of(2);
       int? result;
@@ -142,7 +142,7 @@ void main() {
         left,
         right,
         (int a, int b) => a + b,
-        policy: OkPolicy.quitFast<String>(),
+        policy: OkPolicy.quitFast(),
       ).run((), onThen: (v) => result = v);
 
       expect(result, equals(3));

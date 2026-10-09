@@ -211,7 +211,7 @@ Cont<void, String, UserProfile> fetchAndUpdateProfile(
     validateName,
     (profile, validatedName) =>
         profile.copyWith(name: validatedName),
-    policy: OkPolicy.quitFast<String>(),
+    policy: OkPolicy.quitFast(),
   ).thenDo((mergedProfile) {
     return updateUserProfile(accessToken, mergedProfile);
   });

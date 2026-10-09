@@ -11,8 +11,12 @@ sealed class OkPolicy<T> {
   ///
   /// Continuations are run one after another in order. Each continuation
   /// starts only after the previous one completes.
-  static OkPolicy<T> sequence<T>() {
-    return SequenceOkPolicy();
+  ///
+  /// The policy carries no data, so it is typed `OkPolicy<Never>`, which fits
+  /// any `OkPolicy<T>` and leaves the combinator's types to be inferred from
+  /// its continuations.
+  static OkPolicy<Never> sequence() {
+    return const SequenceOkPolicy();
   }
 
   /// Parallel quit-fast policy.
@@ -21,8 +25,12 @@ sealed class OkPolicy<T> {
   /// terminates on the failure path (else channel for [Cont.both]/[Cont.all],
   /// success channel for [Cont.either]/[Cont.any]), the overall computation
   /// stops immediately without waiting for the others.
-  static OkPolicy<T> quitFast<T>() {
-    return QuitFastOkPolicy();
+  ///
+  /// The policy carries no data, so it is typed `OkPolicy<Never>`, which fits
+  /// any `OkPolicy<T>` and leaves the combinator's types to be inferred from
+  /// its continuations.
+  static OkPolicy<Never> quitFast() {
+    return const QuitFastOkPolicy();
   }
 
   /// Parallel run-all policy.

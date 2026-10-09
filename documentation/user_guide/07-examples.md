@@ -43,7 +43,7 @@ Cont<AppConfig, String, List<User>> getUsers(List<String> userIds) {
   final continuations = userIds.map((id) => getUser(id)).toList();
   return Cont.all(
     continuations,
-    policy: OkPolicy.quitFast<String>(),
+    policy: OkPolicy.quitFast(),
   );
 }
 

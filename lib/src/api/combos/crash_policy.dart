@@ -11,8 +11,12 @@ sealed class CrashPolicy<E, A> {
   ///
   /// Continuations are run one after another. If both crash, the crashes are
   /// combined into a [MergedCrash].
-  static CrashPolicy<E, A> sequence<E, A>() {
-    return SequenceCrashPolicy();
+  ///
+  /// The policy carries no data, so it is typed `CrashPolicy<Never, Never>`,
+  /// which fits any `CrashPolicy<E, A>` and leaves the combinator's types to
+  /// be inferred from its continuations.
+  static CrashPolicy<Never, Never> sequence() {
+    return const SequenceCrashPolicy();
   }
 
   /// Parallel quit-fast crash policy.
@@ -20,8 +24,12 @@ sealed class CrashPolicy<E, A> {
   /// All continuations are started in parallel. As soon as one crashes, the
   /// overall computation propagates that crash immediately without waiting
   /// for the others.
-  static CrashPolicy<E, A> quitFast<E, A>() {
-    return QuitFastCrashPolicy();
+  ///
+  /// The policy carries no data, so it is typed `CrashPolicy<Never, Never>`,
+  /// which fits any `CrashPolicy<E, A>` and leaves the combinator's types to
+  /// be inferred from its continuations.
+  static CrashPolicy<Never, Never> quitFast() {
+    return const QuitFastCrashPolicy();
   }
 
   /// Parallel run-all crash policy.

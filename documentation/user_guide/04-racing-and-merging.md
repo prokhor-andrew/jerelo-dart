@@ -37,7 +37,7 @@ Cont.both(
   Cont.of(10),
   Cont.of(20),
   (a, b) => a + b,
-  policy: OkPolicy.quitFast<String>(),
+  policy: OkPolicy.quitFast(),
 ).run((), onThen: print); // prints: 30
 ```
 
@@ -47,7 +47,7 @@ Fluent alternative with `and`:
 Cont.of(10).and(
   Cont.of(20),
   (a, b) => a + b,
-  policy: OkPolicy.quitFast<String>(),
+  policy: OkPolicy.quitFast(),
 ).run((), onThen: print); // prints: 30
 ```
 
@@ -64,7 +64,7 @@ Cont.all(
     Cont.of(2), 
     Cont.of(3)
   ],
-  policy: OkPolicy.quitFast<String>(),
+  policy: OkPolicy.quitFast(),
 ).run((), onThen: print); // prints: [1, 2, 3]
 ```
 
@@ -126,7 +126,7 @@ Runs two continuations and coalesces their crash paths. If both crash, the crash
 Cont.coalesce(
   riskyOperation1(),
   riskyOperation2(),
-  policy: CrashPolicy.sequence<String, int>(),
+  policy: CrashPolicy.sequence(),
 ).run((), onThen: print);
 ```
 
@@ -135,7 +135,7 @@ Fluent alternative:
 ```dart
 riskyOperation1().coalesceWith(
   riskyOperation2(),
-  policy: CrashPolicy.sequence<String, int>(),
+  policy: CrashPolicy.sequence(),
 ).run((), onThen: print);
 ```
 
@@ -150,7 +150,7 @@ Cont.converge(
     operation2(), 
     operation3()
   ],
-  policy: CrashPolicy.quitFast<String, int>(),
+  policy: CrashPolicy.quitFast(),
 ).run((), onThen: print);
 ```
 
@@ -169,7 +169,7 @@ Cont.all(
     fetchUserPosts(userId), 
     fetchUserFriends(userId)
   ],
-  policy: OkPolicy.quitFast<String>(),
+  policy: OkPolicy.quitFast(),
 ).thenMap((results) {
   return DashboardData(
     user: results[0] as User,
