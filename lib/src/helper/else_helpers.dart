@@ -155,8 +155,16 @@ Cont<E, A> _elseFork<E, A, A2>(
         if (runtime.isCancelled()) {
           return;
         }
-        // if this crashes, it should crash the computation
-        Cont<E, A2> contA2 = f([...errors]);
+        // if building the side-effect throws, terminate the computation
+        Cont<E, A2> contA2;
+        try {
+          contA2 = f([...errors]);
+        } catch (error, st) {
+          observer.onElse([
+            ContError.withStackTrace(error, st),
+          ]);
+          return;
+        }
         if (contA2 is Cont<E, Never>) {
           contA2 = contA2.absurd<A2>();
         }
