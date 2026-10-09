@@ -106,7 +106,7 @@ final class MergedCrash extends ContCrash {
   }
 
   @override
-  int get hashCode => left.hashCode ^ right.hashCode;
+  int get hashCode => Object.hash(left, right);
 }
 
 /// A crash that collects multiple crashes from a list of operations.
