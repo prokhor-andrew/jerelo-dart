@@ -91,6 +91,16 @@ bool isCancelled()
 Function that checks whether the continuation execution has been cancelled. Returns `true` if the execution should be stopped, `false` otherwise. Continuations should check this regularly to support cooperative cancellation.
 
 ```dart
+void Function() onCancel(void Function() callback)
+```
+Registers `callback` to run when this execution is cancelled. Use it for work that cannot poll `isCancelled`, such as releasing a resource or aborting a pending request while waiting for it. If the execution is already cancelled, `callback` runs immediately. Callbacks run once, in reverse order of registration; an exception thrown by a callback goes to the `onPanic` handler of `run` and does not stop the remaining callbacks. Returns a function that unregisters `callback`; call it once the callback is no longer needed.
+
+```dart
+({ContRuntime<E> runtime, void Function() cancel}) withCancellation()
+```
+Creates a child runtime with its own cancellation. The child `runtime` is cancelled when this runtime is cancelled, or when `cancel` is called; in both cases its `onCancel` callbacks run. Use it to stop part of a computation on a local condition, such as a deadline.
+
+```dart
 void onPanic(ContError fatal)
 ```
 Callback invoked when a fatal, unrecoverable error occurs during continuation execution. Unlike `ContObserver.onElse`, which handles expected termination errors within the normal control flow, `onPanic` is reserved for situations that violate internal invariants (e.g. an observer callback throwing an exception). The default implementation re-throws the error inside a microtask so it surfaces as an unhandled exception.
