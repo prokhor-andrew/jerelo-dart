@@ -192,6 +192,9 @@ extension ContObserverAbsurdifyExtension<F, A>
   /// If this observer has type `ContObserver<F, Never>`, returns a copy typed
   /// as `ContObserver<F, A>` with a no-op [ContObserver.onThen] callback.
   /// Otherwise returns this observer unchanged.
+  @Deprecated(
+      'No longer needed: a Never-typed ContObserver can be used directly '
+      'where a wider type is expected. Will be removed in 3.0.0.')
   ContObserver<F, A> thenAbsurdify() {
     ContObserver<F, A> cont = this;
 
@@ -206,6 +209,9 @@ extension ContObserverAbsurdifyExtension<F, A>
   /// If this observer has type `ContObserver<Never, A>`, returns a copy typed
   /// as `ContObserver<F, A>` with a no-op [ContObserver.onElse] callback.
   /// Otherwise returns this observer unchanged.
+  @Deprecated(
+      'No longer needed: a Never-typed ContObserver can be used directly '
+      'where a wider type is expected. Will be removed in 3.0.0.')
   ContObserver<F, A> elseAbsurdify() {
     ContObserver<F, A> cont = this;
 
@@ -219,6 +225,9 @@ extension ContObserverAbsurdifyExtension<F, A>
   /// Widens both the success and error channels if either is [Never].
   ///
   /// Equivalent to calling [thenAbsurdify] followed by [elseAbsurdify].
+  @Deprecated(
+      'No longer needed: a Never-typed ContObserver can be used directly '
+      'where a wider type is expected. Will be removed in 3.0.0.')
   ContObserver<F, A> absurdify() {
     return thenAbsurdify().elseAbsurdify();
   }

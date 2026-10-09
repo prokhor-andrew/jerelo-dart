@@ -5,7 +5,6 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
   Cont<E, F, A2> right,
   A3 Function(A1 a1, A2 a2) combine,
 ) {
-  // no absurdify, as they were absurdified before
   return Cont.fromRun((runtime0, observer) {
     final (
       runtime,
@@ -53,7 +52,6 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
   Cont<E, F2, A> right,
   F3 Function(F1 f1, F2 f2) combine,
 ) {
-  // no absurdify, as they were absurdified before
   return Cont.fromRun((runtime0, observer) {
     final (
       runtime,
@@ -100,7 +98,6 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   Cont<E, F, A> left,
   Cont<E, F, A> right,
 ) {
-  // no absurdify, as they were absurdified before
   return Cont.fromRun((runtime0, observer) {
     final _QuitFastStateHolder<ContCrash, ContCrash>
         holder = _QuitFastStateHolder();
