@@ -24,19 +24,18 @@ Cont<AppConfig, User> getUser(String userId) {
       // Try API first
       return fetchFromApi(config.apiUrl, userId, config.timeout)
         .thenIf((user) => user.isValid)
-        .elseTapWithEnv((env, errors) {
+        .elseFork((errors) {
           // Log errors in background
-          return logToFile(env.cacheDir, errors);
+          return logToFile(config.cacheDir, errors);
         })
         .elseDoWithEnv((env, errors) {
           // Fallback to cache
           return loadFromCache(env.cacheDir, userId);
         });
     })
-    .thenTapWithEnv((env, user) {
+    .thenForkWithEnv((env, user) {
       // Update cache in background
-      return saveToCache(env.cacheDir, user)
-        .elseFork((_) => Cont.of(())); // ignore cache failures
+      return saveToCache(env.cacheDir, user);
     });
 }
 
@@ -93,7 +92,7 @@ final token = processUsers(['user1', 'user2', 'user3']).run(
 This example demonstrates:
 - Environment management (AppConfig)
 - Error handling with fallbacks (elseDo)
-- Side effects (thenTap, elseFork)
+- Side effects (thenTap, thenFork, elseFork)
 - Conditional execution (thenIf)
 - Parallel execution with policies (Cont.all with ContBothPolicy.quitFast)
 - Resource management (bracket)
@@ -478,7 +477,7 @@ limiter.limit(fetchData()).run(
 // Good: Compose existing operators
 Cont<E, T> retryWithLogging<E, T>(Cont<E, T> operation, int maxRetries) {
   return operation
-    .elseTap((errors) {
+    .elseFork((errors) {
       print('Operation failed: $errors');
       return Cont.of(());
     })

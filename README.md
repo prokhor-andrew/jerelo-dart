@@ -162,10 +162,10 @@ Cont<AppConfig, User> getUserData(String userId) {
         ? loadUserFromCache(userId)
         : Cont.stop(errors);
     })
-    // Side effect: log access without blocking
-    .thenTap((user) => logAccess(user))
-    // Error logging
-    .elseTap((errors) => logError(errors));
+    // Side effect: log access in the background
+    .thenFork((user) => logAccess(user))
+    // Error logging in the background
+    .elseFork((errors) => logError(errors));
 }
 
 // Fetch multiple users in parallel
@@ -250,9 +250,9 @@ The example above showcases:
 
 - **Environment Management**: Configuration threaded through computations via `AppConfig`
 - **Chaining**: Sequential operations with `thenDo`, `thenDoWithEnv`
-- **Error Handling**: Fallbacks with `elseDo`, error logging with `elseTap`
+- **Error Handling**: Fallbacks with `elseDo`, error logging with `elseFork`
 - **Conditional Logic**: Filtering with `thenIf`
-- **Side Effects**: Non-blocking logging with `thenTap`
+- **Side Effects**: Fire-and-forget logging with `thenFork`
 - **Parallel Execution**: Multiple computations with `Cont.all` and `ContBothPolicy`
 - **Racing**: Competing computations with `Cont.either` and `ContEitherPolicy`
 - **Reusability**: Same computation executed with different configurations

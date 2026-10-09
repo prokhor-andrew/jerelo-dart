@@ -131,7 +131,7 @@ Cont.stop<(), int>([ContError.capture("connection timeout")])
 
 ### Other Error Operators
 
-- `elseTap`: Execute side effects on termination (e.g., logging) while preserving the original errors
+- `elseTap`: Run a side effect on termination and wait for it; if the side effect terminates, the original errors are kept, and if it succeeds, its value recovers the computation
 - `elseZip`: Runs fallback and combines errors from both attempts
 - `elseFork`: Handle errors in the background without blocking (fire-and-forget)
 - `recover`: Compute a replacement value from the errors (convenience shorthand for `elseDo`)
@@ -508,9 +508,9 @@ Use `elseForever` to retry a computation on termination indefinitely, never givi
 final connection = connectToServer()
     .elseForever();
 
-// A resilient worker that logs errors and always retries
+// A resilient worker that logs errors in the background and always retries
 final worker = processJob()
-    .elseTap((errors) => logError(errors))
+    .elseFork((errors) => logError(errors))
     .elseForever();
 ```
 

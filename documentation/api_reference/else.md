@@ -299,9 +299,9 @@ This allows the operation to recover from termination when the side-effect succe
 
 **Example:**
 ```dart
-// Log error and optionally recover
+// Log the error, then recover with a default value
 final result = fetchData()
-  .elseTap((errors) => logError(errors).map0(() => defaultData));
+  .elseTap((errors) => logError(errors).thenMap0(() => defaultData));
 
 // Attempt to repair and retry
 final result = operation()
@@ -325,8 +325,9 @@ Similar to `elseTap` but ignores the error information. Waits for the side-effec
 
 **Example:**
 ```dart
+// Clear the cache, then terminate so the original errors are kept
 final result = fetchData()
-  .elseTap0(() => clearCache());
+  .elseTap0(() => clearCache().thenDo0(() => Cont.stop()));
 ```
 
 ---
@@ -346,8 +347,10 @@ Similar to `elseTap`, but the side-effect function receives both the environment
 
 **Example:**
 ```dart
+// Log the errors, then terminate so the original errors are kept
 final result = fetchData()
-  .elseTapWithEnv((env, errors) => env.logger.error(errors));
+  .elseTapWithEnv((env, errors) =>
+    env.logger.error(errors).thenDo0(() => Cont.stop(errors)));
 ```
 
 ---
@@ -367,8 +370,11 @@ Similar to `elseTapWithEnv`, but the side-effect function only receives the envi
 
 **Example:**
 ```dart
+// Refresh the token and fetch again; if the second fetch
+// terminates, the original errors are kept
 final result = fetchData()
-  .elseTapWithEnv0((env) => env.metrics.incrementErrors());
+  .elseTapWithEnv0((env) =>
+    env.auth.refreshToken().thenDo0(() => fetchData()));
 ```
 
 ---
@@ -924,7 +930,10 @@ final result = apiCall()
 // Retry until max attempts reached
 var attempts = 0;
 final data = operation()
-  .elseTap0(() => Cont.of(attempts++))
+  .elseTap0(() {
+    attempts++;
+    return Cont.stop(); // terminate so the original errors are kept
+  })
   .elseUntil((errors) => attempts >= 5);
 ```
 
@@ -1021,13 +1030,16 @@ This is useful for:
 final connection = connectToServer()
     .elseForever();
 
-// A resilient worker that never stops retrying
+// A resilient worker that logs errors in the background
+// and never stops retrying
 final worker = processJob()
-    .elseTap((errors) => logError(errors))
+    .elseFork((errors) => logError(errors))
     .elseForever();
 
-// Combine with delay for backoff
+// Combine with delay for backoff: wait, then terminate again
+// so that elseTap keeps the errors and the loop retries
 final resilientService = connectToService()
-    .elseTap((errors) => delay(Duration(seconds: 5)))
+    .elseTap((errors) => delay<(), ()>(Duration(seconds: 5), ())
+        .thenDo0(() => Cont.stop(errors)))
     .elseForever();
 ```
