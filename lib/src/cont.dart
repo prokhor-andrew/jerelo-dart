@@ -260,15 +260,16 @@ final class Cont<E, F, A> {
   /// Runs two continuations and combines their results according to the specified policy.
   ///
   /// Executes both continuations. Both must succeed for the result to be successful;
-  /// if either fails, the entire operation fails. When both succeed, their values
-  /// are combined using [combine].
+  /// if either fails or crashes, the entire operation fails or crashes. When both
+  /// succeed, their values are combined using [combine].
   ///
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceOkPolicy]: Runs [left] then [right] sequentially.
+  /// - [SequenceOkPolicy]: Runs [left], then [right] only if [left] succeeded.
   /// - [RunAllOkPolicy]: Runs both in parallel, waits for both to complete,
   ///   and merges errors if both fail.
-  /// - [QuitFastOkPolicy]: Runs both in parallel, terminates immediately if either fails.
+  /// - [QuitFastOkPolicy]: Runs both in parallel, terminates immediately if
+  ///   either fails or crashes.
   ///
   /// - [left]: First continuation to execute.
   /// - [right]: Second continuation to execute.
@@ -308,10 +309,16 @@ final class Cont<E, F, A> {
   /// Executes all continuations in [list] and collects their values into a list.
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceOkPolicy]: Runs continuations one by one in order, stops at first failure.
+  /// - [SequenceOkPolicy]: Runs continuations one by one in order, stops at
+  ///   first failure or crash.
   /// - [RunAllOkPolicy]: Runs all in parallel, waits for all to complete,
-  ///   and merges errors if any fail.
-  /// - [QuitFastOkPolicy]: Runs all in parallel, terminates immediately on first failure.
+  ///   and merges errors if any fail. Values and errors are collected in
+  ///   completion order, and crashes are reported as a [CollectedCrash].
+  /// - [QuitFastOkPolicy]: Runs all in parallel, terminates immediately on
+  ///   first failure or crash.
+  ///
+  /// [SequenceOkPolicy] and [QuitFastOkPolicy] keep list order. An empty
+  /// [list] succeeds with `[]`.
   ///
   /// - [list]: List of continuations to execute.
   /// - [policy]: Execution policy determining how continuations are run and error are handled.
@@ -335,14 +342,15 @@ final class Cont<E, F, A> {
   /// Races two continuations, returning the first successful value.
   ///
   /// Executes both continuations and returns the result from whichever succeeds first.
-  /// If both fail, their errors are combined via [combine]. The execution behavior
-  /// depends on the provided [policy]:
+  /// If both fail, their errors are combined via [combine]. A crash ends the race,
+  /// like a success. The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceOkPolicy]: Tries [left] first, then [right] if [left] fails.
+  /// - [SequenceOkPolicy]: Tries [left] first, then [right] only if [left] fails.
   /// - [RunAllOkPolicy]: Runs both in parallel; if both succeed, combines their
-  ///   values using the policy's combine function; otherwise propagates the first
+  ///   values using the policy's combine function; otherwise propagates the
   ///   success or merges errors if both fail.
-  /// - [QuitFastOkPolicy]: Runs both in parallel, returns immediately on first success.
+  /// - [QuitFastOkPolicy]: Runs both in parallel, returns immediately on first
+  ///   success or crash. A failure waits for the other side.
   ///
   /// - [left]: First continuation to try.
   /// - [right]: Second continuation to try.
@@ -380,14 +388,20 @@ final class Cont<E, F, A> {
   /// Races multiple continuations, returning the first successful value.
   ///
   /// Executes all continuations in [list] and returns the first one that succeeds.
-  /// If all fail, their errors are collected into a [List]. The execution behavior
-  /// depends on the provided [policy]:
+  /// If all fail, their errors are collected into a [List]. A crash ends the race,
+  /// like a success. The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceOkPolicy]: Tries continuations one by one in order until one succeeds.
+  /// - [SequenceOkPolicy]: Tries continuations one by one in order until one
+  ///   succeeds or crashes.
   /// - [RunAllOkPolicy]: Runs all in parallel; if multiple succeed, combines their
-  ///   values using the policy's combine function; otherwise returns the first success
-  ///   or collects all errors if all fail.
-  /// - [QuitFastOkPolicy]: Runs all in parallel, returns immediately on first success.
+  ///   values using the policy's combine function; otherwise returns the success
+  ///   or collects all errors if all fail. Errors are collected in completion
+  ///   order, and crashes are reported as a [CollectedCrash].
+  /// - [QuitFastOkPolicy]: Runs all in parallel, returns immediately on first
+  ///   success or crash.
+  ///
+  /// [SequenceOkPolicy] and [QuitFastOkPolicy] keep list order. An empty
+  /// [list] fails with `[]`.
   ///
   /// - [list]: List of continuations to race.
   /// - [policy]: Execution policy determining how continuations are run.
@@ -416,10 +430,11 @@ final class Cont<E, F, A> {
   ///
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceCrashPolicy]: Runs [left] then [right] sequentially; if both crash,
+  /// - [SequenceCrashPolicy]: Runs [left], then [right] only if [left] crashes;
+  ///   if both crash, produces a [MergedCrash].
+  /// - [QuitFastCrashPolicy]: Runs both in parallel, propagates the first success
+  ///   or error immediately. A crash waits for the other side; if both crash,
   ///   produces a [MergedCrash].
-  /// - [QuitFastCrashPolicy]: Runs both in parallel, propagates the first crash
-  ///   immediately.
   /// - [RunAllCrashPolicy]: Runs both in parallel, waits for both, and coalesces crashes
   ///   if both crash.
   ///
@@ -465,12 +480,16 @@ final class Cont<E, F, A> {
   ///
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceCrashPolicy]: Runs continuations one by one; sequential crashes
-  ///   are converged into a [MergedCrash].
-  /// - [QuitFastCrashPolicy]: Runs all in parallel, propagates the first crash
-  ///   immediately.
+  /// - [SequenceCrashPolicy]: Runs continuations one by one, each only if the
+  ///   previous one crashed; if all crash, produces a [CollectedCrash].
+  /// - [QuitFastCrashPolicy]: Runs all in parallel, propagates the first success
+  ///   or error immediately. Crashes wait for the others; if all crash,
+  ///   produces a [CollectedCrash].
   /// - [RunAllCrashPolicy]: Runs all in parallel, waits for all, and collects
-  ///   crashes into a [CollectedCrash].
+  ///   crashes into a [CollectedCrash] if all crash. If any continuation
+  ///   succeeds or fails, the crashes are dropped.
+  ///
+  /// An empty [list] crashes with an empty [CollectedCrash].
   ///
   /// - [list]: List of continuations to execute.
   /// - [policy]: Crash policy determining how crashes are converged.

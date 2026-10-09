@@ -85,7 +85,7 @@ extension MyContExtensions<E, F, T> on Cont<E, F, T> {
     });
   }
 
-  // Execute with a timeout
+  // Succeed with defaultValue if this hasn't succeeded within duration
   Cont<E, F3, T> timeout<F2, F3>(
     Duration duration,
     T defaultValue,
@@ -110,6 +110,8 @@ extension MyContExtensions<E, F, T> on Cont<E, F, T> {
   }
 }
 ```
+
+`timeout` builds on `either`, which waits on the else channel: a success or a crash ends the race immediately, but a failure waits for the other side. So if `this` fails before `duration` elapses, its error waits for the timer and the result is `defaultValue`. If fast failures must win, lift them to the then channel before racing, as shown in [Race with Timeout](04-racing-and-merging.md#race-with-timeout).
 
 ### Approach 2: Use `decorate` for Low-Level Control
 
