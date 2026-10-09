@@ -111,6 +111,26 @@ program.run(
 - Adding context to environment (timestamps, request IDs)
 - Environment middleware patterns
 
+### Never Upcast the Environment Type
+
+Dart accepts a `Cont<AppConfig, A>` where a `Cont<Object, A>` is expected, but running such a widened continuation throws a `TypeError`. The same happens when continuations with different environment types end up in one list, which Dart infers with a wider environment type. Instead, keep reusable functions generic in `E`, and adapt operations that need a specific environment with `local` or `scope`:
+
+```dart
+// Don't: compiles, but throws a TypeError when run
+final Cont<Object, String> widened =
+    Cont.ask<AppConfig>().thenMap((config) => config.apiKey);
+
+// Do: keep reusable functions generic in E...
+Cont<E, String> greet<E>(String name) {
+  return Cont.of('Hello, $name');
+}
+
+// ...and adapt operations that need a specific environment
+final Cont<AppConfig, String> program = dbOperation
+    .local<AppConfig>((appConfig) => appConfig.dbConfig)
+    .thenDo((_) => greet<AppConfig>('Ann'));
+```
+
 ## WithEnv Variants
 
 All chaining and error handling operators have `WithEnv` variants that provide access to the environment:

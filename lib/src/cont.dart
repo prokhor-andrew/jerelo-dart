@@ -49,6 +49,9 @@ part 'helper/then_helpers.dart';
 /// A continuation monad representing a computation that will eventually
 /// produce a value of type [A] or terminate with errors.
 ///
+/// A run delivers its outcome on at most one of these channels: a cancelled
+/// run, or a `*Forever` loop that never stops, delivers nothing.
+///
 /// [Cont] provides a powerful abstraction for managing asynchronous operations,
 /// error handling, and composition of effectful computations. It follows the
 /// continuation-passing style where computations are represented as functions
@@ -74,7 +77,11 @@ final class Cont<E, A> {
 
   /// Creates a [Cont] from a run function that accepts an observer.
   ///
-  /// Constructs a continuation with guaranteed idempotence and exception catching.
+  /// Constructs a continuation with guaranteed idempotence. If [run] throws
+  /// synchronously, the error is caught and the continuation terminates with
+  /// it. A throw in a callback that runs later, such as a `Timer` or `Future`
+  /// callback, is not caught: it escapes as an unhandled exception and the
+  /// observer is never called, so catch such errors and pass them to `onElse`.
   /// The run function receives an observer with `onThen` and `onElse` callbacks.
   /// The callbacks should be called as the last instruction in the run function
   /// or saved to be called later.
@@ -176,7 +183,8 @@ final class Cont<E, A> {
   ///
   /// - [BothSequencePolicy]: Runs [left] then [right] sequentially.
   /// - [BothMergeWhenAllPolicy]: Runs both in parallel, waits for both to complete,
-  ///   and merges errors if both fail.
+  ///   and merges errors if both fail. The errors of the side that failed first
+  ///   come first.
   /// - [BothQuitFastPolicy]: Runs both in parallel, terminates immediately if either fails.
   ///
   /// - [left]: First continuation to execute.
@@ -219,8 +227,12 @@ final class Cont<E, A> {
   ///
   /// - [BothSequencePolicy]: Runs continuations one by one in order, stops at first failure.
   /// - [BothMergeWhenAllPolicy]: Runs all in parallel, waits for all to complete,
-  ///   and merges errors if any fail.
+  ///   and merges errors if any fail. Values and errors are collected in
+  ///   completion order, not list order. Tag the results if you need to know
+  ///   which continuation produced them.
   /// - [BothQuitFastPolicy]: Runs all in parallel, terminates immediately on first failure.
+  ///
+  /// [BothSequencePolicy] and [BothQuitFastPolicy] collect values in list order.
   ///
   /// - [list]: List of continuations to execute.
   /// - [policy]: Execution policy determining how continuations are run and errors are handled.
@@ -242,13 +254,16 @@ final class Cont<E, A> {
 
   /// Races two continuations, returning the first successful value.
   ///
-  /// Executes both continuations and returns the result from whichever succeeds first.
-  /// If both fail, concatenates their errors. The execution behavior depends on the
-  /// provided [policy]:
+  /// Executes both continuations and returns a successful value if either succeeds.
+  /// If both fail, concatenates their errors, those of [left] first. The execution
+  /// behavior depends on the provided [policy]:
   ///
   /// - [EitherSequencePolicy]: Tries [left] first, then [right] if [left] fails.
-  /// - [EitherMergeWhenAllPolicy]: Runs both in parallel, returns first success or merges
-  ///   results using the policy's combine function if both succeed.
+  /// - [EitherMergeWhenAllPolicy]: Runs both in parallel and waits for both to
+  ///   complete; there is no early return on the first success. If only one
+  ///   succeeds, returns its value. If both succeed, merges them using the
+  ///   policy's combine function, with the value that arrived first as the
+  ///   first argument.
   /// - [EitherQuitFastPolicy]: Runs both in parallel, returns immediately on first success.
   ///
   /// - [left]: First continuation to try.
@@ -286,14 +301,19 @@ final class Cont<E, A> {
 
   /// Races multiple continuations, returning the first successful value.
   ///
-  /// Executes all continuations in [list] and returns the first one that succeeds.
-  /// If all fail, collects all errors. The execution behavior depends on the
-  /// provided [policy]:
+  /// Executes all continuations in [list] and returns a successful value if any
+  /// succeeds. If all fail, collects all errors. The execution behavior depends
+  /// on the provided [policy]:
   ///
   /// - [EitherSequencePolicy]: Tries continuations one by one in order until one succeeds.
-  /// - [EitherMergeWhenAllPolicy]: Runs all in parallel, returns first success or merges
-  ///   results using the policy's combine function if multiple succeed.
+  /// - [EitherMergeWhenAllPolicy]: Runs all in parallel and waits for all to
+  ///   complete; there is no early return on the first success. Merges the
+  ///   successful values using the policy's combine function in completion
+  ///   order. If all fail, errors are collected in completion order.
   /// - [EitherQuitFastPolicy]: Runs all in parallel, returns immediately on first success.
+  ///
+  /// [EitherSequencePolicy] and [EitherQuitFastPolicy] collect errors in list
+  /// order.
   ///
   /// - [list]: List of continuations to race.
   /// - [policy]: Execution policy determining how continuations are run.

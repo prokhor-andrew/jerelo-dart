@@ -5,8 +5,8 @@ part of '../cont.dart';
 /// Wraps the user-supplied [run] function with:
 /// - Cancellation checks before execution and in each callback.
 /// - Idempotence guards ensuring callbacks fire at most once.
-/// - Exception catching around [run] itself (converts thrown errors to
-///   termination).
+/// - Exception catching around [run] itself (converts synchronously thrown
+///   errors to termination; throws in later callbacks are not caught).
 /// - Panic handling when observer callbacks throw.
 Cont<E, A> _fromRun<E, A>(
   void Function(

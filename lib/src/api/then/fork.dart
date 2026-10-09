@@ -4,8 +4,11 @@ extension ContThenForkExtension<E, A> on Cont<E, A> {
   /// Executes a side-effect continuation in a fire-and-forget manner.
   ///
   /// Unlike [thenTap], this method does not wait for the side-effect to complete.
-  /// The side-effect continuation is started immediately, and the original value
-  /// is returned without delay. Any errors from the side-effect are silently ignored.
+  /// The side-effect continuation is started first, and then the original value
+  /// is forwarded: a synchronous side-effect runs to completion before that,
+  /// while an asynchronous one does not delay it. The outcome of the side-effect,
+  /// including any errors, is silently ignored. If [f] itself throws, the
+  /// computation terminates with that error.
   ///
   /// The side-effect runs under this computation's runtime, so it is
   /// cancelled together with this computation.
@@ -29,8 +32,8 @@ extension ContThenForkExtension<E, A> on Cont<E, A> {
   /// Executes a side-effect continuation in a fire-and-forget manner with access to the environment.
   ///
   /// Similar to [thenFork], but the side-effect function receives both the current
-  /// value and the environment. The side-effect is started immediately without waiting,
-  /// and any errors are silently ignored.
+  /// value and the environment. The side-effect is started without waiting for it
+  /// to complete, and its outcome is silently ignored, as with [thenFork].
   ///
   /// - [f]: Function that takes the environment and value, and returns a side-effect continuation.
   Cont<E, A> thenForkWithEnv<A2>(

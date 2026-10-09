@@ -77,7 +77,7 @@ Cont.of(0).thenDo((zero) {
 Other success operators include:
 - `thenTap`: Execute side effects while passing the original value through
 - `thenZip`: Combine the original value with a new computation's result
-- `thenFork`: Run a computation in the background without blocking the chain (fire-and-forget)
+- `thenFork`: Start a computation without waiting for it to finish (fire-and-forget)
 
 **Variants:** All success operators have `0`, `WithEnv`, and `WithEnv0` variants (e.g., `thenDo0`, `thenDoWithEnv`, `thenDoWithEnv0`)
 
@@ -133,7 +133,7 @@ Cont.stop<(), int>([ContError.capture("connection timeout")])
 
 - `elseTap`: Run a side effect on termination and wait for it; if the side effect terminates, the original errors are kept, and if it succeeds, its value recovers the computation
 - `elseZip`: Runs fallback and combines errors from both attempts
-- `elseFork`: Handle errors in the background without blocking (fire-and-forget)
+- `elseFork`: Handle errors without waiting for the handler to finish (fire-and-forget)
 - `recover`: Compute a replacement value from the errors (convenience shorthand for `elseDo`)
 - `recover0`: Compute a replacement value ignoring the errors
 - `recoverWith`: Provide a constant fallback value on termination

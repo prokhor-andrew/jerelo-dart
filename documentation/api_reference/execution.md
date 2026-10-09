@@ -117,7 +117,9 @@ void ff(
 
 Executes the continuation in a fire-and-forget manner.
 
-Runs the continuation without waiting for the result. Both success and failure outcomes are ignored. This is useful for side-effects that should run asynchronously without blocking or requiring error handling.
+Runs the continuation without handling its result. Both success and failure outcomes are ignored. This is useful for side-effects that don't require error handling.
+
+`ff` starts the continuation synchronously, like `run`: a synchronous continuation completes before `ff` returns, and only the asynchronous parts of a continuation (timers, futures) continue after it returns. `ff` does not return a cancel token, and its run is never cancelled: it is a detached run that nothing can stop once started.
 
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
@@ -128,7 +130,7 @@ Runs the continuation without waiting for the result. Both success and failure o
 // Fire and forget a logging operation
 logEvent(userId, action).ff(env);
 
-// Continue with other work immediately
+// Continues once logEvent has run up to its first asynchronous step
 processNextRequest();
 ```
 

@@ -6,7 +6,7 @@ part of '../cont.dart';
 /// If one succeeds and the other terminates, the successful value is returned.
 /// If both succeed, their values are merged using [combine] (first-succeeded
 /// value is passed as the accumulator). If both terminate, their errors are
-/// concatenated.
+/// concatenated, those of [left] first.
 Cont<E, A> _eitherMergeWhenAll<E, A>(
   Cont<E, A> left,
   Cont<E, A> right,

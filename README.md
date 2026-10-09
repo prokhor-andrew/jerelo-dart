@@ -41,7 +41,7 @@ getUserData.run(testConfig, onElse: handleError, onThen: handleSuccess);
 final class Cont<E, A>
 ```
 
-A continuation monad representing a computation that will eventually produce a value of type `A` or terminate with errors.
+A continuation monad representing a computation that will eventually produce a value of type `A` or terminate with errors. A run delivers its outcome on at most one of these channels: a cancelled run, or a `*Forever` loop that never stops, delivers nothing.
 
 **Type Parameters:**
 - `E`: The environment type providing context for the continuation execution

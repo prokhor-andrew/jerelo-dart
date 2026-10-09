@@ -155,6 +155,8 @@ logAnalytics(userId, action).run(());
 The `ff` method:
 - Does not provide success or error callbacks
 - Only accepts `onPanic` for fatal errors
+- Runs synchronously, like `run`: it does not defer the work, so a synchronous continuation completes before `ff` returns
+- Returns no cancel token, so the run can never be cancelled
 - Useful for side-effect-only operations like logging, metrics, or fire-and-forget notifications
 - More concise than `run` when you don't need to handle results
 
@@ -271,8 +273,8 @@ Cont.stop<(), int>([ContError.capture("fail")])  // Termination channel
 When using racing or merging operators (`either`, `any`, `both`, `all`) with parallel execution policies (`.quitFast()` or `.mergeWhenAll()`), multiple continuations execute simultaneously. The execution flow pauses until a decisive result is reached:
 
 ```dart
-final slow = delay(Duration(seconds: 2), 42);
-final fast = delay(Duration(milliseconds: 100), 10);
+final slow = delay<(), int>(Duration(seconds: 2), 42);
+final fast = delay<(), int>(Duration(milliseconds: 100), 10);
 
 Cont.either(slow, fast, policy: ContEitherPolicy.quitFast())  // Both start executing in parallel
   .thenMap((x) => x * 2)      // Waits for first completion → then processes winner
@@ -282,7 +284,7 @@ Cont.either(slow, fast, policy: ContEitherPolicy.quitFast())  // Both start exec
 During this pause:
 - Multiple computation chains run concurrently
 - The racing operator monitors all channels (both value and termination)
-- As soon as one chain produces a decisive result (first success for `either`, first failure for `both`), others may be cancelled
+- With `quitFast()`, as soon as one chain produces a decisive result (first success for `either`, first failure for `both`), others may be cancelled. With `mergeWhenAll()`, the operator waits for every chain to finish, even after a success
 - The winning result continues down the remaining operator chain
 
 **Key Behaviors**
