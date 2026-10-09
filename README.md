@@ -2,6 +2,8 @@
 
 **Jerelo** is a Dart library for building cold, lazy, reusable computations using continuation-passing style. It provides a composable `Cont` type with operations for chaining, transforming, branching, merging, and error handling.
 
+> **Note:** this is jerelo 1.x, which only receives critical fixes. If you can, upgrade to the latest major version (3.x); see the [CHANGELOG](CHANGELOG.md) for the breaking changes between versions.
+
 The name "Jerelo" is Ukrainian for "source" or "spring" - each `Cont` is a source of results that can branch, merge, filter, and transform data through your workflows.
 
 ## What Makes Jerelo Different?
