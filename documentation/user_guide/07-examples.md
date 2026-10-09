@@ -145,7 +145,7 @@ class ApiClient<E> {
 }
 
 // Usage
-final client = ApiClient('https://api.example.com', Duration(seconds: 5), 3);
+final client = ApiClient<()>('https://api.example.com', Duration(seconds: 5), 3);
 
 client.get('/users/123', User.fromJson).run(
   (),

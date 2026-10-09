@@ -31,7 +31,7 @@ Cont<E, T> myComputation<E, T>() {
 
 ### Key Rules for Using Observer
 
-1. **Call exactly once**: You must call either `observer.onThen` or `observer.onElse` exactly once
+1. **Call exactly once**: You must call either `observer.onThen` or `observer.onElse` exactly once, unless the run is cancelled (then just return without calling either)
 2. **Idempotent**: Calling more than once has no effect (the first call wins)
 3. **Mandatory**: Failing to call the observer results in undefined behavior and lost errors (with exception to cancellation cases)
 
@@ -47,7 +47,7 @@ Cont<E, T> delay<E, T>(Duration duration, T value) {
 }
 
 // Usage
-delay(Duration(seconds: 2), 42).run(
+delay<(), int>(Duration(seconds: 2), 42).run(
   (),
   onThen: (value) => print("Got $value after 2 seconds"),
 );

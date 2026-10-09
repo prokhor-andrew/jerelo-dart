@@ -49,6 +49,9 @@ part 'helper/then_helpers.dart';
 /// A continuation monad representing a computation that will eventually
 /// produce a value of type [A] or terminate with errors.
 ///
+/// A run delivers its outcome on at most one of these channels: a cancelled
+/// run, or a `*Forever` loop that never stops, delivers nothing.
+///
 /// [Cont] provides a powerful abstraction for managing asynchronous operations,
 /// error handling, and composition of effectful computations. It follows the
 /// continuation-passing style where computations are represented as functions

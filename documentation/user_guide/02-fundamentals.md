@@ -273,8 +273,8 @@ Cont.stop<(), int>([ContError.capture("fail")])  // Termination channel
 When using racing or merging operators (`either`, `any`, `both`, `all`) with parallel execution policies (`.quitFast()` or `.mergeWhenAll()`), multiple continuations execute simultaneously. The execution flow pauses until a decisive result is reached:
 
 ```dart
-final slow = delay(Duration(seconds: 2), 42);
-final fast = delay(Duration(milliseconds: 100), 10);
+final slow = delay<(), int>(Duration(seconds: 2), 42);
+final fast = delay<(), int>(Duration(milliseconds: 100), 10);
 
 Cont.either(slow, fast, policy: ContEitherPolicy.quitFast())  // Both start executing in parallel
   .thenMap((x) => x * 2)      // Waits for first completion → then processes winner
