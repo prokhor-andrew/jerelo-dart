@@ -56,7 +56,7 @@ Use this when:
 ```dart
 final result = Cont.all(
   [operation1, operation2, operation3],
-  policy: OkPolicy.sequence(),
+  policy: OkPolicy.sequence<String>(),
 );
 ```
 
@@ -81,7 +81,7 @@ final result = Cont.both(
   checkPrimaryDb,
   checkSecondaryDb,
   (a, b) => (a, b),
-  policy: OkPolicy.quitFast(),
+  policy: OkPolicy.quitFast<String>(),
 );
 ```
 
@@ -110,7 +110,7 @@ The `shouldFavorCrash` flag determines behavior when both crashes and non-crash 
 ```dart
 final result = Cont.all(
   [validateEmail, validatePassword, validateAge],
-  policy: OkPolicy.runAll(
+  policy: OkPolicy.runAll<String>(
     (e1, e2) => '$e1; $e2',
     shouldFavorCrash: true,
   ),
@@ -180,7 +180,7 @@ When multiple non-crash outcomes exist, `shouldFavorElse` determines whether err
 final result = Cont.coalesce(
   primarySource,
   backupSource,
-  policy: CrashPolicy.runAll(
+  policy: CrashPolicy.runAll<String, int>(
     shouldFavorElse: false,
     combineElseVals: (e1, e2) => '$e1; $e2',
     combineThenVals: (a1, a2) => a1 + a2,
@@ -227,7 +227,7 @@ final result = Cont.both(
   fetchUser(userId),
   fetchPosts(userId),
   (user, posts) => UserWithPosts(user, posts),
-  policy: OkPolicy.quitFast(),
+  policy: OkPolicy.quitFast<String>(),
 );
 ```
 
@@ -254,7 +254,7 @@ All continuations must succeed. The policy determines execution strategy and err
 ```dart
 final validations = Cont.all(
   [validateEmail(email), validatePassword(password), validateAge(age)],
-  policy: OkPolicy.runAll(
+  policy: OkPolicy.runAll<String>(
     (e1, e2) => '$e1; $e2',
     shouldFavorCrash: true,
   ),
@@ -290,7 +290,7 @@ final data = Cont.either(
   fetchFromPrimary,
   fetchFromBackup,
   (err1, err2) => '$err1 and $err2',
-  policy: OkPolicy.sequence(),
+  policy: OkPolicy.sequence<Data>(),
 );
 ```
 
@@ -317,7 +317,7 @@ If all fail, collects all errors into a list. The policy determines execution st
 ```dart
 final data = Cont.any(
   [fetchFromCache, fetchFromPrimaryDb, fetchFromBackupDb],
-  policy: OkPolicy.quitFast(),
+  policy: OkPolicy.quitFast<Data>(),
 );
 // On failure, errors are List<F>
 ```
@@ -354,7 +354,7 @@ The execution behavior depends on the provided `policy`:
 final result = Cont.coalesce(
   primarySource,
   backupSource,
-  policy: CrashPolicy.quitFast(),
+  policy: CrashPolicy.quitFast<String, Data>(),
 );
 ```
 
@@ -387,7 +387,7 @@ The execution behavior depends on the provided `policy`:
 ```dart
 final result = Cont.converge(
   [source1, source2, source3],
-  policy: CrashPolicy.sequence(),
+  policy: CrashPolicy.sequence<String, Data>(),
 );
 ```
 

@@ -5,7 +5,8 @@ extension ContElseForeverExtension<E, F, A>
   /// Repeatedly retries the continuation on termination indefinitely.
   ///
   /// If the continuation terminates, retries it in an infinite loop that never
-  /// stops on its own. The loop only terminates if the continuation succeeds.
+  /// stops on its own. The loop only terminates if the continuation succeeds
+  /// or crashes.
   ///
   /// This is the error-channel counterpart to [thenForever]. While
   /// `thenForever` loops the success path indefinitely, `elseForever` retries
@@ -25,7 +26,7 @@ extension ContElseForeverExtension<E, F, A>
   ///
   /// // A resilient worker that never stops retrying
   /// final worker = processJob()
-  ///     .elseTap((error) => logError(error))
+  ///     .elseFork((error) => logError(error))
   ///     .elseForever();
   /// ```
   Cont<E, Never, A> elseForever() {

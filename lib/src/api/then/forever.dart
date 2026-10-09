@@ -6,11 +6,11 @@ extension ContThenForeverExtension<E, F, A>
   ///
   /// Runs the continuation in an infinite loop that never stops on its own.
   /// The loop only terminates if the underlying continuation terminates on the
-  /// else (error) channel.
+  /// else (error) channel or crashes.
   ///
   /// The return type `Cont<E, F, Never>` indicates that this continuation never
-  /// produces a value — it either runs forever or terminates with a
-  /// business-logic error.
+  /// produces a value — it either runs forever, terminates with a
+  /// business-logic error, or crashes.
   ///
   /// This is useful for:
   /// - Daemon-like processes that run continuously

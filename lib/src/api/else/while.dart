@@ -17,7 +17,7 @@ extension ContElseWhileExtension<E, F, A> on Cont<E, F, A> {
   /// Example:
   /// ```dart
   /// // Retry while getting transient error
-  /// final result = apiCall().elseWhile((error) => error.first.error is TransientError);
+  /// final result = apiCall().elseWhile((error) => error is TransientError);
   /// ```
   Cont<E, F, A> elseWhile(
     bool Function(F error) predicate,

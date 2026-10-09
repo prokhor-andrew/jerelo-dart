@@ -22,11 +22,11 @@ extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
   /// Example:
   /// ```dart
   /// final cont = Cont.error<(), String, int>('not found')
-  ///   .elseUnless((error) => error == 'not found', fallback: 42);
+  ///   .elseUnless((error) => error != 'not found', fallback: 42);
   /// // Recovers with 42
   ///
   /// final cont2 = Cont.error<(), String, int>('fatal error')
-  ///   .elseUnless((error) => error == 'not found', fallback: 42);
+  ///   .elseUnless((error) => error != 'not found', fallback: 42);
   /// // Continues terminating with 'fatal error'
   /// ```
   Cont<E, F, A> elseUnless(
