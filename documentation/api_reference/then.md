@@ -252,7 +252,7 @@ Cont<E, F, A> thenTap<A2>(Cont<E, F, A2> Function(A value) f)
 
 Chains a side-effect continuation while preserving the original value.
 
-Executes a continuation for its side effects, then returns the original value.
+Executes a continuation for its side effects, then returns the original value. If the side-effect terminates with an error, that error propagates on the else channel; if it crashes, the crash propagates.
 
 - **Parameters:**
   - `f`: Side-effect function that returns a continuation
@@ -449,10 +449,10 @@ Executes a side-effect continuation in a fire-and-forget manner.
 
 The side-effect runs under this computation's runtime, so it is cancelled together with this computation.
 
-Unlike `thenTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started immediately, and the original value is returned without delay. The forked continuation may have different error and value types.
+Unlike `thenTap`, this method does not wait for the side-effect to complete. The side-effect is started before the original value is forwarded: a synchronous side-effect runs to completion first, while an asynchronous one does not delay the value. If `f` itself throws, the computation crashes. The forked continuation may have different error and value types.
 
 Outcomes from the forked continuation are dispatched to optional callbacks:
-- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing.
+- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing in a microtask, so a `try`/`catch` around `run()` never sees it.
 - `onCrash`: Called when the side-effect crashes. Defaults to ignoring.
 - `onElse`: Called when the side-effect terminates with an error. Defaults to ignoring.
 - `onThen`: Called when the side-effect succeeds. Defaults to ignoring.
@@ -468,7 +468,7 @@ Outcomes from the forked continuation are dispatched to optional callbacks:
 ```dart
 final result = fetchUser(userId)
   .thenFork((user) => sendAnalytics(user.id))
-  .thenDo((user) => processUser(user)); // Continues immediately
+  .thenDo((user) => processUser(user)); // Doesn't wait for sendAnalytics
 
 // With observation callbacks:
 final result2 = fetchUser(userId)

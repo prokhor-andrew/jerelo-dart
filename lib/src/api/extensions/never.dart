@@ -86,7 +86,7 @@ extension ContElseNeverExtension<E, A>
 
 /// Extension for running continuations that never produce a value.
 ///
-/// This extension provides specialized methods for [Cont]<[E], [Never]> where only
+/// This extension provides specialized methods for [Cont]<[E], [F], [Never]> where only
 /// termination is expected, simplifying the API by removing the unused value callback.
 extension ContThenNeverExtension<E, F>
     on Cont<E, F, Never> {

@@ -75,9 +75,11 @@ final class NormalCrash extends ContCrash {
 
 /// A crash that combines two crashes from paired operations.
 ///
-/// Produced when two continuations are run (e.g. in [Cont.coalesce]) and both
-/// crash. Carries the original [left] and [right] crashes so callers can
-/// inspect both.
+/// Produced when two continuations are run (e.g. in [Cont.coalesce],
+/// `crashZip`, or [Cont.both]/[Cont.either] with [RunAllOkPolicy]) and
+/// both crash. Carries the original [left] and [right] crashes so callers
+/// can inspect both.
+/// Can also be created directly or with [ContCrash.merge].
 final class MergedCrash extends ContCrash {
   /// The crash from the left (or first) operation.
   final ContCrash left;
@@ -111,9 +113,14 @@ final class MergedCrash extends ContCrash {
 
 /// A crash that collects multiple crashes from a list of operations.
 ///
-/// Produced when [Cont.converge] is run with [RunAllCrashPolicy] and more
-/// than one continuation crashes. The [crashes] map associates each
-/// continuation's index with its [ContCrash].
+/// Produced by:
+/// - [Cont.converge] with any policy when every continuation crashes, and
+///   by an empty [Cont.converge] (with an empty map);
+/// - [Cont.all] and [Cont.any] with [RunAllOkPolicy] whenever they report a
+///   crash, even if only one continuation crashed.
+///
+/// The [crashes] map associates each continuation's index with its
+/// [ContCrash]. Can also be created directly or with [ContCrash.collect].
 final class CollectedCrash extends ContCrash {
   /// Map from operation index to the [ContCrash] produced by that operation.
   final Map<int, ContCrash> crashes;

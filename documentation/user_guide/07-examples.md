@@ -17,7 +17,7 @@ class AppConfig {
   AppConfig(this.apiUrl, this.cacheDir, this.timeout);
 }
 
-// Fetch user with retry and caching
+// Fetch user with a cache fallback, caching fresh results
 Cont<AppConfig, String, User> getUser(String userId) {
   return Cont.askThen<AppConfig, String>()
     .thenDo((config) {
@@ -229,10 +229,10 @@ withProgress(
 
 ### Pattern 5: Racing Computations
 
-`Cont.either` runs two computations concurrently and takes the first to succeed. Use it to race a primary source against a fallback, or to implement timeouts.
+`Cont.either` runs two computations concurrently and takes the first to succeed. Use it to race a primary source against a fallback. A failure does not end the race: it waits for the other side, and the race fails only if both fail. A crash ends the race immediately.
 
 ```dart
-// Race remote config against local — whichever resolves first wins.
+// Race remote config against local — whichever succeeds first wins.
 // If both fail, report the remote error.
 Cont<(), String, Config> loadConfig() {
   return Cont.either(

@@ -23,10 +23,10 @@ Cont<E, String, User> getUser<E>(String userId) {
 ```
 
 **Important notes about `observer`:**
-- It is idempotent. Calling `onThen`, `onElse`, or `onCrash` more than once will do nothing.
+- It is idempotent. Calling `onThen`, `onElse`, or `onCrash` more than once will do nothing. Only this observer is guarded: observers derived from it with `copyUpdate*` call their new callbacks every time.
 - It is strongly advised to call exactly one of `onThen`, `onElse`, or `onCrash` once the computation is over, unless it is canceled.
 - The observer has an `isUsed` property that returns `true` once any callback has been invoked.
-- Exceptions thrown inside `Cont.fromRun` are automatically caught and routed to the crash channel — you don't need to wrap your code in try-catch blocks.
+- Exceptions thrown synchronously inside `Cont.fromRun` are automatically caught and routed to the crash channel — you don't need to wrap that code in try-catch blocks. An exception thrown later, inside a `Timer` or `Future` callback, is not caught: it escapes to the zone and the observer is never called. Wrap the body of such callbacks in `ContCrash.tryCatch` and pass the crash to `observer.onCrash`.
 
 ### Deferred Construction
 
@@ -65,8 +65,10 @@ To represent a crash (unexpected exception):
 Cont.crash<(), String, int>(someCrash);
 ```
 
-This constructor is used to thread an existing `ContCrash`. The construction of `ContCrash`
-manually is not possible. (More in **[Composing Computations](03-composing-computations.md)**)
+This constructor is used to thread an existing `ContCrash`. A `NormalCrash` has no public
+constructor: it is created when an exception is caught (for example by `ContCrash.tryCatch`).
+`MergedCrash` and `CollectedCrash` have public constructors (also available as `ContCrash.merge`
+and `ContCrash.collect`). (More in **[Composing Computations](03-composing-computations.md)**)
 
 ### Resource Management
 
@@ -99,7 +101,7 @@ The execution order is always:
 Key details about `bracket`:
 - `acquire` and `release` have error type `Never` — they can only succeed or crash, never produce a business-logic error.
 - The `use` outcome (then, else, or crash) is propagated immediately; `release` runs independently afterward.
-- Release outcomes are routed to the optional `onReleasePanic`, `onReleaseCrash`, and `onReleaseThen` callbacks.
+- Release outcomes are routed to the optional `onReleasePanic`, `onReleaseCrash`, and `onReleaseThen` callbacks. A throw from the `release` function itself (while building the release continuation) goes to `onReleasePanic`; a crash inside the returned continuation goes to `onReleaseCrash`.
 - `acquire` always runs to completion. If the computation is cancelled before `use` starts, release fires as soon as `acquire` completes and the observer receives nothing.
 - If the computation is cancelled while `use` runs, release fires immediately, without waiting for `use`; `use`'s outcome is dropped.
 
@@ -150,7 +152,7 @@ The `run` method accepts the environment as a positional argument and four optio
 - **`onThen`** (default: no-op) — Receives the successful result of type `A`.
 - **`onElse`** (default: no-op) — Receives the business-logic error of type `F`.
 - **`onCrash`** (default: no-op) — Receives a `ContCrash` for unexpected exceptions.
-- **`onPanic`** (default: re-throw) — Handles fatal errors that escape even the crash handlers.
+- **`onPanic`** (default: re-throw in a microtask) — Handles fatal errors that escape even the crash handlers.
 
 Because every callback has a sensible default, you only need to subscribe to the channels you care about:
 
@@ -177,7 +179,7 @@ final token = computation.run(
 token.cancel();
 ```
 
-**Panic handler:** The `onPanic` callback is invoked when a fatal error occurs that lies outside the normal crash channel — for example, when an observer callback itself throws an exception. It receives a `NormalCrash`. By default it re-throws the error, surfacing it as an unhandled exception. Override it to integrate with your logging or crash-reporting infrastructure.
+**Panic handler:** The `onPanic` callback is invoked when a fatal error occurs that lies outside the normal crash channel — for example, when an observer callback itself throws an exception. It receives a `NormalCrash`. By default it re-throws the error in a microtask, surfacing it as an unhandled exception in the current zone; a `try`/`catch` around `run()` never sees it. Override it to integrate with your logging or crash-reporting infrastructure.
 
 ### Execution Flow
 
