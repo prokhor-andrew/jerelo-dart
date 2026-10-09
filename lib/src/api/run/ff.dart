@@ -15,9 +15,7 @@ extension ContFfExtension<E, A> on Cont<E, A> {
     void Function(ContError error) onPanic = _panic,
   }) {
     _run(
-      ContRuntime._(env, () {
-        return false;
-      }, onPanic),
+      ContRuntime._(env, _CancelNode._root(), onPanic),
       ContObserver._((_) {}, (_) {}),
     );
   }

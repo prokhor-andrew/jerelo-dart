@@ -329,9 +329,14 @@ final class Cont<E, A> {
   /// 3. [release] - Release the resource (always runs, even if [use] fails or is cancelled)
   ///
   /// Cancellation behavior:
-  /// - The [release] function is called even when the runtime is cancelled
-  /// - This ensures resources are properly cleaned up regardless of cancellation
-  /// - However, if cancellation occurs during release itself, cleanup may be partial
+  /// - [acquire] always runs to completion, so an acquired resource is never
+  ///   lost
+  /// - If cancelled before [use] starts, [release] runs as soon as [acquire]
+  ///   completes and nothing is emitted
+  /// - If cancelled while [use] runs, [release] runs immediately, without
+  ///   waiting for [use]. [use] may then fail on the released resource; its
+  ///   outcome is dropped
+  /// - [release] runs at most once, on a runtime that is never cancelled
   ///
   /// Error handling behavior:
   /// - If [use] succeeds and [release] succeeds: returns the value from [use]
