@@ -285,6 +285,8 @@ Cont<E, F, A> crashFork<F2, A2>(
 
 Executes a side-effect on crash in a fire-and-forget manner.
 
+The side-effect runs under this computation's runtime, so it is cancelled together with this computation.
+
 Does not wait for the side-effect to complete. The forked continuation may have different error and value types.
 
 Outcomes from the forked continuation are dispatched to optional callbacks:

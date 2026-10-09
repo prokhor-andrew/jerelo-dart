@@ -27,12 +27,10 @@ Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
         ContCrash.tryCatch(() {
           final contA2 = f(a);
           try {
-            contA2.run(
-              runtime.env(),
-              onPanic: onPanic,
-              onCrash: onCrash,
-              onElse: onElse,
-              onThen: onThen,
+            contA2.runWith(
+              runtime,
+              _UnsafeObserver._(
+                  onPanic, onCrash, onElse, onThen),
             );
           } catch (_) {
             // do nothing, if anything happens to side-effect, it's not
@@ -48,6 +46,9 @@ Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
 
 extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   /// Executes a side-effect continuation in a fire-and-forget manner.
+  ///
+  /// The side-effect runs under this computation's runtime, so it is
+  /// cancelled together with this computation.
   ///
   /// Unlike [thenTap], this method does not wait for the side-effect to complete.
   /// The side-effect continuation is started immediately, and the original value
