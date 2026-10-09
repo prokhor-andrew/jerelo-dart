@@ -2,6 +2,8 @@
 
 **Jerelo** is a Dart library for building cold, lazy, reusable computations using continuation-passing style. It provides a composable `Cont` type with operations for chaining, transforming, branching, merging, and error handling.
 
+> **Note:** this is jerelo 1.x, which only receives critical fixes. If you can, upgrade to the latest major version (3.x); see the [CHANGELOG](CHANGELOG.md) for the breaking changes between versions.
+
 The name "Jerelo" is Ukrainian for "source" or "spring" - each `Cont` is a source of results that can branch, merge, filter, and transform data through your workflows.
 
 ## What Makes Jerelo Different?
@@ -162,10 +164,10 @@ Cont<AppConfig, User> getUserData(String userId) {
         ? loadUserFromCache(userId)
         : Cont.stop(errors);
     })
-    // Side effect: log access without blocking
-    .thenTap((user) => logAccess(user))
-    // Error logging
-    .elseTap((errors) => logError(errors));
+    // Side effect: log access in the background
+    .thenFork((user) => logAccess(user))
+    // Error logging in the background
+    .elseFork((errors) => logError(errors));
 }
 
 // Fetch multiple users in parallel
@@ -250,9 +252,9 @@ The example above showcases:
 
 - **Environment Management**: Configuration threaded through computations via `AppConfig`
 - **Chaining**: Sequential operations with `thenDo`, `thenDoWithEnv`
-- **Error Handling**: Fallbacks with `elseDo`, error logging with `elseTap`
+- **Error Handling**: Fallbacks with `elseDo`, error logging with `elseFork`
 - **Conditional Logic**: Filtering with `thenIf`
-- **Side Effects**: Non-blocking logging with `thenTap`
+- **Side Effects**: Fire-and-forget logging with `thenFork`
 - **Parallel Execution**: Multiple computations with `Cont.all` and `ContBothPolicy`
 - **Racing**: Competing computations with `Cont.either` and `ContEitherPolicy`
 - **Reusability**: Same computation executed with different configurations

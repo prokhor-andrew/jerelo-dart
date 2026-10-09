@@ -22,9 +22,10 @@ extension ContElseForeverExtension<E, A> on Cont<E, A> {
   /// final connection = connectToServer()
   ///     .elseForever();
   ///
-  /// // A resilient worker that never stops retrying
+  /// // A resilient worker that logs errors in the background
+  /// // and never stops retrying
   /// final worker = processJob()
-  ///     .elseTap((errors) => logError(errors))
+  ///     .elseFork((errors) => logError(errors))
   ///     .elseForever();
   /// ```
   Cont<E, A> elseForever() {

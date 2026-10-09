@@ -32,6 +32,12 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   /// and the environment. The side-effect is started without waiting for it to complete,
   /// and any errors from the side-effect are silently ignored.
   ///
+  /// Unlike [elseFork], the side-effect continuation must have the same value
+  /// type [A] as this continuation. To fork a side-effect of another value
+  /// type, use [elseFork] and read the environment with [Cont.ask]. This
+  /// restriction is removed in jerelo 2.0.0 and later, where every fork
+  /// variant accepts a side-effect of any type.
+  ///
   /// - [f]: Function that takes the environment and errors, and returns a side-effect continuation.
   Cont<E, A> elseForkWithEnv(
     Cont<E, A> Function(E env, List<ContError> errors) f,
@@ -47,6 +53,12 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   ///
   /// Similar to [elseForkWithEnv], but the side-effect function only receives
   /// the environment and ignores the error information.
+  ///
+  /// Unlike [elseFork], the side-effect continuation must have the same value
+  /// type [A] as this continuation. To fork a side-effect of another value
+  /// type, use [elseFork] and read the environment with [Cont.ask]. This
+  /// restriction is removed in jerelo 2.0.0 and later, where every fork
+  /// variant accepts a side-effect of any type.
   ///
   /// - [f]: Function that takes the environment and returns a side-effect continuation.
   Cont<E, A> elseForkWithEnv0(

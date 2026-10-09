@@ -324,8 +324,7 @@ Cont<E, Data> processWithCleanup<E>() {
       // Perform work in chunks
       for (final chunk in workChunks) {
         if (runtime.isCancelled()) {
-          // Clean up and exit without emitting
-          resource.dispose();
+          // Exit without emitting (`finally` cleans up)
           return;
         }
 

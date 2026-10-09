@@ -131,7 +131,7 @@ Cont.stop<(), int>([ContError.capture("connection timeout")])
 
 ### Other Error Operators
 
-- `elseTap`: Execute side effects on termination (e.g., logging) while preserving the original errors
+- `elseTap`: Run a side effect on termination and wait for it; if the side effect terminates, the original errors are kept, and if it succeeds, its value recovers the computation
 - `elseZip`: Runs fallback and combines errors from both attempts
 - `elseFork`: Handle errors in the background without blocking (fire-and-forget)
 - `recover`: Compute a replacement value from the errors (convenience shorthand for `elseDo`)
@@ -316,7 +316,7 @@ Cont.of(42)
   ); // prints "Terminated: Value 42 is not allowed"
 ```
 
-The key difference from `thenIf` is that `abort` computes the error list dynamically from the value, while `thenIf` simply filters without producing custom errors.
+The key difference from `thenIf` is that `abort` always terminates and computes the error list dynamically from the value, while `thenIf` terminates only when the predicate returns `false`, with an optional fixed error list.
 
 **Variants:**
 - `abort(f)` - Compute errors from value
@@ -327,19 +327,22 @@ The key difference from `thenIf` is that `abort` computes the error list dynamic
 
 **Example: Validation with custom error messages**
 
+Because `abort` always terminates (even with an empty error list), use `thenIf` with an error list when termination depends on a condition:
+
 ```dart
 getUserInput()
-  .abortWith([ContError.capture("Input required")])
-    .thenIf((input) => input.isNotEmpty)
-  .abort((input) {
-    if (input.length < 3) {
-      return [ContError.capture("Input too short: minimum 3 characters")];
-    }
-    if (!RegExp(r'^[a-zA-Z]+$').hasMatch(input)) {
-      return [ContError.capture("Input must contain only letters")];
-    }
-    return []; // Won't actually abort if empty list
-  })
+  .thenIf(
+    (input) => input.isNotEmpty,
+    [ContError.capture("Input required")],
+  )
+  .thenIf(
+    (input) => input.length >= 3,
+    [ContError.capture("Input too short: minimum 3 characters")],
+  )
+  .thenIf(
+    (input) => RegExp(r'^[a-zA-Z]+$').hasMatch(input),
+    [ContError.capture("Input must contain only letters")],
+  )
   .thenDo((validInput) => processInput(validInput))
   .run(
     (),
@@ -508,9 +511,9 @@ Use `elseForever` to retry a computation on termination indefinitely, never givi
 final connection = connectToServer()
     .elseForever();
 
-// A resilient worker that logs errors and always retries
+// A resilient worker that logs errors in the background and always retries
 final worker = processJob()
-    .elseTap((errors) => logError(errors))
+    .elseFork((errors) => logError(errors))
     .elseForever();
 ```
 

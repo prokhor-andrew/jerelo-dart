@@ -259,7 +259,7 @@ Cont.of(0)
 Conversely, `elseDo` and `elseTap` only process termination signals and can switch back to the value channel:
 
 ```dart
-Cont.stop<(), int>([ContError.withStackTrace("fail", st)])  // Termination channel
+Cont.stop<(), int>([ContError.capture("fail")])  // Termination channel
   .thenMap((x) => x + 1)    // Skipped (no value to process)
   .elseDo((errors) => Cont.of(42))     // Recovers → switches back to value channel
   .thenMap((x) => x * 2)    // Processes value(42) → value(84)
@@ -274,7 +274,7 @@ When using racing or merging operators (`either`, `any`, `both`, `all`) with par
 final slow = delay(Duration(seconds: 2), 42);
 final fast = delay(Duration(milliseconds: 100), 10);
 
-Cont.either(slow, fast, policy: .quitFast())  // Both start executing in parallel
+Cont.either(slow, fast, policy: ContEitherPolicy.quitFast())  // Both start executing in parallel
   .thenMap((x) => x * 2)      // Waits for first completion → then processes winner
   .run(...)                   // Receives result from fast: 10 * 2 = 20
 ```
@@ -325,7 +325,7 @@ final program = Cont.ask<Config>().thenDo((config) {
 });
 
 program.run(
-  Config(apiUrl: "https://api.example.com"), // provide environment
+  Config("https://api.example.com"), // provide environment
   onElse: (errors) => print("Failed: $errors"),
   onThen: (result) => print("Success: $result"),
 );

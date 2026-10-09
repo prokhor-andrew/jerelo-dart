@@ -146,7 +146,7 @@ Creates a new observer with an updated termination handler. Returns a copy of th
   - `onElse`: The new termination handler to use
 
 ```dart
-ContObserver<A2> copyUpdateOnValue<A2>(void Function(A2 value) onThen)
+ContObserver<A2> copyUpdateOnThen<A2>(void Function(A2 value) onThen)
 ```
 Creates a new observer with an updated value handler and potentially different type. Returns a copy of this observer with a different value callback type, while preserving the termination callback.
 

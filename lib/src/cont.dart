@@ -341,7 +341,7 @@ final class Cont<E, A> {
   ///
   /// Example:
   /// ```dart
-  /// final result = Cont.bracket<File, String>(
+  /// final result = Cont.bracket<(), File, String>(
   ///   acquire: openFile('data.txt'),           // acquire
   ///   release: (file) => closeFile(file),      // release
   ///   use: (file) => readContents(file),   // use
