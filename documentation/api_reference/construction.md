@@ -226,8 +226,10 @@ Note that `acquire` and `release` use `Never` as their error type, meaning they 
 3. `release` — Release the resource (always runs if `acquire` succeeded, even if `use` fails or is cancelled)
 
 **Cancellation behavior:**
-- The `release` function is called even when the runtime is cancelled
-- Release runs with a non-cancellable runtime, ensuring complete cleanup
+- `acquire` always runs to completion, so an acquired resource is never lost
+- If the computation is cancelled before `use` starts, `release` runs as soon as `acquire` completes and nothing is emitted
+- If the computation is cancelled while `use` runs, `release` runs immediately, without waiting for `use`. `use` may then fail on the released resource; its outcome is dropped
+- `release` runs at most once, on a runtime that is never cancelled
 
 **Optional release callbacks:**
 - `onReleasePanic`: Called if the release crashes with a panic-level failure. Defaults to re-throwing
