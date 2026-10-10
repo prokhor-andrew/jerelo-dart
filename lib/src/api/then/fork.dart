@@ -3,10 +3,12 @@ part of '../../cont.dart';
 /// Implementation of the fire-and-forget fork on the success path.
 ///
 /// Runs [cont], and on success starts the side-effect continuation produced
-/// by [f] without waiting for it. The original value is forwarded to the
-/// observer immediately. Outcomes from the side-effect are dispatched to
-/// the provided callbacks: [onPanic] (defaults to rethrowing), [onCrash],
-/// [onElse], and [onThen] (all default to ignoring).
+/// by [f] without waiting for it, then forwards the original value to the
+/// observer. A synchronous side-effect runs to completion before the value
+/// is forwarded; an asynchronous one does not delay it. Outcomes from the
+/// side-effect are dispatched to the provided callbacks: [onPanic] (defaults
+/// to rethrowing), [onCrash], [onElse], and [onThen] (all default to
+/// ignoring).
 Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
   Cont<E, F, A> cont,
   Cont<E, F2, A2> Function(A a) f, {
@@ -51,8 +53,10 @@ extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   /// cancelled together with this computation.
   ///
   /// Unlike [thenTap], this method does not wait for the side-effect to complete.
-  /// The side-effect continuation is started immediately, and the original value
-  /// is returned without delay.
+  /// The side-effect continuation is started before the original value is
+  /// forwarded: a synchronous side-effect runs to completion first, while an
+  /// asynchronous one does not delay the value. If [f] itself throws, the
+  /// computation crashes.
   ///
   /// Outcomes from the forked continuation are dispatched to optional callbacks:
   /// - [onPanic]: Called when the side-effect triggers a panic. Defaults to rethrowing.
@@ -104,7 +108,7 @@ extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   /// Executes a side-effect continuation in a fire-and-forget manner with access to the environment.
   ///
   /// Similar to [thenFork], but the side-effect function receives both the current
-  /// value and the environment. The side-effect is started immediately without waiting.
+  /// value and the environment. The side-effect is started without waiting for it to complete.
   /// Outcomes are dispatched to the optional [onPanic], [onCrash], [onElse], and
   /// [onThen] callbacks.
   ///

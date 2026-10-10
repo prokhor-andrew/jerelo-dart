@@ -99,6 +99,26 @@ program.run(
 - Adding context to environment (timestamps, request IDs)
 - Environment middleware patterns
 
+### Never Upcast the Environment Type
+
+Dart lets you assign a `Cont<AppConfig, F, A>` to a `Cont<Object?, F, A>`, but the environment is an *input*: such a computation fails at runtime with a type error, even when the environment you pass is an `AppConfig`. Instead:
+
+- Make reusable functions that don't read the environment generic in `E`, so they fit into any environment.
+- Adapt a computation that needs a specific environment with `local` or `withEnv`, rather than widening its type.
+
+```dart
+// Generic in E: works in any environment
+Cont<E, String, int> parsePort<E>(String raw) {
+  final port = int.tryParse(raw);
+  return port == null
+      ? Cont.error('invalid port: $raw')
+      : Cont.of(port);
+}
+
+// Needs DatabaseConfig: adapt it to AppConfig with local
+final connect = dbOperation.local<AppConfig>((appConfig) => appConfig.dbConfig);
+```
+
 ## WithEnv Variants
 
 All chaining and error handling operators have `WithEnv` variants that provide access to the environment:

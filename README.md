@@ -217,7 +217,8 @@ void main() {
 
   print('\n=== Advanced: Racing API vs Cache ===');
 
-  // Race API against cache, return whichever completes first
+  // Race API against cache, return whichever succeeds first
+  // (a failure waits for the other source)
   final racingFlow = Cont.either(
     fetchUserFromApi('user456'),
     loadUserFromCache('user456'),

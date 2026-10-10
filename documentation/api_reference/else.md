@@ -470,10 +470,10 @@ Executes a side-effect continuation on error in a fire-and-forget manner.
 
 The side-effect runs under this computation's runtime, so it is cancelled together with this computation.
 
-Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the error. The forked continuation may have different error and value types.
+Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the error. The side-effect is started before the original error is forwarded: a synchronous side-effect runs to completion first, while an asynchronous one does not delay the error. If `f` itself throws, the computation crashes. The forked continuation may have different error and value types.
 
 Outcomes from the forked continuation are dispatched to optional callbacks:
-- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing.
+- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing in a microtask, so a `try`/`catch` around `run()` never sees it.
 - `onCrash`: Called when the side-effect crashes. Defaults to ignoring.
 - `onElse`: Called when the side-effect terminates with an error. Defaults to ignoring.
 - `onThen`: Called when the side-effect succeeds. Defaults to ignoring.
