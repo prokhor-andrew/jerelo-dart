@@ -255,20 +255,29 @@ Cont<E, F, A> elseTap<F2>(Cont<E, F2, A> Function(F error) f)
 
 Executes a side-effect continuation on error, with conditional recovery.
 
-If the continuation terminates, executes the side-effect continuation. The behavior depends on the side-effect's outcome:
+If the continuation terminates, executes the side-effect continuation and waits for it. The side effect is an else-channel computation, mirroring `thenTap`: staying on the else channel keeps the original error, leaving it promotes. The behavior depends on the side-effect's outcome:
 
-- If the side-effect succeeds: Recovers from the original error and returns the side-effect's success value
 - If the side-effect terminates: Returns the original error, ignoring the side-effect's error
+- If the side-effect succeeds: Recovers from the original error and returns the side-effect's success value
 
-If you want fire-and-forget behavior, use `elseFork` instead.
+To run a side effect such as logging without affecting the error, make it end on the else channel, or use `elseFork` for fire-and-forget behavior.
 
 - **Parameters:**
   - `f`: Function that receives the error and returns a side-effect continuation
 
 **Example:**
 ```dart
+// Side effect ends on else: the original error is kept
 final result = fetchData()
-  .elseTap((error) => logAndRetry());
+  .elseTap((error) {
+    return reportError(error).thenDo0(() => Cont.error(error));
+  });
+
+// Side effect ends on then: promotes to its value
+final result = fetchData()
+  .elseTap((error) {
+    return refreshToken().thenDo0(() => fetchData());
+  });
 ```
 
 ---
@@ -286,8 +295,9 @@ Executes a zero-argument side-effect continuation on error.
 
 **Example:**
 ```dart
+// Promotes to the cached data if it loads
 final result = fetchData()
-  .elseTap0(() => clearCache());
+  .elseTap0(() => loadFromCache());
 ```
 
 ---
@@ -305,8 +315,11 @@ Executes a side-effect continuation on error with access to the environment.
 
 **Example:**
 ```dart
+// Logs, then ends on else so the original error is kept
 final result = fetchData()
-  .elseTapWithEnv((env, error) => env.logger.error(error));
+  .elseTapWithEnv((env, error) {
+    return env.logger.error(error).thenDo0(() => Cont.error(error));
+  });
 ```
 
 ---
@@ -324,8 +337,9 @@ Executes a side-effect continuation on error with access to the environment only
 
 **Example:**
 ```dart
+// Promotes to the backup's data if the fetch succeeds
 final result = fetchData()
-  .elseTapWithEnv0((env) => env.metrics.incrementErrors());
+  .elseTapWithEnv0((env) => fetchFrom(env.backupUrl));
 ```
 
 ---
@@ -960,6 +974,10 @@ This is useful for resilient connections, self-healing systems, and operations t
 final connection = connectToServer().elseForever();
 
 final worker = processJob()
-  .elseTap((error) => delay(Duration(seconds: 5)))
+  .elseTap((error) {
+    // Wait, then end on else so the error is kept
+    return delay<(), String, ()>(Duration(seconds: 5), ())
+      .thenDo0(() => Cont.error(error));
+  })
   .elseForever();
 ```

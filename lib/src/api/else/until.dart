@@ -17,7 +17,7 @@ extension ContElseUntilExtension<E, F, A> on Cont<E, F, A> {
   /// Example:
   /// ```dart
   /// // Retry until a fatal error occurs
-  /// final result = apiCall().elseUntil((error) => error.first.error is FatalError);
+  /// final result = apiCall().elseUntil((error) => error is FatalError);
   /// ```
   Cont<E, F, A> elseUntil(
     bool Function(F error) predicate,

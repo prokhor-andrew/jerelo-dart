@@ -102,7 +102,7 @@ delayedCont(Duration(seconds: 2), 42).or(
 `any` generalises `either` to an arbitrary list of computations. If all fail, errors are collected into a `List<F>`:
 
 ```dart
-Cont.any(
+Cont.any<void, String, int>(
   [
     delayedCont(Duration(seconds: 2), 1),
     delayedCont(Duration(milliseconds: 100), 2),
@@ -195,7 +195,7 @@ fetchFromCache(key)
 Race an expensive operation against a timer. Whichever finishes first wins.
 
 ```dart
-Cont.either(
+Cont.either<(), String, String, String, Object>(
   performExpensiveOperation(),
   delay(Duration(seconds: 5), TimeoutResult()),
   (e1, e2) => '$e1; $e2',

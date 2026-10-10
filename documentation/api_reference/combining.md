@@ -110,7 +110,7 @@ The `shouldFavorCrash` flag determines behavior when both crashes and non-crash 
 ```dart
 final result = Cont.all(
   [validateEmail, validatePassword, validateAge],
-  policy: OkPolicy.runAll(
+  policy: OkPolicy.runAll<String>(
     (e1, e2) => '$e1; $e2',
     shouldFavorCrash: true,
   ),
@@ -180,7 +180,7 @@ When multiple non-crash outcomes exist, `shouldFavorElse` determines whether err
 final result = Cont.coalesce(
   primarySource,
   backupSource,
-  policy: CrashPolicy.runAll(
+  policy: CrashPolicy.runAll<String, int>(
     shouldFavorElse: false,
     combineElseVals: (e1, e2) => '$e1; $e2',
     combineThenVals: (a1, a2) => a1 + a2,
@@ -254,7 +254,7 @@ All continuations must succeed. The policy determines execution strategy and err
 ```dart
 final validations = Cont.all(
   [validateEmail(email), validatePassword(password), validateAge(age)],
-  policy: OkPolicy.runAll(
+  policy: OkPolicy.runAll<String>(
     (e1, e2) => '$e1; $e2',
     shouldFavorCrash: true,
   ),

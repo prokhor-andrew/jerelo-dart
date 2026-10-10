@@ -57,7 +57,7 @@ someCont.crashDo((crash) => Cont.of(0)) // recover from crash
   .run((), onThen: print);
 ```
 
-Each channel also has **tap** (run a side-effect, keep the original value), **zip** (combine original with a second computation's result), and **fork** (fire-and-forget a background computation). So `thenTap`, `elseTap`, `crashTap`, `thenZip`, `elseZip`, `crashZip`, `thenFork`, `elseFork`, `crashFork` all exist — each with the standard variant suffixes.
+Each channel also has **tap** (run a side-effect and wait for it; see each channel's reference for what happens when the side-effect leaves the channel), **zip** (combine original with a second computation's result), and **fork** (fire-and-forget a background computation). So `thenTap`, `elseTap`, `crashTap`, `thenZip`, `elseZip`, `crashZip`, `thenFork`, `elseFork`, `crashFork` all exist — each with the standard variant suffixes.
 
 ### Crash Recovery
 
