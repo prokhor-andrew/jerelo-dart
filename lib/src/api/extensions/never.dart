@@ -126,3 +126,28 @@ extension ContThenNeverExtension<E, F>
 ::::....:::--=========-================--==------=============================================::::::
 
    */
+
+/// Provides [thenUnit] and [elseUnit], which forget the value or the error.
+///
+/// The unit type `()` is the terminal object: every type has exactly one
+/// function into it. These are the dual of [ContThenNeverExtension.thenAbsurd]
+/// and [ContElseNeverExtension.elseAbsurd].
+extension ContUnitExtension<E, F, A> on Cont<E, F, A> {
+  /// Replaces the success value with `()`.
+  ///
+  /// Use it when only the fact that the continuation succeeded matters.
+  Cont<E, F, ()> thenUnit() {
+    return thenMap((_) {
+      return ();
+    });
+  }
+
+  /// Replaces the error with `()`.
+  ///
+  /// Use it when only the fact that the continuation failed matters.
+  Cont<E, (), A> elseUnit() {
+    return elseMap((_) {
+      return ();
+    });
+  }
+}

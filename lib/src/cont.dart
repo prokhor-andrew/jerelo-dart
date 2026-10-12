@@ -3,6 +3,7 @@ import 'package:jerelo/jerelo.dart';
 part 'api/cont_crash.dart';
 part 'api/cont_runtime.dart';
 part 'api/cont_observer.dart';
+part 'api/tail_rec.dart';
 part 'helper/utils.dart';
 
 part 'helper/sequence_helpers.dart';
@@ -181,6 +182,86 @@ final class Cont<E, F, A> {
   static Cont<E, F, A> of<E, F, A>(A value) {
     return Cont.fromRun((runtime, observer) {
       observer.onThen(value);
+    });
+  }
+
+  /// Runs [step] repeatedly, starting from [initial], until it finishes.
+  ///
+  /// Each iteration runs the continuation returned by `step(state)`:
+  /// - succeeds with [TailRec.next] → runs the next iteration with the new
+  ///   state;
+  /// - succeeds with [TailRec.done] → succeeds with the result;
+  /// - terminates on the else or crash channel → ends the loop with that
+  ///   outcome. A throw from [step] becomes a crash.
+  ///
+  /// The loop is stack-safe: iterations that complete synchronously do not
+  /// grow the call stack, so it can run any number of times. Use it instead
+  /// of a recursive `thenDo` for loops and retries.
+  ///
+  /// - [initial]: The state of the first iteration.
+  /// - [step]: Produces the continuation for one iteration from the current
+  ///   state.
+  static Cont<E, F, A> tailRecM<E, F, S, A>(
+    S initial,
+    Cont<E, F, TailRec<S, A>> Function(S state) step,
+  ) {
+    return Cont.fromRun((runtime, observer) {
+      _stackSafeLoop<
+          _Triple<S, ContCrash, _Either<F, A>>, // state
+          S, // loop input
+          _Either<ContCrash, _Either<F, A>> // loop output
+          >(
+        seed: _Value1(initial),
+        keepRunningIf: (state) {
+          switch (state) {
+            case _Value1(a: final state):
+              return _StackSafeLoopPolicyKeepRunning(state);
+            case _Value2(b: final crash):
+              return _StackSafeLoopPolicyStop(_Left(crash));
+            case _Value3(c: final outcome):
+              return _StackSafeLoopPolicyStop(
+                  _Right(outcome));
+          }
+        },
+        computation: (state, update) {
+          ContCrash.tryCatch(() {
+            step(state).runWith(
+              runtime,
+              observer.copyUpdate<F, TailRec<S, A>>(
+                onCrash: (crash) {
+                  update(_Value2(crash));
+                },
+                onElse: (error) {
+                  update(_Value3(_Left(error)));
+                },
+                onThen: (next) {
+                  switch (next) {
+                    case TailRecNext(state: final state):
+                      update(_Value1(state));
+                    case TailRecDone(result: final result):
+                      update(_Value3(_Right(result)));
+                  }
+                },
+              ),
+            );
+          }).match((_) {}, (crash) {
+            update(_Value2(crash));
+          });
+        },
+        escape: (outcome) {
+          switch (outcome) {
+            case _Left(value: final crash):
+              observer.onCrash(crash);
+            case _Right(value: final result):
+              switch (result) {
+                case _Left(value: final error):
+                  observer.onElse(error);
+                case _Right(value: final value):
+                  observer.onThen(value);
+              }
+          }
+        },
+      );
     });
   }
 
