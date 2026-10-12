@@ -71,10 +71,9 @@ final class Cont<E, F, A> {
     void Function(A value) onThen = _ignore,
   }) {
     final cancelToken = ContCancelToken._();
-    cancelToken._node._onPanic = onPanic;
 
     runWith(
-      ContRuntime._(env, cancelToken._node),
+      ContRuntime._(env, cancelToken.isCancelled),
       _UnsafeObserver._(onPanic, onCrash, onElse, onThen),
     );
 
@@ -130,11 +129,6 @@ final class Cont<E, F, A> {
       bool isDone = false;
 
       void guardedOnCrash(ContCrash crash) {
-        if (runtime.isCancelled()) {
-          isDone = true;
-          return;
-        }
-
         if (isDone) {
           return;
         }
@@ -147,11 +141,6 @@ final class Cont<E, F, A> {
       }
 
       void guardedOnElse(F error) {
-        if (runtime.isCancelled()) {
-          isDone = true;
-          return;
-        }
-
         if (isDone) {
           return;
         }
@@ -164,11 +153,6 @@ final class Cont<E, F, A> {
       }
 
       void guardedOnThen(A a) {
-        if (runtime.isCancelled()) {
-          isDone = true;
-          return;
-        }
-
         if (isDone) {
           return;
         }
@@ -551,17 +535,8 @@ final class Cont<E, F, A> {
   /// - [use] succeeded  → propagate the success value immediately.
   /// - [use] failed     → propagate the failure error immediately.
   /// - [use] crashed    → propagate the crash immediately.
+  /// - Cancelled before [use] → release fires, observer receives nothing.
   /// - [release] outcomes are routed to the release handlers.
-  ///
-  /// Cancellation:
-  /// - [acquire] always runs to completion, so an acquired resource is
-  ///   never lost.
-  /// - Cancelled before [use] starts → [release] runs as soon as [acquire]
-  ///   completes; the observer receives nothing.
-  /// - Cancelled while [use] runs → [release] runs immediately, without
-  ///   waiting for [use]. [use] may then fail on the released resource;
-  ///   its outcome is dropped.
-  /// - [release] runs at most once and is never cancelled.
   static Cont<E, F, A> bracket<R, E, F, A>({
     required Cont<E, Never, R> acquire,
     required Cont<E, Never, ()> Function(
@@ -574,20 +549,10 @@ final class Cont<E, F, A> {
     void Function() onReleaseThen = _voidIgnore,
   }) {
     return Cont.fromRun((runtime, observer) {
-      // acquire always runs to completion, so an acquired resource is
-      // never lost to cancellation: if the run was cancelled meanwhile, it
-      // is released right away below
       acquire.elseAbsurd<F>().runWith(
-        runtime._uncancellable(),
+        runtime,
         observer.copyUpdateOnThen<R>((r) {
-          bool isReleased = false;
-
           void fireRelease() {
-            if (isReleased) {
-              return;
-            }
-            isReleased = true;
-
             ContCrash.tryCatch(() {
               release(r).run(
                 runtime.env(),
@@ -603,35 +568,39 @@ final class Cont<E, F, A> {
             return;
           }
 
-          // cancellation while use runs releases the resource immediately;
-          // use's outcome is then dropped
-          final unregister = runtime.onCancel(fireRelease);
-
-          void finish(void Function() forward) {
-            unregister();
-            if (!runtime.isCancelled()) {
-              forward();
-            }
-            fireRelease();
-          }
-
           ContCrash.tryCatch(() {
             use(r).runWith(
               runtime,
               observer.copyUpdate(
                 onCrash: (crash) {
-                  finish(() => observer.onCrash(crash));
+                  if (runtime.isCancelled()) {
+                    fireRelease();
+                    return;
+                  }
+                  observer.onCrash(crash);
+                  fireRelease();
                 },
                 onElse: (error) {
-                  finish(() => observer.onElse(error));
+                  if (runtime.isCancelled()) {
+                    fireRelease();
+                    return;
+                  }
+                  observer.onElse(error);
+                  fireRelease();
                 },
                 onThen: (a) {
-                  finish(() => observer.onThen(a));
+                  if (runtime.isCancelled()) {
+                    fireRelease();
+                    return;
+                  }
+                  observer.onThen(a);
+                  fireRelease();
                 },
               ),
             );
           }).match((_) {}, (crash) {
-            finish(() => observer.onCrash(crash));
+            observer.onCrash(crash);
+            fireRelease();
           });
         }),
       );

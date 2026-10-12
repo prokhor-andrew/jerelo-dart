@@ -287,29 +287,6 @@ Cont<E, F, List<R>> processItemsAsync<E, F, T, R>(
 ```
 
 
-### Reacting to Cancellation
-
-Polling only works while your code is running. If it is waiting, for example on a network request, nothing reads the flag until the response arrives. Register a callback with `runtime.onCancel` to react the moment `token.cancel()` is called, and unregister it when the work completes:
-
-```dart
-Cont<E, String, Response> fetch<E>(Uri uri) {
-  return Cont.fromRun((runtime, observer) {
-    final request = startRequest(uri);
-    final unregister = runtime.onCancel(request.abort);
-
-    request.response.then((response) {
-      unregister();
-      observer.onThen(response);
-    }, onError: (Object error) {
-      unregister();
-      observer.onElse('$error');
-    });
-  });
-}
-```
-
-After cancellation, results are dropped even if you emit them, so the callbacks above do not need to check `isCancelled()` themselves.
-
 ### Best Practices for Cancellation
 
 1. **Check at async boundaries**: Dart is single-threaded, so cancellation can only take effect between event loop turns. Check `runtime.isCancelled()` inside async callbacks (`.then()`, `Timer`, etc.), not in synchronous loops
@@ -324,8 +301,7 @@ The runtime provides:
 - `runtime.env()` — Access the current environment
 - `runtime.isCancelled()` — Check cancellation state
 - `runtime.copyUpdateEnv(newEnv)` — Create a copy with a different environment
-- `runtime.onCancel(callback)` — React when the computation is cancelled
-- `runtime.withCancellation()` — Create a child runtime that can be cancelled on its own
+- `runtime.extendCancellation(anotherIsCancelled)` — Compose cancellation sources
 
 ---
 

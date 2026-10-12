@@ -4,41 +4,20 @@ part of '../cont.dart';
 ///
 /// [ContRuntime] encapsulates the environment and cancellation state during
 /// the execution of a [Cont]. It allows continuations to access contextual
-/// information, check for cancellation, and react to it.
+/// information and check for cancellation.
 final class ContRuntime<E> {
   final E _env;
 
-  final _CancelNode _cancellation;
-
-  const ContRuntime._(
-    this._env,
-    this._cancellation,
-  );
-
-  /// Checks whether the continuation execution has been cancelled.
+  /// Function that checks whether the continuation execution has been cancelled.
   ///
   /// Returns `true` if the execution should be stopped, `false` otherwise.
   /// Continuations should check this regularly to support cooperative cancellation.
-  bool isCancelled() {
-    return _cancellation.isCancelled();
-  }
+  final bool Function() isCancelled;
 
-  /// Registers [callback] to run when this execution is cancelled.
-  ///
-  /// Use it for work that cannot poll [isCancelled], such as releasing a
-  /// resource or aborting a pending request while waiting for it. If the
-  /// execution is already cancelled, [callback] runs immediately.
-  ///
-  /// Callbacks run once, in reverse order of registration. An exception
-  /// thrown by a callback is reported as a panic and does not stop the
-  /// remaining callbacks.
-  ///
-  /// Returns a function that unregisters [callback]. Call it once the
-  /// callback is no longer needed, for example when the work completes
-  /// normally.
-  void Function() onCancel(void Function() callback) {
-    return _cancellation.onCancel(callback);
-  }
+  const ContRuntime._(
+    this._env,
+    this.isCancelled,
+  );
 
   /// Returns the environment value of type [E].
   ///
@@ -51,59 +30,28 @@ final class ContRuntime<E> {
   /// Creates a copy of this runtime with a different environment.
   ///
   /// Returns a new [ContRuntime] with the provided environment while preserving
-  /// the cancellation scope. This is used by [local] and related methods
+  /// the cancellation function. This is used by [local] and related methods
   /// to modify the environment context.
   ///
   /// - [env]: The new environment value to use.
   ContRuntime<E2> copyUpdateEnv<E2>(E2 env) {
-    return ContRuntime._(env, _cancellation);
+    return ContRuntime._(env, isCancelled);
   }
 
   /// Creates a copy of this runtime with an additional cancellation source.
   ///
-  /// Creates a child runtime with its own cancellation.
-  ///
-  /// The returned `runtime` is cancelled when this runtime is cancelled, or
-  /// when the returned `cancel` function is called. In both cases the
-  /// callbacks registered on it with [onCancel] run, so work started under
-  /// it (for example a [Cont.bracket]) can react immediately.
-  ///
-  /// Use it to stop part of a computation on a local condition, such as a
-  /// deadline, while still following the parent's cancellation. Call
-  /// `cancel` once that part is no longer needed.
-  ({ContRuntime<E> runtime, void Function() cancel})
-      withCancellation() {
-    final node = _CancelNode._child(_cancellation);
-    return (
-      runtime: ContRuntime._(_env, node),
-      cancel: node.cancel
-    );
-  }
-
   /// Returns a new [ContRuntime] whose [isCancelled] returns `true` if either
-  /// this runtime is cancelled or [anotherIsCancelled] returns `true`.
-  ///
-  /// A predicate cannot notify: callbacks registered with [onCancel] on the
-  /// returned runtime run when this runtime is cancelled, not when
-  /// [anotherIsCancelled] becomes `true`.
+  /// the original cancellation function or [anotherIsCancelled] returns `true`.
+  /// Used internally to compose independent cancellation tokens when running
+  /// continuations in parallel.
   ///
   /// - [anotherIsCancelled]: Additional cancellation predicate to combine with
   ///   the existing one.
-  @Deprecated(
-      'A predicate cannot notify onCancel callbacks, so work such as '
-      'Cont.bracket is not cleaned up when it becomes true. Use '
-      'withCancellation and call cancel instead. Will be removed in 3.0.0.')
   ContRuntime<E> extendCancellation(
     bool Function() anotherIsCancelled,
   ) {
-    return ContRuntime._(
-      _env,
-      _CancelNode._view(_cancellation, anotherIsCancelled),
-    );
-  }
-
-  /// Returns a runtime with the same environment that is never cancelled.
-  ContRuntime<E> _uncancellable() {
-    return ContRuntime._(_env, _CancelNode._root());
+    return ContRuntime._(_env, () {
+      return isCancelled() || anotherIsCancelled();
+    });
   }
 }

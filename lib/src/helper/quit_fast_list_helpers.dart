@@ -19,20 +19,20 @@ void _quitFastPar<E, QF, C>({
     return;
   }
 
+  bool isDone = false;
   final collectedResults = List<C?>.filled(total, null);
   int amountOfCollected = 0;
 
-  // a child scope, cancelled once the result is decided, so that callbacks
-  // registered with onCancel by the other continuations (e.g. bracket) run
-  final (runtime: shared, cancel: cancelShared) =
-      runtime.withCancellation();
+  final shared = runtime.extendCancellation(() {
+    return isDone;
+  });
 
   void handleQuitFast(QF value) {
     if (shared.isCancelled()) {
       return;
     }
-    // shared is cancelled once the result is decided, so it is not yet
-    cancelShared();
+    // already checked by shared.isCancelled() that isDone == false
+    isDone = true;
     onFirstQuitFast(value);
   }
 
@@ -41,14 +41,13 @@ void _quitFastPar<E, QF, C>({
       return;
     }
 
-    // shared is cancelled once the result is decided, so it is not yet
+    // already checked by shared.isCancelled() that isDone == false
     collectedResults[i] = value;
     amountOfCollected += 1;
     if (amountOfCollected < total) {
       // keep collecting
       return;
     }
-    cancelShared();
     onAllCollected(collectedResults.cast<C>());
   }
 
@@ -56,8 +55,8 @@ void _quitFastPar<E, QF, C>({
     if (shared.isCancelled()) {
       return;
     }
-    // shared is cancelled once the result is decided, so it is not yet
-    cancelShared();
+    // already checked by shared.isCancelled() that isDone == false
+    isDone = true;
     onCrash(crash);
   }
 
@@ -115,23 +114,21 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
     }
 
     final total = list.length;
+    bool isDone = false;
     int numberOfCrashed = 0;
     final crashes = <int, ContCrash>{};
 
-    // a child scope, cancelled once the result is decided, so that callbacks
-    // registered with onCancel by the other continuations (e.g. bracket) run
-    final (runtime: shared, cancel: cancelShared) =
-        runtime.withCancellation();
+    final shared = runtime.extendCancellation(() => isDone);
 
     void handleThen(A a) {
       if (shared.isCancelled()) return;
-      cancelShared();
+      isDone = true;
       observer.onThen(a);
     }
 
     void handleElse(F f) {
       if (shared.isCancelled()) return;
-      cancelShared();
+      isDone = true;
       observer.onElse(f);
     }
 
@@ -140,7 +137,7 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
       crashes[index] = crash;
       numberOfCrashed += 1;
       if (numberOfCrashed >= total) {
-        cancelShared();
+        isDone = true;
         observer.onCrash(
           CollectedCrash(Map.from(crashes)),
         );

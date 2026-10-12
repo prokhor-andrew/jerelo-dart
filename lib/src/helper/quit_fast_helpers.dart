@@ -102,10 +102,9 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
     final _QuitFastStateHolder<ContCrash, ContCrash>
         holder = _QuitFastStateHolder();
 
-    // a child scope, cancelled once the race is decided, so that callbacks
-    // registered with onCancel by the losing side (e.g. bracket) still run
-    final (:runtime, :cancel) = runtime0.withCancellation();
-    holder.onDone = cancel;
+    final runtime = runtime0.extendCancellation(() {
+      return holder.state == null;
+    });
 
     void handleThen(A a) {
       if (runtime.isCancelled()) {
@@ -209,11 +208,9 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   final _QuitFastStateHolder<F1, F2> holder =
       _QuitFastStateHolder();
 
-  // a child scope, cancelled once the race is decided, so that callbacks
-  // registered with onCancel by the losing side (e.g. bracket) still run
-  final child = runtime.withCancellation();
-  holder.onDone = child.cancel;
-  runtime = child.runtime;
+  runtime = runtime.extendCancellation(() {
+    return holder.state == null;
+  });
 
   void handleCrash(ContCrash crash) {
     if (runtime.isCancelled()) {
@@ -289,21 +286,9 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
 }
 
 final class _QuitFastStateHolder<F1, F2> {
-  _QuitFastStep<F1, F2>? _state = const _QuitFastStep0();
-
-  /// Called once [state] becomes `null`, i.e. the race is decided.
-  void Function() onDone = _voidIgnore;
+  _QuitFastStep<F1, F2>? state = const _QuitFastStep0();
 
   _QuitFastStateHolder();
-
-  _QuitFastStep<F1, F2>? get state => _state;
-
-  set state(_QuitFastStep<F1, F2>? state) {
-    _state = state;
-    if (state == null) {
-      onDone();
-    }
-  }
 }
 
 sealed class _QuitFastStep<F1, F2> {

@@ -166,24 +166,14 @@ final class ContRuntime<E>
 
 Provides runtime context for continuation execution.
 
-`ContRuntime` encapsulates the environment and cancellation state during the execution of a `Cont`. It allows continuations to access contextual information, check for cancellation, and react to it.
+`ContRuntime` encapsulates the environment and cancellation state during the execution of a `Cont`. It allows continuations to access contextual information and check for cancellation.
 
-**Methods:**
-
-```dart
-bool isCancelled()
-```
-Checks whether the continuation execution has been cancelled. Returns `true` if the execution should be stopped, `false` otherwise. Continuations should check this regularly to support cooperative cancellation.
+**Fields & Methods:**
 
 ```dart
-void Function() onCancel(void Function() callback)
+bool Function() isCancelled
 ```
-Registers `callback` to run when this execution is cancelled. Use it for work that cannot poll `isCancelled`, such as releasing a resource or aborting a pending request while waiting for it. If the execution is already cancelled, `callback` runs immediately. Callbacks run once, in reverse order of registration; an exception thrown by a callback goes to the `onPanic` handler of `run` and does not stop the remaining callbacks. Returns a function that unregisters `callback`; call it once the callback is no longer needed.
-
-```dart
-({ContRuntime<E> runtime, void Function() cancel}) withCancellation()
-```
-Creates a child runtime with its own cancellation. The child `runtime` is cancelled when this runtime is cancelled, or when `cancel` is called; in both cases its `onCancel` callbacks run. Use it to stop part of a computation on a local condition, such as a deadline.
+Function that checks whether the continuation execution has been cancelled. Returns `true` if the execution should be stopped, `false` otherwise. Continuations should check this regularly to support cooperative cancellation.
 
 ```dart
 E env()
@@ -193,16 +183,14 @@ Returns the environment value of type `E`. The environment provides contextual i
 ```dart
 ContRuntime<E2> copyUpdateEnv<E2>(E2 env)
 ```
-Creates a copy of this runtime with a different environment. Returns a new `ContRuntime` with the provided environment while preserving the cancellation scope. This is used by `local` and related methods to modify the environment context.
+Creates a copy of this runtime with a different environment. Returns a new `ContRuntime` with the provided environment while preserving the cancellation function. This is used by `local` and related methods to modify the environment context.
 
 - **Parameters:**
   - `env`: The new environment value to use
 
 ```dart
-ContRuntime<E> extendCancellation(bool Function() anotherIsCancelled) // deprecated
+ContRuntime<E> extendCancellation(bool Function() anotherIsCancelled)
 ```
-> **Deprecated.** A predicate cannot notify `onCancel` callbacks, so work such as `bracket` is not cleaned up when it becomes `true`. Use `withCancellation` and call `cancel` instead. Will be removed in 3.0.0.
-
 Creates a copy of this runtime with an additional cancellation source. The resulting runtime reports cancelled if either the original or the new cancellation function returns `true`.
 
 - **Parameters:**

@@ -177,7 +177,7 @@ final program = function1(value)
 
 ### Result Channels
 
-Every `Cont` computation terminates on at most one of three channels: exactly one when it finishes, and none when it is cancelled or runs forever (for example `thenForever`):
+Every `Cont` computation terminates on exactly one of three channels:
 
 1. **Then channel** (success) — carries a value of type `A`
 2. **Else channel** (business error) — carries a typed error of type `F`

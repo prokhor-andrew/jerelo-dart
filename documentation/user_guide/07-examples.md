@@ -296,46 +296,25 @@ Cont<AppEnv, String, List<Order>> fetchOrders(String userId) {
 
 ### 3. Compose Cancellation Sources
 
-`runtime.withCancellation` creates a child runtime that is cancelled with its parent, or on its own when you call `cancel`. The inner computation never needs to know which one happened, and anything it started (such as a `bracket`) is cleaned up in both cases.
+`runtime.extendCancellation` lets you add a local cancellation condition on top of the one inherited from the parent. The resulting runtime reports cancelled when either source is true — the inner computation never needs to know about the outer one.
 
 ```dart
 // Cancel the inner computation when the deadline passes,
-// while still following the parent's cancellation.
+// while still propagating the parent's cancellation signal.
 extension WithDeadline<E, F, T> on Cont<E, F, T> {
-  Cont<E, F, T> withDeadline(Duration timeout) {
+  Cont<E, F, T> withDeadline(DateTime deadline) {
     return decorate((run, runtime, observer) {
-      final deadline = runtime.withCancellation();
-      final timer = Timer(timeout, deadline.cancel);
-
-      void done() {
-        timer.cancel();
-        deadline.cancel();
-      }
-
-      run(
-        deadline.runtime,
-        observer.copyUpdate(
-          onCrash: (crash) {
-            done();
-            observer.onCrash(crash);
-          },
-          onElse: (error) {
-            done();
-            observer.onElse(error);
-          },
-          onThen: (value) {
-            done();
-            observer.onThen(value);
-          },
-        ),
+      final extended = runtime.extendCancellation(
+        () => DateTime.now().isAfter(deadline),
       );
+      run(extended, observer);
     });
   }
 }
 
-// Usage: if the deadline passes, the computation stops without a result
+// Usage
 fetchReportData()
-  .withDeadline(Duration(seconds: 5))
+  .withDeadline(DateTime.now().add(Duration(seconds: 5)))
   .run((), onThen: display, onElse: showError);
 ```
 

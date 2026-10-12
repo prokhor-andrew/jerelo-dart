@@ -468,8 +468,6 @@ Cont<E, F, A> elseFork<F2, A2>(
 
 Executes a side-effect continuation on error in a fire-and-forget manner.
 
-The side-effect runs under this computation's runtime, so it is cancelled together with this computation.
-
 Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the error. The side-effect is started before the original error is forwarded: a synchronous side-effect runs to completion first, while an asynchronous one does not delay the error. If `f` itself throws, the computation crashes. The forked continuation may have different error and value types.
 
 Outcomes from the forked continuation are dispatched to optional callbacks:
