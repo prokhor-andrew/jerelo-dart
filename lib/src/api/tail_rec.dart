@@ -26,6 +26,22 @@ final class TailRecNext<S, A> extends TailRec<S, A> {
   String toString() {
     return 'TailRec.next($state)';
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+
+    if (other is! TailRecNext) {
+      return false;
+    }
+
+    return state == other.state;
+  }
+
+  @override
+  int get hashCode => Object.hash(TailRecNext, state);
 }
 
 /// A [TailRec] step that finishes the loop with [result].
@@ -39,4 +55,20 @@ final class TailRecDone<S, A> extends TailRec<S, A> {
   String toString() {
     return 'TailRec.done($result)';
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+
+    if (other is! TailRecDone) {
+      return false;
+    }
+
+    return result == other.result;
+  }
+
+  @override
+  int get hashCode => Object.hash(TailRecDone, result);
 }

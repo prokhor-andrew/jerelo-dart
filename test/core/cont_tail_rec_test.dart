@@ -123,6 +123,34 @@ void main() {
   });
 
   group('TailRec', () {
+    test('next steps with equal states are equal', () {
+      const a = TailRec<int, String>.next(1);
+      final b = TailRec<int, String>.next(1);
+
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(
+          a, isNot(equals(TailRec<int, String>.next(2))));
+    });
+
+    test('done steps with equal results are equal', () {
+      const a = TailRec<int, String>.done('x');
+      final b = TailRec<int, String>.done('x');
+
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(
+          a, isNot(equals(TailRec<int, String>.done('y'))));
+    });
+
+    test('next and done are never equal', () {
+      const next = TailRec<int, int>.next(1);
+      const done = TailRec<int, int>.done(1);
+
+      expect(next, isNot(equals(done)));
+      expect(done, isNot(equals(next)));
+    });
+
     test('next and done expose their values', () {
       const next = TailRec<int, String>.next(1);
       const done = TailRec<int, String>.done('x');

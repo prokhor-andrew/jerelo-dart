@@ -319,6 +319,8 @@ const factory TailRec.done(A result)
 ```
 Finishes the loop with `result`. Creates a `TailRecDone`.
 
+**Equality:** steps compare by value. Two `next` steps are equal when their states are equal, and two `done` steps when their results are equal; a `next` step never equals a `done` step.
+
 **Example:**
 ```dart
 TailRec<int, String> step(int n) {
