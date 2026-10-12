@@ -1,16 +1,19 @@
 ## 3.0.0
 - **Breaking:** `OkPolicy.sequence`/`OkPolicy.quitFast` now return `OkPolicy<Never>`, and `CrashPolicy.sequence`/`CrashPolicy.quitFast` return `CrashPolicy<Never, Never>`. They no longer take type arguments: remove them, e.g. `OkPolicy.quitFast<String>()` becomes `OkPolicy.quitFast()`. Combinators now infer their error and value types from their continuations instead of `dynamic`.
 - **Breaking:** removed `absurdify`, `thenAbsurdify` and `elseAbsurdify` from `Cont` and `ContObserver`. A `Never`-typed `Cont` can be used directly where a wider type is expected. `thenAbsurd` and `elseAbsurd` remain.
-- **Breaking:** removed `ContRuntime.extendCancellation`. Use `ContRuntime.withCancellation` and call `cancel`.
-- Added `ContRuntime.onCancel`: `ContCancelToken.cancel()` now also runs the registered callbacks, so work that is waiting (for example on a request) can react to cancellation immediately.
-- Added `ContRuntime.withCancellation`, which creates a child runtime that is cancelled with its parent or on its own.
+- **Breaking:** removed cancellation from core. `ContCancelToken`, `ContRuntime.isCancelled` and `ContRuntime.extendCancellation` are gone, `run` returns `void`, and `ContRuntime` only carries the environment (`env` and `copyUpdateEnv`). `quitFast` combinators return as soon as the result is decided; the losing inputs keep running and their results are ignored. A cancellable `Cont` will be a separate feature.
+- **Breaking:** moved the derived operators to the new [jerelo_ext](https://pub.dev/packages/jerelo_ext) package; import `package:jerelo_ext/jerelo_ext.dart` alongside jerelo to keep using them:
+  - the `0`, `WithEnv`, `WithEnv0`, `To` and `With` variants of `thenMap`, `elseMap`, `thenDo`, `elseDo`, `crashDo` and `local`, and `withEnv`
+  - taps (`thenTap`, `elseTap`, `crashTap`), zips (`thenZip`, `elseZip`, `crashZip`) and forks (`thenFork`, `elseFork`, `crashFork`)
+  - `thenIf`, `elseUnless`, `crashUnlessThen`, `crashUnlessElse`, `demote`, `promote`, `crashRecoverThen` and `crashRecoverElse`
+  - the loops `thenWhile`, `thenUntil`, `thenForever`, `elseWhile`, `elseUntil`, `elseForever`, `crashWhile`, `crashUntil` and `crashForever`
+  - `Cont.fromDeferred` and `Cont.bracket`, now the top-level functions `contDeferred` and `contBracket`
+- Added `Cont.tailRecM` and `TailRec`: a stack-safe loop that runs a step until it returns `TailRec.done(result)`; `TailRec.next(state)` continues it, and an else or crash outcome ends it.
+- Added `thenUnit` and `elseUnit`, which replace the value or the error with `()`.
 - Fixed `Cont` used through a wider error or value type (an upcast or a `Never`-typed `Cont`) crashing with a `TypeError` at run time. `runWith` is now an extension method with the same signature.
-- Fixed operators delivering results after the run was cancelled. No result reaches `run`'s callbacks after `cancel()`, on any channel.
-- Fixed `Cont.bracket` not releasing its resource when the run is cancelled while `use` runs. `release` now runs immediately on cancel and at most once; `acquire` always runs to completion so an acquired resource is never lost.
 - Fixed `CollectedCrash` equality: `==` and `hashCode` now compare the collected crashes by value instead of by map identity.
 - Fixed `MergedCrash.hashCode` ignoring the order of `left` and `right`.
-- Fork side effects (`thenFork`, `elseFork`, `crashFork`) now run under the parent's runtime and are cancelled together with it.
-- Documentation: fixed `elseTap` and `elseUnless` docs and examples, stale names in doc comments, environment injection examples and the `retryWithBackoff` guide helper; removed the `absurdify` family; documented `onCancel`, `withCancellation` and cancellation of `bracket` and forks; described combinator policies by their own channel and exits (including `CrashPolicy.quitFast`, `shouldFavorCrash`, empty lists and `runAll` completion order), crash types, fork ordering, observer guarantees, the `onPanic` default and `fromRun` catching; made the `retry` guide helper stack safe; added a note against upcasting the environment type.
+- Documentation: removed cancellation and the moved operators, with pointers to jerelo_ext; documented `Cont.tailRecM`, `TailRec`, `thenUnit` and `elseUnit`; rewrote the guide examples with core operators, including a `retry` helper built on `Cont.tailRecM`; fixed stale names in doc comments, environment injection examples and the `retryWithBackoff` guide helper; removed the `absurdify` family; described combinator policies by their own channel and exits (including `CrashPolicy.quitFast`, `shouldFavorCrash`, empty lists and `runAll` completion order), crash types, observer guarantees, the `onPanic` default and `fromRun` catching; added a note against upcasting the environment type.
 
 ## 2.0.0
 - Split previous Else channel into Crash and Else channels
