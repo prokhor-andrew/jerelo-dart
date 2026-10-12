@@ -6,7 +6,7 @@ extension ContFlattenExtension<E, A>
   /// Flattens a nested [Cont] structure.
   ///
   /// Converts [Cont]<[E], [Cont]<[E], [A]>> to [Cont]<[E], [A]>.
-  /// Equivalent to `then((contA) => contA)`.
+  /// Equivalent to `thenDo((contA) => contA)`.
   Cont<E, A> flatten() {
     return thenDo((contA) {
       return contA;

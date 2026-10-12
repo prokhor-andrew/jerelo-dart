@@ -23,7 +23,8 @@ sealed class ContBothPolicy {
   ///
   /// All operations are executed in parallel and all must complete.
   /// For `all`/`both` operations, errors from all failed operations are
-  /// concatenated into a single error list.
+  /// concatenated into a single error list, in completion order. `all` also
+  /// collects its values in completion order.
   static ContBothPolicy mergeWhenAll() {
     return BothMergeWhenAllPolicy();
   }
@@ -32,7 +33,8 @@ sealed class ContBothPolicy {
   ///
   /// Terminates immediately on the first failure.
   ///
-  /// Provides the fastest feedback but may leave other operations running.
+  /// Provides the fastest feedback; the other operations are cancelled
+  /// once the result is decided.
   static ContBothPolicy quitFast() {
     return BothQuitFastPolicy();
   }

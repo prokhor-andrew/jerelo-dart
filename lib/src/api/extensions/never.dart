@@ -22,7 +22,9 @@ extension ContNeverExtension<E> on Cont<E, Never> {
   ///
   /// Example:
   /// ```dart
-  /// final cont = Cont.terminate<MyEnv, Never>([ContError(Exception('Failed'), StackTrace.current)]);
+  /// final cont = Cont.stop<MyEnv, Never>([
+  ///   ContError.capture(Exception('Failed')),
+  /// ]);
   /// cont.trap(myEnv, onElse: (errors) {
   ///   print('Terminated with ${errors.length} error(s)');
   /// });

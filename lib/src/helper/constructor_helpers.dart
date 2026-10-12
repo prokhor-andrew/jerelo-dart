@@ -5,10 +5,9 @@ part of '../cont.dart';
 /// Wraps the user-supplied [run] function with:
 /// - Cancellation checks before execution and in each callback.
 /// - Idempotence guards ensuring callbacks fire at most once.
-/// - Exception catching around [run] itself (converts thrown errors to
-///   termination).
+/// - Exception catching around [run] itself (converts synchronously thrown
+///   errors to termination; throws in later callbacks are not caught).
 /// - Panic handling when observer callbacks throw.
-/// - Special handling for [ContObserver]<[Never]> observers.
 Cont<E, A> _fromRun<E, A>(
   void Function(
     ContRuntime<E> runtime,
@@ -16,13 +15,9 @@ Cont<E, A> _fromRun<E, A>(
   )
   run,
 ) {
-  return Cont._((runtime, observer) {
+  return Cont._((runtime, onElse, onThen) {
     if (runtime.isCancelled()) {
       return;
-    }
-
-    if (observer is ContObserver<Never>) {
-      observer = ContObserver<A>._(observer.onElse, (_) {});
     }
 
     bool isDone = false;
@@ -38,7 +33,7 @@ Cont<E, A> _fromRun<E, A>(
       }
       isDone = true;
       try {
-        observer.onElse(errors);
+        onElse(errors);
       } catch (error, st) {
         try {
           runtime.onPanic(
@@ -60,7 +55,7 @@ Cont<E, A> _fromRun<E, A>(
       }
       isDone = true;
       try {
-        observer.onThen(a);
+        onThen(a);
       } catch (error, st) {
         try {
           runtime.onPanic(

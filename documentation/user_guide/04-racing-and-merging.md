@@ -17,7 +17,7 @@ Every combinator needs an execution policy that controls concurrency and failure
 Use `ContBothPolicy` when every computation must succeed. The policy controls what happens when one or more computations fail — you can bail out immediately, or wait for all results so you can report every error at once.
 
 - **`sequence()`** — Runs sequentially, stops on first failure.
-- **`mergeWhenAll()`** — Runs in parallel, waits for all, concatenates errors.
+- **`mergeWhenAll()`** — Runs in parallel, waits for all, concatenates errors in completion order.
 - **`quitFast()`** — Runs in parallel, stops on first failure.
 
 ### ContEitherPolicy (for `either` and `any`)
@@ -25,7 +25,7 @@ Use `ContBothPolicy` when every computation must succeed. The policy controls wh
 Use `ContEitherPolicy` when you only need one computation to succeed. This is ideal for fallback chains, timeouts, and redundant requests where the fastest or first valid result is all you care about.
 
 - **`sequence()`** — Runs sequentially until one succeeds or all fail.
-- **`mergeWhenAll(combine)`** — Runs in parallel, waits for all, combines successes via `combine`.
+- **`mergeWhenAll(combine)`** — Runs in parallel, waits for all (no early return on the first success), combines successes via `combine` in completion order.
 - **`quitFast()`** — Runs in parallel, returns first success.
 
 ---
@@ -57,7 +57,7 @@ Cont.of(10).and(
 
 ### Many Computations (`all`)
 
-When you have more than two computations, use `all` to merge an entire list. The result is a `List` containing every individual value, preserving the original order.
+When you have more than two computations, use `all` to merge an entire list. The result is a `List` containing every individual value. With `sequence()` and `quitFast()` the values are in list order. With `mergeWhenAll()` they are in completion order: the value that arrived first comes first.
 
 ```dart
 Cont.all(
@@ -65,6 +65,8 @@ Cont.all(
   policy: ContBothPolicy.quitFast(),
 ).run((), onThen: print); // prints: [1, 2, 3]
 ```
+
+> **Note:** `mergeWhenAll()` collects values and errors in completion order by design. If you need to know which computation produced which result, tag each one before merging, for example with `thenMap((value) => (index, value))`.
 
 ---
 
@@ -163,7 +165,7 @@ Cont.either(
 
 ### Validation with All Errors
 
-When validating user input, you typically want to report every problem at once rather than stopping at the first one. Pairing `all` with `mergeWhenAll()` runs every validator in parallel and concatenates all errors so the user can fix them in a single pass.
+When validating user input, you typically want to report every problem at once rather than stopping at the first one. Pairing `all` with `mergeWhenAll()` runs every validator in parallel and concatenates all errors (in the order the validators finished) so the user can fix them in a single pass.
 
 ```dart
 Cont.all(

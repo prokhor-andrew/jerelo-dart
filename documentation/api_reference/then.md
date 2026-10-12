@@ -454,7 +454,7 @@ Cont<E, A> thenFork<A2>(Cont<E, A2> Function(A a) f)
 
 Executes a side-effect continuation in a fire-and-forget manner.
 
-Unlike `thenTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started immediately, and the original value is returned without delay. Any errors from the side-effect are silently ignored.
+Unlike `thenTap`, this method does not wait for the side-effect to complete. The side-effect continuation is started first, and then the original value is forwarded. A synchronous side-effect therefore runs to completion before the value is forwarded, while an asynchronous one does not delay it. The outcome of the side-effect, including any errors, is silently ignored. If `f` itself throws, the computation terminates with that error.
 
 - **Parameters:**
   - `f`: Function that takes the current value and returns a side-effect continuation
@@ -463,7 +463,7 @@ Unlike `thenTap`, this method does not wait for the side-effect to complete. The
 ```dart
 final result = fetchUser(userId)
   .thenFork((user) => sendAnalytics(user.id))
-  .thenDo((user) => processUser(user)); // Continues immediately
+  .thenDo((user) => processUser(user)); // Doesn't wait for asynchronous work in sendAnalytics
 ```
 
 ---
@@ -497,7 +497,7 @@ Cont<E, A> thenForkWithEnv<A2>(Cont<E, A2> Function(E env, A a) f)
 
 Executes a side-effect continuation in a fire-and-forget manner with access to the environment.
 
-Similar to `thenFork`, but the side-effect function receives both the environment and the value. The side-effect is started immediately without waiting, and any errors are silently ignored.
+Similar to `thenFork`, but the side-effect function receives both the environment and the value. The side-effect is started without waiting for it to complete, and its outcome is silently ignored, as with `thenFork`.
 
 - **Parameters:**
   - `f`: Function that takes the environment and value, and returns a side-effect continuation
@@ -543,6 +543,8 @@ Unconditionally terminates the continuation with computed errors.
 
 Takes a successful value and converts it into a termination with errors. This is useful for implementing validation logic where certain values should cause termination, or for custom error handling flows.
 
+`abort` always terminates, even when `f` returns an empty list. To terminate only when a condition holds, use `thenIf` with an error list.
+
 - **Parameters:**
   - `f`: Function that computes the error list from the value
 
@@ -552,10 +554,12 @@ final cont = Cont.of(42)
   .abort((n) => [ContError.capture('Value too large: $n')]);
 // Terminates with error
 
+// Conditional termination: use thenIf instead
 final validated = fetchUser()
-  .abort((user) => user.age < 18
-    ? [ContError.capture('User must be 18+')]
-    : []);
+  .thenIf(
+    (user) => user.age >= 18,
+    [ContError.capture('User must be 18+')],
+  );
 ```
 
 ---
@@ -596,11 +600,9 @@ Similar to `abort`, but the error computation function receives both the current
 
 **Example:**
 ```dart
-final validated = fetchValue()
+final rejected = fetchValue()
   .abortWithEnv((env, value) {
-    return value > env.maxAllowed
-      ? [ContError.capture('Exceeds limit: ${env.maxAllowed}')]
-      : [];
+    return [ContError.capture('Rejected $value (limit: ${env.maxAllowed})')];
   });
 ```
 
@@ -623,9 +625,7 @@ Similar to `abortWithEnv`, but the error computation function only receives the 
 ```dart
 final cont = processData()
   .abortWithEnv0((env) {
-    return env.isMaintenanceMode
-      ? [ContError.capture('System in maintenance')]
-      : [];
+    return [ContError.capture('System in maintenance: ${env.maintenanceMessage}')];
   });
 ```
 

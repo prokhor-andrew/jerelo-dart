@@ -17,26 +17,25 @@ class AppConfig {
   AppConfig(this.apiUrl, this.cacheDir, this.timeout);
 }
 
-// Fetch user with retry and caching
+// Fetch user, falling back to the cache
 Cont<AppConfig, User> getUser(String userId) {
   return Cont.ask<AppConfig>()
     .thenDoWithEnv((config, _) {
       // Try API first
       return fetchFromApi(config.apiUrl, userId, config.timeout)
         .thenIf((user) => user.isValid)
-        .elseTapWithEnv((env, errors) {
+        .elseFork((errors) {
           // Log errors in background
-          return logToFile(env.cacheDir, errors);
+          return logToFile(config.cacheDir, errors);
         })
         .elseDoWithEnv((env, errors) {
           // Fallback to cache
           return loadFromCache(env.cacheDir, userId);
         });
     })
-    .thenTapWithEnv((env, user) {
+    .thenForkWithEnv((env, user) {
       // Update cache in background
-      return saveToCache(env.cacheDir, user)
-        .elseFork((_) => Cont.of(())); // ignore cache failures
+      return saveToCache(env.cacheDir, user);
     });
 }
 
@@ -93,7 +92,7 @@ final token = processUsers(['user1', 'user2', 'user3']).run(
 This example demonstrates:
 - Environment management (AppConfig)
 - Error handling with fallbacks (elseDo)
-- Side effects (thenTap, elseFork)
+- Side effects (thenTap, thenFork, elseFork)
 - Conditional execution (thenIf)
 - Parallel execution with policies (Cont.all with ContBothPolicy.quitFast)
 - Resource management (bracket)
@@ -119,15 +118,15 @@ class ApiClient<E> {
     String path,
     T Function(Map<String, dynamic>) fromJson,
   ) {
+    // `retry` is the helper from the Extending Jerelo guide
     return _makeRequest(path)
       .thenMap((response) => fromJson(response))
-      .timeout(timeout)
       .retry(maxRetries);
   }
 
   Cont<E, Map<String, dynamic>> _makeRequest(String path) {
     return Cont.fromRun((runtime, observer) {
-      http.get(Uri.parse('$baseUrl$path')).then(
+      http.get(Uri.parse('$baseUrl$path')).timeout(timeout).then(
         (response) {
           if (response.statusCode == 200) {
             observer.onThen(jsonDecode(response.body));
@@ -146,7 +145,7 @@ class ApiClient<E> {
 }
 
 // Usage
-final client = ApiClient('https://api.example.com', Duration(seconds: 5), 3);
+final client = ApiClient<()>('https://api.example.com', Duration(seconds: 5), 3);
 
 client.get('/users/123', User.fromJson).run(
   (),
@@ -478,7 +477,7 @@ limiter.limit(fetchData()).run(
 // Good: Compose existing operators
 Cont<E, T> retryWithLogging<E, T>(Cont<E, T> operation, int maxRetries) {
   return operation
-    .elseTap((errors) {
+    .elseFork((errors) {
       print('Operation failed: $errors');
       return Cont.of(());
     })

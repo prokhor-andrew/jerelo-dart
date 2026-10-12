@@ -65,7 +65,7 @@ Cont.stop([
 
 ### Resource Management
 
-When working with resources that need cleanup (files, connections, locks), the `bracket` pattern guarantees the resource is released even if an error occurs.
+When working with resources that need cleanup (files, connections, locks), the `bracket` pattern guarantees the resource is released even if an error occurs. Cancellation is the exception: if the computation is cancelled while `use` runs, `use` never reports back and the resource is not released. This is a limit of cooperative cancellation in 1.x.
 
 ```dart
 Cont<E, String> readFileContents<E>(String path) {
@@ -155,6 +155,8 @@ logAnalytics(userId, action).run(());
 The `ff` method:
 - Does not provide success or error callbacks
 - Only accepts `onPanic` for fatal errors
+- Runs synchronously, like `run`: it does not defer the work, so a synchronous continuation completes before `ff` returns
+- Returns no cancel token, so the run can never be cancelled
 - Useful for side-effect-only operations like logging, metrics, or fire-and-forget notifications
 - More concise than `run` when you don't need to handle results
 
@@ -259,7 +261,7 @@ Cont.of(0)
 Conversely, `elseDo` and `elseTap` only process termination signals and can switch back to the value channel:
 
 ```dart
-Cont.stop<(), int>([ContError.withStackTrace("fail", st)])  // Termination channel
+Cont.stop<(), int>([ContError.capture("fail")])  // Termination channel
   .thenMap((x) => x + 1)    // Skipped (no value to process)
   .elseDo((errors) => Cont.of(42))     // Recovers → switches back to value channel
   .thenMap((x) => x * 2)    // Processes value(42) → value(84)
@@ -271,10 +273,10 @@ Cont.stop<(), int>([ContError.withStackTrace("fail", st)])  // Termination chann
 When using racing or merging operators (`either`, `any`, `both`, `all`) with parallel execution policies (`.quitFast()` or `.mergeWhenAll()`), multiple continuations execute simultaneously. The execution flow pauses until a decisive result is reached:
 
 ```dart
-final slow = delay(Duration(seconds: 2), 42);
-final fast = delay(Duration(milliseconds: 100), 10);
+final slow = delay<(), int>(Duration(seconds: 2), 42);
+final fast = delay<(), int>(Duration(milliseconds: 100), 10);
 
-Cont.either(slow, fast, policy: .quitFast())  // Both start executing in parallel
+Cont.either(slow, fast, policy: ContEitherPolicy.quitFast())  // Both start executing in parallel
   .thenMap((x) => x * 2)      // Waits for first completion → then processes winner
   .run(...)                   // Receives result from fast: 10 * 2 = 20
 ```
@@ -282,7 +284,7 @@ Cont.either(slow, fast, policy: .quitFast())  // Both start executing in paralle
 During this pause:
 - Multiple computation chains run concurrently
 - The racing operator monitors all channels (both value and termination)
-- As soon as one chain produces a decisive result (first success for `either`, first failure for `both`), others may be cancelled
+- With `quitFast()`, as soon as one chain produces a decisive result (first success for `either`, first failure for `both`), others may be cancelled. With `mergeWhenAll()`, the operator waits for every chain to finish, even after a success
 - The winning result continues down the remaining operator chain
 
 **Key Behaviors**
@@ -325,7 +327,7 @@ final program = Cont.ask<Config>().thenDo((config) {
 });
 
 program.run(
-  Config(apiUrl: "https://api.example.com"), // provide environment
+  Config("https://api.example.com"), // provide environment
   onElse: (errors) => print("Failed: $errors"),
   onThen: (result) => print("Success: $result"),
 );

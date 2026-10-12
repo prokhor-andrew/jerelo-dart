@@ -183,10 +183,9 @@ Cont<void, UserProfile> loadProfileWithFallback(
   });
 }
 
-/// Fetch profile and update it in one go. Uses `Cont.both` with a sequence
-/// policy to run the fetch, then feed the result into the update. Here we
-/// fetch the current profile AND validate something else in parallel, then
-/// proceed.
+/// Fetch profile and update it in one go. Uses `Cont.both` with a
+/// merge-when-all policy to fetch the current profile AND validate the new
+/// name in parallel, then feeds the merged profile into the update.
 Cont<void, UserProfile> fetchAndUpdateProfile(
   String accessToken, {
   required String newName,

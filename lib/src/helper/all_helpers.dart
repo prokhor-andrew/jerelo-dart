@@ -96,7 +96,8 @@ Cont<E, List<A>> _allSequence<E, A>(List<Cont<E, A>> list) {
 ///
 /// Runs all continuations in [list] in parallel and waits for every one to
 /// complete. If all succeed, collects their values into a list. If any
-/// terminate, merges all termination errors and propagates them.
+/// terminate, merges all termination errors and propagates them. Values and
+/// errors are collected in completion order, not list order.
 Cont<E, List<A>> _allMergeWhenAll<E, A>(
   List<Cont<E, A>> list,
 ) {

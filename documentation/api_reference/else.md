@@ -299,9 +299,9 @@ This allows the operation to recover from termination when the side-effect succe
 
 **Example:**
 ```dart
-// Log error and optionally recover
+// Log the error, then recover with a default value
 final result = fetchData()
-  .elseTap((errors) => logError(errors).map0(() => defaultData));
+  .elseTap((errors) => logError(errors).thenMap0(() => defaultData));
 
 // Attempt to repair and retry
 final result = operation()
@@ -325,8 +325,9 @@ Similar to `elseTap` but ignores the error information. Waits for the side-effec
 
 **Example:**
 ```dart
+// Clear the cache, then terminate so the original errors are kept
 final result = fetchData()
-  .elseTap0(() => clearCache());
+  .elseTap0(() => clearCache().thenDo0(() => Cont.stop()));
 ```
 
 ---
@@ -346,8 +347,10 @@ Similar to `elseTap`, but the side-effect function receives both the environment
 
 **Example:**
 ```dart
+// Log the errors, then terminate so the original errors are kept
 final result = fetchData()
-  .elseTapWithEnv((env, errors) => env.logger.error(errors));
+  .elseTapWithEnv((env, errors) =>
+    env.logger.error(errors).thenDo0(() => Cont.stop(errors)));
 ```
 
 ---
@@ -367,8 +370,11 @@ Similar to `elseTapWithEnv`, but the side-effect function only receives the envi
 
 **Example:**
 ```dart
+// Refresh the token and fetch again; if the second fetch
+// terminates, the original errors are kept
 final result = fetchData()
-  .elseTapWithEnv0((env) => env.metrics.incrementErrors());
+  .elseTapWithEnv0((env) =>
+    env.auth.refreshToken().thenDo0(() => fetchData()));
 ```
 
 ---
@@ -378,33 +384,27 @@ final result = fetchData()
 ### elseZip
 
 ```dart
-Cont<E, A> elseZip(Cont<E, A> Function(List<ContError>) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+Cont<E, A> elseZip(Cont<E, A> Function(List<ContError>) f)
 ```
 
 Attempts a fallback continuation and combines errors from both attempts.
 
-If the continuation terminates, executes the fallback. If the fallback also terminates, combines errors from both attempts using the provided `combine` function before terminating.
+If the continuation terminates, executes the fallback. If the fallback also terminates, concatenates errors from both attempts before terminating.
 
 Unlike `elseDo`, which only keeps the second error list, this method accumulates and combines errors from both attempts.
 
 - **Parameters:**
   - `f`: Function that receives original errors and produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
 
 **Example:**
 ```dart
 final result = attempt1()
-  .elseZip(
-    (errors1) => attempt2(),
-    (errors1, errors2) => [...errors1, ...errors2],
-  );
+  .elseZip((errors1) => attempt2());
+// If both terminate: errors from attempt1 followed by errors from attempt2
 
 // Collect all validation errors
 final validated = validatePrimary()
-  .elseZip(
-    (errors) => validateSecondary(),
-    (e1, e2) => [...e1, ...e2],
-  );
+  .elseZip((errors) => validateSecondary());
 ```
 
 ---
@@ -412,7 +412,7 @@ final validated = validatePrimary()
 ### elseZip0
 
 ```dart
-Cont<E, A> elseZip0(Cont<E, A> Function() f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+Cont<E, A> elseZip0(Cont<E, A> Function() f)
 ```
 
 Zero-argument version of `elseZip`.
@@ -421,15 +421,11 @@ Similar to `elseZip` but doesn't use the original error information when produci
 
 - **Parameters:**
   - `f`: Zero-argument function that produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
 
 **Example:**
 ```dart
 final result = primaryAttempt()
-  .elseZip0(
-    () => secondaryAttempt(),
-    (e1, e2) => [...e1, ...e2],
-  );
+  .elseZip0(() => secondaryAttempt());
 ```
 
 ---
@@ -437,24 +433,20 @@ final result = primaryAttempt()
 ### elseZipWithEnv
 
 ```dart
-Cont<E, A> elseZipWithEnv(Cont<E, A> Function(E env, List<ContError>) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+Cont<E, A> elseZipWithEnv(Cont<E, A> Function(E env, List<ContError>) f)
 ```
 
 Attempts a fallback continuation with access to the environment and combines errors.
 
-Similar to `elseZip`, but the fallback function receives both the environment and the original errors. If both the original attempt and fallback fail, their errors are combined using the `combine` function. This is useful when error recovery strategies need access to configuration or context.
+Similar to `elseZip`, but the fallback function receives both the environment and the original errors. If both the original attempt and fallback fail, their errors are concatenated. This is useful when error recovery strategies need access to configuration or context.
 
 - **Parameters:**
   - `f`: Function that takes the environment and errors, and produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
 
 **Example:**
 ```dart
 final result = fetchData()
-  .elseZipWithEnv(
-    (env, errors) => fetchFromUrl(env.backupUrl),
-    (e1, e2) => [...e1, ...e2],
-  );
+  .elseZipWithEnv((env, errors) => fetchFromUrl(env.backupUrl));
 ```
 
 ---
@@ -462,7 +454,7 @@ final result = fetchData()
 ### elseZipWithEnv0
 
 ```dart
-Cont<E, A> elseZipWithEnv0(Cont<E, A> Function(E env) f, List<ContError> Function(List<ContError>, List<ContError>) combine)
+Cont<E, A> elseZipWithEnv0(Cont<E, A> Function(E env) f)
 ```
 
 Attempts a fallback continuation with access to the environment only and combines errors.
@@ -471,15 +463,11 @@ Similar to `elseZipWithEnv`, but the fallback function only receives the environ
 
 - **Parameters:**
   - `f`: Function that takes the environment and produces a fallback continuation
-  - `combine`: Function to combine error lists from both attempts
 
 **Example:**
 ```dart
 final result = primaryOperation()
-  .elseZipWithEnv0(
-    (env) => fallbackOperation(env),
-    (e1, e2) => [...e1, ...e2],
-  );
+  .elseZipWithEnv0((env) => fallbackOperation(env));
 ```
 
 ---
@@ -494,14 +482,14 @@ Cont<E, A> elseFork<A2>(Cont<E, A2> Function(List<ContError> errors) f)
 
 Executes a side-effect continuation on termination in a fire-and-forget manner.
 
-If the continuation terminates, starts the side-effect continuation without waiting for it to complete. Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the termination. Any errors from the side-effect are silently ignored.
+If the continuation terminates, starts the side-effect continuation without waiting for it to complete. Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the termination. The side-effect is started first, and then the original errors are forwarded, so a synchronous side-effect runs to completion before them, while an asynchronous one does not delay them. The outcome of the side-effect, including any errors, is silently ignored. If `f` itself throws, the computation terminates with that error instead of the original errors.
 
 - **Parameters:**
   - `f`: Function that returns a side-effect continuation
 
 **Example:**
 ```dart
-// Log errors asynchronously without blocking
+// Log errors without waiting for the remote call to finish
 final result = fetchData()
   .elseFork((errors) => logToRemote(errors));
 
@@ -541,7 +529,9 @@ Cont<E, A> elseForkWithEnv(Cont<E, A> Function(E env, List<ContError> errors) f)
 
 Executes a side-effect continuation on termination in a fire-and-forget manner with access to the environment.
 
-Similar to `elseFork`, but the side-effect function receives both the environment and the errors. The side-effect is started without waiting for it to complete, and any errors from the side-effect are silently ignored.
+Similar to `elseFork`, but the side-effect function receives both the environment and the errors. The side-effect is started without waiting for it to complete, and its outcome is silently ignored, as with `elseFork`.
+
+> **Note:** unlike `elseFork`, the side-effect continuation must have the same value type `A` as the continuation it is attached to. To fork a side-effect of another value type, use `elseFork` and read the environment with `Cont.ask`. This restriction is removed in jerelo 2.0.0 and later, where every fork variant accepts a side-effect of any type.
 
 - **Parameters:**
   - `f`: Function that takes the environment and errors, and returns a side-effect continuation
@@ -563,6 +553,8 @@ Cont<E, A> elseForkWithEnv0(Cont<E, A> Function(E env) f)
 Executes a side-effect continuation on termination in a fire-and-forget manner with access to the environment only.
 
 Similar to `elseForkWithEnv`, but the side-effect function only receives the environment and ignores the error information.
+
+> **Note:** unlike `elseFork`, the side-effect continuation must have the same value type `A` as the continuation it is attached to. To fork a side-effect of another value type, use `elseFork` and read the environment with `Cont.ask`. This restriction is removed in jerelo 2.0.0 and later, where every fork variant accepts a side-effect of any type.
 
 - **Parameters:**
   - `f`: Function that takes the environment and returns a side-effect continuation
@@ -924,7 +916,10 @@ final result = apiCall()
 // Retry until max attempts reached
 var attempts = 0;
 final data = operation()
-  .elseTap0(() => Cont.of(attempts++))
+  .elseTap0(() {
+    attempts++;
+    return Cont.stop(); // terminate so the original errors are kept
+  })
   .elseUntil((errors) => attempts >= 5);
 ```
 
@@ -1021,13 +1016,16 @@ This is useful for:
 final connection = connectToServer()
     .elseForever();
 
-// A resilient worker that never stops retrying
+// A resilient worker that logs errors in the background
+// and never stops retrying
 final worker = processJob()
-    .elseTap((errors) => logError(errors))
+    .elseFork((errors) => logError(errors))
     .elseForever();
 
-// Combine with delay for backoff
+// Combine with delay for backoff: wait, then terminate again
+// so that elseTap keeps the errors and the loop retries
 final resilientService = connectToService()
-    .elseTap((errors) => delay(Duration(seconds: 5)))
+    .elseTap((errors) => delay<(), ()>(Duration(seconds: 5), ())
+        .thenDo0(() => Cont.stop(errors)))
     .elseForever();
 ```

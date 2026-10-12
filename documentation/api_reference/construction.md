@@ -31,7 +31,7 @@ static Cont<E, A> fromRun<E, A>(void Function(ContRuntime<E> runtime, ContObserv
 
 Creates a `Cont` from a run function that accepts an observer.
 
-Constructs a continuation with guaranteed idempotence and exception catching. The run function receives an observer with `onThen` and `onElse` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later.
+Constructs a continuation with guaranteed idempotence. If `run` throws synchronously, the error is caught and the continuation terminates with it. A throw in a callback that runs later, such as a `Timer` or `Future` callback, is not caught: it escapes as an unhandled exception and the observer is never called, so catch errors there yourself and pass them to `onElse`. The run function receives an observer with `onThen` and `onElse` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later.
 
 - **Parameters:**
   - `run`: Function that executes the continuation and calls observer callbacks
@@ -42,14 +42,16 @@ final cont = Cont.fromRun<MyEnv, int>((runtime, observer) {
   // Access environment
   final config = runtime.env();
 
-  // Check cancellation
-  if (runtime.isCancelled()) {
-    observer.onElse([ContError.capture('Cancelled')]);
-    return;
-  }
+  Timer(config.timeout, () {
+    // Check cancellation. Results delivered after cancellation
+    // are dropped, so there is nothing to report: just return.
+    if (runtime.isCancelled()) {
+      return;
+    }
 
-  // Produce a value
-  observer.onThen(42);
+    // Produce a value
+    observer.onThen(42);
+  });
 });
 ```
 
@@ -191,17 +193,24 @@ static Cont<E, A> bracket<E, R, A>({
 
 Manages resource lifecycle with guaranteed cleanup.
 
-The bracket pattern ensures that a resource is properly released after use, even if an error occurs during the `use` phase or if cancellation occurs. This is the functional equivalent of try-with-resources or using statements.
+The bracket pattern ensures that a resource is properly released after use, even if an error occurs during the `use` phase. Cancellation has limits, described below. This is the functional equivalent of try-with-resources or using statements.
 
 **The execution order is:**
 1. `acquire` - Obtain the resource
 2. `use` - Use the resource to produce a value
-3. `release` - Release the resource (always runs if `acquire` succeeded, even if `use` fails or is cancelled)
+3. `release` - Release the resource (runs when `use` finishes, whether it succeeds or fails)
 
 **Cancellation behavior:**
-- The `release` function is called even when the runtime is cancelled
-- Release runs with a non-cancellable runtime, ensuring complete cleanup
 - Cancellation is checked before the `use` phase; if cancelled, `use` is skipped but `release` still runs
+- Release runs with a non-cancellable runtime, so cancellation does not stop it once it has started
+
+**Limits under cancellation:**
+
+Cancellation is cooperative and nothing is notified when it happens, so `bracket` only learns about it when `use` delivers a result.
+- Cancelled while `use` runs: a cancelled computation stops without delivering anything, and a result that arrives after the cancellation is dropped. `use` therefore never reports back, `release` never runs, and the resource is not released.
+- Cancelled while `acquire` runs: `acquire` can stop the same way after it has obtained the resource, which is then never released.
+
+These limits are part of the 1.x cancellation design and are not fixed in 1.x.
 
 **Error handling behavior:**
 - If `acquire` fails: terminates immediately with `acquire` errors (neither `use` nor `release` execute)

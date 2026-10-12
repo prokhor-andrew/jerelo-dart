@@ -4,7 +4,8 @@ part of '../cont.dart';
 ///
 /// [ContObserver] provides the callback mechanism for receiving results from
 /// a [Cont] execution. It encapsulates handlers for both successful values
-/// and termination (failure) scenarios.
+/// and termination (failure) scenarios. At most one of them is called per
+/// run; a cancelled run calls neither.
 final class ContObserver<A> {
   final void Function(List<ContError> errors) _onElse;
 

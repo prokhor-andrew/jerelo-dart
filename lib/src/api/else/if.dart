@@ -19,11 +19,11 @@ extension ContElseIfExtension<E, A> on Cont<E, A> {
   ///
   /// Example:
   /// ```dart
-  /// final cont = Cont.terminate<(), int>([ContError.capture('not found')])
+  /// final cont = Cont.stop<(), int>([ContError.capture('not found')])
   ///   .elseIf((errors) => errors.first.error == 'not found', 42);
   /// // Recovers with 42
   ///
-  /// final cont2 = Cont.terminate<(), int>([ContError.capture('fatal error')])
+  /// final cont2 = Cont.stop<(), int>([ContError.capture('fatal error')])
   ///   .elseIf((errors) => errors.first.error == 'not found', 42);
   /// // Continues terminating with 'fatal error'
   /// ```

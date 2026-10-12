@@ -14,8 +14,8 @@ Running continuations and specialized extensions.
   - [ff](#ff)
 - [Extensions](#extensions)
   - [ContFlattenExtension](#contflattenextension)
-  - [ContRunExtension](#contrunextension)
-  - [ContAbsurdExtension](#contabsurdextension)
+  - [ContNeverExtension (trap)](#contneverextension-trap)
+  - [ContNeverExtension (absurd)](#contneverextension-absurd)
 
 ---
 
@@ -30,6 +30,10 @@ A token used to cooperatively cancel a running continuation.
 Returned by `Cont.run`, this token provides a way to signal cancellation to a running computation and to query its current cancellation state.
 
 Cancellation is cooperative: calling `cancel` sets an internal flag that the runtime polls via `isCancelled`. The computation checks this flag at safe points and stops work when it detects cancellation.
+
+**Limits of cooperative cancellation:**
+- Nothing is notified when `cancel` is called. Work that is already in progress, such as a timer or a request, runs until it finishes, and cancellation takes effect at the next check.
+- A cancelled computation stops without calling any of its callbacks, so code waiting for its result never hears back. That includes `Cont.bracket`, which then never runs its release (see [bracket](construction.md#contbracket)).
 
 **Methods:**
 
@@ -117,7 +121,9 @@ void ff(
 
 Executes the continuation in a fire-and-forget manner.
 
-Runs the continuation without waiting for the result. Both success and failure outcomes are ignored. This is useful for side-effects that should run asynchronously without blocking or requiring error handling.
+Runs the continuation without handling its result. Both success and failure outcomes are ignored. This is useful for side-effects that don't require error handling.
+
+`ff` starts the continuation synchronously, like `run`: a synchronous continuation completes before `ff` returns, and only the asynchronous parts of a continuation (timers, futures) continue after it returns. `ff` does not return a cancel token, and its run is never cancelled: it is a detached run that nothing can stop once started.
 
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
@@ -128,7 +134,7 @@ Runs the continuation without waiting for the result. Both success and failure o
 // Fire and forget a logging operation
 logEvent(userId, action).ff(env);
 
-// Continue with other work immediately
+// Continues once logEvent has run up to its first asynchronous step
 processNextRequest();
 ```
 
@@ -163,10 +169,10 @@ final flattened = nested.flatten();
 
 ---
 
-### ContRunExtension
+### ContNeverExtension (trap)
 
 ```dart
-extension ContRunExtension<E> on Cont<E, Never>
+extension ContNeverExtension<E> on Cont<E, Never>
 ```
 
 Extension for running continuations that never produce a value.
@@ -207,10 +213,10 @@ print(token.isCancelled()); // true
 
 ---
 
-### ContAbsurdExtension
+### ContNeverExtension (absurd)
 
 ```dart
-extension ContAbsurdExtension<E> on Cont<E, Never>
+extension ContNeverExtension<E> on Cont<E, Never>
 ```
 
 Extension providing type conversion for continuations that never produce a value.

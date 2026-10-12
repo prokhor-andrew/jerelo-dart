@@ -113,8 +113,9 @@ Cont<E, A> _anySequence<E, A>(List<Cont<E, A>> list) {
 ///
 /// Runs all continuations in [list] in parallel and waits for every one to
 /// complete. If at least one succeeds, merges all successful values using
-/// [combine] (first-succeeded value as accumulator). If all terminate,
-/// accumulates all errors and propagates them.
+/// [combine] in completion order (first-succeeded value as accumulator). If
+/// all terminate, accumulates all errors in completion order and propagates
+/// them.
 Cont<E, A> _anyMergeWhenAll<E, A>(
   List<Cont<E, A>> list,
   A Function(A acc, A value) combine,

@@ -137,6 +137,8 @@ final program = function1(value)
 - **Success channel**: Represented by the type parameter `T` in `Cont<E, T>`
 - **Termination channel**: Represented by `List<ContError>` for errors that caused termination
 
+A run delivers its outcome on at most one of the two channels. A cancelled run, or a `*Forever` loop that never stops, delivers nothing.
+
 ### Result Channels
 
 The termination channel is used when a computation crashes or when you manually terminate it.

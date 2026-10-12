@@ -4,7 +4,9 @@ part of '../cont.dart';
 ///
 /// Runs [cont], and on success starts the side-effect continuation produced
 /// by [f] without waiting for it. The original value is forwarded to the
-/// observer immediately. Errors from the side-effect are silently ignored.
+/// observer once the side-effect has been started, so a synchronous
+/// side-effect runs to completion first. The side-effect's outcome is
+/// ignored; if [f] itself throws, the computation terminates with that error.
 Cont<E, A> _thenFork<E, A, A2>(
   Cont<E, A> cont,
   Cont<E, A2> Function(A a) f,
@@ -17,8 +19,16 @@ Cont<E, A> _thenFork<E, A, A2>(
           return;
         }
 
-        // if this crashes, it should crash the computation
-        Cont<E, A2> contA2 = f(a);
+        // if building the side-effect throws, terminate the computation
+        Cont<E, A2> contA2;
+        try {
+          contA2 = f(a);
+        } catch (error, st) {
+          observer.onElse([
+            ContError.withStackTrace(error, st),
+          ]);
+          return;
+        }
 
         if (contA2 is Cont<E, Never>) {
           contA2 = contA2.absurd<A2>();

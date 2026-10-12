@@ -49,6 +49,9 @@ part 'helper/then_helpers.dart';
 /// A continuation monad representing a computation that will eventually
 /// produce a value of type [A] or terminate with errors.
 ///
+/// A run delivers its outcome on at most one of these channels: a cancelled
+/// run, or a `*Forever` loop that never stops, delivers nothing.
+///
 /// [Cont] provides a powerful abstraction for managing asynchronous operations,
 /// error handling, and composition of effectful computations. It follows the
 /// continuation-passing style where computations are represented as functions
@@ -58,17 +61,27 @@ part 'helper/then_helpers.dart';
 /// - [E]: The environment type providing context for the continuation execution.
 /// - [A]: The value type that the continuation produces upon success.
 final class Cont<E, A> {
+  // The callbacks are passed as plain function types rather than as a
+  // ContObserver<A>. Dart treats class type parameters as covariant,
+  // but checks function types soundly, so this keeps Cont safely
+  // covariant in A: a Cont<E, int> can be used as a Cont<E, Object?>.
+  // Use the [_run] extension method to run it with an observer.
   final void Function(
     ContRuntime<E> runtime,
-    ContObserver<A> observer,
+    void Function(List<ContError> errors) onElse,
+    void Function(A value) onThen,
   )
-  _run;
+  _runCallbacks;
 
-  const Cont._(this._run);
+  const Cont._(this._runCallbacks);
 
   /// Creates a [Cont] from a run function that accepts an observer.
   ///
-  /// Constructs a continuation with guaranteed idempotence and exception catching.
+  /// Constructs a continuation with guaranteed idempotence. If [run] throws
+  /// synchronously, the error is caught and the continuation terminates with
+  /// it. A throw in a callback that runs later, such as a `Timer` or `Future`
+  /// callback, is not caught: it escapes as an unhandled exception and the
+  /// observer is never called, so catch such errors and pass them to `onElse`.
   /// The run function receives an observer with `onThen` and `onElse` callbacks.
   /// The callbacks should be called as the last instruction in the run function
   /// or saved to be called later.
@@ -170,7 +183,8 @@ final class Cont<E, A> {
   ///
   /// - [BothSequencePolicy]: Runs [left] then [right] sequentially.
   /// - [BothMergeWhenAllPolicy]: Runs both in parallel, waits for both to complete,
-  ///   and merges errors if both fail.
+  ///   and merges errors if both fail. The errors of the side that failed first
+  ///   come first.
   /// - [BothQuitFastPolicy]: Runs both in parallel, terminates immediately if either fails.
   ///
   /// - [left]: First continuation to execute.
@@ -213,8 +227,12 @@ final class Cont<E, A> {
   ///
   /// - [BothSequencePolicy]: Runs continuations one by one in order, stops at first failure.
   /// - [BothMergeWhenAllPolicy]: Runs all in parallel, waits for all to complete,
-  ///   and merges errors if any fail.
+  ///   and merges errors if any fail. Values and errors are collected in
+  ///   completion order, not list order. Tag the results if you need to know
+  ///   which continuation produced them.
   /// - [BothQuitFastPolicy]: Runs all in parallel, terminates immediately on first failure.
+  ///
+  /// [BothSequencePolicy] and [BothQuitFastPolicy] collect values in list order.
   ///
   /// - [list]: List of continuations to execute.
   /// - [policy]: Execution policy determining how continuations are run and errors are handled.
@@ -236,13 +254,16 @@ final class Cont<E, A> {
 
   /// Races two continuations, returning the first successful value.
   ///
-  /// Executes both continuations and returns the result from whichever succeeds first.
-  /// If both fail, concatenates their errors. The execution behavior depends on the
-  /// provided [policy]:
+  /// Executes both continuations and returns a successful value if either succeeds.
+  /// If both fail, concatenates their errors, those of [left] first. The execution
+  /// behavior depends on the provided [policy]:
   ///
   /// - [EitherSequencePolicy]: Tries [left] first, then [right] if [left] fails.
-  /// - [EitherMergeWhenAllPolicy]: Runs both in parallel, returns first success or merges
-  ///   results using the policy's combine function if both succeed.
+  /// - [EitherMergeWhenAllPolicy]: Runs both in parallel and waits for both to
+  ///   complete; there is no early return on the first success. If only one
+  ///   succeeds, returns its value. If both succeed, merges them using the
+  ///   policy's combine function, with the value that arrived first as the
+  ///   first argument.
   /// - [EitherQuitFastPolicy]: Runs both in parallel, returns immediately on first success.
   ///
   /// - [left]: First continuation to try.
@@ -280,14 +301,19 @@ final class Cont<E, A> {
 
   /// Races multiple continuations, returning the first successful value.
   ///
-  /// Executes all continuations in [list] and returns the first one that succeeds.
-  /// If all fail, collects all errors. The execution behavior depends on the
-  /// provided [policy]:
+  /// Executes all continuations in [list] and returns a successful value if any
+  /// succeeds. If all fail, collects all errors. The execution behavior depends
+  /// on the provided [policy]:
   ///
   /// - [EitherSequencePolicy]: Tries continuations one by one in order until one succeeds.
-  /// - [EitherMergeWhenAllPolicy]: Runs all in parallel, returns first success or merges
-  ///   results using the policy's combine function if multiple succeed.
+  /// - [EitherMergeWhenAllPolicy]: Runs all in parallel and waits for all to
+  ///   complete; there is no early return on the first success. Merges the
+  ///   successful values using the policy's combine function in completion
+  ///   order. If all fail, errors are collected in completion order.
   /// - [EitherQuitFastPolicy]: Runs all in parallel, returns immediately on first success.
+  ///
+  /// [EitherSequencePolicy] and [EitherQuitFastPolicy] collect errors in list
+  /// order.
   ///
   /// - [list]: List of continuations to race.
   /// - [policy]: Execution policy determining how continuations are run.
@@ -314,18 +340,33 @@ final class Cont<E, A> {
   /// Manages resource lifecycle with guaranteed cleanup.
   ///
   /// The bracket pattern ensures that a resource is properly released after use,
-  /// even if an error occurs during the [use] phase or if cancellation occurs.
+  /// even if an error occurs during the [use] phase. Cancellation has limits,
+  /// described below.
   /// This is the functional equivalent of try-with-resources or using statements.
   ///
   /// The execution order is:
   /// 1. [acquire] - Obtain the resource
   /// 2. [use] - Use the resource to produce a value
-  /// 3. [release] - Release the resource (always runs, even if [use] fails or is cancelled)
+  /// 3. [release] - Release the resource (runs when [use] finishes, whether it succeeds or fails)
   ///
   /// Cancellation behavior:
-  /// - The [release] function is called even when the runtime is cancelled
-  /// - This ensures resources are properly cleaned up regardless of cancellation
-  /// - However, if cancellation occurs during release itself, cleanup may be partial
+  /// - If the computation is cancelled before [use] starts, [use] is skipped
+  ///   and [release] still runs.
+  /// - [release] runs on a runtime that is never cancelled, so cancellation
+  ///   does not stop it once it has started.
+  ///
+  /// Limits under cancellation. Cancellation is cooperative and nothing is
+  /// notified when it happens, so [bracket] only learns about it when [use]
+  /// delivers a result:
+  /// - Cancelled while [use] runs → a cancelled computation stops without
+  ///   delivering anything, and a result that arrives after the cancellation
+  ///   is dropped. [use] therefore never reports back, [release] never runs,
+  ///   and the resource is not released.
+  /// - Cancelled while [acquire] runs → [acquire] can stop the same way
+  ///   after it has obtained the resource, which is then never released.
+  ///
+  /// These limits are part of the 1.x cancellation design and are not fixed
+  /// in 1.x.
   ///
   /// Error handling behavior:
   /// - If [use] succeeds and [release] succeeds: returns the value from [use]
@@ -335,7 +376,7 @@ final class Cont<E, A> {
   ///
   /// Example:
   /// ```dart
-  /// final result = Cont.bracket<File, String>(
+  /// final result = Cont.bracket<(), File, String>(
   ///   acquire: openFile('data.txt'),           // acquire
   ///   release: (file) => closeFile(file),      // release
   ///   use: (file) => readContents(file),   // use
@@ -352,5 +393,21 @@ final class Cont<E, A> {
       release: release,
       use: use,
     );
+  }
+}
+
+/// Runs a [Cont] with an observer.
+///
+/// It is an extension rather than a method of [Cont] so that Dart does
+/// not check the observer against the [Cont]'s runtime type arguments.
+/// That check would reject a valid observer when the [Cont] is used
+/// through a wider type, for example a `Cont<E, int>` used as a
+/// `Cont<E, Object?>`.
+extension _ContRunExtension<E, A> on Cont<E, A> {
+  void _run(
+    ContRuntime<E> runtime,
+    ContObserver<A> observer,
+  ) {
+    _runCallbacks(runtime, observer._onElse, observer.onThen);
   }
 }

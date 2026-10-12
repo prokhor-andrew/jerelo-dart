@@ -3,9 +3,13 @@ part of '../../cont.dart';
 extension ContFfExtension<E, A> on Cont<E, A> {
   /// Executes the continuation in a fire-and-forget manner.
   ///
-  /// Runs the continuation without waiting for the result. Both success and
-  /// failure outcomes are ignored. This is useful for side-effects that should
-  /// run asynchronously without blocking or requiring error handling.
+  /// Runs the continuation without handling its result. Both success and
+  /// failure outcomes are ignored. This is useful for side-effects that don't
+  /// require error handling.
+  ///
+  /// The continuation starts synchronously, like with `run`: a synchronous
+  /// continuation completes before [ff] returns. No cancel token is returned
+  /// and the run is never cancelled: it is detached once started.
   ///
   /// - [env]: The environment value to provide as context during execution.
   /// - [onPanic]: Callback invoked when a fatal, unrecoverable error occurs.

@@ -5,8 +5,11 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   ///
   /// If the continuation terminates, starts the side-effect continuation without waiting
   /// for it to complete. Unlike [elseTap], this does not wait for the side-effect to
-  /// finish before propagating the termination. Any errors from the side-effect are
-  /// silently ignored.
+  /// finish before propagating the termination. The side-effect is started first,
+  /// and then the original errors are forwarded: a synchronous side-effect runs
+  /// to completion before that, while an asynchronous one does not delay it. The
+  /// outcome of the side-effect, including any errors, is silently ignored. If
+  /// [f] itself throws, the computation terminates with that error instead.
   ///
   /// - [f]: Function that returns a side-effect continuation.
   Cont<E, A> elseFork<A2>(
@@ -30,7 +33,13 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   ///
   /// Similar to [elseFork], but the side-effect function receives both the errors
   /// and the environment. The side-effect is started without waiting for it to complete,
-  /// and any errors from the side-effect are silently ignored.
+  /// and its outcome is silently ignored, as with [elseFork].
+  ///
+  /// Unlike [elseFork], the side-effect continuation must have the same value
+  /// type [A] as this continuation. To fork a side-effect of another value
+  /// type, use [elseFork] and read the environment with [Cont.ask]. This
+  /// restriction is removed in jerelo 2.0.0 and later, where every fork
+  /// variant accepts a side-effect of any type.
   ///
   /// - [f]: Function that takes the environment and errors, and returns a side-effect continuation.
   Cont<E, A> elseForkWithEnv(
@@ -47,6 +56,12 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   ///
   /// Similar to [elseForkWithEnv], but the side-effect function only receives
   /// the environment and ignores the error information.
+  ///
+  /// Unlike [elseFork], the side-effect continuation must have the same value
+  /// type [A] as this continuation. To fork a side-effect of another value
+  /// type, use [elseFork] and read the environment with [Cont.ask]. This
+  /// restriction is removed in jerelo 2.0.0 and later, where every fork
+  /// variant accepts a side-effect of any type.
   ///
   /// - [f]: Function that takes the environment and returns a side-effect continuation.
   Cont<E, A> elseForkWithEnv0(
