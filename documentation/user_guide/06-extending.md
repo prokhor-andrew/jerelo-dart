@@ -305,29 +305,6 @@ Cont<E, String> longRunningFetch<E>(String url) {
 }
 ```
 
-### Reacting to Cancellation
-
-Polling only works while your code is running. If it is waiting, for example on a network request, nothing reads the flag until the response arrives. Register a callback with `runtime.onCancel` to react the moment `token.cancel()` is called, and unregister it when the work completes:
-
-```dart
-Cont<E, Response> fetch<E>(Uri uri) {
-  return Cont.fromRun((runtime, observer) {
-    final request = startRequest(uri);
-    final unregister = runtime.onCancel(request.abort);
-
-    request.response.then((response) {
-      unregister();
-      observer.onThen(response);
-    }, onError: (Object error, StackTrace st) {
-      unregister();
-      observer.onElse([ContError.withStackTrace(error, st)]);
-    });
-  });
-}
-```
-
-After cancellation, results are dropped even if you emit them, so the callbacks above do not need to check `isCancelled()` themselves.
-
 ### Best Practices for Cancellation
 
 1. **Check frequently**: In long-running operations, check `runtime.isCancelled()` periodically
@@ -439,8 +416,6 @@ pollUntil(
 The runtime also provides:
 - `runtime.env()` - Access the current environment
 - `runtime.onPanic` - Access the panic handler
-- `runtime.onCancel(callback)` - React when the computation is cancelled
-- `runtime.withCancellation()` - Create a child runtime that can be cancelled on its own
 
 These can be useful when forwarding context to nested computations within custom implementations.
 

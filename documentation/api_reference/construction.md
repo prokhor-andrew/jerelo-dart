@@ -42,7 +42,7 @@ final cont = Cont.fromRun<MyEnv, int>((runtime, observer) {
   // Access environment
   final config = runtime.env();
 
-  final timer = Timer(config.timeout, () {
+  Timer(config.timeout, () {
     // Check cancellation. Results delivered after cancellation
     // are dropped, so there is nothing to report: just return.
     if (runtime.isCancelled()) {
@@ -52,9 +52,6 @@ final cont = Cont.fromRun<MyEnv, int>((runtime, observer) {
     // Produce a value
     observer.onThen(42);
   });
-
-  // Clean up when the run is cancelled
-  runtime.onCancel(timer.cancel);
 });
 ```
 
@@ -204,10 +201,9 @@ The bracket pattern ensures that a resource is properly released after use, even
 3. `release` - Release the resource (always runs if `acquire` succeeded, even if `use` fails or is cancelled)
 
 **Cancellation behavior:**
-- `acquire` always runs to completion, so an acquired resource is never lost
-- If the computation is cancelled before `use` starts, `use` is skipped and `release` runs as soon as `acquire` completes; nothing is emitted
-- If the computation is cancelled while `use` runs, `release` runs immediately, without waiting for `use`. `use` may then fail on the released resource; its outcome is dropped
-- `release` runs at most once, on a runtime that is never cancelled
+- The `release` function is called even when the runtime is cancelled
+- Release runs with a non-cancellable runtime, ensuring complete cleanup
+- Cancellation is checked before the `use` phase; if cancelled, `use` is skipped but `release` still runs
 
 **Error handling behavior:**
 - If `acquire` fails: terminates immediately with `acquire` errors (neither `use` nor `release` execute)

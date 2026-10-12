@@ -29,10 +29,9 @@ extension ContRunExtension<E, A> on Cont<E, A> {
     void Function(A value) onThen = _ignore,
   }) {
     final cancelToken = ContCancelToken._();
-    cancelToken._node._onPanic = onPanic;
 
     _run(
-      ContRuntime._(env, cancelToken._node, onPanic),
+      ContRuntime._(env, cancelToken.isCancelled, onPanic),
       ContObserver._(onElse, onThen),
     );
 

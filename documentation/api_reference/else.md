@@ -482,8 +482,6 @@ Cont<E, A> elseFork<A2>(Cont<E, A2> Function(List<ContError> errors) f)
 
 Executes a side-effect continuation on termination in a fire-and-forget manner.
 
-The side-effect runs under this computation's runtime, so it is cancelled together with this computation.
-
 If the continuation terminates, starts the side-effect continuation without waiting for it to complete. Unlike `elseTap`, this does not wait for the side-effect to finish before propagating the termination. The side-effect is started first, and then the original errors are forwarded, so a synchronous side-effect runs to completion before them, while an asynchronous one does not delay them. The outcome of the side-effect, including any errors, is silently ignored. If `f` itself throws, the computation terminates with that error instead of the original errors.
 
 - **Parameters:**

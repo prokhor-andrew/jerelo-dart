@@ -158,16 +158,20 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
   A3 Function(A1 a1, A2 a2) combine,
 ) {
   return Cont.fromRun((runtime, observer) {
+    bool isDone = false;
     bool isOneValue = false;
 
     A1? outerA1;
     A2? outerA2;
     final List<ContError> resultErrors = [];
 
-    // a child scope, cancelled once the result is decided, so that
-    // callbacks registered with onCancel (e.g. by bracket) still run
-    final shared = runtime.withCancellation();
-    final ContRuntime<E> sharedContRuntime = shared.runtime;
+    final ContRuntime<E> sharedContRuntime = ContRuntime._(
+      runtime.env(),
+      () {
+        return runtime.isCancelled() || isDone;
+      },
+      runtime.onPanic,
+    );
 
     void handleValue() {
       if (!isOneValue) {
@@ -175,7 +179,7 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
         return;
       }
 
-      shared.cancel();
+      isDone = true;
       try {
         final c = combine(outerA1 as A1, outerA2 as A2);
         observer.onThen(c);
@@ -187,7 +191,7 @@ Cont<E, A3> _bothQuitFast<E, A1, A2, A3>(
     }
 
     void handleTerminate(void Function() codeToUpdate) {
-      shared.cancel();
+      isDone = true;
       codeToUpdate();
       observer.onElse(resultErrors);
     }

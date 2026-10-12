@@ -35,9 +35,8 @@ extension ContNeverExtension<E> on Cont<E, Never> {
     void Function(List<ContError> errors) onElse = _ignore,
   }) {
     final ContCancelToken cancelToken = ContCancelToken._();
-    cancelToken._node._onPanic = onPanic;
     _run(
-      ContRuntime._(env, cancelToken._node, onPanic),
+      ContRuntime._(env, cancelToken.isCancelled, onPanic),
       ContObserver._(onElse, (_) {}),
     );
 

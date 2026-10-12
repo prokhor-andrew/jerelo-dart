@@ -10,9 +10,6 @@ extension ContThenForkExtension<E, A> on Cont<E, A> {
   /// including any errors, is silently ignored. If [f] itself throws, the
   /// computation terminates with that error.
   ///
-  /// The side-effect runs under this computation's runtime, so it is
-  /// cancelled together with this computation.
-  ///
   /// - [f]: Function that takes the current value and returns a side-effect continuation.
   Cont<E, A> thenFork<A2>(Cont<E, A2> Function(A a) f) {
     return _thenFork(this, f);

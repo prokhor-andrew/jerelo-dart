@@ -171,9 +171,9 @@ Cont<E, A> _elseFork<E, A, A2>(
           contA2 = contA2.absurd<A2>();
         }
         try {
-          contA2._run(
-            runtime,
-            ContObserver._((_) {}, (_) {}),
+          contA2.ff(
+            runtime.env(),
+            onPanic: runtime.onPanic,
           );
         } catch (_) {
           // do nothing, if anything happens to side-effect, it's not

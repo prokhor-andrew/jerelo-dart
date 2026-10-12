@@ -11,9 +11,6 @@ extension ContElseForkExtension<E, A> on Cont<E, A> {
   /// outcome of the side-effect, including any errors, is silently ignored. If
   /// [f] itself throws, the computation terminates with that error instead.
   ///
-  /// The side-effect runs under this computation's runtime, so it is
-  /// cancelled together with this computation.
-  ///
   /// - [f]: Function that returns a side-effect continuation.
   Cont<E, A> elseFork<A2>(
     Cont<E, A2> Function(List<ContError> errors) f,

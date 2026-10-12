@@ -117,7 +117,7 @@ This pattern is essential for writing leak-free code when dealing with external 
 
 Constructing a computation is only the first step. To actually trigger its execution, call `run` on it. All callbacks (`onElse`, `onThen`, `onPanic`) are optional named parameters with sensible defaults, so you only subscribe to the channels you care about.
 
-The `run` method returns a **`ContCancelToken`** that you can use to cooperatively cancel the execution. Calling `token.cancel()` sets an internal flag that the runtime polls via `isCancelled()`, signalling that the computation should stop. It also runs the callbacks registered with `runtime.onCancel`, which is how `bracket` releases its resource immediately. After cancellation, the computation delivers no result. You can also query the cancellation state at any time via `token.isCancelled()`.
+The `run` method returns a **`ContCancelToken`** that you can use to cooperatively cancel the execution. Calling `token.cancel()` sets an internal flag that the runtime polls via `isCancelled()`, signalling that the computation should stop. You can also query the cancellation state at any time via `token.isCancelled()`.
 
 ```dart
 // constructing the program

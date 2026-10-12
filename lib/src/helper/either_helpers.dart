@@ -167,11 +167,15 @@ Cont<E, A> _eitherQuitFast<E, A>(
   return Cont.fromRun((runtime, observer) {
     bool isOneFailed = false;
     final List<ContError> resultErrors = [];
+    bool isDone = false;
 
-    // a child scope, cancelled once the result is decided, so that
-    // callbacks registered with onCancel (e.g. by bracket) still run
-    final shared = runtime.withCancellation();
-    final ContRuntime<E> sharedContRuntime = shared.runtime;
+    final ContRuntime<E> sharedContRuntime = ContRuntime._(
+      runtime.env(),
+      () {
+        return runtime.isCancelled() || isDone;
+      },
+      runtime.onPanic,
+    );
 
     void handleTerminate(
       void Function() codeToUpdateState,
@@ -179,7 +183,6 @@ Cont<E, A> _eitherQuitFast<E, A>(
       if (isOneFailed) {
         codeToUpdateState();
 
-        shared.cancel();
         observer.onElse(resultErrors);
         return;
       }
@@ -207,7 +210,7 @@ Cont<E, A> _eitherQuitFast<E, A>(
             return;
           }
 
-          shared.cancel();
+          isDone = true;
           observer.onThen(a);
         },
       );

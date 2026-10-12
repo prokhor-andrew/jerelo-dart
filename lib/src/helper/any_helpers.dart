@@ -281,12 +281,17 @@ Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
         List.generate(safeCopy.length, (_) {
           return [];
         });
+
+    bool isWinnerFound = false;
     int numberOfFinished = 0;
 
-    // a child scope, cancelled once the result is decided, so that
-    // callbacks registered with onCancel (e.g. by bracket) still run
-    final shared = runtime.withCancellation();
-    final ContRuntime<E> sharedContRuntime = shared.runtime;
+    final ContRuntime<E> sharedContRuntime = ContRuntime._(
+      runtime.env(),
+      () {
+        return runtime.isCancelled() || isWinnerFound;
+      },
+      runtime.onPanic,
+    );
 
     void handleTerminate(
       int index,
@@ -304,7 +309,6 @@ Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
         return list;
       }).toList();
 
-      shared.cancel();
       observer.onElse(flattened);
     }
 
@@ -326,7 +330,7 @@ Cont<E, A> _anyQuitFast<E, A>(List<Cont<E, A>> list) {
               if (sharedContRuntime.isCancelled()) {
                 return;
               }
-              shared.cancel();
+              isWinnerFound = true;
               observer.onThen(a);
             },
           ),
