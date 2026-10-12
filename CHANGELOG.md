@@ -1,3 +1,10 @@
+## 2.1.0
+- Fixed `Cont` used through a wider error or value type (an upcast, an untyped policy, or a `Never`-typed `Cont`) crashing with a `TypeError` at run time. `runWith` is now an extension method with the same signature.
+- Fixed `CollectedCrash` equality: `==` and `hashCode` now compare the collected crashes by value instead of by map identity.
+- Fixed `MergedCrash.hashCode` ignoring the order of `left` and `right`.
+- Deprecated `absurdify`, `thenAbsurdify` and `elseAbsurdify` on `Cont` and `ContObserver`. They are no longer needed and will be removed in 3.0.0. `thenAbsurd` and `elseAbsurd` are not affected.
+- Documentation: fixed `elseTap` and `elseUnless` docs and examples, stale names in doc comments, environment injection examples, untyped combinator examples and the `retryWithBackoff` guide helper; added a note recommending an upgrade to the latest major version; documented the limits of cooperative cancellation, including when `bracket` does not release its resource; described combinator policies by their own channel and exits (including `CrashPolicy.quitFast`, `shouldFavorCrash`, empty lists and `runAll` completion order), crash types, fork ordering, observer guarantees, the `onPanic` default and `fromRun` catching; made the `retry` guide helper stack safe; added a note against upcasting the environment type.
+
 ## 2.0.0
 - Split previous Else channel into Crash and Else channels
 - Added new operators for Else and Crash channels

@@ -154,7 +154,7 @@ Cont<E, F, A> crashTap(Cont<E, F, A> Function(ContCrash crash) f)
 
 Executes a side-effect continuation on crash, with conditional recovery.
 
-If the side-effect succeeds, recovers from the crash. If the side-effect itself crashes, the original crash propagates.
+If the side-effect succeeds, recovers from the crash. If the side-effect itself crashes, the original crash propagates. If the side-effect terminates with an error, that error propagates on the else channel.
 
 - **Parameters:**
   - `f`: Function that receives the crash and returns a side-effect continuation
@@ -285,10 +285,10 @@ Cont<E, F, A> crashFork<F2, A2>(
 
 Executes a side-effect on crash in a fire-and-forget manner.
 
-Does not wait for the side-effect to complete. The forked continuation may have different error and value types.
+Does not wait for the side-effect to complete. The side-effect is started before the original crash is forwarded: a synchronous side-effect runs to completion first, while an asynchronous one does not delay the crash. If `f` itself throws, that is a crash on the crash channel, so the original crash is forwarded. The forked continuation may have different error and value types.
 
 Outcomes from the forked continuation are dispatched to optional callbacks:
-- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing.
+- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing in a microtask, so a `try`/`catch` around `run()` never sees it.
 - `onCrash`: Called when the side-effect crashes. Defaults to ignoring.
 - `onElse`: Called when the side-effect terminates with an error. Defaults to ignoring.
 - `onThen`: Called when the side-effect succeeds. Defaults to ignoring.

@@ -76,7 +76,7 @@ result.match(
 final class NormalCrash extends ContCrash
 ```
 
-A single exception with its stack trace.
+A single exception with its stack trace. It has no public constructor; it is created when an exception is caught, for example by `ContCrash.tryCatch`.
 
 **Fields:**
 - `error: Object` — The exception that was thrown
@@ -90,7 +90,7 @@ A single exception with its stack trace.
 final class MergedCrash extends ContCrash
 ```
 
-Two crashes combined from a two-way parallel operation (e.g., `both`, `either`).
+Two crashes combined from a two-way operation (e.g., `coalesce`, `crashZip`, or `both`/`either` with `runAll`).
 
 **Fields:**
 - `left: ContCrash` — The crash from the left continuation
@@ -110,7 +110,9 @@ const MergedCrash(ContCrash left, ContCrash right)
 final class CollectedCrash extends ContCrash
 ```
 
-Multiple crashes from a list operation (e.g., `all`, `any`), indexed by position.
+Multiple crashes from a list operation, indexed by position. It is produced by:
+- `converge` with any policy, when every input crashes; an empty `converge` gives an empty `CollectedCrash`
+- `all` and `any` with `runAll`, whenever a crash is reported, even if only one input crashed
 
 **Fields:**
 - `crashes: Map<int, ContCrash>` — A map from the index in the original list to the crash
@@ -275,21 +277,23 @@ Creates a new observer with all three handlers replaced.
 
 The following extension methods widen `Never`-typed channels to arbitrary types. When an observer's success or error type is `Never` (meaning that channel can never fire), these methods replace the unreachable callback with a no-op so the observer can be used in a broader generic context.
 
+> **Deprecated:** `thenAbsurdify`, `elseAbsurdify` and `absurdify` are no longer needed, because a `Never`-typed `ContObserver` can be used directly where a wider type is expected. They will be removed in 3.0.0. `thenAbsurd` and `elseAbsurd` are not deprecated.
+
 ```dart
 // On ContObserver<F, A>:
-ContObserver<F, A> thenAbsurdify()
+ContObserver<F, A> thenAbsurdify() // deprecated
 ```
 Widens the success channel if its type is `Never`. If this observer has type `ContObserver<F, Never>`, returns a copy typed as `ContObserver<F, A>` with a no-op `onThen` callback. Otherwise returns this observer unchanged.
 
 ```dart
 // On ContObserver<F, A>:
-ContObserver<F, A> elseAbsurdify()
+ContObserver<F, A> elseAbsurdify() // deprecated
 ```
 Widens the error channel if its type is `Never`. If this observer has type `ContObserver<Never, A>`, returns a copy typed as `ContObserver<F, A>` with a no-op `onElse` callback. Otherwise returns this observer unchanged.
 
 ```dart
 // On ContObserver<F, A>:
-ContObserver<F, A> absurdify()
+ContObserver<F, A> absurdify() // deprecated
 ```
 Widens both the success and error channels if either is `Never`. Equivalent to calling `thenAbsurdify()` followed by `elseAbsurdify()`.
 
@@ -315,7 +319,7 @@ final class SafeObserver<F, A> extends ContObserver<F, A>
 
 An observer that tracks whether any callback has already been invoked, preventing duplicate invocations.
 
-Used by `Cont.fromRun` to wrap user-provided callbacks with idempotence and exception safety.
+Used by `Cont.fromRun` to wrap user-provided callbacks with idempotence and exception safety. Only the observer handed to the `fromRun` run function is guarded: observers derived from it with `copyUpdate*` share its `isUsed`, but their new callbacks run every time they are called.
 
 **Fields:**
 - `isUsed: bool Function()` — Returns `true` if any callback on this observer has already been invoked
@@ -333,6 +337,11 @@ A token used to cooperatively cancel a running continuation.
 Returned by `Cont.run`, this token provides a way to signal cancellation to a running computation and to query its current cancellation state.
 
 Cancellation is cooperative: calling `cancel` sets an internal flag that the runtime polls via `isCancelled`. The computation checks this flag at safe points and stops work when it detects cancellation.
+
+**Limits of cooperative cancellation:**
+- Nothing is notified when `cancel` is called. Work that is already in progress, such as a timer or a request, runs until it finishes, and cancellation takes effect at the next check.
+- A cancelled computation stops without calling any of its callbacks, so code waiting for its result never hears back. That includes `Cont.bracket`, which may then never run its release (see [bracket](construction.md#contbracket)).
+- A result produced by a `Cont.fromRun` after `cancel` can still reach the callbacks of `run` if no operator checks the cancellation in between.
 
 **Methods:**
 

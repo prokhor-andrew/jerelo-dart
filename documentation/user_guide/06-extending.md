@@ -28,6 +28,8 @@ The observer passed to `Cont.fromRun` is a `SafeObserver`, which provides:
 - `observer.onCrash(crash)` — Signal a crash
 - `observer.isUsed()` — Returns `true` if any callback has already been invoked
 
+Only this observer is guarded against duplicate calls; observers derived from it with `copyUpdate*` call their new callbacks every time. `fromRun` also catches only exceptions thrown synchronously by the run function: an exception thrown later inside a `Timer` or `Future` callback escapes to the zone, and the observer is never called. Wrap such callback bodies in `ContCrash.tryCatch` and pass the crash to `observer.onCrash`.
+
 ### Example: Delayed Computation
 
 ```dart
@@ -74,18 +76,17 @@ Most custom operators can be built by composing existing ones:
 
 ```dart
 extension MyContExtensions<E, F, T> on Cont<E, F, T> {
-  // Retry a computation N times on failure
+  // Retry a computation up to maxAttempts times on failure.
+  // elseWhile loops without growing the stack, so even many
+  // synchronous failures are safe. Fails with the last error.
   Cont<E, F, T> retry(int maxAttempts) {
-    if (maxAttempts <= 1) return this;
-
-    return this.elseDo((error) {
-      return retry(maxAttempts - 1).elseDo((_) {
-        return Cont.error(error);
-      });
+    return Cont.fromDeferred(() {
+      var attempts = 1; // fresh counter for every run
+      return elseWhile((_) => attempts++ < maxAttempts);
     });
   }
 
-  // Execute with a timeout
+  // Succeed with defaultValue if this hasn't succeeded within duration
   Cont<E, F3, T> timeout<F2, F3>(
     Duration duration,
     T defaultValue,
@@ -110,6 +111,8 @@ extension MyContExtensions<E, F, T> on Cont<E, F, T> {
   }
 }
 ```
+
+`timeout` builds on `either`, which waits on the else channel: a success or a crash ends the race immediately, but a failure waits for the other side. So if `this` fails before `duration` elapses, its error waits for the timer and the result is `defaultValue`. If fast failures must win, lift them to the then channel before racing, as shown in [Race with Timeout](04-racing-and-merging.md#race-with-timeout).
 
 ### Approach 2: Use `decorate` for Low-Level Control
 
@@ -213,7 +216,7 @@ extension AdvancedExtensions<E, T> on Cont<E, String, T> {
     Duration initialDelay = const Duration(milliseconds: 100),
   }) {
     Cont<E, String, T> attempt(int attemptsLeft, Duration currentDelay) {
-      if (attemptsLeft <= 0) return this;
+      if (attemptsLeft <= 1) return this;
 
       return this.elseDo((error) {
         return delay<E, String, void>(currentDelay, null)

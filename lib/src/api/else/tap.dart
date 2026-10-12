@@ -11,7 +11,7 @@ Cont<E, F, A> _elseTap<E, F, F2, A>(
   Cont<E, F2, A> Function(F error) f,
 ) {
   return cont.elseDo((error) {
-    final Cont<E, F2, A> contA2 = f(error).absurdify();
+    final Cont<E, F2, A> contA2 = f(error);
     return contA2.elseMapTo(error);
   });
 }

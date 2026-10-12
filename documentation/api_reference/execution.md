@@ -13,9 +13,9 @@ Running continuations and specialized extensions.
   - [runWith](#runwith)
 - [Extensions](#extensions)
   - [flatten](#flatten)
-  - [thenAbsurdify](#thenabsurdify)
-  - [elseAbsurdify](#elseabsurdify)
-  - [absurdify](#absurdify)
+  - [thenAbsurdify](#thenabsurdify) (deprecated)
+  - [elseAbsurdify](#elseabsurdify) (deprecated)
+  - [absurdify](#absurdify) (deprecated)
   - [thenAbsurd](#thenabsurd)
   - [elseAbsurd](#elseabsurd)
 
@@ -124,6 +124,8 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
 Cont<E, F, A> thenAbsurdify()
 ```
 
+> **Deprecated.** No longer needed: `Cont` is covariant in its error and value types, so a `Never`-typed `Cont` can be used directly where a wider type is expected, e.g. `final Cont<(), String, int> widened = neverFails;`. Will be removed in 3.0.0.
+
 Checks if `A` is `Never` during execution and casts it to `A` to prevent runtime crashes.
 
 **Example:**
@@ -144,6 +146,8 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
 Cont<E, F, A> elseAbsurdify()
 ```
 
+> **Deprecated.** No longer needed: `Cont` is covariant in its error and value types, so a `Never`-typed `Cont` can be used directly where a wider type is expected, e.g. `final Cont<(), String, int> widened = neverFails;`. Will be removed in 3.0.0.
+
 Checks if `F` is `Never` during execution and casts it to `F` to prevent runtime crashes.
 
 **Example:**
@@ -163,6 +167,8 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
 ```dart
 Cont<E, F, A> absurdify()
 ```
+
+> **Deprecated.** No longer needed: `Cont` is covariant in its error and value types, so a `Never`-typed `Cont` can be used directly where a wider type is expected, e.g. `final Cont<(), String, int> widened = neverFails;`. Will be removed in 3.0.0.
 
 Checks if `F` and/or `A` are `Never` during execution and casts them to prevent runtime crashes. Equivalent to calling `thenAbsurdify()` and `elseAbsurdify()`.
 

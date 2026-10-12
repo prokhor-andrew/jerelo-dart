@@ -6,6 +6,9 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// This is a type-safe no-op that allows a `Cont<E, F, Never>` to be used
   /// where a `Cont<E, F, A>` is expected.
+  @Deprecated(
+      'No longer needed: Cont is covariant, so a Never-typed Cont can be used '
+      'directly where a wider type is expected. Will be removed in 3.0.0.')
   Cont<E, F, A> thenAbsurdify() {
     Cont<E, F, A> cont = this;
 
@@ -21,6 +24,9 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// This is a type-safe no-op that allows a `Cont<E, Never, A>` to be used
   /// where a `Cont<E, F, A>` is expected.
+  @Deprecated(
+      'No longer needed: Cont is covariant, so a Never-typed Cont can be used '
+      'directly where a wider type is expected. Will be removed in 3.0.0.')
   Cont<E, F, A> elseAbsurdify() {
     Cont<E, F, A> cont = this;
 
@@ -35,6 +41,9 @@ extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
   /// respectively, if needed; otherwise returns `this` unchanged.
   ///
   /// Combines [thenAbsurdify] and [elseAbsurdify] in a single call.
+  @Deprecated(
+      'No longer needed: Cont is covariant, so a Never-typed Cont can be used '
+      'directly where a wider type is expected. Will be removed in 3.0.0.')
   Cont<E, F, A> absurdify() {
     Cont<E, F, A> cont = this;
 
@@ -77,7 +86,7 @@ extension ContElseNeverExtension<E, A>
 
 /// Extension for running continuations that never produce a value.
 ///
-/// This extension provides specialized methods for [Cont]<[E], [Never]> where only
+/// This extension provides specialized methods for [Cont]<[E], [F], [Never]> where only
 /// termination is expected, simplifying the API by removing the unused value callback.
 extension ContThenNeverExtension<E, F>
     on Cont<E, F, Never> {
@@ -85,7 +94,7 @@ extension ContThenNeverExtension<E, F>
   ///
   /// The absurd method implements the principle of "ex falso quodlibet" (from
   /// falsehood, anything follows) from type theory. It allows converting a
-  /// `Cont<E, Never>` to `Cont<E, A>` for any type `A`.
+  /// `Cont<E, F, Never>` to `Cont<E, F, A>` for any type `A`.
   ///
   /// Since `Never` is an uninhabited type with no possible values, the mapping
   /// function `(Never never) => never` can never actually execute. However, the
@@ -106,11 +115,11 @@ extension ContThenNeverExtension<E, F>
   ///
   /// Example:
   /// ```dart
-  /// // A server that runs forever has type Cont<Env, Never>
+  /// // A server that runs forever has type Cont<Env, F, Never>
   /// final server = handleRequests().thenForever();
   ///
-  /// // Convert to Cont<Env, String> to match other continuation types
-  /// final serverAsString = server.absurd<String>();
+  /// // Convert to Cont<Env, F, String> to match other continuation types
+  /// final serverAsString = server.thenAbsurd<String>();
   /// ```
   Cont<E, F, A> thenAbsurd<A>() {
     return thenMap<A>(

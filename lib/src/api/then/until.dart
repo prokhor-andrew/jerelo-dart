@@ -7,7 +7,7 @@ extension ContThenUntilExtension<E, F, A> on Cont<E, F, A> {
   /// The loop continues while the predicate returns `false`, and stops
   /// successfully when the predicate returns `true`.
   ///
-  /// This is the inverse of [thenWhile] - implemented as `asLongAs((a) => !predicate(a))`.
+  /// This is the inverse of [thenWhile] - implemented as `thenWhile((a) => !predicate(a))`.
   /// Use this when you want to retry until a condition is met.
   ///
   /// - [predicate]: Function that tests the value. Returns `true` to stop the loop

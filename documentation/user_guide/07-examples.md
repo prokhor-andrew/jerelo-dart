@@ -17,22 +17,22 @@ class AppConfig {
   AppConfig(this.apiUrl, this.cacheDir, this.timeout);
 }
 
-// Fetch user with retry and caching
+// Fetch user with a cache fallback, caching fresh results
 Cont<AppConfig, String, User> getUser(String userId) {
   return Cont.askThen<AppConfig, String>()
     .thenDo((config) {
       return fetchFromApi(config.apiUrl, userId, config.timeout);
     })
     .thenIf((user) => user.isValid, fallback: 'invalid user')
-    .elseTapWithEnv((env, error) {
+    .elseForkWithEnv((env, error) {
       // Log errors in background
       return logToFile(env.cacheDir, error);
     })
     .elseDoWithEnv0((env) {
       // Fallback to cache
       return loadFromCache(env.cacheDir, userId);
-    });
-    .thenTapWithEnv((env, user) {
+    })
+    .thenForkWithEnv((env, user) {
       // Update cache in background
       return saveToCache(env.cacheDir, user);
     });
@@ -229,10 +229,10 @@ withProgress(
 
 ### Pattern 5: Racing Computations
 
-`Cont.either` runs two computations concurrently and takes the first to succeed. Use it to race a primary source against a fallback, or to implement timeouts.
+`Cont.either` runs two computations concurrently and takes the first to succeed. Use it to race a primary source against a fallback. A failure does not end the race: it waits for the other side, and the race fails only if both fail. A crash ends the race immediately.
 
 ```dart
-// Race remote config against local — whichever resolves first wins.
+// Race remote config against local — whichever succeeds first wins.
 // If both fail, report the remote error.
 Cont<(), String, Config> loadConfig() {
   return Cont.either(
@@ -271,7 +271,7 @@ generateReport(query).run((), onThen: publish, onElse: showError);
 ```dart
 // Build on existing operators rather than reaching for Cont.fromRun
 fetchData()
-  .elseTap((error) {
+  .elseFork((error) {
     print('Attempt failed: $error');
     return Cont.of(());
   })
@@ -341,7 +341,7 @@ Cont<(), UserError, User> getUser(String id) {
 }
 
 getUser(userId)
-  .elseUnless((e) => e == UserError.notFound, fallback: User.guest())
+  .elseUnless((e) => e != UserError.notFound, fallback: User.guest())
   .run((), onThen: display, onElse: showError);
 ```
 

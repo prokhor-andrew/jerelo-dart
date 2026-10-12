@@ -14,13 +14,6 @@ part of '../cont.dart';
 sealed class ContCrash {
   const ContCrash();
 
-  /// Runs [function] and wraps the outcome in a [CrashOr].
-  ///
-  /// If [function] completes without throwing, returns a [CrashOr] carrying
-  /// the computed value. If [function] throws, returns a [CrashOr] carrying
-  /// the caught exception as a [NormalCrash].
-  /// This helper is used internally to convert raw Dart exceptions into
-  /// the [ContCrash] representation.
   /// Creates a [MergedCrash] combining [left] and [right].
   static ContCrash merge(ContCrash left, ContCrash right) {
     return MergedCrash(left, right);
@@ -31,6 +24,13 @@ sealed class ContCrash {
     return CollectedCrash(crashes);
   }
 
+  /// Runs [function] and wraps the outcome in a [CrashOr].
+  ///
+  /// If [function] completes without throwing, returns a [CrashOr] carrying
+  /// the computed value. If [function] throws, returns a [CrashOr] carrying
+  /// the caught exception as a [NormalCrash].
+  /// This helper is used internally to convert raw Dart exceptions into
+  /// the [ContCrash] representation.
   static CrashOr<T> tryCatch<T>(T Function() function) {
     try {
       final value = function();
@@ -75,9 +75,11 @@ final class NormalCrash extends ContCrash {
 
 /// A crash that combines two crashes from paired operations.
 ///
-/// Produced when two continuations are run (e.g. in [Cont.coalesce]) and both
-/// crash. Carries the original [left] and [right] crashes so callers can
-/// inspect both.
+/// Produced when two continuations are run (e.g. in [Cont.coalesce],
+/// `crashZip`, or [Cont.both]/[Cont.either] with [RunAllOkPolicy]) and
+/// both crash. Carries the original [left] and [right] crashes so callers
+/// can inspect both.
+/// Can also be created directly or with [ContCrash.merge].
 final class MergedCrash extends ContCrash {
   /// The crash from the left (or first) operation.
   final ContCrash left;
@@ -106,14 +108,19 @@ final class MergedCrash extends ContCrash {
   }
 
   @override
-  int get hashCode => left.hashCode ^ right.hashCode;
+  int get hashCode => Object.hash(left, right);
 }
 
 /// A crash that collects multiple crashes from a list of operations.
 ///
-/// Produced when [Cont.converge] is run with [RunAllCrashPolicy] and more
-/// than one continuation crashes. The [crashes] map associates each
-/// continuation's index with its [ContCrash].
+/// Produced by:
+/// - [Cont.converge] with any policy when every continuation crashes, and
+///   by an empty [Cont.converge] (with an empty map);
+/// - [Cont.all] and [Cont.any] with [RunAllOkPolicy] whenever they report a
+///   crash, even if only one continuation crashed.
+///
+/// The [crashes] map associates each continuation's index with its
+/// [ContCrash]. Can also be created directly or with [ContCrash.collect].
 final class CollectedCrash extends ContCrash {
   /// Map from operation index to the [ContCrash] produced by that operation.
   final Map<int, ContCrash> crashes;
@@ -135,11 +142,28 @@ final class CollectedCrash extends ContCrash {
       return false;
     }
 
-    return crashes == other.crashes;
+    if (crashes.length != other.crashes.length) {
+      return false;
+    }
+
+    for (final MapEntry(:key, :value) in crashes.entries) {
+      if (!other.crashes.containsKey(key) ||
+          other.crashes[key] != value) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   @override
-  int get hashCode => crashes.hashCode;
+  int get hashCode {
+    return Object.hashAllUnordered(
+      crashes.entries.map((entry) {
+        return Object.hash(entry.key, entry.value);
+      }),
+    );
+  }
 }
 
 /// The result of [ContCrash.tryCatch] — either a successfully computed

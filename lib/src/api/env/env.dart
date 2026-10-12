@@ -52,7 +52,7 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   ///   success type [A].
   Cont<E, F, A2> thenInject<A2>(Cont<A, F, A2> cont) {
     return thenDo((a) {
-      return cont.absurdify().withEnv(a);
+      return cont.withEnv(a);
     });
   }
 
@@ -76,7 +76,7 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   ///   error type [F].
   Cont<E, F2, A> elseInject<F2>(Cont<F, F2, A> cont) {
     return elseDo((f) {
-      return cont.absurdify().withEnv(f);
+      return cont.withEnv(f);
     });
   }
 

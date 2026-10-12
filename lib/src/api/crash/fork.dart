@@ -3,10 +3,12 @@ part of '../../cont.dart';
 /// Implementation of the fire-and-forget fork on the crash path.
 ///
 /// Runs [cont], and on crash starts the side-effect continuation
-/// produced by [f] without waiting for it. The original crash
-/// is forwarded to the observer immediately. Outcomes from the side-effect
-/// are dispatched to the provided callbacks: [onPanic] (defaults to
-/// rethrowing), [onCrash], [onElse], and [onThen] (all default to ignoring).
+/// produced by [f] without waiting for it, then forwards the original
+/// crash to the observer. A synchronous side-effect runs to completion
+/// before the crash is forwarded; an asynchronous one does not delay it.
+/// Outcomes from the side-effect are dispatched to the provided callbacks:
+/// [onPanic] (defaults to rethrowing), [onCrash], [onElse], and [onThen]
+/// (all default to ignoring).
 Cont<E, F, A> _crashFork<E, F, F2, A, A2>(
   Cont<E, F, A> cont,
   Cont<E, F2, A2> Function(ContCrash crash) f, {
@@ -23,10 +25,11 @@ Cont<E, F, A> _crashFork<E, F, F2, A, A2>(
           return;
         }
 
-        // if this crashes, it should crash the computation
+        // a throw from f is a crash, the crash channel's own
+        // outcome, so the original crash is forwarded
         final Cont<E, F2, A2> contA2;
         try {
-          contA2 = f(crash).absurdify();
+          contA2 = f(crash);
         } catch (_) {
           observer.onCrash(crash);
           return;
@@ -56,7 +59,9 @@ extension ContCrashForkExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// If the continuation crashes, starts the side-effect continuation without waiting
   /// for it to complete. Unlike [crashTap], this does not wait for the side-effect to
-  /// finish before propagating the crash.
+  /// finish before propagating the crash. A synchronous side-effect still runs to
+  /// completion before the crash is forwarded. If [f] itself throws, the original
+  /// crash is forwarded.
   ///
   /// Outcomes from the forked continuation are dispatched to optional callbacks:
   /// - [onPanic]: Called when the side-effect triggers a panic. Defaults to rethrowing.

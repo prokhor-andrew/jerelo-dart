@@ -34,7 +34,9 @@ static Cont<E, F, A> fromRun<E, F, A>(
 
 Creates a `Cont` from a run function that accepts an observer.
 
-Constructs a continuation with guaranteed idempotence and exception catching. The run function receives a `SafeObserver` with `onCrash`, `onElse`, and `onThen` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later. The `SafeObserver` ensures that only the first callback invocation takes effect; subsequent calls are ignored.
+Constructs a continuation with guaranteed idempotence and exception catching. The run function receives a `SafeObserver` with `onCrash`, `onElse`, and `onThen` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later. The `SafeObserver` ensures that only the first callback invocation takes effect; subsequent calls are ignored. This guard covers only the observer handed to `run`: observers derived from it with `copyUpdate*` call their new callbacks every time.
+
+Exceptions thrown synchronously by `run` are caught and routed to the crash channel. An exception thrown later, for example inside a `Timer` or `Future` callback, is not caught: it escapes to the zone and the observer is never called. Wrap such callback bodies in `ContCrash.tryCatch` and pass the crash to `observer.onCrash`.
 
 - **Parameters:**
   - `run`: Function that executes the continuation and calls observer callbacks
@@ -45,9 +47,8 @@ final cont = Cont.fromRun<MyEnv, String, int>((runtime, observer) {
   // Access environment
   final config = runtime.env();
 
-  // Check cancellation
+  // Check cancellation: a cancelled computation emits nothing
   if (runtime.isCancelled()) {
-    observer.onElse('Cancelled');
     return;
   }
 
@@ -216,22 +217,30 @@ static Cont<E, F, A> bracket<R, E, F, A>({
 
 Manages resource lifecycle with guaranteed cleanup.
 
-The bracket pattern ensures that a resource is properly released after use, even if an error or crash occurs during the `use` phase or if cancellation occurs. This is the functional equivalent of try-with-resources or using statements.
+The bracket pattern ensures that a resource is properly released after use, even if an error or crash occurs during the `use` phase. Cancellation has limits, described below. This is the functional equivalent of try-with-resources or using statements.
 
 Note that `acquire` and `release` use `Never` as their error type, meaning they cannot fail with a typed error — they can only succeed or crash.
 
 **The execution order is:**
 1. `acquire` — Obtain the resource
 2. `use` — Use the resource to produce a value
-3. `release` — Release the resource (always runs if `acquire` succeeded, even if `use` fails or is cancelled)
+3. `release` — Release the resource (runs when `use` finishes, whether it succeeds, fails or crashes)
 
 **Cancellation behavior:**
-- The `release` function is called even when the runtime is cancelled
-- Release runs with a non-cancellable runtime, ensuring complete cleanup
+- If the computation is cancelled after `acquire` and before `use`, `release` runs and the observer receives nothing
+- Release runs with its own runtime, so cancelling the computation does not stop `release` once it has started
+
+**Limits under cancellation:**
+
+Cancellation is cooperative and nothing is notified when it happens, so `bracket` only learns about it when `use` delivers a result.
+- Cancelled while `use` runs: `release` runs only if `use` still delivers a result. Any operator inside `use` that notices the cancellation stops without delivering anything, and then `release` never runs and the resource is not released.
+- Cancelled while `acquire` runs: `acquire` can stop the same way after it has obtained the resource, which is then never released.
+
+These limits are part of the 2.x cancellation design and are not fixed in 2.x.
 
 **Optional release callbacks:**
-- `onReleasePanic`: Called if the release crashes with a panic-level failure. Defaults to re-throwing
-- `onReleaseCrash`: Called if the release crashes. Defaults to ignoring
+- `onReleasePanic`: Called if the `release` function itself throws while building the release continuation (`release(resource)`), or if a release callback throws. Defaults to re-throwing in a microtask, so a `try`/`catch` around `run()` never sees it
+- `onReleaseCrash`: Called if the release continuation returned by `release` crashes. Defaults to ignoring
 - `onReleaseThen`: Called when release succeeds. Defaults to no-op
 
 - **Parameters:**

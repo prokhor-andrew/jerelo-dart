@@ -11,7 +11,7 @@ Cont<E, F3, A> _elseZip<E, F, F2, F3, A>(
   F3 Function(F f1, F2 f2) combine,
 ) {
   return cont.elseDo((error1) {
-    final Cont<E, F2, A> cont2 = f(error1).absurdify();
+    final Cont<E, F2, A> cont2 = f(error1);
     return cont2.elseMap((error2) {
       return combine(error1, error2);
     });

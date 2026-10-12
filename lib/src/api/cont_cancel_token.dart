@@ -11,6 +11,17 @@ part of '../cont.dart';
 ///
 /// Calling [cancel] multiple times is safe but has no additional effect
 /// beyond the first call.
+///
+/// Limits of cooperative cancellation:
+/// - Nothing is notified when [cancel] is called. Work that is already in
+///   progress, such as a timer or a request, runs until it finishes, and
+///   cancellation takes effect at the next check.
+/// - A cancelled computation stops without calling any of its callbacks, so
+///   code waiting for its result never hears back. That includes
+///   [Cont.bracket], which may then never run its release.
+/// - A result produced by a [Cont.fromRun] after [cancel] can still reach
+///   the callbacks of [Cont.run] if no operator checks the cancellation in
+///   between.
 final class ContCancelToken {
   var _isCancelled = false;
 
