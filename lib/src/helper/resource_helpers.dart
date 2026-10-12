@@ -3,9 +3,10 @@ part of '../cont.dart';
 /// Implementation of the bracket (acquire / use / release) pattern.
 ///
 /// Acquires a resource via [acquire], passes it to [use], and guarantees
-/// that [release] runs afterwards regardless of whether [use] succeeds,
-/// terminates, or is cancelled. The release phase runs on a
-/// non-cancellable runtime to ensure cleanup always completes.
+/// that [release] runs afterwards whether [use] succeeds or terminates.
+/// The release phase runs on a non-cancellable runtime so that it completes
+/// once started. If the computation is cancelled while [use] runs, [use]
+/// never reports back and [release] does not run (see [Cont.bracket]).
 ///
 /// Error handling:
 /// - If both [use] and [release] succeed, returns the value from [use].

@@ -65,7 +65,7 @@ Cont.stop([
 
 ### Resource Management
 
-When working with resources that need cleanup (files, connections, locks), the `bracket` pattern guarantees the resource is released even if an error occurs.
+When working with resources that need cleanup (files, connections, locks), the `bracket` pattern guarantees the resource is released even if an error occurs. Cancellation is the exception: if the computation is cancelled while `use` runs, `use` never reports back and the resource is not released. This is a limit of cooperative cancellation in 1.x.
 
 ```dart
 Cont<E, String> readFileContents<E>(String path) {

@@ -340,18 +340,33 @@ final class Cont<E, A> {
   /// Manages resource lifecycle with guaranteed cleanup.
   ///
   /// The bracket pattern ensures that a resource is properly released after use,
-  /// even if an error occurs during the [use] phase or if cancellation occurs.
+  /// even if an error occurs during the [use] phase. Cancellation has limits,
+  /// described below.
   /// This is the functional equivalent of try-with-resources or using statements.
   ///
   /// The execution order is:
   /// 1. [acquire] - Obtain the resource
   /// 2. [use] - Use the resource to produce a value
-  /// 3. [release] - Release the resource (always runs, even if [use] fails or is cancelled)
+  /// 3. [release] - Release the resource (runs when [use] finishes, whether it succeeds or fails)
   ///
   /// Cancellation behavior:
-  /// - The [release] function is called even when the runtime is cancelled
-  /// - This ensures resources are properly cleaned up regardless of cancellation
-  /// - However, if cancellation occurs during release itself, cleanup may be partial
+  /// - If the computation is cancelled before [use] starts, [use] is skipped
+  ///   and [release] still runs.
+  /// - [release] runs on a runtime that is never cancelled, so cancellation
+  ///   does not stop it once it has started.
+  ///
+  /// Limits under cancellation. Cancellation is cooperative and nothing is
+  /// notified when it happens, so [bracket] only learns about it when [use]
+  /// delivers a result:
+  /// - Cancelled while [use] runs → a cancelled computation stops without
+  ///   delivering anything, and a result that arrives after the cancellation
+  ///   is dropped. [use] therefore never reports back, [release] never runs,
+  ///   and the resource is not released.
+  /// - Cancelled while [acquire] runs → [acquire] can stop the same way
+  ///   after it has obtained the resource, which is then never released.
+  ///
+  /// These limits are part of the 1.x cancellation design and are not fixed
+  /// in 1.x.
   ///
   /// Error handling behavior:
   /// - If [use] succeeds and [release] succeeds: returns the value from [use]
