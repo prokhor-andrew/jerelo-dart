@@ -53,7 +53,7 @@ final class NormalCrash extends ContCrash {
 
   @override
   String toString() {
-    return "NormalCrash { error=$error, stackTrace=$stackTrace }";
+    return 'NormalCrash($error, $stackTrace)';
   }
 
   @override
@@ -91,7 +91,7 @@ final class MergedCrash extends ContCrash {
 
   @override
   String toString() {
-    return "MergedCrash { left=$left, right=$right }";
+    return 'MergedCrash($left, $right)';
   }
 
   @override
@@ -129,7 +129,7 @@ final class CollectedCrash extends ContCrash {
 
   @override
   String toString() {
-    return "CollectedCrash { $crashes }";
+    return 'CollectedCrash($crashes)';
   }
 
   @override

@@ -28,7 +28,7 @@ final class NextTailRec<S, A> extends TailRec<S, A> {
 
   @override
   String toString() {
-    return 'TailRec.next($state)';
+    return 'NextTailRec($state)';
   }
 
   @override
@@ -57,7 +57,7 @@ final class DoneTailRec<S, A> extends TailRec<S, A> {
 
   @override
   String toString() {
-    return 'TailRec.done($result)';
+    return 'DoneTailRec($result)';
   }
 
   @override
