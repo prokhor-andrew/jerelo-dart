@@ -30,7 +30,7 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
           },
         ),
       );
-    }).match((_) {}, handleCrash);
+    })._ifCrash(handleCrash);
 
     ContCrash.tryCatch(() {
       right.runWith(
@@ -43,7 +43,7 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
           },
         ),
       );
-    }).match((_) {}, handleCrash);
+    })._ifCrash(handleCrash);
   });
 }
 
@@ -77,7 +77,7 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
           onThen: handleThen,
         ),
       );
-    }).match((_) {}, handleCrash);
+    })._ifCrash(handleCrash);
 
     ContCrash.tryCatch(() {
       right.runWith(
@@ -90,7 +90,7 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
           onThen: handleThen,
         ),
       );
-    }).match((_) {}, handleCrash);
+    })._ifCrash(handleCrash);
   });
 }
 
@@ -137,7 +137,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
             case _QuitFastLeftNullRightSecondary<ContCrash,
                   ContCrash>(f2: final c2):
               holder.state = null;
-              observer.onCrash(MergedCrash(c1, c2));
+              observer.onCrash(MergedCrash._(c1, c2));
           }
         case _Right<ContCrash, ContCrash>(value: final c2):
           switch (holder.state) {
@@ -149,7 +149,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
             case _QuitFastLeftSecondaryRightNull<ContCrash,
                   ContCrash>(f1: final c1):
               holder.state = null;
-              observer.onCrash(MergedCrash(c1, c2));
+              observer.onCrash(MergedCrash._(c1, c2));
             case _QuitFastLeftNullRightSecondary<ContCrash,
                   ContCrash>():
               break; // can't have right crash twice - unreachable state
@@ -168,7 +168,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
           onThen: handleThen,
         ),
       );
-    }).match((_) {}, (crash) {
+    })._ifCrash((crash) {
       handleCrash(_Left(crash));
     });
 
@@ -183,7 +183,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
           onThen: handleThen,
         ),
       );
-    }).match((_) {}, (crash) {
+    })._ifCrash((crash) {
       handleCrash(_Right(crash));
     });
   });
@@ -244,7 +244,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
             ContCrash.tryCatch(() {
               final f3 = combine(f1, f2);
               onSecondary(f3);
-            }).match((_) {}, onCrash);
+            })._ifCrash(onCrash);
         }
       case _Right<F1, F2>(value: final f2):
         switch (holder.state) {
@@ -261,7 +261,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
             ContCrash.tryCatch(() {
               final f3 = combine(f1, f2);
               onSecondary(f3);
-            }).match((_) {}, onCrash);
+            })._ifCrash(onCrash);
 
           case _QuitFastLeftNullRightSecondary<F1, F2>():
             break; // we can't have right secondary and get another right secondary - unreachable state

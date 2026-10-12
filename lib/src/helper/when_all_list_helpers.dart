@@ -39,14 +39,14 @@ void _whenAllPar<P, S>({
       switch (seed) {
         case _Left<(), S>():
           crashes[index] = crash;
-          final resultCrash = CollectedCrash(
+          final resultCrash = CollectedCrash._(
             Map<int, ContCrash>.from(crashes),
           ); // defensive copy
           onCrash(resultCrash);
         case _Right<(), S>(value: final seedValue):
           if (shouldFavorCrash) {
             crashes[index] = crash;
-            final resultCrash = CollectedCrash(
+            final resultCrash = CollectedCrash._(
               Map<int, ContCrash>.from(crashes),
             ); // defensive copy
             onCrash(resultCrash);
@@ -77,7 +77,7 @@ void _whenAllPar<P, S>({
               results,
             ); // defensive copy
           } else {
-            final resultCrash = CollectedCrash(
+            final resultCrash = CollectedCrash._(
               Map<int, ContCrash>.from(crashes),
             ); // defensive copy
             onCrash(resultCrash);
@@ -85,7 +85,7 @@ void _whenAllPar<P, S>({
         case _Right<(), S>(value: final seedValue):
           if (crashes.isNotEmpty) {
             if (shouldFavorCrash) {
-              final resultCrash = CollectedCrash(
+              final resultCrash = CollectedCrash._(
                 Map<int, ContCrash>.from(crashes),
               ); // defensive copy
               onCrash(resultCrash);
@@ -118,7 +118,7 @@ void _whenAllPar<P, S>({
             onAnySecondary(s);
           } else {
             if (shouldFavorCrash) {
-              final resultCrash = CollectedCrash(
+              final resultCrash = CollectedCrash._(
                 Map<int, ContCrash>.from(crashes),
               ); // defensive copy
               onCrash(resultCrash);
@@ -131,7 +131,7 @@ void _whenAllPar<P, S>({
             ContCrash.tryCatch(() {
               final newSeed = combine(seedValue, s);
               onAnySecondary(newSeed);
-            }).match((_) {}, (crash) {
+            })._ifCrash((crash) {
               if (shouldFavorCrash) {
                 onCrash(crash);
               } else {
@@ -140,7 +140,7 @@ void _whenAllPar<P, S>({
             });
           } else {
             if (shouldFavorCrash) {
-              final resultCrash = CollectedCrash(
+              final resultCrash = CollectedCrash._(
                 Map<int, ContCrash>.from(crashes),
               ); // defensive copy
               onCrash(resultCrash);
@@ -148,7 +148,7 @@ void _whenAllPar<P, S>({
               ContCrash.tryCatch(() {
                 final newSeed = combine(seedValue, s);
                 onAnySecondary(newSeed);
-              }).match((_) {}, (_) {
+              })._ifCrash((_) {
                 onAnySecondary(
                   seedValue,
                 ); // we ignore crash, as we favor secondary
@@ -167,7 +167,7 @@ void _whenAllPar<P, S>({
         ContCrash.tryCatch(() {
           final newSeed = combine(seedValue, s);
           seed = _Right(newSeed);
-        }).match((_) {}, (crash) {
+        })._ifCrash((crash) {
           crashes[i] = crash;
         });
     }
@@ -215,7 +215,7 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
               },
             ),
           );
-        }).match((_) {}, onCrash);
+        })._ifCrash(onCrash);
       },
       combine: combine,
       onAllPrimary: observer.onThen,
@@ -236,7 +236,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
-      observer.onCrash(CollectedCrash({}));
+      observer.onCrash(CollectedCrash._({}));
       return;
     }
 
@@ -250,7 +250,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
     void onAllFinished() {
       if (crashes.length >= total) {
         observer.onCrash(
-          CollectedCrash(Map.from(crashes)),
+          CollectedCrash._(Map.from(crashes)),
         );
         return;
       }
@@ -282,7 +282,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
         case _Right(value: final prev):
           ContCrash.tryCatch(() {
             thenAcc = _Right(combineThenVals(prev, a));
-          }).match((_) {}, (crash) {
+          })._ifCrash((crash) {
             crashes[index] = crash;
           });
       }
@@ -301,7 +301,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
         case _Right(value: final prev):
           ContCrash.tryCatch(() {
             elseAcc = _Right(combineElseVals(prev, f));
-          }).match((_) {}, (crash) {
+          })._ifCrash((crash) {
             crashes[index] = crash;
           });
       }
@@ -338,7 +338,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
             },
           ),
         );
-      }).match((_) {}, (crash) {
+      })._ifCrash((crash) {
         handleCrash(idx, crash);
       });
     }
@@ -374,7 +374,7 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
               },
             ),
           );
-        }).match((_) {}, onCrash);
+        })._ifCrash(onCrash);
       },
       combine: combine,
       onAllPrimary: observer.onElse,

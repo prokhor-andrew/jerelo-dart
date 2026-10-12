@@ -18,10 +18,14 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
       runWith(
         runtime,
         observer.copyUpdateOnElse((error) {
-          ContCrash.tryCatch(() {
+          final result = ContCrash.tryCatch(() {
             final contA = f(error);
             contA.runWith(runtime, observer);
-          }).match((_) {}, observer.onCrash);
+          });
+          if (result
+              case CrashCrashOr(crash: final crash)) {
+            observer.onCrash(crash);
+          }
         }),
       );
     });

@@ -9,18 +9,22 @@ sealed class TailRec<S, A> {
   const TailRec();
 
   /// Continues the loop with [state].
-  const factory TailRec.next(S state) = TailRecNext<S, A>;
+  static TailRec<S, A> next<S, A>(S state) {
+    return NextTailRec._(state);
+  }
 
   /// Finishes the loop with [result].
-  const factory TailRec.done(A result) = TailRecDone<S, A>;
+  static TailRec<S, A> done<S, A>(A result) {
+    return DoneTailRec._(result);
+  }
 }
 
 /// A [TailRec] step that continues the loop with [state].
-final class TailRecNext<S, A> extends TailRec<S, A> {
+final class NextTailRec<S, A> extends TailRec<S, A> {
   /// The state for the next iteration.
   final S state;
 
-  const TailRecNext(this.state);
+  const NextTailRec._(this.state);
 
   @override
   String toString() {
@@ -33,7 +37,7 @@ final class TailRecNext<S, A> extends TailRec<S, A> {
       return true;
     }
 
-    if (other is! TailRecNext) {
+    if (other is! NextTailRec) {
       return false;
     }
 
@@ -41,15 +45,15 @@ final class TailRecNext<S, A> extends TailRec<S, A> {
   }
 
   @override
-  int get hashCode => Object.hash(TailRecNext, state);
+  int get hashCode => Object.hash(NextTailRec, state);
 }
 
 /// A [TailRec] step that finishes the loop with [result].
-final class TailRecDone<S, A> extends TailRec<S, A> {
+final class DoneTailRec<S, A> extends TailRec<S, A> {
   /// The result of the loop.
   final A result;
 
-  const TailRecDone(this.result);
+  const DoneTailRec._(this.result);
 
   @override
   String toString() {
@@ -62,7 +66,7 @@ final class TailRecDone<S, A> extends TailRec<S, A> {
       return true;
     }
 
-    if (other is! TailRecDone) {
+    if (other is! DoneTailRec) {
       return false;
     }
 
@@ -70,5 +74,5 @@ final class TailRecDone<S, A> extends TailRec<S, A> {
   }
 
   @override
-  int get hashCode => Object.hash(TailRecDone, result);
+  int get hashCode => Object.hash(DoneTailRec, result);
 }

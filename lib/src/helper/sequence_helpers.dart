@@ -78,7 +78,7 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
-      observer.onCrash(CollectedCrash({}));
+      observer.onCrash(CollectedCrash._({}));
       return;
     }
 
@@ -117,7 +117,7 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
               },
             ),
           );
-        }).match((_) {}, (crash) {
+        })._ifCrash((crash) {
           crashes[i] = crash;
           update(_Value1(i + 1));
         });
@@ -126,7 +126,7 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
         switch (finalState) {
           case _Value1():
             observer.onCrash(
-              CollectedCrash(Map.from(crashes)),
+              CollectedCrash._(Map.from(crashes)),
             );
           case _Value2(b: final a):
             observer.onThen(a);
@@ -189,7 +189,7 @@ void _seq<S, A>({
             update(_Value2(secondary));
           },
         );
-      }).match((_) {}, (crash) {
+      })._ifCrash((crash) {
         update(_Value3(crash));
       });
     },

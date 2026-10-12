@@ -55,7 +55,7 @@ extension ContThenNeverExtension<E, F>
   /// // A server loop that only ends with an error or a crash
   /// final Cont<Env, F, Never> server = Cont.tailRecM(
   ///   (),
-  ///   (_) => handleRequest().thenMap((_) => const TailRec.next(())),
+  ///   (_) => handleRequest().thenMap((_) => TailRec.next(())),
   /// );
   ///
   /// // Convert to Cont<Env, F, String> to match other continuation types

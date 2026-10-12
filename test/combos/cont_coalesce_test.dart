@@ -4,12 +4,12 @@ import 'package:jerelo/jerelo.dart';
 import 'package:test/test.dart';
 
 NormalCrash crashOf(Object error) {
-  return ContCrash.tryCatch<void>(() {
+  return switch (ContCrash.tryCatch<void>(() {
     throw error;
-  }).match(
-    (_) => throw StateError('expected a crash'),
-    (crash) => crash,
-  );
+  })) {
+    CrashCrashOr(crash: final crash) => crash,
+    ValueCrashOr() => throw StateError('expected a crash'),
+  };
 }
 
 void main() {
@@ -40,8 +40,10 @@ void main() {
         policy: CrashPolicy.quitFast(),
       ).run((), onCrash: (c) => crash = c);
 
-      expect(crash,
-          equals(MergedCrash(crashOf('a'), crashOf('b'))));
+      expect(
+          crash,
+          equals(
+              ContCrash.merge(crashOf('a'), crashOf('b'))));
     });
 
     test('quitFast returns before the other side finishes',
@@ -105,7 +107,7 @@ void main() {
 
       expect(
         crash,
-        equals(CollectedCrash(
+        equals(ContCrash.collect(
             {0: crashOf('a'), 1: crashOf('b')})),
       );
     });
@@ -119,7 +121,7 @@ void main() {
         policy: CrashPolicy.sequence(),
       ).run((), onCrash: (c) => crash = c);
 
-      expect(crash, equals(const CollectedCrash({})));
+      expect(crash, equals(ContCrash.collect({})));
     });
   });
 }

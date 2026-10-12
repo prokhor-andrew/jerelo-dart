@@ -16,12 +16,12 @@ sealed class ContCrash {
 
   /// Creates a [MergedCrash] combining [left] and [right].
   static ContCrash merge(ContCrash left, ContCrash right) {
-    return MergedCrash(left, right);
+    return MergedCrash._(left, right);
   }
 
   /// Creates a [CollectedCrash] from a map of [crashes].
   static ContCrash collect(Map<int, ContCrash> crashes) {
-    return CollectedCrash(crashes);
+    return CollectedCrash._(crashes);
   }
 
   /// Runs [function] and wraps the outcome in a [CrashOr].
@@ -34,9 +34,9 @@ sealed class ContCrash {
   static CrashOr<T> tryCatch<T>(T Function() function) {
     try {
       final value = function();
-      return _ValueCrashOr(value);
+      return ValueCrashOr._(value);
     } catch (error, st) {
-      return _CrashCrashOr(NormalCrash._(error, st));
+      return CrashCrashOr._(NormalCrash._(error, st));
     }
   }
 }
@@ -87,7 +87,7 @@ final class MergedCrash extends ContCrash {
   /// The crash from the right (or second) operation.
   final ContCrash right;
 
-  const MergedCrash(this.left, this.right);
+  const MergedCrash._(this.left, this.right);
 
   @override
   String toString() {
@@ -125,7 +125,7 @@ final class CollectedCrash extends ContCrash {
   /// Map from operation index to the [ContCrash] produced by that operation.
   final Map<int, ContCrash> crashes;
 
-  const CollectedCrash(this.crashes);
+  const CollectedCrash._(this.crashes);
 
   @override
   String toString() {
@@ -169,31 +169,29 @@ final class CollectedCrash extends ContCrash {
 /// The result of [ContCrash.tryCatch] — either a successfully computed
 /// value of type [T] or a [NormalCrash].
 ///
-/// Use [match] to exhaustively handle both cases.
+/// Read it with `switch` on its cases, [ValueCrashOr] and [CrashCrashOr].
 sealed class CrashOr<T> {
   const CrashOr();
+}
 
-  /// Folds this [CrashOr] into a single value of type [R].
-  ///
-  /// Calls [ifValue] when the computation succeeded, passing the result.
-  /// Calls [ifCrash] when the computation threw, passing the [NormalCrash].
-  R match<R>(
-    R Function(T value) ifValue,
-    R Function(NormalCrash crash) ifCrash,
-  ) {
-    return switch (this) {
-      _ValueCrashOr<T>(value: final value) =>
-        ifValue(value),
-      _CrashCrashOr<T>(crash: final crash) =>
-        ifCrash(crash),
-    };
+/// Internal helper: runs [onCrash] when the computation threw.
+extension _CrashOrIfCrash<T> on CrashOr<T> {
+  void _ifCrash(void Function(NormalCrash crash) onCrash) {
+    switch (this) {
+      case CrashCrashOr<T>(crash: final crash):
+        onCrash(crash);
+      case ValueCrashOr<T>():
+        break;
+    }
   }
 }
 
-final class _ValueCrashOr<T> extends CrashOr<T> {
+/// A [CrashOr] for a computation that returned [value].
+final class ValueCrashOr<T> extends CrashOr<T> {
+  /// The value the computation returned.
   final T value;
 
-  const _ValueCrashOr(this.value);
+  const ValueCrashOr._(this.value);
 
   @override
   bool operator ==(Object other) {
@@ -201,7 +199,7 @@ final class _ValueCrashOr<T> extends CrashOr<T> {
       return true;
     }
 
-    if (other is! _ValueCrashOr<T>) {
+    if (other is! ValueCrashOr) {
       return false;
     }
 
@@ -209,18 +207,20 @@ final class _ValueCrashOr<T> extends CrashOr<T> {
   }
 
   @override
-  int get hashCode => value.hashCode;
+  int get hashCode => Object.hash(ValueCrashOr, value);
 
   @override
   String toString() {
-    return value.toString();
+    return 'ValueCrashOr($value)';
   }
 }
 
-final class _CrashCrashOr<T> extends CrashOr<T> {
+/// A [CrashOr] for a computation that threw, captured as [crash].
+final class CrashCrashOr<T> extends CrashOr<T> {
+  /// The crash the computation threw.
   final NormalCrash crash;
 
-  const _CrashCrashOr(this.crash);
+  const CrashCrashOr._(this.crash);
 
   @override
   bool operator ==(Object other) {
@@ -228,7 +228,7 @@ final class _CrashCrashOr<T> extends CrashOr<T> {
       return true;
     }
 
-    if (other is! _CrashCrashOr<T>) {
+    if (other is! CrashCrashOr) {
       return false;
     }
 
@@ -236,10 +236,10 @@ final class _CrashCrashOr<T> extends CrashOr<T> {
   }
 
   @override
-  int get hashCode => crash.hashCode;
+  int get hashCode => Object.hash(CrashCrashOr, crash);
 
   @override
   String toString() {
-    return crash.toString();
+    return 'CrashCrashOr($crash)';
   }
 }

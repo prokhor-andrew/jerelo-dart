@@ -2,20 +2,20 @@ import 'package:jerelo/jerelo.dart';
 import 'package:test/test.dart';
 
 NormalCrash crashOf(Object error) {
-  return ContCrash.tryCatch<void>(() {
+  return switch (ContCrash.tryCatch<void>(() {
     throw error;
-  }).match(
-    (_) => throw StateError('expected a crash'),
-    (crash) => crash,
-  );
+  })) {
+    CrashCrashOr(crash: final crash) => crash,
+    ValueCrashOr() => throw StateError('expected a crash'),
+  };
 }
 
 void main() {
   group('CollectedCrash equality', () {
     test('equal when maps have equal entries', () {
-      final a = CollectedCrash(
+      final a = ContCrash.collect(
           {0: crashOf('x'), 1: crashOf('y')});
-      final b = CollectedCrash(
+      final b = ContCrash.collect(
           {0: crashOf('x'), 1: crashOf('y')});
 
       expect(a, equals(b));
@@ -23,9 +23,9 @@ void main() {
     });
 
     test('ignores insertion order', () {
-      final a = CollectedCrash(
+      final a = ContCrash.collect(
           {0: crashOf('x'), 1: crashOf('y')});
-      final b = CollectedCrash(
+      final b = ContCrash.collect(
           {1: crashOf('y'), 0: crashOf('x')});
 
       expect(a, equals(b));
@@ -34,28 +34,28 @@ void main() {
 
     test('empty crashes are equal', () {
       expect(
-        const CollectedCrash({}),
-        equals(CollectedCrash(<int, ContCrash>{})),
+        ContCrash.collect({}),
+        equals(ContCrash.collect(<int, ContCrash>{})),
       );
     });
 
     test('not equal when a value differs', () {
-      final a = CollectedCrash({0: crashOf('x')});
-      final b = CollectedCrash({0: crashOf('y')});
+      final a = ContCrash.collect({0: crashOf('x')});
+      final b = ContCrash.collect({0: crashOf('y')});
 
       expect(a, isNot(equals(b)));
     });
 
     test('not equal when a key differs', () {
-      final a = CollectedCrash({0: crashOf('x')});
-      final b = CollectedCrash({1: crashOf('x')});
+      final a = ContCrash.collect({0: crashOf('x')});
+      final b = ContCrash.collect({1: crashOf('x')});
 
       expect(a, isNot(equals(b)));
     });
 
     test('not equal when one has extra entries', () {
-      final a = CollectedCrash({0: crashOf('x')});
-      final b = CollectedCrash(
+      final a = ContCrash.collect({0: crashOf('x')});
+      final b = ContCrash.collect(
           {0: crashOf('x'), 1: crashOf('y')});
 
       expect(a, isNot(equals(b)));
@@ -63,13 +63,13 @@ void main() {
     });
 
     test('compares nested crashes by value', () {
-      final a = CollectedCrash({
-        0: MergedCrash(crashOf('x'), crashOf('y')),
-        1: CollectedCrash({0: crashOf('z')}),
+      final a = ContCrash.collect({
+        0: ContCrash.merge(crashOf('x'), crashOf('y')),
+        1: ContCrash.collect({0: crashOf('z')}),
       });
-      final b = CollectedCrash({
-        0: MergedCrash(crashOf('x'), crashOf('y')),
-        1: CollectedCrash({0: crashOf('z')}),
+      final b = ContCrash.collect({
+        0: ContCrash.merge(crashOf('x'), crashOf('y')),
+        1: ContCrash.collect({0: crashOf('z')}),
       });
 
       expect(a, equals(b));
@@ -79,11 +79,11 @@ void main() {
     test('not equal to other crash types', () {
       final crash = crashOf('x');
 
+      expect(ContCrash.collect({0: crash}),
+          isNot(equals(crash)));
       expect(
-          CollectedCrash({0: crash}), isNot(equals(crash)));
-      expect(
-        CollectedCrash({0: crash}),
-        isNot(equals(MergedCrash(crash, crash))),
+        ContCrash.collect({0: crash}),
+        isNot(equals(ContCrash.merge(crash, crash))),
       );
     });
 

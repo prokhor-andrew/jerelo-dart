@@ -102,7 +102,7 @@ final class Cont<E, F, A> {
       void onPanic(NormalCrash crash) {
         ContCrash.tryCatch(() {
           onUnsafePanic(crash);
-        }).match((_) {}, (panic) {
+        })._ifCrash((panic) {
           // the important part here is that if onPanic crashes,
           // we don't push the crash that was sent there,
           // but the crash that caused the onPanic
@@ -121,7 +121,7 @@ final class Cont<E, F, A> {
 
         ContCrash.tryCatch(() {
           onCrash(crash);
-        }).match((_) {}, onPanic);
+        })._ifCrash(onPanic);
       }
 
       void guardedOnElse(F error) {
@@ -133,7 +133,7 @@ final class Cont<E, F, A> {
 
         ContCrash.tryCatch(() {
           onElse(error);
-        }).match((_) {}, onPanic);
+        })._ifCrash(onPanic);
       }
 
       void guardedOnThen(A a) {
@@ -145,7 +145,7 @@ final class Cont<E, F, A> {
 
         ContCrash.tryCatch(() {
           onThen(a);
-        }).match((_) {}, onPanic);
+        })._ifCrash(onPanic);
       }
 
       ContCrash.tryCatch(() {
@@ -161,7 +161,7 @@ final class Cont<E, F, A> {
             guardedOnThen,
           ),
         );
-      }).match((_) {}, guardedOnCrash);
+      })._ifCrash(guardedOnCrash);
     });
   }
 
@@ -236,15 +236,15 @@ final class Cont<E, F, A> {
                 },
                 onThen: (next) {
                   switch (next) {
-                    case TailRecNext(state: final state):
+                    case NextTailRec(state: final state):
                       update(_Value1(state));
-                    case TailRecDone(result: final result):
+                    case DoneTailRec(result: final result):
                       update(_Value3(_Right(result)));
                   }
                 },
               ),
             );
-          }).match((_) {}, (crash) {
+          })._ifCrash((crash) {
             update(_Value2(crash));
           });
         },
@@ -496,7 +496,7 @@ final class Cont<E, F, A> {
         return left.crashDo((crash1) {
           return right.crashDo((crash2) {
             return Cont.crash(
-              MergedCrash(crash1, crash2),
+              MergedCrash._(crash1, crash2),
             );
           });
         });

@@ -2,12 +2,12 @@ import 'package:jerelo/jerelo.dart';
 import 'package:test/test.dart';
 
 NormalCrash crashOf(Object error) {
-  return ContCrash.tryCatch<void>(() {
+  return switch (ContCrash.tryCatch<void>(() {
     throw error;
-  }).match(
-    (_) => throw StateError('expected a crash'),
-    (crash) => crash,
-  );
+  })) {
+    CrashCrashOr(crash: final crash) => crash,
+    ValueCrashOr() => throw StateError('expected a crash'),
+  };
 }
 
 void main() {

@@ -88,7 +88,7 @@ Cont<E, F, List<A>> _quitFastAll<E, F, A>(
               onThen: onCollect,
             ),
           );
-        }).match((_) {}, onCrash);
+        })._ifCrash(onCrash);
       },
       onFirstQuitFast: observer.onElse,
       onAllCollected: observer.onThen,
@@ -105,7 +105,7 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
-      observer.onCrash(CollectedCrash({}));
+      observer.onCrash(CollectedCrash._({}));
       return;
     }
 
@@ -135,7 +135,7 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
       if (numberOfCrashed >= total) {
         isDone = true;
         observer.onCrash(
-          CollectedCrash(Map.from(crashes)),
+          CollectedCrash._(Map.from(crashes)),
         );
       }
     }
@@ -150,7 +150,7 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
             onThen: handleThen,
           ),
         );
-      }).match((_) {}, (crash) {
+      })._ifCrash((crash) {
         handleCrash(i, crash);
       });
     }
@@ -176,7 +176,7 @@ Cont<E, List<F>, A> _quitFastAny<E, F, A>(
               onElse: onCollect,
             ),
           );
-        }).match((_) {}, onCrash);
+        })._ifCrash(onCrash);
       },
       onFirstQuitFast: observer.onThen,
       onAllCollected: observer.onElse,

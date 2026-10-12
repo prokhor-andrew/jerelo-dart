@@ -89,5 +89,4 @@ void main() {
       expect(second, equals(42));
     });
   });
-
 }

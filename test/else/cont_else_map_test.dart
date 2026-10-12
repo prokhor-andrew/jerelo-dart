@@ -78,5 +78,4 @@ void main() {
       expect(crash, isA<NormalCrash>());
     });
   });
-
 }

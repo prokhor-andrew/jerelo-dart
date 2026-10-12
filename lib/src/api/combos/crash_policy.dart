@@ -21,7 +21,7 @@ sealed class CrashPolicy<E, A> {
   /// which fits any `CrashPolicy<E, A>` and leaves the combinator's types to
   /// be inferred from its continuations.
   static CrashPolicy<Never, Never> sequence() {
-    return const SequenceCrashPolicy();
+    return const SequenceCrashPolicy._();
   }
 
   /// Parallel quit-fast crash policy.
@@ -36,7 +36,7 @@ sealed class CrashPolicy<E, A> {
   /// which fits any `CrashPolicy<E, A>` and leaves the combinator's types to
   /// be inferred from its continuations.
   static CrashPolicy<Never, Never> quitFast() {
-    return const QuitFastCrashPolicy();
+    return const QuitFastCrashPolicy._();
   }
 
   /// Parallel run-all crash policy.
@@ -56,7 +56,7 @@ sealed class CrashPolicy<E, A> {
     required E Function(E e1, E e2) combineElseVals,
     required A Function(A a1, A a2) combineThenVals,
   }) {
-    return RunAllCrashPolicy(
+    return RunAllCrashPolicy._(
       shouldFavorElse: shouldFavorElse,
       combineElseVals: combineElseVals,
       combineThenVals: combineThenVals,
@@ -72,7 +72,7 @@ sealed class CrashPolicy<E, A> {
 /// See [CrashPolicy.sequence].
 final class SequenceCrashPolicy<E, A>
     extends CrashPolicy<E, A> {
-  const SequenceCrashPolicy();
+  const SequenceCrashPolicy._();
 }
 
 /// Parallel quit-fast crash policy for [Cont.coalesce] and [Cont.converge].
@@ -82,7 +82,7 @@ final class SequenceCrashPolicy<E, A>
 /// See [CrashPolicy.quitFast].
 final class QuitFastCrashPolicy<E, A>
     extends CrashPolicy<E, A> {
-  const QuitFastCrashPolicy();
+  const QuitFastCrashPolicy._();
 }
 
 /// Parallel run-all crash policy for [Cont.coalesce] and [Cont.converge].
@@ -103,7 +103,7 @@ final class RunAllCrashPolicy<E, A>
   /// Function to merge two then (success) values of type [A].
   final A Function(A a1, A a2) combineThenVals;
 
-  const RunAllCrashPolicy({
+  const RunAllCrashPolicy._({
     required this.shouldFavorElse,
     required this.combineElseVals,
     required this.combineThenVals,

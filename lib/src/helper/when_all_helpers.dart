@@ -38,7 +38,7 @@ Cont<E, F, A3> _bothWhenAll<E, F, A1, A2, A3>(
           onThen: (a) => handlePrimary(_Left(a)),
         ),
       );
-    }).match((_) {}, observer.onCrash);
+    })._ifCrash(observer.onCrash);
 
     ContCrash.tryCatch(() {
       right.runWith(
@@ -49,7 +49,7 @@ Cont<E, F, A3> _bothWhenAll<E, F, A1, A2, A3>(
           onThen: (a2) => handlePrimary(_Right(a2)),
         ),
       );
-    }).match((_) {}, observer.onCrash);
+    })._ifCrash(observer.onCrash);
   });
 }
 
@@ -91,7 +91,7 @@ Cont<E, F3, A> _eitherWhenAll<E, F1, F2, F3, A>(
           onThen: (a) => handleSecondary(_Left(a)),
         ),
       );
-    }).match((_) {}, observer.onCrash);
+    })._ifCrash(observer.onCrash);
 
     ContCrash.tryCatch(() {
       right.runWith(
@@ -102,7 +102,7 @@ Cont<E, F3, A> _eitherWhenAll<E, F1, F2, F3, A>(
           onThen: (a2) => handleSecondary(_Right(a2)),
         ),
       );
-    }).match((_) {}, observer.onCrash);
+    })._ifCrash(observer.onCrash);
   });
 }
 
@@ -147,7 +147,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
                   // A, A -> A'
                   ContCrash.tryCatch(() {
                     observer.onThen(combineValues(a1, a2));
-                  }).match((_) {}, observer.onCrash);
+                  })._ifCrash(observer.onCrash);
                 case _Step1CaseLeftNullRightSecondary<A, A,
                       F, F>(f2: final f2):
                   // A, E -> ?
@@ -173,7 +173,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
                   // A, A -> A'
                   ContCrash.tryCatch(() {
                     observer.onThen(combineValues(a1, a2));
-                  }).match((_) {}, observer.onCrash);
+                  })._ifCrash(observer.onCrash);
                 case _Step1CaseLeftSecondaryRightNull<A, A,
                       F, F>(f1: final f1):
                   // E, A -> ?
@@ -238,7 +238,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
                   // E, E -> E'
                   ContCrash.tryCatch(() {
                     observer.onElse(combineErrors(f1, f2));
-                  }).match((_) {}, observer.onCrash);
+                  })._ifCrash(observer.onCrash);
                 case _Step1CaseLeftCrashRightNull<A, A, F,
                       F>():
                   break; // unreachable
@@ -264,7 +264,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
                   // E, E -> E'
                   ContCrash.tryCatch(() {
                     observer.onElse(combineErrors(f1, f2));
-                  }).match((_) {}, observer.onCrash);
+                  })._ifCrash(observer.onCrash);
                 case _Step1CaseLeftNullRightPrimary<A, A, F,
                       F>():
                   break; // unreachable
@@ -331,7 +331,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
                   ):
                   // C, C -> MC
                   observer.onCrash(
-                      MergedCrash(crash, rightCrash));
+                      MergedCrash._(crash, rightCrash));
               }
             case _Right<ContCrash, ContCrash>(
                 value: final crash
@@ -359,7 +359,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
                   ):
                   // C, C -> MC
                   observer.onCrash(
-                      MergedCrash(leftCrash, crash));
+                      MergedCrash._(leftCrash, crash));
                 case _Step1CaseLeftNullRightCrash<A, A, F,
                       F>():
                   break; // unreachable
@@ -377,7 +377,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
           onThen: (a) => handleThen(_Left(a)),
         ),
       );
-    }).match((_) {}, (crash) {
+    })._ifCrash((crash) {
       handleCrash(_Left(crash));
     });
 
@@ -390,7 +390,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
           onThen: (a) => handleThen(_Right(a)),
         ),
       );
-    }).match((_) {}, (crash) {
+    })._ifCrash((crash) {
       handleCrash(_Right(crash));
     });
   });
@@ -477,7 +477,7 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
                 ContCrash.tryCatch(() {
                   final A3 a3 = combinePrimary(a1, a2);
                   onPrimary(a3);
-                }).match((_) {}, onCrash);
+                })._ifCrash(onCrash);
               case _Step1CaseLeftNullRightSecondary<A1, A2,
                     F1, F2>(f2: final f2):
                 onSecondary(_Value2(f2));
@@ -497,7 +497,7 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
                 ContCrash.tryCatch(() {
                   final A3 a3 = combinePrimary(a1, a2);
                   onPrimary(a3);
-                }).match((_) {}, onCrash);
+                })._ifCrash(onCrash);
 
               case _Step1CaseLeftSecondaryRightNull<A1, A2,
                     F1, F2>(f1: final f1):
@@ -554,7 +554,7 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
                 ContCrash.tryCatch(() {
                   final F3 f3 = combineSecondary(f1, f2);
                   onSecondary(_Value3(f3));
-                }).match((_) {}, onCrash);
+                })._ifCrash(onCrash);
               case _Step1CaseLeftCrashRightNull<A1, A2, F1,
                     F2>():
                 break; // we can't get left error when we already have left crash - unreachable state
@@ -576,7 +576,7 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
                 ContCrash.tryCatch(() {
                   final F3 f3 = combineSecondary(f1, f2);
                   onSecondary(_Value3(f3));
-                }).match((_) {}, onCrash);
+                })._ifCrash(onCrash);
               case _Step1CaseLeftNullRightPrimary<A1, A2,
                     F1, F2>():
                 break; // we can't get right error when we already have right value - unreachable state
@@ -642,7 +642,7 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
                 break; // we can't get left crash when we already have left crash - unreachable state
               case _Step1CaseLeftNullRightCrash<A1, A2, F1,
                     F2>(crash: final rightCrash):
-                onCrash(MergedCrash(crash, rightCrash));
+                onCrash(MergedCrash._(crash, rightCrash));
             }
           case _Right<ContCrash, ContCrash>(
               value: final crash
@@ -666,7 +666,7 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
                 break; // we can't get right crash when we already have right error - unreachable state
               case _Step1CaseLeftCrashRightNull<A1, A2, F1,
                     F2>(crash: final leftCrash):
-                onCrash(MergedCrash(leftCrash, crash));
+                onCrash(MergedCrash._(leftCrash, crash));
               case _Step1CaseLeftNullRightCrash<A1, A2, F1,
                     F2>():
                 break; // we can't get right crash when we already have right crash - unreachable state

@@ -22,7 +22,7 @@ sealed class OkPolicy<T> {
   /// any `OkPolicy<T>` and leaves the combinator's types to be inferred from
   /// its continuations.
   static OkPolicy<Never> sequence() {
-    return const SequenceOkPolicy();
+    return const SequenceOkPolicy._();
   }
 
   /// Parallel quit-fast policy.
@@ -36,7 +36,7 @@ sealed class OkPolicy<T> {
   /// any `OkPolicy<T>` and leaves the combinator's types to be inferred from
   /// its continuations.
   static OkPolicy<Never> quitFast() {
-    return const QuitFastOkPolicy();
+    return const QuitFastOkPolicy._();
   }
 
   /// Parallel run-all policy.
@@ -60,7 +60,7 @@ sealed class OkPolicy<T> {
     T Function(T t1, T t2) combine, {
     required bool shouldFavorCrash,
   }) {
-    return RunAllOkPolicy(
+    return RunAllOkPolicy._(
       combine,
       shouldFavorCrash: shouldFavorCrash,
     );
@@ -74,7 +74,7 @@ sealed class OkPolicy<T> {
 /// next one runs only if the previous one ended on the own channel.
 /// See [OkPolicy.sequence].
 final class SequenceOkPolicy<T> extends OkPolicy<T> {
-  const SequenceOkPolicy();
+  const SequenceOkPolicy._();
 }
 
 /// Parallel quit-fast execution policy for [Cont.both], [Cont.all],
@@ -84,7 +84,7 @@ final class SequenceOkPolicy<T> extends OkPolicy<T> {
 /// for `either`/`any`) or the first crash short-circuits the rest.
 /// See [OkPolicy.quitFast].
 final class QuitFastOkPolicy<T> extends OkPolicy<T> {
-  const QuitFastOkPolicy();
+  const QuitFastOkPolicy._();
 }
 
 /// Parallel run-all execution policy for [Cont.both], [Cont.all],
@@ -103,7 +103,7 @@ final class RunAllOkPolicy<T> extends OkPolicy<T> {
   /// effect when the other outcome is on the own channel: the crash wins.
   final bool shouldFavorCrash;
 
-  const RunAllOkPolicy(
+  const RunAllOkPolicy._(
     this.combine, {
     required this.shouldFavorCrash,
   });

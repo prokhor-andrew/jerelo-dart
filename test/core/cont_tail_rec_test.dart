@@ -113,8 +113,8 @@ void main() {
       Cont.tailRecM<int, String, int, int>(0, (n) {
         return Cont.askThen<int, String>().thenMap((limit) {
           return n >= limit
-              ? TailRec<int, int>.done(n)
-              : TailRec<int, int>.next(n + 1);
+              ? TailRec.done<int, int>(n)
+              : TailRec.next<int, int>(n + 1);
         });
       }).run(7, onThen: (v) => result = v);
 
@@ -124,42 +124,42 @@ void main() {
 
   group('TailRec', () {
     test('next steps with equal states are equal', () {
-      const a = TailRec<int, String>.next(1);
-      final b = TailRec<int, String>.next(1);
+      final a = TailRec.next<int, String>(1);
+      final b = TailRec.next<int, String>(1);
 
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
       expect(
-          a, isNot(equals(TailRec<int, String>.next(2))));
+          a, isNot(equals(TailRec.next<int, String>(2))));
     });
 
     test('done steps with equal results are equal', () {
-      const a = TailRec<int, String>.done('x');
-      final b = TailRec<int, String>.done('x');
+      final a = TailRec.done<int, String>('x');
+      final b = TailRec.done<int, String>('x');
 
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
       expect(
-          a, isNot(equals(TailRec<int, String>.done('y'))));
+          a, isNot(equals(TailRec.done<int, String>('y'))));
     });
 
     test('next and done are never equal', () {
-      const next = TailRec<int, int>.next(1);
-      const done = TailRec<int, int>.done(1);
+      final next = TailRec.next<int, int>(1);
+      final done = TailRec.done<int, int>(1);
 
       expect(next, isNot(equals(done)));
       expect(done, isNot(equals(next)));
     });
 
     test('next and done expose their values', () {
-      const next = TailRec<int, String>.next(1);
-      const done = TailRec<int, String>.done('x');
+      final next = TailRec.next<int, String>(1);
+      final done = TailRec.done<int, String>('x');
 
-      expect(next, isA<TailRecNext<int, String>>());
-      expect((next as TailRecNext<int, String>).state, 1);
-      expect(done, isA<TailRecDone<int, String>>());
+      expect(next, isA<NextTailRec<int, String>>());
+      expect((next as NextTailRec<int, String>).state, 1);
+      expect(done, isA<DoneTailRec<int, String>>());
       expect(
-          (done as TailRecDone<int, String>).result, 'x');
+          (done as DoneTailRec<int, String>).result, 'x');
     });
   });
 }
