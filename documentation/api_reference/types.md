@@ -16,6 +16,9 @@ Core types used throughout the Jerelo continuation library.
 - [ContRuntime](#contruntime)
 - [ContObserver](#contobserver)
   - [SafeObserver](#safeobserver)
+- [TailRec](#tailrec)
+  - [TailRecNext](#tailrecnext)
+  - [TailRecDone](#tailrecdone)
 
 ---
 
@@ -290,3 +293,68 @@ Used by `Cont.fromRun` to wrap user-provided callbacks with idempotence and exce
 **Fields:**
 - `isUsed: bool Function()` — Returns `true` if any callback on this observer has already been invoked
 
+---
+
+## TailRec
+
+```dart
+sealed class TailRec<S, A>
+```
+
+One step of [`Cont.tailRecM`](construction.md#conttailrecm): continue the loop with a new state, or finish it with a result.
+
+- **Type Parameters:**
+  - `S`: The loop state
+  - `A`: The result of the loop
+
+**Constructors:**
+
+```dart
+const factory TailRec.next(S state)
+```
+Continues the loop with `state`. Creates a `TailRecNext`.
+
+```dart
+const factory TailRec.done(A result)
+```
+Finishes the loop with `result`. Creates a `TailRecDone`.
+
+**Example:**
+```dart
+TailRec<int, String> step(int n) {
+  return n < 3 ? TailRec.next(n + 1) : TailRec.done('finished at $n');
+}
+
+switch (step(1)) {
+  case TailRecNext(state: final state):
+    print('next: $state');
+  case TailRecDone(result: final result):
+    print('done: $result');
+}
+```
+
+---
+
+### TailRecNext
+
+```dart
+final class TailRecNext<S, A> extends TailRec<S, A>
+```
+
+A `TailRec` step that continues the loop.
+
+**Fields:**
+- `state: S` — The state for the next iteration
+
+---
+
+### TailRecDone
+
+```dart
+final class TailRecDone<S, A> extends TailRec<S, A>
+```
+
+A `TailRec` step that finishes the loop.
+
+**Fields:**
+- `result: A` — The result of the loop

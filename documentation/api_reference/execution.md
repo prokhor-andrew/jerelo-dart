@@ -15,6 +15,8 @@ Running continuations and specialized extensions.
   - [flatten](#flatten)
   - [thenAbsurd](#thenabsurd)
   - [elseAbsurd](#elseabsurd)
+  - [thenUnit](#thenunit)
+  - [elseUnit](#elseunit)
 
 ---
 
@@ -168,3 +170,40 @@ final infallible = Cont.of<(), Never, int>(42);
 final Cont<(), String, int> compatible = infallible.elseAbsurd<String>();
 ```
 
+---
+
+### thenUnit
+
+```dart
+extension ContUnitExtension<E, F, A> on Cont<E, F, A>
+```
+
+```dart
+Cont<E, F, ()> thenUnit()
+```
+
+Replaces the success value with `()`.
+
+Use it when only the fact that the continuation succeeded matters. The unit type `()` is the terminal object: every type has exactly one function into it. This makes `thenUnit` the dual of `thenAbsurd`.
+
+**Example:**
+```dart
+final Cont<(), String, ()> saved = saveUser(user).thenUnit();
+```
+
+---
+
+### elseUnit
+
+```dart
+Cont<E, (), A> elseUnit()
+```
+
+Replaces the error with `()`.
+
+Use it when only the fact that the continuation failed matters. The error-channel counterpart of `thenUnit`, and the dual of `elseAbsurd`.
+
+**Example:**
+```dart
+final Cont<(), (), User> user = fetchUser(userId).elseUnit();
+```
