@@ -4,12 +4,6 @@ part 'api/cont_crash.dart';
 part 'api/cont_runtime.dart';
 part 'api/cont_observer.dart';
 part 'api/cont_cancel_token.dart';
-part 'api/then/fork.dart';
-part 'api/else/fork.dart';
-part 'api/then/while.dart';
-part 'api/else/while.dart';
-part 'api/crash/fork.dart';
-part 'api/crash/while.dart';
 part 'helper/utils.dart';
 
 part 'helper/sequence_helpers.dart';
@@ -194,21 +188,6 @@ final class Cont<E, F, A> {
           ),
         );
       }).match((_) {}, guardedOnCrash);
-    });
-  }
-
-  /// Creates a [Cont] from a deferred continuation computation.
-  ///
-  /// Lazily evaluates a continuation-returning function. The inner [Cont] is
-  /// not created until the outer one is executed.
-  ///
-  /// - [thunk]: Function that returns a [Cont] when called.
-  static Cont<E, F, A> fromDeferred<E, F, A>(
-    Cont<E, F, A> Function() thunk,
-  ) {
-    return Cont.fromRun((runtime, observer) {
-      Cont<E, F, A> contA = thunk();
-      contA.runWith(runtime, observer);
     });
   }
 
@@ -526,116 +505,6 @@ final class Cont<E, F, A> {
           shouldFavorElse,
         );
     }
-  }
-
-  /// Acquires a resource, uses it, and guarantees its release.
-  ///
-  /// Implements the bracket pattern for safe resource management. Regardless
-  /// of whether [use] succeeds, fails, or crashes, [release] is always called
-  /// with the acquired resource.
-  ///
-  /// - [acquire]: Obtains the resource. Cannot produce a business-logic error
-  ///   (error type is [Never]); it can only succeed or crash.
-  /// - [release]: Releases the resource. Cannot produce a business-logic error
-  ///   (error type is [Never]); it can only succeed or crash. Release is
-  ///   fire-and-forget: the [use] outcome is propagated immediately and
-  ///   [release] runs independently. Release outcomes are routed to the
-  ///   optional [onReleasePanic], [onReleaseCrash], and [onReleaseThen]
-  ///   callbacks, following the same pattern as fork handlers: a throw
-  ///   from [release] itself (while building the release continuation)
-  ///   goes to [onReleasePanic], and a crash inside the returned
-  ///   continuation goes to [onReleaseCrash].
-  /// - [use]: Uses the resource; may succeed with [A], fail with [F], or crash.
-  ///
-  /// Outcome rules:
-  /// - [use] succeeded  → propagate the success value immediately.
-  /// - [use] failed     → propagate the failure error immediately.
-  /// - [use] crashed    → propagate the crash immediately.
-  /// - [release] outcomes are routed to the release handlers.
-  ///
-  /// Cancellation:
-  /// - [acquire] always runs to completion, so an acquired resource is
-  ///   never lost.
-  /// - Cancelled before [use] starts → [release] runs as soon as [acquire]
-  ///   completes; the observer receives nothing.
-  /// - Cancelled while [use] runs → [release] runs immediately, without
-  ///   waiting for [use]. [use] may then fail on the released resource;
-  ///   its outcome is dropped.
-  /// - [release] runs at most once and is never cancelled.
-  static Cont<E, F, A> bracket<R, E, F, A>({
-    required Cont<E, Never, R> acquire,
-    required Cont<E, Never, ()> Function(
-      R resource,
-    ) release,
-    required Cont<E, F, A> Function(R resource) use,
-    void Function(NormalCrash crash) onReleasePanic =
-        _panic,
-    void Function(ContCrash crash) onReleaseCrash = _ignore,
-    void Function() onReleaseThen = _voidIgnore,
-  }) {
-    return Cont.fromRun((runtime, observer) {
-      // acquire always runs to completion, so an acquired resource is
-      // never lost to cancellation: if the run was cancelled meanwhile, it
-      // is released right away below
-      acquire.elseAbsurd<F>().runWith(
-        runtime._uncancellable(),
-        observer.copyUpdateOnThen<R>((r) {
-          bool isReleased = false;
-
-          void fireRelease() {
-            if (isReleased) {
-              return;
-            }
-            isReleased = true;
-
-            ContCrash.tryCatch(() {
-              release(r).run(
-                runtime.env(),
-                onPanic: onReleasePanic,
-                onCrash: onReleaseCrash,
-                onThen: (_) => onReleaseThen(),
-              );
-            }).match((_) {}, onReleasePanic);
-          }
-
-          if (runtime.isCancelled()) {
-            fireRelease();
-            return;
-          }
-
-          // cancellation while use runs releases the resource immediately;
-          // use's outcome is then dropped
-          final unregister = runtime.onCancel(fireRelease);
-
-          void finish(void Function() forward) {
-            unregister();
-            if (!runtime.isCancelled()) {
-              forward();
-            }
-            fireRelease();
-          }
-
-          ContCrash.tryCatch(() {
-            use(r).runWith(
-              runtime,
-              observer.copyUpdate(
-                onCrash: (crash) {
-                  finish(() => observer.onCrash(crash));
-                },
-                onElse: (error) {
-                  finish(() => observer.onElse(error));
-                },
-                onThen: (a) {
-                  finish(() => observer.onThen(a));
-                },
-              ),
-            );
-          }).match((_) {}, (crash) {
-            finish(() => observer.onCrash(crash));
-          });
-        }),
-      );
-    });
   }
 }
 

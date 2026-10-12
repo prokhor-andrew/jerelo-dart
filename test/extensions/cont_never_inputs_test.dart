@@ -139,15 +139,6 @@ void main() {
       expect(result, equals(1));
     });
 
-    test('fromDeferred', () {
-      int? result;
-
-      Cont.fromDeferred<(), String, int>(() => neverFails)
-          .run((), onThen: (v) => result = v);
-
-      expect(result, equals(1));
-    });
-
     test('thenInject', () {
       int? result;
       ContCrash? crash;

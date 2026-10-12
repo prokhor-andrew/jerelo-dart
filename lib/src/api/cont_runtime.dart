@@ -80,8 +80,4 @@ final class ContRuntime<E> {
     );
   }
 
-  /// Returns a runtime with the same environment that is never cancelled.
-  ContRuntime<E> _uncancellable() {
-    return ContRuntime._(_env, _CancelNode._root());
-  }
 }

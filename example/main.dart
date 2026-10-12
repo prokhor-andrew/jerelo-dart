@@ -258,12 +258,12 @@ Cont<void, String, AuthToken> loginWithFallbackStrategy() {
 void main() {
   print('=== 1. Login flow (thenDo + thenMap) ===');
   loginFlow('user@test.com', 'secret')
-      // thenTap: log the session without altering the value passed downstream.
-      .thenTap((session) {
+      // thenMap: log the session and pass it on unchanged.
+      .thenMap((session) {
     print(
       '  [LOG] Authenticated as ${session.profile.name}',
     );
-    return Cont.of(());
+    return session;
   }).run(
     null,
     onThen: (session) => print('  -> Success: $session\n'),
@@ -294,9 +294,9 @@ void main() {
   print(
     '=== 4. Login with fallback strategy (Cont.either) ===',
   );
-  loginWithFallbackStrategy().thenTap((token) {
+  loginWithFallbackStrategy().thenMap((token) {
     print('  [LOG] Got token via fallback: $token');
-    return Cont.of(());
+    return token;
   }).run(
     null,
     onThen: (token) => print('  -> Token: $token\n'),
@@ -307,9 +307,9 @@ void main() {
   print(
     '=== 5. Full session lifecycle (login -> update -> logout) ===',
   );
-  loginFlow('user@test.com', 'secret').thenTap((session) {
+  loginFlow('user@test.com', 'secret').thenMap((session) {
     print('  [LOG] Session started');
-    return Cont.of(());
+    return session;
   }).thenDo((session) {
     return fetchAndUpdateProfile(
       session.token.accessToken,
@@ -323,12 +323,12 @@ void main() {
   }).thenDo((session) {
     return logoutRequest(
       session.token.accessToken,
-    ).thenMapTo(session);
-  }).thenTap((session) {
+    ).thenMap((_) => session);
+  }).thenMap((session) {
     print(
       '  [LOG] Session ended for ${session.profile.name}',
     );
-    return Cont.of(());
+    return session;
   }).run(
     null,
     onThen: (session) => print('  -> Final: $session\n'),

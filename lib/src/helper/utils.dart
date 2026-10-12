@@ -1,9 +1,5 @@
 part of '../cont.dart';
 
-typedef _KeepGoing = ();
-typedef _Cancelled = ();
-typedef _IgnoredPayload = ();
-
 sealed class _Either<A, B> {
   const _Either();
 }
