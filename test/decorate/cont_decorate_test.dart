@@ -141,25 +141,6 @@ void main() {
       expect(capturedEnv, equals('myEnv'));
     });
 
-    test('cancellation prevents execution', () async {
-      bool ran = false;
-
-      final cont = Cont.fromRun<(), String, int>(
-          (runtime, observer) {
-        ran = true;
-        observer.onThen(42);
-      }).decorate((run, runtime, observer) {
-        Future.microtask(() => run(runtime, observer));
-      });
-
-      final token = cont.run(());
-      token.cancel();
-
-      await Future.delayed(Duration.zero);
-
-      expect(ran, isFalse);
-    });
-
     test('calling run twice is idempotent', () {
       int thenCallCount = 0;
 

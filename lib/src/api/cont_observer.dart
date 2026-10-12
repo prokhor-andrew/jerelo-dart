@@ -5,7 +5,7 @@ part of '../cont.dart';
 /// [ContObserver] is the callback container passed to [Cont.runWith]. It holds
 /// three outcome callbacks — [onCrash], [onElse], and [onThen] — at most one
 /// of which will be invoked: exactly one when the continuation completes,
-/// none when it is cancelled or runs forever.
+/// none when it never completes.
 ///
 /// Use the `copyUpdate*` family of methods to derive observers with selectively
 /// overridden callbacks while preserving the rest of the original observer's state.

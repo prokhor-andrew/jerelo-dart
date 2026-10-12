@@ -3,7 +3,6 @@ import 'package:jerelo/jerelo.dart';
 part 'api/cont_crash.dart';
 part 'api/cont_runtime.dart';
 part 'api/cont_observer.dart';
-part 'api/cont_cancel_token.dart';
 part 'helper/utils.dart';
 
 part 'helper/sequence_helpers.dart';
@@ -43,8 +42,6 @@ final class Cont<E, F, A> {
   /// Executes the continuation with the given environment.
   ///
   /// Runs the continuation and routes its outcome to the appropriate callback.
-  /// Returns a [ContCancelToken] that can be used to cooperatively cancel
-  /// the running computation.
   ///
   /// - [env]: The environment value to provide to the computation.
   /// - [onPanic]: Called when an unexpected exception escapes all crash handlers.
@@ -57,22 +54,17 @@ final class Cont<E, F, A> {
   ///   Defaults to silently ignoring the error.
   /// - [onThen]: Called when the computation succeeds with a value.
   ///   Defaults to silently ignoring the value.
-  ContCancelToken run(
+  void run(
     E env, {
     void Function(NormalCrash crash) onPanic = _panic,
     void Function(ContCrash crash) onCrash = _ignore,
     void Function(F error) onElse = _ignore,
     void Function(A value) onThen = _ignore,
   }) {
-    final cancelToken = ContCancelToken._();
-    cancelToken._node._onPanic = onPanic;
-
     runWith(
-      ContRuntime._(env, cancelToken._node),
+      ContRuntime._(env),
       _UnsafeObserver._(onPanic, onCrash, onElse, onThen),
     );
-
-    return cancelToken;
   }
 
   /// Creates a [Cont] from a run function that accepts an observer.
@@ -106,10 +98,6 @@ final class Cont<E, F, A> {
       onElse,
       onThen,
     ) {
-      if (runtime.isCancelled()) {
-        return;
-      }
-
       void onPanic(NormalCrash crash) {
         ContCrash.tryCatch(() {
           onUnsafePanic(crash);
@@ -124,11 +112,6 @@ final class Cont<E, F, A> {
       bool isDone = false;
 
       void guardedOnCrash(ContCrash crash) {
-        if (runtime.isCancelled()) {
-          isDone = true;
-          return;
-        }
-
         if (isDone) {
           return;
         }
@@ -141,11 +124,6 @@ final class Cont<E, F, A> {
       }
 
       void guardedOnElse(F error) {
-        if (runtime.isCancelled()) {
-          isDone = true;
-          return;
-        }
-
         if (isDone) {
           return;
         }
@@ -158,11 +136,6 @@ final class Cont<E, F, A> {
       }
 
       void guardedOnThen(A a) {
-        if (runtime.isCancelled()) {
-          isDone = true;
-          return;
-        }
-
         if (isDone) {
           return;
         }
@@ -522,7 +495,7 @@ extension ContRunWithExtension<E, F, A> on Cont<E, F, A> {
   /// internally or when a [ContRuntime] and [ContObserver] are already
   /// available from an enclosing computation.
   ///
-  /// - [runtime]: The runtime context providing the environment and cancellation state.
+  /// - [runtime]: The runtime context providing the environment.
   /// - [observer]: The observer whose callbacks receive the computation's outcome.
   void runWith(
     ContRuntime<E> runtime,

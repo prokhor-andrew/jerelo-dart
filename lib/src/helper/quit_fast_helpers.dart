@@ -98,17 +98,12 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   Cont<E, F, A> left,
   Cont<E, F, A> right,
 ) {
-  return Cont.fromRun((runtime0, observer) {
+  return Cont.fromRun((runtime, observer) {
     final _QuitFastStateHolder<ContCrash, ContCrash>
         holder = _QuitFastStateHolder();
 
-    // a child scope, cancelled once the race is decided, so that callbacks
-    // registered with onCancel by the losing side (e.g. bracket) still run
-    final (:runtime, :cancel) = runtime0.withCancellation();
-    holder.onDone = cancel;
-
     void handleThen(A a) {
-      if (runtime.isCancelled()) {
+      if (holder.state == null) {
         return;
       }
       holder.state = null;
@@ -116,7 +111,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
     }
 
     void handleElse(F f) {
-      if (runtime.isCancelled()) {
+      if (holder.state == null) {
         return;
       }
       holder.state = null;
@@ -124,7 +119,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
     }
 
     void handleCrash(_Either<ContCrash, ContCrash> either) {
-      if (runtime.isCancelled()) {
+      if (holder.state == null) {
         return;
       }
 
@@ -132,7 +127,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
         case _Left<ContCrash, ContCrash>(value: final c1):
           switch (holder.state) {
             case null:
-              break; // cancelled, do nothing
+              break; // already decided, do nothing
             case _QuitFastStep0<ContCrash, ContCrash>():
               holder.state =
                   _QuitFastLeftSecondaryRightNull(c1);
@@ -147,7 +142,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
         case _Right<ContCrash, ContCrash>(value: final c2):
           switch (holder.state) {
             case null:
-              break; // cancelled, do nothing
+              break; // already decided, do nothing
             case _QuitFastStep0<ContCrash, ContCrash>():
               holder.state =
                   _QuitFastLeftNullRightSecondary(c2);
@@ -209,14 +204,8 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   final _QuitFastStateHolder<F1, F2> holder =
       _QuitFastStateHolder();
 
-  // a child scope, cancelled once the race is decided, so that callbacks
-  // registered with onCancel by the losing side (e.g. bracket) still run
-  final child = runtime.withCancellation();
-  holder.onDone = child.cancel;
-  runtime = child.runtime;
-
   void handleCrash(ContCrash crash) {
-    if (runtime.isCancelled()) {
+    if (holder.state == null) {
       return;
     }
     holder.state = null;
@@ -224,7 +213,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   }
 
   void handlePrimary(A a) {
-    if (runtime.isCancelled()) {
+    if (holder.state == null) {
       return;
     }
 
@@ -233,7 +222,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   }
 
   void handleSecondary(_Either<F1, F2> either) {
-    if (runtime.isCancelled()) {
+    if (holder.state == null) {
       return;
     }
 
@@ -241,7 +230,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
       case _Left<F1, F2>(value: final f1):
         switch (holder.state) {
           case null:
-            break; // cancelled, do nothing
+            break; // already decided, do nothing
           case _QuitFastStep0<F1, F2>():
             holder.state = _QuitFastLeftSecondaryRightNull(
               f1,
@@ -259,7 +248,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
         }
       case _Right<F1, F2>(value: final f2):
         switch (holder.state) {
-          case null: // cancelled, do nothing
+          case null: // already decided, do nothing
             break;
           case _QuitFastStep0<F1, F2>():
             holder.state = _QuitFastLeftNullRightSecondary(
@@ -289,21 +278,10 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
 }
 
 final class _QuitFastStateHolder<F1, F2> {
-  _QuitFastStep<F1, F2>? _state = const _QuitFastStep0();
-
-  /// Called once [state] becomes `null`, i.e. the race is decided.
-  void Function() onDone = _voidIgnore;
+  /// `null` once the race is decided.
+  _QuitFastStep<F1, F2>? state = const _QuitFastStep0();
 
   _QuitFastStateHolder();
-
-  _QuitFastStep<F1, F2>? get state => _state;
-
-  set state(_QuitFastStep<F1, F2>? state) {
-    _state = state;
-    if (state == null) {
-      onDone();
-    }
-  }
 }
 
 sealed class _QuitFastStep<F1, F2> {

@@ -2,8 +2,8 @@
 ///
 /// Provides [Cont], a powerful abstraction for composing asynchronous and
 /// effectful computations using continuation-passing style. Supports
-/// environment injection, error handling, parallel and sequential composition,
-/// resource management, and cooperative cancellation.
+/// environment injection, error handling, and parallel and sequential
+/// composition.
 library;
 
 export 'src/cont.dart';

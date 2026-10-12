@@ -79,25 +79,5 @@ void main() {
       expect(first, equals(42));
       expect(second, equals(42));
     });
-
-    test('supports cancellation', () async {
-      bool secondStepRan = false;
-
-      final cont = Cont.fromRun<(), String, int>(
-          (runtime, observer) {
-        Future.microtask(() => observer.onThen(42));
-      }).thenDo((_) => Cont.fromRun<(), String, int>(
-              (runtime, observer) {
-            secondStepRan = true;
-            observer.onThen(84);
-          }));
-
-      final token = cont.run(());
-      token.cancel();
-
-      await Future.delayed(Duration.zero);
-
-      expect(secondStepRan, isFalse);
-    });
   });
 }

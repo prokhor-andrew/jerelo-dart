@@ -118,10 +118,6 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
         _WhenAllStateHolder();
 
     void handleThen(_Either<A, A> either) {
-      if (runtime.isCancelled()) {
-        return;
-      }
-
       switch (holder.state) {
         case _Step0<A, A, F, F>():
           switch (either) {
@@ -205,10 +201,6 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
     }
 
     void handleElse(_Either<F, F> either) {
-      if (runtime.isCancelled()) {
-        return;
-      }
-
       switch (holder.state) {
         case _Step0<A, A, F, F>():
           switch (either) {
@@ -292,10 +284,6 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
     }
 
     void handleCrash(_Either<ContCrash, ContCrash> either) {
-      if (runtime.isCancelled()) {
-        return;
-      }
-
       switch (holder.state) {
         case _Step0<A, A, F, F>():
           switch (either) {
@@ -456,10 +444,6 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
       _WhenAllStateHolder();
 
   void handlePrimary(_Either<A1, A2> either) {
-    if (runtime.isCancelled()) {
-      return;
-    }
-
     switch (holder.state) {
       case _Step0<A1, A2, F1, F2>():
         switch (either) {
@@ -536,10 +520,6 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
   }
 
   void handleSecondary(_Either<F1, F2> either) {
-    if (runtime.isCancelled()) {
-      return;
-    }
-
     switch (holder.state) {
       case _Step0<A1, A2, F1, F2>():
         switch (either) {
@@ -619,10 +599,6 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
   }
 
   void handleCrash(_Either<ContCrash, ContCrash> either) {
-    if (runtime.isCancelled()) {
-      return;
-    }
-
     switch (holder.state) {
       case _Step0<A1, A2, F1, F2>():
         switch (either) {

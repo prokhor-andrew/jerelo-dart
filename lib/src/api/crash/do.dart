@@ -17,10 +17,6 @@ extension ContCrashDoExtension<E, F, A> on Cont<E, F, A> {
       runWith(
         runtime,
         observer.copyUpdateOnCrash((initialCrash) {
-          if (runtime.isCancelled()) {
-            return;
-          }
-
           ContCrash.tryCatch(() {
             final cont = f(initialCrash);
             cont.runWith(runtime, observer);

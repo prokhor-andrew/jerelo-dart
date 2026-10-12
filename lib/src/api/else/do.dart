@@ -17,10 +17,6 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
       runWith(
         runtime,
         observer.copyUpdateOnElse((error) {
-          if (runtime.isCancelled()) {
-            return;
-          }
-
           ContCrash.tryCatch(() {
             final contA = f(error);
             contA.runWith(runtime, observer);

@@ -205,21 +205,12 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
             runtime,
             observer.copyUpdate(
               onCrash: (crash) {
-                if (runtime.isCancelled()) {
-                  return;
-                }
                 onCrash(crash);
               },
               onElse: (error) {
-                if (runtime.isCancelled()) {
-                  return;
-                }
                 onSecondary(error);
               },
               onThen: (a) {
-                if (runtime.isCancelled()) {
-                  return;
-                }
                 onPrimary(a);
               },
             ),
@@ -337,15 +328,12 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
           runtime,
           observer.copyUpdate(
             onCrash: (crash) {
-              if (runtime.isCancelled()) return;
               handleCrash(idx, crash);
             },
             onElse: (f) {
-              if (runtime.isCancelled()) return;
               handleElse(idx, f);
             },
             onThen: (a) {
-              if (runtime.isCancelled()) return;
               handleThen(idx, a);
             },
           ),
@@ -376,21 +364,12 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
             runtime,
             observer.copyUpdate(
               onCrash: (crash) {
-                if (runtime.isCancelled()) {
-                  return;
-                }
                 onCrash(crash);
               },
               onElse: (error) {
-                if (runtime.isCancelled()) {
-                  return;
-                }
                 onPrimary(error);
               },
               onThen: (a) {
-                if (runtime.isCancelled()) {
-                  return;
-                }
                 onSecondary(a);
               },
             ),

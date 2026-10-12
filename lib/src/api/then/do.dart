@@ -14,10 +14,6 @@ extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
       runWith(
         runtime,
         observer.copyUpdateOnThen((a) {
-          if (runtime.isCancelled()) {
-            return;
-          }
-
           ContCrash.tryCatch(() {
             final contA2 = f(a);
             contA2.runWith(runtime, observer);
