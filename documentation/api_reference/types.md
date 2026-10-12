@@ -338,6 +338,11 @@ Returned by `Cont.run`, this token provides a way to signal cancellation to a ru
 
 Cancellation is cooperative: calling `cancel` sets an internal flag that the runtime polls via `isCancelled`. The computation checks this flag at safe points and stops work when it detects cancellation.
 
+**Limits of cooperative cancellation:**
+- Nothing is notified when `cancel` is called. Work that is already in progress, such as a timer or a request, runs until it finishes, and cancellation takes effect at the next check.
+- A cancelled computation stops without calling any of its callbacks, so code waiting for its result never hears back. That includes `Cont.bracket`, which may then never run its release (see [bracket](construction.md#contbracket)).
+- A result produced by a `Cont.fromRun` after `cancel` can still reach the callbacks of `run` if no operator checks the cancellation in between.
+
 **Methods:**
 
 ```dart

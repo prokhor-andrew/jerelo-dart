@@ -514,9 +514,9 @@ final class Cont<E, F, A> {
 
   /// Acquires a resource, uses it, and guarantees its release.
   ///
-  /// Implements the bracket pattern for safe resource management. Regardless
-  /// of whether [use] succeeds, fails, or crashes, [release] is always called
-  /// with the acquired resource.
+  /// Implements the bracket pattern for safe resource management. Whether
+  /// [use] succeeds, fails, or crashes, [release] is called with the
+  /// acquired resource. Cancellation is the exception: see the limits below.
   ///
   /// - [acquire]: Obtains the resource. Cannot produce a business-logic error
   ///   (error type is [Never]); it can only succeed or crash.
@@ -537,6 +537,19 @@ final class Cont<E, F, A> {
   /// - [use] crashed    → propagate the crash immediately.
   /// - Cancelled before [use] → release fires, observer receives nothing.
   /// - [release] outcomes are routed to the release handlers.
+  ///
+  /// Limits under cancellation. Cancellation is cooperative and nothing is
+  /// notified when it happens, so [bracket] only learns about it when [use]
+  /// delivers a result:
+  /// - Cancelled while [use] runs → [release] runs only if [use] still
+  ///   delivers a result. Any operator inside [use] that notices the
+  ///   cancellation stops without delivering anything, and then [release]
+  ///   never runs and the resource is not released.
+  /// - Cancelled while [acquire] runs → [acquire] can stop the same way
+  ///   after it has obtained the resource, which is then never released.
+  ///
+  /// These limits are part of the 2.x cancellation design and are not fixed
+  /// in 2.x.
   static Cont<E, F, A> bracket<R, E, F, A>({
     required Cont<E, Never, R> acquire,
     required Cont<E, Never, ()> Function(

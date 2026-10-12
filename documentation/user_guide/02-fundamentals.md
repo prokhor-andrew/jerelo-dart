@@ -103,6 +103,7 @@ Key details about `bracket`:
 - The `use` outcome (then, else, or crash) is propagated immediately; `release` runs independently afterward.
 - Release outcomes are routed to the optional `onReleasePanic`, `onReleaseCrash`, and `onReleaseThen` callbacks. A throw from the `release` function itself (while building the release continuation) goes to `onReleasePanic`; a crash inside the returned continuation goes to `onReleaseCrash`.
 - If the computation is cancelled before `use`, release fires and the observer receives nothing.
+- If the computation is cancelled while `use` runs, `release` runs only if `use` still delivers a result. An operator inside `use` that notices the cancellation stops silently, and then the resource is never released. The same can happen to a resource obtained by an `acquire` that is cancelled while it runs. This is a limit of cooperative cancellation in 2.x.
 
 ---
 
