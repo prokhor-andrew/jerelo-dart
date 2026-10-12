@@ -28,13 +28,14 @@ The observer passed to `Cont.fromRun` is a `SafeObserver`, which provides:
 - `observer.onCrash(crash)` — Signal a crash
 - `observer.isUsed()` — Returns `true` if any callback has already been invoked
 
+Only this observer is guarded against duplicate calls; observers derived from it with `copyUpdate*` call their new callbacks every time. `fromRun` also catches only exceptions thrown synchronously by the run function: an exception thrown later inside a `Timer` or `Future` callback escapes to the zone, and the observer is never called. Wrap such callback bodies in `ContCrash.tryCatch` and pass the crash to `observer.onCrash`.
+
 ### Example: Delayed Computation
 
 ```dart
 Cont<E, F, T> delay<E, F, T>(Duration duration, T value) {
   return Cont.fromRun((runtime, observer) {
     Timer(duration, () {
-      if (runtime.isCancelled()) return;
       observer.onThen(value);
     });
   });
@@ -74,18 +75,20 @@ Most custom operators can be built by composing existing ones:
 
 ```dart
 extension MyContExtensions<E, F, T> on Cont<E, F, T> {
-  // Retry a computation N times on failure
+  // Retry a computation up to maxAttempts times on failure.
+  // Cont.tailRecM loops without growing the stack, so even many
+  // synchronous failures are safe. Fails with the last error.
   Cont<E, F, T> retry(int maxAttempts) {
-    if (maxAttempts <= 1) return this;
-
-    return this.elseDo((error) {
-      return retry(maxAttempts - 1).elseDo((_) {
-        return Cont.error(error);
+    return Cont.tailRecM<E, F, int, T>(1, (attempt) {
+      return thenMap<TailRec<int, T>>(TailRec.done).elseDo((error) {
+        return attempt < maxAttempts
+          ? Cont.of(TailRec.next(attempt + 1))
+          : Cont.error(error);
       });
     });
   }
 
-  // Execute with a timeout
+  // Succeed with defaultValue if this hasn't succeeded within duration
   Cont<E, F3, T> timeout<F2, F3>(
     Duration duration,
     T defaultValue,
@@ -103,20 +106,22 @@ extension MyContExtensions<E, F, T> on Cont<E, F, T> {
 
   // Log value for debugging without changing it
   Cont<E, F, T> debug(String label) {
-    return this.thenTap((value) {
+    return thenMap((value) {
       print("[$label] $value");
-      return Cont.of(());
+      return value;
     });
   }
 }
 ```
+
+`timeout` builds on `either`, which waits on the else channel: a success or a crash ends the race immediately, but a failure waits for the other side. So if `this` fails before `duration` elapses, its error waits for the timer and the result is `defaultValue`. If fast failures must win, lift them to the then channel before racing, as shown in [Race with Timeout](04-racing-and-merging.md#race-with-timeout).
 
 ### Approach 2: Use `decorate` for Low-Level Control
 
 The `decorate` method is a natural transformation that wraps the execution of a continuation without changing its type. It gives you access to three things:
 
 - **`run`** — The original run function (normally private and inaccessible)
-- **`runtime`** — The runtime context (environment, cancellation)
+- **`runtime`** — The runtime context (environment)
 - **`observer`** — The observer receiving the three outcome callbacks
 
 You can intercept execution by modifying the runtime or observer before passing them to `run`. Since `ContObserver` uses `copyUpdateOnThen`, `copyUpdateOnElse`, and `copyUpdateOnCrash` to derive new observers with selectively overridden callbacks.
@@ -213,7 +218,7 @@ extension AdvancedExtensions<E, T> on Cont<E, String, T> {
     Duration initialDelay = const Duration(milliseconds: 100),
   }) {
     Cont<E, String, T> attempt(int attemptsLeft, Duration currentDelay) {
-      if (attemptsLeft <= 0) return this;
+      if (attemptsLeft <= 1) return this;
 
       return this.elseDo((error) {
         return delay<E, String, void>(currentDelay, null)
@@ -232,73 +237,13 @@ extension AdvancedExtensions<E, T> on Cont<E, String, T> {
 
 ---
 
-## Cancellation with Runtime
+## Using the Runtime
 
-The `runtime` parameter passed to `Cont.fromRun` provides access to cancellation state. This allows you to create computations that respect cancellation requests and clean up resources appropriately.
-
-### Important: Cancellation Behavior
-
-When a computation detects cancellation via `runtime.isCancelled()`, it must:
-1. **Stop all work immediately**
-2. **NOT call `observer.onThen()`, `observer.onElse()`, or `observer.onCrash()`** — cancelled computations do not emit anything
-3. **Clean up any acquired resources**
-4. **Return/exit silently**
-
-Cancelled computations are effectively abandoned — they produce no result and no error. The consumer will not receive any callbacks.
-
-### Checking Cancellation
-
-Cancellation can only take effect at **async boundaries** — points where Dart's event loop has a chance to run other code. Checking `isCancelled()` inside a plain synchronous loop is ineffective, because nothing can cancel the computation while it is running synchronously.
-
-The canonical pattern is to check cancellation inside each async callback, after the event loop has had a chance to turn:
-
-```dart
-// Each call to processItemAsync yields to the event loop,
-// giving cancellation a real chance to take effect between items.
-Cont<E, F, List<R>> processItemsAsync<E, F, T, R>(
-  List<T> items,
-  Future<R> Function(T) processItemAsync,
-) {
-  return Cont.fromRun((runtime, observer) {
-    final results = <R>[];
-
-    void processNext(int index) {
-      if (index >= items.length) {
-        observer.onThen(results);
-        return;
-      }
-
-      processItemAsync(items[index]).then((result) {
-        // This callback runs in a future microtask — cancellation
-        // may have been requested since the last item was processed.
-        if (runtime.isCancelled()) return;
-
-        results.add(result);
-        processNext(index + 1);
-      });
-    }
-
-    processNext(0);
-  });
-}
-```
-
-
-### Best Practices for Cancellation
-
-1. **Check at async boundaries**: Dart is single-threaded, so cancellation can only take effect between event loop turns. Check `runtime.isCancelled()` inside async callbacks (`.then()`, `Timer`, etc.), not in synchronous loops
-2. **Don't emit on cancellation**: Never call observer methods when cancelled
-3. **Clean up resources**: Release any acquired resources before exiting
-4. **Exit silently**: Simply return from the function without emitting anything
-5. **Check before emitting**: Always check cancellation status before calling observer methods, especially in async callbacks
-
-### Using Runtime Features
-
-The runtime provides:
+The `runtime` parameter passed to `Cont.fromRun` and `decorate` carries the environment:
 - `runtime.env()` — Access the current environment
-- `runtime.isCancelled()` — Check cancellation state
 - `runtime.copyUpdateEnv(newEnv)` — Create a copy with a different environment
-- `runtime.extendCancellation(anotherIsCancelled)` — Compose cancellation sources
+
+Core has no cancellation: once a computation starts, it runs until it reports an outcome. A cancellable `Cont` will be a separate feature.
 
 ---
 

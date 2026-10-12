@@ -27,6 +27,24 @@ Parallel execution and combination of multiple continuations.
 
 ## Policies
 
+Every combinator has its **own channel** and treats the other two channels as **exits**. It waits for every input to end on its own channel, and stops at the first exit:
+
+| Combinator | Own channel (waits for all) | Exits |
+|---|---|---|
+| `both` / `all` | then | else, crash |
+| `either` / `any` | else | then, crash |
+| `coalesce` / `converge` | crash | then, else |
+
+The policy decides how the inputs are run:
+
+- **`sequence`**: the next input runs only if the previous one ended on the own channel. The first exit ends the whole computation.
+- **`quitFast`**: all inputs run in parallel. The first exit ends the computation immediately; ending on the own channel waits for the others. The inputs still running when the result is decided keep running, and their results are ignored.
+- **`runAll`**: all inputs run in parallel and every one of them completes. If some inputs end on the own channel and others exit, the result is the exit.
+
+An empty list has vacuously ended on its own channel: `all([])` succeeds with `[]`, `any([])` fails with `[]`, and `converge([])` crashes with an empty `CollectedCrash`.
+
+`sequence` and `quitFast` keep list order in the collected values (`all`) or errors (`any`). `runAll` collects them in **completion order**: the first input to finish gets index 0. If you need to know which input produced which result, tag each result, for example `cont.thenMap((v) => (id: id, value: v))`.
+
 ### OkPolicy
 
 ```dart
@@ -44,8 +62,8 @@ static OkPolicy<T> sequence<T>()
 ```
 Creates a sequential execution policy. Operations are executed one after another in order.
 
-When used with `both`/`all`: execution stops at the first failure.
-When used with `either`/`any`: execution stops at the first success.
+When used with `both`/`all`: execution stops at the first failure or crash.
+When used with `either`/`any`: execution stops at the first success or crash.
 
 Use this when:
 - Order of execution matters
@@ -67,8 +85,8 @@ static OkPolicy<T> quitFast<T>()
 ```
 Creates a quit-fast policy. All operations start executing in parallel and the result is returned as soon as the decisive outcome occurs.
 
-When used with `both`/`all`: returns immediately on the first failure.
-When used with `either`/`any`: returns immediately on the first success.
+When used with `both`/`all`: returns immediately on the first failure or crash; successes wait for the others.
+When used with `either`/`any`: returns immediately on the first success or crash; failures wait for the others.
 
 Use this when:
 - You want the fastest possible feedback
@@ -98,19 +116,23 @@ Creates a run-all policy. All operations execute in parallel and all must comple
 When used with `both`/`all`: waits for all continuations to complete; if multiple fail, their error values are combined using `combine`.
 When used with `either`/`any`: waits for all continuations to complete; if multiple succeed, their values are combined using `combine`.
 
-The `shouldFavorCrash` flag determines behavior when both crashes and non-crash outcomes exist:
-- `true`: If any continuation crashes, the combined result is a crash (even if others succeeded/failed normally)
-- `false`: Non-crash outcomes take priority over crashes
+If one continuation ends on the own channel and another exits, the result is the exit: for example, a success and a crash in `both` give the crash. Values and errors are combined in completion order.
+
+The `shouldFavorCrash` flag only decides between two *different* exits, a crash and the other exit (else for `both`/`all`, then for `either`/`any`):
+- `true`: the crash wins
+- `false`: the other exit wins
+
+With `all`/`any`, crashes are reported as a `CollectedCrash` keyed by input index, even when only one input crashed. With `both`/`either`, two crashes are combined into a `MergedCrash`.
 
 - **Parameters:**
-  - `combine`: Function to merge two values of the decisive channel
-  - `shouldFavorCrash`: Whether crashes take priority over non-crash outcomes
+  - `combine`: Function to merge two values of the exit channel being collected (errors for `both`/`all`, successes for `either`/`any`)
+  - `shouldFavorCrash`: Whether a crash wins over the other exit
 
 **Example:**
 ```dart
 final result = Cont.all(
   [validateEmail, validatePassword, validateAge],
-  policy: OkPolicy.runAll(
+  policy: OkPolicy.runAll<String>(
     (e1, e2) => '$e1; $e2',
     shouldFavorCrash: true,
   ),
@@ -146,14 +168,14 @@ Defines how multiple continuations should be executed and how their crashes and 
 ```dart
 static CrashPolicy<E, A> sequence<E, A>()
 ```
-Creates a sequential execution policy. Operations execute one after another.
+Creates a sequential execution policy. Operations execute one after another; the next one runs only if the previous one crashed. The first success or error ends the computation.
 
 ---
 
 ```dart
 static CrashPolicy<E, A> quitFast<E, A>()
 ```
-Creates a quit-fast policy. All operations start in parallel; returns immediately on the first non-crash outcome.
+Creates a quit-fast policy. All operations start in parallel; returns immediately on the first non-crash outcome. A crash waits for the others; if all of them crash, the crashes are combined (`MergedCrash` for `coalesce`, `CollectedCrash` for `converge`).
 
 ---
 
@@ -164,7 +186,7 @@ static CrashPolicy<E, A> runAll<E, A>({
   required A Function(A a1, A a2) combineThenVals,
 })
 ```
-Creates a run-all policy. All operations execute in parallel and all must complete.
+Creates a run-all policy. All operations execute in parallel and all must complete. Crashes are only reported if every operation crashes; as soon as one ends on then or else, the crashes are dropped.
 
 When multiple non-crash outcomes exist, `shouldFavorElse` determines whether errors or successes take priority:
 - `true`: If any continuation fails with a typed error, the combined result is an error
@@ -180,7 +202,7 @@ When multiple non-crash outcomes exist, `shouldFavorElse` determines whether err
 final result = Cont.coalesce(
   primarySource,
   backupSource,
-  policy: CrashPolicy.runAll(
+  policy: CrashPolicy.runAll<String, int>(
     shouldFavorElse: false,
     combineElseVals: (e1, e2) => '$e1; $e2',
     combineThenVals: (a1, a2) => a1 + a2,
@@ -213,7 +235,7 @@ static Cont<E, F, A3> both<E, F, A1, A2, A3>(
 
 Runs two continuations and combines their successful results.
 
-Both continuations must succeed for the result to be successful. If either fails, the entire operation fails. When both succeed, their values are combined using `combine`. The policy determines execution strategy and how errors are handled.
+Both continuations must succeed for the result to be successful. If either fails or crashes, the entire operation fails or crashes. When both succeed, their values are combined using `combine`. The policy determines execution strategy and how errors are handled.
 
 - **Parameters:**
   - `left`: First continuation to execute
@@ -244,7 +266,7 @@ static Cont<E, F, List<A>> all<E, F, A>(
 
 Runs multiple continuations and collects all results.
 
-All continuations must succeed. The policy determines execution strategy and error handling.
+All continuations must succeed. The policy determines execution strategy and error handling. `all([])` succeeds with `[]`. With `runAll`, values are collected in completion order (see [Policies](#policies)).
 
 - **Parameters:**
   - `list`: List of continuations to execute
@@ -254,7 +276,7 @@ All continuations must succeed. The policy determines execution strategy and err
 ```dart
 final validations = Cont.all(
   [validateEmail(email), validatePassword(password), validateAge(age)],
-  policy: OkPolicy.runAll(
+  policy: OkPolicy.runAll<String>(
     (e1, e2) => '$e1; $e2',
     shouldFavorCrash: true,
   ),
@@ -276,7 +298,7 @@ static Cont<E, F3, A> either<E, F1, F2, F3, A>(
 
 Races two continuations, returning the first successful value.
 
-If both fail, their errors are combined using `combine`. The left and right continuations may have different error types, which are unified into `F3` by the combiner. The policy determines execution strategy and how successes are handled.
+If both fail, their errors are combined using `combine`. A crash ends the race, like a success. The left and right continuations may have different error types, which are unified into `F3` by the combiner. The policy determines execution strategy and how successes are handled.
 
 - **Parameters:**
   - `left`: First continuation to try
@@ -307,7 +329,7 @@ static Cont<E, List<F>, A> any<E, F, A>(
 
 Races multiple continuations, returning the first successful value.
 
-If all fail, collects all errors into a list. The policy determines execution strategy and how successes are handled.
+If all fail, collects all errors into a list. A crash ends the race, like a success. The policy determines execution strategy and how successes are handled. `any([])` fails with `[]`. With `runAll`, errors are collected in completion order (see [Policies](#policies)).
 
 - **Parameters:**
   - `list`: List of continuations to race
@@ -340,9 +362,9 @@ Executes both continuations and combines crashes according to the `policy`. Non-
 
 The execution behavior depends on the provided `policy`:
 
-- **`SequenceCrashPolicy`**: Runs `left` then `right` sequentially; if both crash, produces a `MergedCrash`.
-- **`QuitFastCrashPolicy`**: Runs both in parallel, propagates the first crash immediately.
-- **`RunAllCrashPolicy`**: Runs both in parallel, waits for both, and coalesces crashes if both crash.
+- **`SequenceCrashPolicy`**: Runs `left` first and runs `right` only if `left` crashes; if both crash, produces a `MergedCrash`.
+- **`QuitFastCrashPolicy`**: Runs both in parallel and returns the first success or error immediately. A crash waits for the other side; if both crash, produces a `MergedCrash`.
+- **`RunAllCrashPolicy`**: Runs both in parallel, waits for both, and produces a `MergedCrash` if both crash. If only one crashes, the other side's outcome is the result.
 
 - **Parameters:**
   - `left`: First continuation to execute
@@ -375,9 +397,11 @@ Executes all continuations in `list` and combines their crashes according to the
 
 The execution behavior depends on the provided `policy`:
 
-- **`SequenceCrashPolicy`**: Runs continuations one by one; sequential crashes are converged into a `MergedCrash`.
-- **`QuitFastCrashPolicy`**: Runs all in parallel, propagates the first crash immediately.
-- **`RunAllCrashPolicy`**: Runs all in parallel, waits for all, and collects crashes into a `CollectedCrash`.
+- **`SequenceCrashPolicy`**: Runs continuations one by one, moving to the next only if the current one crashes; if all crash, produces a `CollectedCrash`.
+- **`QuitFastCrashPolicy`**: Runs all in parallel and returns the first success or error immediately. Crashes wait for the others; if all crash, produces a `CollectedCrash`.
+- **`RunAllCrashPolicy`**: Runs all in parallel and waits for all. If all crash, produces a `CollectedCrash`; otherwise the crashes are dropped and the successes and errors are combined.
+
+With every policy, `converge([])` crashes with an empty `CollectedCrash`.
 
 - **Parameters:**
   - `list`: List of continuations to execute

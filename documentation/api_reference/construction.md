@@ -10,15 +10,16 @@ Creating and transforming continuations.
 
 - [Constructors](#constructors)
   - [Cont.fromRun](#contfromrun)
-  - [Cont.fromDeferred](#contfromdeferred)
   - [Cont.of](#contof)
   - [Cont.error](#conterror)
   - [Cont.crash](#contcrash)
   - [Cont.askThen](#contaskthen)
   - [Cont.askElse](#contaskelse)
-  - [Cont.bracket](#contbracket)
+- [Loops](#loops)
+  - [Cont.tailRecM](#conttailrecm)
 - [Transformation](#transformation)
   - [decorate](#decorate)
+- [More in jerelo_ext](#more-in-jerelo_ext)
 
 ---
 
@@ -34,7 +35,9 @@ static Cont<E, F, A> fromRun<E, F, A>(
 
 Creates a `Cont` from a run function that accepts an observer.
 
-Constructs a continuation with guaranteed idempotence and exception catching. The run function receives a `SafeObserver` with `onCrash`, `onElse`, and `onThen` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later. The `SafeObserver` ensures that only the first callback invocation takes effect; subsequent calls are ignored.
+Constructs a continuation with guaranteed idempotence and exception catching. The run function receives a `SafeObserver` with `onCrash`, `onElse`, and `onThen` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later. The `SafeObserver` ensures that only the first callback invocation takes effect; subsequent calls are ignored. This guard covers only the observer handed to `run`: observers derived from it with `copyUpdate*` call their new callbacks every time.
+
+Exceptions thrown synchronously by `run` are caught and routed to the crash channel. An exception thrown later, for example inside a `Timer` or `Future` callback, is not caught: it escapes to the zone and the observer is never called. Wrap such callback bodies in `ContCrash.tryCatch` and pass the crash to `observer.onCrash`.
 
 - **Parameters:**
   - `run`: Function that executes the continuation and calls observer callbacks
@@ -45,42 +48,9 @@ final cont = Cont.fromRun<MyEnv, String, int>((runtime, observer) {
   // Access environment
   final config = runtime.env();
 
-  // Check cancellation
-  if (runtime.isCancelled()) {
-    observer.onElse('Cancelled');
-    return;
-  }
-
   // Produce a value
-  observer.onThen(42);
+  observer.onThen(config.port);
 });
-```
-
----
-
-### Cont.fromDeferred
-
-```dart
-static Cont<E, F, A> fromDeferred<E, F, A>(Cont<E, F, A> Function() thunk)
-```
-
-Creates a `Cont` from a deferred continuation computation.
-
-Lazily evaluates a continuation-returning function. The inner `Cont` is not created until the outer one is executed.
-
-- **Parameters:**
-  - `thunk`: Function that returns a `Cont` when called
-
-**Example:**
-```dart
-// The inner continuation is not created until execution
-final deferred = Cont.fromDeferred(() {
-  print('Creating continuation...');
-  return Cont.of(42);
-});
-
-// Prints "Creating continuation..." when run
-deferred.run((), onThen: print);
 ```
 
 ---
@@ -145,7 +115,7 @@ Used to represent unrecoverable failures that are outside the typed error channe
 
 **Example:**
 ```dart
-final cont = Cont.fromDeferred(() {
+final cont = Cont.fromRun<(), String, int>((runtime, observer) {
   throw Exception('Unexpected failure');
 }).crashDo((crash) {
   if (crash is! NormalCrash) {
@@ -201,54 +171,64 @@ final cont = Cont.askElse<String, int>()
 
 ---
 
-### Cont.bracket
+## Loops
+
+### Cont.tailRecM
 
 ```dart
-static Cont<E, F, A> bracket<R, E, F, A>({
-  required Cont<E, Never, R> acquire,
-  required Cont<E, Never, ()> Function(R resource) release,
-  required Cont<E, F, A> Function(R resource) use,
-  void Function(NormalCrash crash) onReleasePanic,
-  void Function(ContCrash crash) onReleaseCrash,
-  void Function() onReleaseThen,
-})
+static Cont<E, F, A> tailRecM<E, F, S, A>(
+  S initial,
+  Cont<E, F, TailRec<S, A>> Function(S state) step,
+)
 ```
 
-Manages resource lifecycle with guaranteed cleanup.
+Runs `step` repeatedly, starting from `initial`, until it finishes.
 
-The bracket pattern ensures that a resource is properly released after use, even if an error or crash occurs during the `use` phase or if cancellation occurs. This is the functional equivalent of try-with-resources or using statements.
+Each iteration runs the continuation returned by `step(state)`:
+- succeeds with `TailRec.next(state)` — runs the next iteration with the new state
+- succeeds with `TailRec.done(result)` — the loop succeeds with `result`
+- terminates on the else or crash channel — the loop ends with that outcome
 
-Note that `acquire` and `release` use `Never` as their error type, meaning they cannot fail with a typed error — they can only succeed or crash.
+A throw from `step` becomes a crash.
 
-**The execution order is:**
-1. `acquire` — Obtain the resource
-2. `use` — Use the resource to produce a value
-3. `release` — Release the resource (always runs if `acquire` succeeded, even if `use` fails or is cancelled)
+The loop is stack-safe: iterations that complete synchronously do not grow the call stack, so it can run any number of times. Use it instead of a recursive `thenDo` for loops and retries. See [`TailRec`](types.md#tailrec) for the step type.
 
-**Cancellation behavior:**
-- The `release` function is called even when the runtime is cancelled
-- Release runs with a non-cancellable runtime, ensuring complete cleanup
+Dart cannot infer the result type `A` from a `TailRec.done(...)` returned inside `step`; without an expected type it becomes `dynamic`. Give the result a type, as in the examples below, or pass the type arguments explicitly.
 
-**Optional release callbacks:**
-- `onReleasePanic`: Called if the release crashes with a panic-level failure. Defaults to re-throwing
-- `onReleaseCrash`: Called if the release crashes. Defaults to ignoring
-- `onReleaseThen`: Called when release succeeds. Defaults to no-op
+- **Type Parameters:**
+  - `S`: The loop state
+  - `A`: The result of the loop
 
 - **Parameters:**
-  - `acquire`: Continuation that acquires the resource (cannot fail with typed error)
-  - `release`: Function that takes the resource and returns a continuation that releases it (cannot fail with typed error)
-  - `use`: Function that takes the resource and returns a continuation that uses it
-  - `onReleasePanic`: Optional panic handler for release phase
-  - `onReleaseCrash`: Optional crash handler for release phase
-  - `onReleaseThen`: Optional success handler for release phase
+  - `initial`: The state of the first iteration
+  - `step`: Produces the continuation for one iteration from the current state
 
 **Example:**
 ```dart
-final result = Cont.bracket<File, MyEnv, String, String>(
-  acquire: openFile('data.txt'),
-  release: (file) => closeFile(file),
-  use: (file) => readContents(file),
+// Sum 0..9
+final Cont<(), Never, int> sum = Cont.tailRecM(
+  (i: 0, total: 0),
+  (s) => Cont.of(
+    s.i < 10
+        ? TailRec.next((i: s.i + 1, total: s.total + s.i))
+        : TailRec.done(s.total),
+  ),
 );
+
+sum.run((), onThen: print); // prints: 45
+
+// Retry up to 3 attempts
+Cont<(), String, String> fetchWithRetry() {
+  return Cont.tailRecM(1, (int attempt) {
+    return fetchData()
+        .thenMap<TailRec<int, String>>(TailRec.done)
+        .elseDo((error) {
+      return attempt < 3
+          ? Cont.of(TailRec.next(attempt + 1))
+          : Cont.error(error);
+    });
+  });
+}
 ```
 
 ---
@@ -298,3 +278,9 @@ final timed = cont.decorate((run, runtime, observer) {
   );
 });
 ```
+
+---
+
+## More in jerelo_ext
+
+`contDeferred`, which builds the continuation lazily when it runs, and `contBracket`, which acquires, uses and releases a resource, are top-level functions in the [jerelo_ext](https://pub.dev/packages/jerelo_ext) package; import `package:jerelo_ext/jerelo_ext.dart` alongside `package:jerelo/jerelo.dart`.

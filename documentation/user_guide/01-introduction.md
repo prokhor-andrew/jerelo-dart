@@ -142,9 +142,6 @@ Other things we cannot do with both `Future` and `CPS` are:
 - Typed / value-level errors (or first-class error channel)
   errors as data, not exceptions
 
-- Cooperative cancellation (or structured cancellation)
-  cancellation as part of the type/contract, not an ad-hoc flag
-
 - Context propagation / dependency injection via environment (or Reader-style environment)
   thread shared config/services through the computation without globals
 
@@ -177,7 +174,7 @@ final program = function1(value)
 
 ### Result Channels
 
-Every `Cont` computation terminates on exactly one of three channels:
+Every `Cont` computation terminates on at most one of three channels: exactly one when it finishes, and none when it never finishes (for example a loop that never ends):
 
 1. **Then channel** (success) — carries a value of type `A`
 2. **Else channel** (business error) — carries a typed error of type `F`
@@ -198,7 +195,7 @@ final program = getUserAge(userId).thenDo((age) {
 });
 
 // ignore `()` for now
-final token = program.run(
+program.run(
   (),
   onCrash: (crash) {
     // crash channel: unexpected exceptions
@@ -217,7 +214,7 @@ final token = program.run(
 
 ### ContCrash Type
 
-When an exception is thrown inside a computation, it is automatically caught and wrapped in a `ContCrash`. The crash type hierarchy is:
+When an exception is thrown synchronously inside a computation, it is automatically caught and wrapped in a `ContCrash`. (Inside `Cont.fromRun`, an exception thrown later from a `Timer` or `Future` callback is not caught; see [Fundamentals](02-fundamentals.md).) The crash type hierarchy is:
 
 ```dart
 sealed class ContCrash {

@@ -17,7 +17,7 @@ extension ContDecorExtension<E, F, A> on Cont<E, F, A> {
   /// Example:
   /// ```dart
   /// // Add logging around execution
-  /// final logged = cont.decor((run, runtime, observer) {
+  /// final logged = cont.decorate((run, runtime, observer) {
   ///   print('Starting execution');
   ///   run(runtime, observer);
   ///   print('Execution initiated');

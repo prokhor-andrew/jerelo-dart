@@ -8,21 +8,31 @@ Real-world applications rarely perform a single task in isolation. You often nee
 
 ## Execution Policies
 
+Every combinator has its **own channel**, which it waits on, and treats the other two channels as **exits**:
+
+| Combinator | Own channel (waits for all) | Exits (end the computation) |
+|---|---|---|
+| `both` / `all` | then | else, crash |
+| `either` / `any` | else | then, crash |
+| `coalesce` / `converge` | crash | then, else |
+
+So `both` waits for every success and stops at the first error or crash, while `either` waits for every failure and stops at the first success or crash. An empty list has vacuously ended on its own channel: `all([])` succeeds with `[]`, `any([])` fails with `[]`, and `converge([])` crashes with an empty `CollectedCrash`.
+
 ### OkPolicy (for `both`, `all`, `either`, `any`)
 
 Every combinator on the success/error channels needs an `OkPolicy<T>` that controls concurrency and failure handling.
 
-- **`OkPolicy.sequence()`** — Runs sequentially, one after another.
-- **`OkPolicy.quitFast()`** — Runs in parallel, stops on first decisive outcome.
-- **`OkPolicy.runAll(combine, shouldFavorCrash:)`** — Runs in parallel, waits for all to complete, combines same-channel outcomes via `combine`. When `shouldFavorCrash` is `true`, a crash is preferred over a non-crash outcome when one side crashes.
+- **`OkPolicy.sequence()`** — Runs sequentially, one after another. The next computation runs only if the previous one ended on the own channel.
+- **`OkPolicy.quitFast()`** — Runs in parallel, reports the first exit (including a crash) immediately. The computations still running keep running, and their results are ignored.
+- **`OkPolicy.runAll(combine, shouldFavorCrash:)`** — Runs in parallel, waits for all to complete, combines same-channel exits via `combine`. If one computation ends on the own channel and another exits, the result is the exit. `shouldFavorCrash` only decides between two different exits: when it is `true`, a crash is preferred over the other exit (an error in `both`, a success in `either`).
 
 ### CrashPolicy (for `coalesce`, `converge`)
 
 When combining crash paths, use a `CrashPolicy<F, A>`:
 
-- **`CrashPolicy.sequence()`** — Runs sequentially; if both crash, produces a `MergedCrash`.
-- **`CrashPolicy.quitFast()`** — Runs in parallel, propagates first crash immediately.
-- **`CrashPolicy.runAll(shouldFavorElse:, combineElseVals:, combineThenVals:)`** — Runs in parallel, waits for all, coalesces crashes. When multiple non-crash outcomes occur, they are combined via the provided functions.
+- **`CrashPolicy.sequence()`** — Runs sequentially; the next computation runs only if the previous one crashed. If all crash, produces a `MergedCrash` (`coalesce`) or a `CollectedCrash` (`converge`).
+- **`CrashPolicy.quitFast()`** — Runs in parallel, propagates the first success or error immediately. A crash waits for the others; if all crash, the crashes are combined as above. As with `OkPolicy.quitFast()`, the computations still running are not stopped; their results are ignored.
+- **`CrashPolicy.runAll(shouldFavorElse:, combineElseVals:, combineThenVals:)`** — Runs in parallel, waits for all, coalesces crashes if all crash. If any computation succeeds or fails, the crashes are dropped. When multiple non-crash outcomes occur, they are combined via the provided functions.
 
 ---
 
@@ -37,7 +47,7 @@ Cont.both(
   Cont.of(10),
   Cont.of(20),
   (a, b) => a + b,
-  policy: OkPolicy.quitFast<String>(),
+  policy: OkPolicy.quitFast(),
 ).run((), onThen: print); // prints: 30
 ```
 
@@ -47,7 +57,7 @@ Fluent alternative with `and`:
 Cont.of(10).and(
   Cont.of(20),
   (a, b) => a + b,
-  policy: OkPolicy.quitFast<String>(),
+  policy: OkPolicy.quitFast(),
 ).run((), onThen: print); // prints: 30
 ```
 
@@ -55,7 +65,7 @@ Note: The type parameter on `OkPolicy` is the **error type** `F` for `both`/`all
 
 ### Many Computations (`all`)
 
-When you have more than two computations, use `all` to merge an entire list. The result is a `List` containing every individual value, preserving the original order.
+When you have more than two computations, use `all` to merge an entire list. The result is a `List` containing every individual value. With `sequence` and `quitFast` the values keep the order of the input list.
 
 ```dart
 Cont.all(
@@ -64,15 +74,35 @@ Cont.all(
     Cont.of(2), 
     Cont.of(3)
   ],
-  policy: OkPolicy.quitFast<String>(),
+  policy: OkPolicy.quitFast(),
 ).run((), onThen: print); // prints: [1, 2, 3]
+```
+
+With `runAll`, values (and, for `any`, errors) are collected in **completion order**: the first computation to finish gets index 0. If you need to know which input produced which result, tag each result, for example with a record holding an id:
+
+```dart
+Cont.all(
+  [
+    for (final id in ids) fetchUser(id).thenMap((user) => (id: id, user: user)),
+  ],
+  policy: OkPolicy.runAll<String>(
+    (e1, e2) => '$e1; $e2',
+    shouldFavorCrash: true,
+  ),
+).run((), onThen: (results) {
+  for (final (:id, :user) in results) {
+    print('$id -> $user');
+  }
+});
 ```
 
 ---
 
 ## Racing Computations
 
-Racing pits computations against each other and keeps the first success. This is the natural fit for scenarios like timeouts, fallback strategies, and redundant network requests where latency matters more than completeness.
+Racing pits computations against each other and keeps the first success. This is the natural fit for scenarios like fallback strategies and redundant network requests where latency matters more than completeness.
+
+Since else is the own channel of `either`/`any`, a failure does not end the race: it waits for the other computations, and the race fails only if all of them fail. A success or a crash ends the race immediately.
 
 ### Two Computations (`either` / `or`)
 
@@ -102,7 +132,7 @@ delayedCont(Duration(seconds: 2), 42).or(
 `any` generalises `either` to an arbitrary list of computations. If all fail, errors are collected into a `List<F>`:
 
 ```dart
-Cont.any(
+Cont.any<void, String, int>(
   [
     delayedCont(Duration(seconds: 2), 1),
     delayedCont(Duration(milliseconds: 100), 2),
@@ -126,7 +156,7 @@ Runs two continuations and coalesces their crash paths. If both crash, the crash
 Cont.coalesce(
   riskyOperation1(),
   riskyOperation2(),
-  policy: CrashPolicy.sequence<String, int>(),
+  policy: CrashPolicy.sequence(),
 ).run((), onThen: print);
 ```
 
@@ -135,13 +165,13 @@ Fluent alternative:
 ```dart
 riskyOperation1().coalesceWith(
   riskyOperation2(),
-  policy: CrashPolicy.sequence<String, int>(),
+  policy: CrashPolicy.sequence(),
 ).run((), onThen: print);
 ```
 
 ### Many Computations (`converge`)
 
-Runs multiple continuations and converges their crash paths. If multiple crash, crashes are combined (into `MergedCrash` for sequence, `CollectedCrash` for runAll):
+Runs multiple continuations and converges their crash paths. If all crash, the crashes are combined into a `CollectedCrash`, whatever the policy:
 
 ```dart
 Cont.converge(
@@ -150,7 +180,7 @@ Cont.converge(
     operation2(), 
     operation3()
   ],
-  policy: CrashPolicy.quitFast<String, int>(),
+  policy: CrashPolicy.quitFast(),
 ).run((), onThen: print);
 ```
 
@@ -160,7 +190,7 @@ Cont.converge(
 
 ### Parallel Fetch with Fast Failure
 
-Loading a dashboard often means fetching several resources at once. Using `all` with `quitFast()` fires every request in parallel and aborts the moment any single request fails.
+Loading a dashboard often means fetching several resources at once. Using `all` with `quitFast()` fires every request in parallel and fails the moment any single request fails. The other requests keep running, but their results are ignored.
 
 ```dart
 Cont.all(
@@ -169,7 +199,7 @@ Cont.all(
     fetchUserPosts(userId), 
     fetchUserFriends(userId)
   ],
-  policy: OkPolicy.quitFast<String>(),
+  policy: OkPolicy.quitFast(),
 ).thenMap((results) {
   return DashboardData(
     user: results[0] as User,
@@ -192,11 +222,13 @@ fetchFromCache(key)
 
 ### Race with Timeout
 
-Race an expensive operation against a timer. Whichever finishes first wins.
+Race an expensive operation against a timer. Whichever *succeeds* first wins. A failure does not end an `either` race, so if the operation failed before the timer fired, its error would wait for the timer and the race would report a timeout. To let a fast failure win, lift it to the then channel first:
 
 ```dart
-Cont.either(
-  performExpensiveOperation(),
+Cont.either<(), String, String, String, Object>(
+  performExpensiveOperation()
+      .thenMap<Object>((value) => value)
+      .elseDo((error) => Cont.of(OperationFailed(error))),
   delay(Duration(seconds: 5), TimeoutResult()),
   (e1, e2) => '$e1; $e2',
   policy: OkPolicy.quitFast(),
@@ -205,6 +237,8 @@ Cont.either(
   onThen: (result) {
     if (result is TimeoutResult) {
       print("Operation timed out");
+    } else if (result is OperationFailed) {
+      print("Operation failed: ${result.error}");
     } else {
       print("Operation completed: $result");
     }

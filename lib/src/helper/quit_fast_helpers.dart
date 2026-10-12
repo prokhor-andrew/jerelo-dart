@@ -5,7 +5,6 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
   Cont<E, F, A2> right,
   A3 Function(A1 a1, A2 a2) combine,
 ) {
-  // no absurdify, as they were absurdified before
   return Cont.fromRun((runtime0, observer) {
     final (
       runtime,
@@ -31,7 +30,7 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
           },
         ),
       );
-    }).match((_) {}, handleCrash);
+    })._ifCrash(handleCrash);
 
     ContCrash.tryCatch(() {
       right.runWith(
@@ -44,7 +43,7 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
           },
         ),
       );
-    }).match((_) {}, handleCrash);
+    })._ifCrash(handleCrash);
   });
 }
 
@@ -53,7 +52,6 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
   Cont<E, F2, A> right,
   F3 Function(F1 f1, F2 f2) combine,
 ) {
-  // no absurdify, as they were absurdified before
   return Cont.fromRun((runtime0, observer) {
     final (
       runtime,
@@ -79,7 +77,7 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
           onThen: handleThen,
         ),
       );
-    }).match((_) {}, handleCrash);
+    })._ifCrash(handleCrash);
 
     ContCrash.tryCatch(() {
       right.runWith(
@@ -92,7 +90,7 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
           onThen: handleThen,
         ),
       );
-    }).match((_) {}, handleCrash);
+    })._ifCrash(handleCrash);
   });
 }
 
@@ -100,17 +98,12 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   Cont<E, F, A> left,
   Cont<E, F, A> right,
 ) {
-  // no absurdify, as they were absurdified before
-  return Cont.fromRun((runtime0, observer) {
+  return Cont.fromRun((runtime, observer) {
     final _QuitFastStateHolder<ContCrash, ContCrash>
         holder = _QuitFastStateHolder();
 
-    final runtime = runtime0.extendCancellation(() {
-      return holder.state == null;
-    });
-
     void handleThen(A a) {
-      if (runtime.isCancelled()) {
+      if (holder.state == null) {
         return;
       }
       holder.state = null;
@@ -118,7 +111,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
     }
 
     void handleElse(F f) {
-      if (runtime.isCancelled()) {
+      if (holder.state == null) {
         return;
       }
       holder.state = null;
@@ -126,7 +119,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
     }
 
     void handleCrash(_Either<ContCrash, ContCrash> either) {
-      if (runtime.isCancelled()) {
+      if (holder.state == null) {
         return;
       }
 
@@ -134,7 +127,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
         case _Left<ContCrash, ContCrash>(value: final c1):
           switch (holder.state) {
             case null:
-              break; // cancelled, do nothing
+              break; // already decided, do nothing
             case _QuitFastStep0<ContCrash, ContCrash>():
               holder.state =
                   _QuitFastLeftSecondaryRightNull(c1);
@@ -144,19 +137,19 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
             case _QuitFastLeftNullRightSecondary<ContCrash,
                   ContCrash>(f2: final c2):
               holder.state = null;
-              observer.onCrash(MergedCrash(c1, c2));
+              observer.onCrash(MergedCrash._(c1, c2));
           }
         case _Right<ContCrash, ContCrash>(value: final c2):
           switch (holder.state) {
             case null:
-              break; // cancelled, do nothing
+              break; // already decided, do nothing
             case _QuitFastStep0<ContCrash, ContCrash>():
               holder.state =
                   _QuitFastLeftNullRightSecondary(c2);
             case _QuitFastLeftSecondaryRightNull<ContCrash,
                   ContCrash>(f1: final c1):
               holder.state = null;
-              observer.onCrash(MergedCrash(c1, c2));
+              observer.onCrash(MergedCrash._(c1, c2));
             case _QuitFastLeftNullRightSecondary<ContCrash,
                   ContCrash>():
               break; // can't have right crash twice - unreachable state
@@ -175,7 +168,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
           onThen: handleThen,
         ),
       );
-    }).match((_) {}, (crash) {
+    })._ifCrash((crash) {
       handleCrash(_Left(crash));
     });
 
@@ -190,7 +183,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
           onThen: handleThen,
         ),
       );
-    }).match((_) {}, (crash) {
+    })._ifCrash((crash) {
       handleCrash(_Right(crash));
     });
   });
@@ -211,12 +204,8 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   final _QuitFastStateHolder<F1, F2> holder =
       _QuitFastStateHolder();
 
-  runtime = runtime.extendCancellation(() {
-    return holder.state == null;
-  });
-
   void handleCrash(ContCrash crash) {
-    if (runtime.isCancelled()) {
+    if (holder.state == null) {
       return;
     }
     holder.state = null;
@@ -224,7 +213,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   }
 
   void handlePrimary(A a) {
-    if (runtime.isCancelled()) {
+    if (holder.state == null) {
       return;
     }
 
@@ -233,7 +222,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   }
 
   void handleSecondary(_Either<F1, F2> either) {
-    if (runtime.isCancelled()) {
+    if (holder.state == null) {
       return;
     }
 
@@ -241,7 +230,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
       case _Left<F1, F2>(value: final f1):
         switch (holder.state) {
           case null:
-            break; // cancelled, do nothing
+            break; // already decided, do nothing
           case _QuitFastStep0<F1, F2>():
             holder.state = _QuitFastLeftSecondaryRightNull(
               f1,
@@ -255,11 +244,11 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
             ContCrash.tryCatch(() {
               final f3 = combine(f1, f2);
               onSecondary(f3);
-            }).match((_) {}, onCrash);
+            })._ifCrash(onCrash);
         }
       case _Right<F1, F2>(value: final f2):
         switch (holder.state) {
-          case null: // cancelled, do nothing
+          case null: // already decided, do nothing
             break;
           case _QuitFastStep0<F1, F2>():
             holder.state = _QuitFastLeftNullRightSecondary(
@@ -272,7 +261,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
             ContCrash.tryCatch(() {
               final f3 = combine(f1, f2);
               onSecondary(f3);
-            }).match((_) {}, onCrash);
+            })._ifCrash(onCrash);
 
           case _QuitFastLeftNullRightSecondary<F1, F2>():
             break; // we can't have right secondary and get another right secondary - unreachable state
@@ -289,6 +278,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
 }
 
 final class _QuitFastStateHolder<F1, F2> {
+  /// `null` once the race is decided.
   _QuitFastStep<F1, F2>? state = const _QuitFastStep0();
 
   _QuitFastStateHolder();

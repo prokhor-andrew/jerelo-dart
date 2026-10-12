@@ -17,31 +17,6 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
     });
   }
 
-  /// Runs this continuation with a new environment from a zero-argument function.
-  ///
-  /// Similar to [local] but obtains the environment from a zero-argument function
-  /// instead of transforming the existing environment.
-  ///
-  /// - [f]: Zero-argument function that provides the new environment.
-  Cont<E2, F, A> local0<E2>(E Function() f) {
-    return local((_) {
-      return f();
-    });
-  }
-
-  /// Runs this continuation with a fixed environment value.
-  ///
-  /// Replaces the environment context with the provided value for the
-  /// execution of this continuation. This is useful for providing
-  /// configuration, dependencies, or context to a continuation.
-  ///
-  /// - [value]: The environment value to use.
-  Cont<E2, F, A> withEnv<E2>(E value) {
-    return local0(() {
-      return value;
-    });
-  }
-
   /// Runs [cont] using the success value of this continuation as its environment.
   ///
   /// When this continuation succeeds with value [a], [cont] is executed with [a]
@@ -52,7 +27,9 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   ///   success type [A].
   Cont<E, F, A2> thenInject<A2>(Cont<A, F, A2> cont) {
     return thenDo((a) {
-      return cont.absurdify().withEnv(a);
+      return cont.local((_) {
+        return a;
+      });
     });
   }
 
@@ -76,7 +53,9 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   ///   error type [F].
   Cont<E, F2, A> elseInject<F2>(Cont<F, F2, A> cont) {
     return elseDo((f) {
-      return cont.absurdify().withEnv(f);
+      return cont.local((_) {
+        return f;
+      });
     });
   }
 

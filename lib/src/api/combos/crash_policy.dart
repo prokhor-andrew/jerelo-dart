@@ -4,32 +4,48 @@
 /// Pass a [CrashPolicy] to [Cont.coalesce] or [Cont.converge] via the named
 /// `policy` parameter. Use the static factory methods [sequence], [quitFast],
 /// or [runAll] to construct a policy.
+///
+/// The crash channel is the own channel of these combinators: they wait for
+/// crashes and treat a success or an error as an exit.
 sealed class CrashPolicy<E, A> {
   const CrashPolicy();
 
   /// Sequential crash-merging policy.
   ///
-  /// Continuations are run one after another. If both crash, the crashes are
-  /// combined into a [MergedCrash].
-  static CrashPolicy<E, A> sequence<E, A>() {
-    return SequenceCrashPolicy();
+  /// Continuations are run one after another; the next one runs only if the
+  /// previous one crashed. The first success or error ends the computation.
+  /// If all crash, the crashes are combined into a [MergedCrash]
+  /// ([Cont.coalesce]) or a [CollectedCrash] ([Cont.converge]).
+  ///
+  /// The policy carries no data, so it is typed `CrashPolicy<Never, Never>`,
+  /// which fits any `CrashPolicy<E, A>` and leaves the combinator's types to
+  /// be inferred from its continuations.
+  static CrashPolicy<Never, Never> sequence() {
+    return const SequenceCrashPolicy._();
   }
 
   /// Parallel quit-fast crash policy.
   ///
-  /// All continuations are started in parallel. As soon as one crashes, the
-  /// overall computation propagates that crash immediately without waiting
-  /// for the others.
-  static CrashPolicy<E, A> quitFast<E, A>() {
-    return QuitFastCrashPolicy();
+  /// All continuations are started in parallel. As soon as one succeeds or
+  /// fails, the overall computation propagates that outcome immediately
+  /// without waiting for the others. A crash waits for the others; if all
+  /// crash, the crashes are combined into a [MergedCrash] ([Cont.coalesce])
+  /// or a [CollectedCrash] ([Cont.converge]).
+  ///
+  /// The policy carries no data, so it is typed `CrashPolicy<Never, Never>`,
+  /// which fits any `CrashPolicy<E, A>` and leaves the combinator's types to
+  /// be inferred from its continuations.
+  static CrashPolicy<Never, Never> quitFast() {
+    return const QuitFastCrashPolicy._();
   }
 
   /// Parallel run-all crash policy.
   ///
   /// All continuations run in parallel and the computation waits for all of
-  /// them. Crashes from multiple continuations are merged. When multiple
-  /// non-crash outcomes occur, they are combined using [combineElseVals] or
-  /// [combineThenVals] as appropriate.
+  /// them. Crashes are only propagated if all continuations crash; they are
+  /// then merged. If any continuation succeeds or fails, the crashes are
+  /// dropped. When multiple non-crash outcomes occur, they are combined
+  /// using [combineElseVals] or [combineThenVals] as appropriate.
   ///
   /// - [shouldFavorElse]: When `true`, an else (error) outcome is favored over
   ///   a then (success) outcome when both occur.
@@ -40,7 +56,7 @@ sealed class CrashPolicy<E, A> {
     required E Function(E e1, E e2) combineElseVals,
     required A Function(A a1, A a2) combineThenVals,
   }) {
-    return RunAllCrashPolicy(
+    return RunAllCrashPolicy._(
       shouldFavorElse: shouldFavorElse,
       combineElseVals: combineElseVals,
       combineThenVals: combineThenVals,
@@ -50,27 +66,31 @@ sealed class CrashPolicy<E, A> {
 
 /// Sequential crash-merging policy for [Cont.coalesce] and [Cont.converge].
 ///
-/// Continuations are run sequentially; if both crash, crashes are combined
-/// into a [MergedCrash]. See [CrashPolicy.sequence].
+/// Continuations are run sequentially, each only if the previous one
+/// crashed; if all crash, crashes are combined into a [MergedCrash]
+/// ([Cont.coalesce]) or a [CollectedCrash] ([Cont.converge]).
+/// See [CrashPolicy.sequence].
 final class SequenceCrashPolicy<E, A>
     extends CrashPolicy<E, A> {
-  const SequenceCrashPolicy();
+  const SequenceCrashPolicy._();
 }
 
 /// Parallel quit-fast crash policy for [Cont.coalesce] and [Cont.converge].
 ///
-/// Continuations run concurrently; the first crash short-circuits the rest.
+/// Continuations run concurrently; the first success or error
+/// short-circuits the rest, while crashes wait for the others.
 /// See [CrashPolicy.quitFast].
 final class QuitFastCrashPolicy<E, A>
     extends CrashPolicy<E, A> {
-  const QuitFastCrashPolicy();
+  const QuitFastCrashPolicy._();
 }
 
 /// Parallel run-all crash policy for [Cont.coalesce] and [Cont.converge].
 ///
 /// Continuations run concurrently and the computation waits for all of them.
-/// Multiple crashes are merged; multiple non-crash outcomes are combined via
-/// [combineElseVals] and [combineThenVals]. See [CrashPolicy.runAll].
+/// Crashes are merged only if all continuations crash; multiple non-crash
+/// outcomes are combined via [combineElseVals] and [combineThenVals].
+/// See [CrashPolicy.runAll].
 final class RunAllCrashPolicy<E, A>
     extends CrashPolicy<E, A> {
   /// When `true`, an else (error) outcome is preferred over a then (success)
@@ -83,7 +103,7 @@ final class RunAllCrashPolicy<E, A>
   /// Function to merge two then (success) values of type [A].
   final A Function(A a1, A a2) combineThenVals;
 
-  const RunAllCrashPolicy({
+  const RunAllCrashPolicy._({
     required this.shouldFavorElse,
     required this.combineElseVals,
     required this.combineThenVals,

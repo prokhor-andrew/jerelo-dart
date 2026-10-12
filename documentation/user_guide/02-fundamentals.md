@@ -23,24 +23,26 @@ Cont<E, String, User> getUser<E>(String userId) {
 ```
 
 **Important notes about `observer`:**
-- It is idempotent. Calling `onThen`, `onElse`, or `onCrash` more than once will do nothing.
-- It is strongly advised to call exactly one of `onThen`, `onElse`, or `onCrash` once the computation is over, unless it is canceled.
+- It is idempotent. Calling `onThen`, `onElse`, or `onCrash` more than once will do nothing. Only this observer is guarded: observers derived from it with `copyUpdate*` call their new callbacks every time.
+- It is strongly advised to call exactly one of `onThen`, `onElse`, or `onCrash` once the computation is over.
 - The observer has an `isUsed` property that returns `true` once any callback has been invoked.
-- Exceptions thrown inside `Cont.fromRun` are automatically caught and routed to the crash channel — you don't need to wrap your code in try-catch blocks.
+- Exceptions thrown synchronously inside `Cont.fromRun` are automatically caught and routed to the crash channel — you don't need to wrap that code in try-catch blocks. An exception thrown later, inside a `Timer` or `Future` callback, is not caught: it escapes to the zone and the observer is never called. Wrap the body of such callbacks in `ContCrash.tryCatch` and pass the crash to `observer.onCrash`.
 
 ### Deferred Construction
 
-Sometimes you want to defer construction until the `Cont` is run:
+Sometimes you want to defer construction until the `Cont` is run. Build the inner `Cont` inside `Cont.fromRun` and run it with `runWith`, passing the runtime and observer through:
 
 ```dart
 Cont<E, String, User> getUserByIdThunk<E>(UserId Function() expensiveGetUserId) {
-  return Cont.fromDeferred(() {
+  return Cont.fromRun((runtime, observer) {
     final userId = expensiveGetUserId();
-    final userCont = getUser(userId);
-    return userCont;
+    final userCont = getUser<E>(userId);
+    userCont.runWith(runtime, observer);
   });
 }
 ```
+
+The [jerelo_ext](https://pub.dev/packages/jerelo_ext) package wraps this pattern as `contDeferred(() => ...)`.
 
 ### Primitive Constructors
 
@@ -65,16 +67,21 @@ To represent a crash (unexpected exception):
 Cont.crash<(), String, int>(someCrash);
 ```
 
-This constructor is used to thread an existing `ContCrash`. The construction of `ContCrash`
-manually is not possible. (More in **[Composing Computations](03-composing-computations.md)**)
+This constructor is used to thread an existing `ContCrash`. A `NormalCrash` has no public
+constructor: it is created when an exception is caught (for example by `ContCrash.tryCatch`).
+`MergedCrash` and `CollectedCrash` have public constructors (also available as `ContCrash.merge`
+and `ContCrash.collect`). (More in **[Composing Computations](03-composing-computations.md)**)
 
 ### Resource Management
 
-When working with resources that need cleanup (files, connections, locks), the `bracket` pattern guarantees the resource is released even if an error occurs.
+When working with resources that need cleanup (files, connections, locks), the bracket pattern releases the resource whether `use` succeeds, fails, or crashes. Core has no bracket operator; `contBracket` is in the [jerelo_ext](https://pub.dev/packages/jerelo_ext) package:
 
 ```dart
+import 'package:jerelo/jerelo.dart';
+import 'package:jerelo_ext/jerelo_ext.dart';
+
 Cont<E, F, String> readFileContents<E, F>(String path) {
-  return Cont.bracket<RandomAccessFile, E, F, String>(
+  return contBracket<RandomAccessFile, E, F, String>(
     acquire: Cont.fromRun((runtime, observer) {
       final file = File(path).openSync();
       observer.onThen(file);
@@ -84,7 +91,7 @@ Cont<E, F, String> readFileContents<E, F>(String path) {
       observer.onThen(());
     }),
     use: (file) => Cont.fromRun((runtime, observer) {
-      final contents = file.readStringSync();
+      final contents = String.fromCharCodes(file.readSync(file.lengthSync()));
       observer.onThen(contents);
     }),
   );
@@ -96,11 +103,11 @@ The execution order is always:
 2. **Use** the resource
 3. **Release** the resource (fire-and-forget)
 
-Key details about `bracket`:
+Key details about `contBracket`:
 - `acquire` and `release` have error type `Never` — they can only succeed or crash, never produce a business-logic error.
 - The `use` outcome (then, else, or crash) is propagated immediately; `release` runs independently afterward.
-- Release outcomes are routed to the optional `onReleasePanic`, `onReleaseCrash`, and `onReleaseThen` callbacks.
-- If the computation is cancelled before `use`, release fires and the observer receives nothing.
+- Release outcomes are routed to the optional `onReleasePanic`, `onReleaseCrash`, and `onReleaseThen` callbacks. A throw from the `release` function itself (while building the release continuation) goes to `onReleasePanic`; a crash inside the returned continuation goes to `onReleaseCrash`.
+- `release` runs once `use` reports an outcome. If `use` never reports, `release` never runs.
 
 ---
 
@@ -108,7 +115,7 @@ Key details about `bracket`:
 
 Constructing a computation is only the first step. To actually trigger its execution, call `run` on it. All callbacks (`onPanic`, `onCrash`, `onElse`, `onThen`) are optional named parameters with sensible defaults, so you only subscribe to the channels you care about.
 
-The `run` method returns a **`ContCancelToken`** that you can use to cooperatively cancel the execution. Calling `token.cancel()` sets an internal flag that the runtime polls via `isCancelled()`, signalling that the computation should stop. You can also query the cancellation state at any time via `token.isCancelled()`.
+`run` returns nothing: the outcome arrives only through the callbacks. Core has no cancellation; once started, a computation runs until it reports an outcome.
 
 ```dart
 // constructing the program
@@ -118,7 +125,7 @@ final Cont<(), String, int> program = getValueFromDatabase()
   .thenDo(toString);
 
 // running the program with handlers
-final token = program.run(
+program.run(
   (), // env
   onCrash: (crash) => print("crash=$crash"),
   onElse: (error) => print("error=$error"),
@@ -126,10 +133,7 @@ final token = program.run(
 );
 
 // or subscribe only to the value channel
-final token = program.run((), onThen: print);
-
-// cancel the computation when needed
-token.cancel();
+program.run((), onThen: print);
 ```
 
 ### Key Properties of Cont
@@ -144,39 +148,36 @@ You can pass `Cont` objects around in functions and store them as values in cons
 
 ### Run Parameters
 
-The `run` method accepts the environment as a positional argument and four optional named parameters. It returns a `ContCancelToken`.
+The `run` method accepts the environment as a positional argument and four optional named parameters. It returns `void`.
 
 - **`onThen`** (default: no-op) — Receives the successful result of type `A`.
 - **`onElse`** (default: no-op) — Receives the business-logic error of type `F`.
 - **`onCrash`** (default: no-op) — Receives a `ContCrash` for unexpected exceptions.
-- **`onPanic`** (default: re-throw) — Handles fatal errors that escape even the crash handlers.
+- **`onPanic`** (default: re-throw in a microtask) — Handles fatal errors that escape even the crash handlers.
 
 Because every callback has a sensible default, you only need to subscribe to the channels you care about:
 
 ```dart
 // Only handle values
-final token = computation.run(env, onThen: print);
+computation.run(env, onThen: print);
 
 // Handle business errors and values
-final token = computation.run(
+computation.run(
   env,
   onElse: (error) => log(error),
   onThen: (value) => process(value),
 );
 
 // Handle all outcomes
-final token = computation.run(
+computation.run(
   env,
   onCrash: (crash) => reportCrash(crash),
   onElse: (error) => showError(error),
   onThen: (value) => display(value),
 );
-
-// Cancel when needed (e.g., on user action or timeout)
-token.cancel();
 ```
 
-**Panic handler:** The `onPanic` callback is invoked when a fatal error occurs that lies outside the normal crash channel — for example, when an observer callback itself throws an exception. It receives a `NormalCrash`. By default it re-throws the error, surfacing it as an unhandled exception. Override it to integrate with your logging or crash-reporting infrastructure.
+**Panic handler:** The `onPanic` callback is invoked when a fatal error occurs that lies outside the normal crash channel — for example, when an observer callback itself throws an exception. It receives a `NormalCrash`. By default it re-throws the error in a microtask, surfacing it as an unhandled exception in the current zone; a `try`/`catch` around `run()` never sees it. Override it to integrate with your logging or crash-reporting infrastructure.
 
 ### Execution Flow
 
@@ -260,7 +261,7 @@ Without environment, you would need to manually pass these values through every 
 
 **How environment works:**
 
-Environment is automatically threaded through the entire computation chain. Any computation in the chain can access it using `Cont.askThen<E, F>()`, and you can create local scopes with different environment values using `.local()` or `.withEnv()`.
+Environment is automatically threaded through the entire computation chain. Any computation in the chain can access it using `Cont.askThen<E, F>()`, and you can create local scopes with different environment values using `.local()`.
 
 ```dart
 // Simple example: using () when you don't need environment
@@ -290,7 +291,7 @@ program.run(
 - **Zero overhead when unused**: If you don't need environment, just use `()` as the type
 - **Eliminates boilerplate**: No need to pass configuration through every function manually
 
-For detailed environment operations including `local`, `withEnv`, and advanced patterns, see the [Environment Management](05-environment.md) guide.
+For detailed environment operations including `local`, injection, and advanced patterns, see the [Environment Management](05-environment.md) guide.
 
 ---
 

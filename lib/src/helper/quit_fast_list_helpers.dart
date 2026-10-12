@@ -19,43 +19,39 @@ void _quitFastPar<E, QF, C>({
     return;
   }
 
-  bool isDone = false;
   final collectedResults = List<C?>.filled(total, null);
   int amountOfCollected = 0;
 
-  final shared = runtime.extendCancellation(() {
-    return isDone;
-  });
+  // set once the result is decided; later outcomes are ignored
+  bool isDone = false;
 
   void handleQuitFast(QF value) {
-    if (shared.isCancelled()) {
+    if (isDone) {
       return;
     }
-    // already checked by shared.isCancelled() that isDone == false
     isDone = true;
     onFirstQuitFast(value);
   }
 
   void handleCollect(C value, int i) {
-    if (shared.isCancelled()) {
+    if (isDone) {
       return;
     }
 
-    // already checked by shared.isCancelled() that isDone == false
     collectedResults[i] = value;
     amountOfCollected += 1;
     if (amountOfCollected < total) {
       // keep collecting
       return;
     }
+    isDone = true;
     onAllCollected(collectedResults.cast<C>());
   }
 
   void handleCrash(ContCrash crash) {
-    if (shared.isCancelled()) {
+    if (isDone) {
       return;
     }
-    // already checked by shared.isCancelled() that isDone == false
     isDone = true;
     onCrash(crash);
   }
@@ -63,7 +59,7 @@ void _quitFastPar<E, QF, C>({
   for (int i = 0; i < total; i++) {
     onRun(
       i,
-      shared,
+      runtime,
       handleQuitFast,
       (c) {
         handleCollect(c, i);
@@ -84,15 +80,15 @@ Cont<E, F, List<A>> _quitFastAll<E, F, A>(
       total: list.length,
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
         ContCrash.tryCatch(() {
-          list[i].absurdify().runWith(
-                shared,
-                observer.copyUpdate(
-                  onCrash: onCrash,
-                  onElse: onQuitFast,
-                  onThen: onCollect,
-                ),
-              );
-        }).match((_) {}, onCrash);
+          list[i].runWith(
+            shared,
+            observer.copyUpdate(
+              onCrash: onCrash,
+              onElse: onQuitFast,
+              onThen: onCollect,
+            ),
+          );
+        })._ifCrash(onCrash);
       },
       onFirstQuitFast: observer.onElse,
       onAllCollected: observer.onThen,
@@ -109,52 +105,52 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
-      observer.onCrash(CollectedCrash({}));
+      observer.onCrash(CollectedCrash._({}));
       return;
     }
 
     final total = list.length;
-    bool isDone = false;
     int numberOfCrashed = 0;
     final crashes = <int, ContCrash>{};
 
-    final shared = runtime.extendCancellation(() => isDone);
+    // set once the result is decided; later outcomes are ignored
+    bool isDone = false;
 
     void handleThen(A a) {
-      if (shared.isCancelled()) return;
+      if (isDone) return;
       isDone = true;
       observer.onThen(a);
     }
 
     void handleElse(F f) {
-      if (shared.isCancelled()) return;
+      if (isDone) return;
       isDone = true;
       observer.onElse(f);
     }
 
     void handleCrash(int index, ContCrash crash) {
-      if (shared.isCancelled()) return;
+      if (isDone) return;
       crashes[index] = crash;
       numberOfCrashed += 1;
       if (numberOfCrashed >= total) {
         isDone = true;
         observer.onCrash(
-          CollectedCrash(Map.from(crashes)),
+          CollectedCrash._(Map.from(crashes)),
         );
       }
     }
 
     for (var i = 0; i < total; i++) {
       ContCrash.tryCatch(() {
-        list[i].absurdify().runWith(
-              shared,
-              observer.copyUpdate(
-                onCrash: (c) => handleCrash(i, c),
-                onElse: handleElse,
-                onThen: handleThen,
-              ),
-            );
-      }).match((_) {}, (crash) {
+        list[i].runWith(
+          runtime,
+          observer.copyUpdate(
+            onCrash: (c) => handleCrash(i, c),
+            onElse: handleElse,
+            onThen: handleThen,
+          ),
+        );
+      })._ifCrash((crash) {
         handleCrash(i, crash);
       });
     }
@@ -172,15 +168,15 @@ Cont<E, List<F>, A> _quitFastAny<E, F, A>(
       total: list.length,
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
         ContCrash.tryCatch(() {
-          list[i].absurdify().runWith(
-                shared,
-                observer.copyUpdate(
-                  onCrash: onCrash,
-                  onThen: onQuitFast,
-                  onElse: onCollect,
-                ),
-              );
-        }).match((_) {}, onCrash);
+          list[i].runWith(
+            shared,
+            observer.copyUpdate(
+              onCrash: onCrash,
+              onThen: onQuitFast,
+              onElse: onCollect,
+            ),
+          );
+        })._ifCrash(onCrash);
       },
       onFirstQuitFast: observer.onThen,
       onAllCollected: observer.onElse,

@@ -3,8 +3,9 @@ part of '../cont.dart';
 /// Receives the outcome of a [Cont] computation.
 ///
 /// [ContObserver] is the callback container passed to [Cont.runWith]. It holds
-/// three outcome callbacks — [onCrash], [onElse], and [onThen] — exactly one
-/// of which will be invoked when the continuation completes.
+/// three outcome callbacks — [onCrash], [onElse], and [onThen] — at most one
+/// of which will be invoked: exactly one when the continuation completes,
+/// none when it never completes.
 ///
 /// Use the `copyUpdate*` family of methods to derive observers with selectively
 /// overridden callbacks while preserving the rest of the original observer's state.
@@ -180,50 +181,6 @@ sealed class ContObserver<F, A> {
   }
 }
 
-/// Convenience methods that widen [Never]-typed channels to an arbitrary type.
-///
-/// When an observer's success or error type is [Never] (meaning that channel
-/// can never actually fire), these methods replace the unreachable callback
-/// with a no-op so the observer can be used in a broader generic context.
-extension ContObserverAbsurdifyExtension<F, A>
-    on ContObserver<F, A> {
-  /// Widens the success channel if its type is [Never].
-  ///
-  /// If this observer has type `ContObserver<F, Never>`, returns a copy typed
-  /// as `ContObserver<F, A>` with a no-op [ContObserver.onThen] callback.
-  /// Otherwise returns this observer unchanged.
-  ContObserver<F, A> thenAbsurdify() {
-    ContObserver<F, A> cont = this;
-
-    if (cont is ContObserver<F, Never>) {
-      cont = cont.thenAbsurd<A>();
-    }
-    return cont;
-  }
-
-  /// Widens the error channel if its type is [Never].
-  ///
-  /// If this observer has type `ContObserver<Never, A>`, returns a copy typed
-  /// as `ContObserver<F, A>` with a no-op [ContObserver.onElse] callback.
-  /// Otherwise returns this observer unchanged.
-  ContObserver<F, A> elseAbsurdify() {
-    ContObserver<F, A> cont = this;
-
-    if (cont is ContObserver<Never, A>) {
-      cont = cont.elseAbsurd<F>();
-    }
-
-    return cont;
-  }
-
-  /// Widens both the success and error channels if either is [Never].
-  ///
-  /// Equivalent to calling [thenAbsurdify] followed by [elseAbsurdify].
-  ContObserver<F, A> absurdify() {
-    return thenAbsurdify().elseAbsurdify();
-  }
-}
-
 /// Provides [thenAbsurd] for observers whose success type is [Never].
 extension ContObserverThenNeverExtension<F>
     on ContObserver<F, Never> {
@@ -304,6 +261,10 @@ final class _UnsafeObserver<F, A>
 /// Provided to the user-supplied run function in [Cont.fromRun]. The [isUsed]
 /// predicate returns `true` once any outcome callback has already been called,
 /// allowing downstream operators to detect and ignore redundant invocations.
+///
+/// Only the observer handed to the run function is guarded. Observers derived
+/// from it with the `copyUpdate*` methods keep the same [isUsed] predicate,
+/// but their new callbacks run every time they are called.
 final class SafeObserver<F, A> extends ContObserver<F, A> {
   /// Returns `true` if an outcome callback has already been invoked.
   final bool Function() isUsed;

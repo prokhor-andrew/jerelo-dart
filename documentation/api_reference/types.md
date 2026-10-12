@@ -13,10 +13,14 @@ Core types used throughout the Jerelo continuation library.
   - [MergedCrash](#mergedcrash)
   - [CollectedCrash](#collectedcrash)
 - [CrashOr](#crashor)
+  - [ValueCrashOr](#valuecrashor)
+  - [CrashCrashOr](#crashcrashor)
 - [ContRuntime](#contruntime)
 - [ContObserver](#contobserver)
   - [SafeObserver](#safeobserver)
-- [ContCancelToken](#contcanceltoken)
+- [TailRec](#tailrec)
+  - [NextTailRec](#nexttailrec)
+  - [DoneTailRec](#donetailrec)
 
 ---
 
@@ -62,10 +66,12 @@ Executes a function and captures any thrown exception as a `CrashOr`.
 **Example:**
 ```dart
 final result = ContCrash.tryCatch(() => int.parse('not a number'));
-result.match(
-  (value) => print('Parsed: $value'),
-  (crash) => print('Failed: ${crash.error}'),
-);
+switch (result) {
+  case ValueCrashOr(value: final value):
+    print('Parsed: $value');
+  case CrashCrashOr(crash: final crash):
+    print('Failed: ${crash.error}');
+}
 ```
 
 ---
@@ -76,7 +82,7 @@ result.match(
 final class NormalCrash extends ContCrash
 ```
 
-A single exception with its stack trace.
+A single exception with its stack trace. It has no public constructor; it is created when an exception is caught, for example by `ContCrash.tryCatch`.
 
 **Fields:**
 - `error: Object` — The exception that was thrown
@@ -90,17 +96,13 @@ A single exception with its stack trace.
 final class MergedCrash extends ContCrash
 ```
 
-Two crashes combined from a two-way parallel operation (e.g., `both`, `either`).
+Two crashes combined from a two-way operation (e.g., `coalesce`, or `both`/`either` with `runAll`; also `crashZip` from jerelo_ext).
 
 **Fields:**
 - `left: ContCrash` — The crash from the left continuation
 - `right: ContCrash` — The crash from the right continuation
 
-**Constructor:**
-
-```dart
-const MergedCrash(ContCrash left, ContCrash right)
-```
+It has no public constructor; create one with `ContCrash.merge`.
 
 ---
 
@@ -110,16 +112,14 @@ const MergedCrash(ContCrash left, ContCrash right)
 final class CollectedCrash extends ContCrash
 ```
 
-Multiple crashes from a list operation (e.g., `all`, `any`), indexed by position.
+Multiple crashes from a list operation, indexed by position. It is produced by:
+- `converge` with any policy, when every input crashes; an empty `converge` gives an empty `CollectedCrash`
+- `all` and `any` with `runAll`, whenever a crash is reported, even if only one input crashed
 
 **Fields:**
 - `crashes: Map<int, ContCrash>` — A map from the index in the original list to the crash
 
-**Constructor:**
-
-```dart
-const CollectedCrash(Map<int, ContCrash> crashes)
-```
+It has no public constructor; create one with `ContCrash.collect`.
 
 ---
 
@@ -129,30 +129,39 @@ const CollectedCrash(Map<int, ContCrash> crashes)
 sealed class CrashOr<T>
 ```
 
-A result type representing either a value or a crash. Returned by `ContCrash.tryCatch`.
+A result type representing either a value or a crash. Returned by `ContCrash.tryCatch`. Read it with `switch`:
 
-**Methods:**
-
-```dart
-R match<R>(
-  R Function(T value) ifValue,
-  R Function(NormalCrash crash) ifCrash,
-)
-```
-Pattern-matches on the result, calling `ifValue` if the computation succeeded or `ifCrash` if it threw.
-
-- **Parameters:**
-  - `ifValue`: Called with the value if no crash occurred
-  - `ifCrash`: Called with the `NormalCrash` if an exception was thrown
-
-**Example:**
 ```dart
 final result = ContCrash.tryCatch(() => riskyOperation());
-final output = result.match(
-  (value) => 'Got: $value',
-  (crash) => 'Crashed: ${crash.error}',
-);
+final output = switch (result) {
+  ValueCrashOr(value: final value) => 'Got: $value',
+  CrashCrashOr(crash: final crash) => 'Crashed: ${crash.error}',
+};
 ```
+
+Results compare by value: two `ValueCrashOr`s are equal when their values are equal, and two `CrashCrashOr`s when their crashes are equal; a value never equals a crash.
+
+### ValueCrashOr
+
+```dart
+final class ValueCrashOr<T> extends CrashOr<T>
+```
+
+The function returned normally. It has no public constructor; it is created by `ContCrash.tryCatch`.
+
+**Fields:**
+- `value: T` — The value the function returned
+
+### CrashCrashOr
+
+```dart
+final class CrashCrashOr<T> extends CrashOr<T>
+```
+
+The function threw. It has no public constructor; it is created by `ContCrash.tryCatch`.
+
+**Fields:**
+- `crash: NormalCrash` — The captured exception and stack trace
 
 ---
 
@@ -164,14 +173,9 @@ final class ContRuntime<E>
 
 Provides runtime context for continuation execution.
 
-`ContRuntime` encapsulates the environment and cancellation state during the execution of a `Cont`. It allows continuations to access contextual information and check for cancellation.
+`ContRuntime` carries the environment during the execution of a `Cont`. It allows continuations to access contextual information.
 
-**Fields & Methods:**
-
-```dart
-bool Function() isCancelled
-```
-Function that checks whether the continuation execution has been cancelled. Returns `true` if the execution should be stopped, `false` otherwise. Continuations should check this regularly to support cooperative cancellation.
+**Methods:**
 
 ```dart
 E env()
@@ -181,18 +185,10 @@ Returns the environment value of type `E`. The environment provides contextual i
 ```dart
 ContRuntime<E2> copyUpdateEnv<E2>(E2 env)
 ```
-Creates a copy of this runtime with a different environment. Returns a new `ContRuntime` with the provided environment while preserving the cancellation function. This is used by `local` and related methods to modify the environment context.
+Creates a copy of this runtime with a different environment. Returns a new `ContRuntime` with the provided environment. This is used by `local` and related methods to modify the environment context.
 
 - **Parameters:**
   - `env`: The new environment value to use
-
-```dart
-ContRuntime<E> extendCancellation(bool Function() anotherIsCancelled)
-```
-Creates a copy of this runtime with an additional cancellation source. The resulting runtime reports cancelled if either the original or the new cancellation function returns `true`.
-
-- **Parameters:**
-  - `anotherIsCancelled`: An additional cancellation check to combine with the existing one
 
 ---
 
@@ -273,25 +269,7 @@ Creates a new observer with all three handlers replaced.
 
 **Extension Methods:**
 
-The following extension methods widen `Never`-typed channels to arbitrary types. When an observer's success or error type is `Never` (meaning that channel can never fire), these methods replace the unreachable callback with a no-op so the observer can be used in a broader generic context.
-
-```dart
-// On ContObserver<F, A>:
-ContObserver<F, A> thenAbsurdify()
-```
-Widens the success channel if its type is `Never`. If this observer has type `ContObserver<F, Never>`, returns a copy typed as `ContObserver<F, A>` with a no-op `onThen` callback. Otherwise returns this observer unchanged.
-
-```dart
-// On ContObserver<F, A>:
-ContObserver<F, A> elseAbsurdify()
-```
-Widens the error channel if its type is `Never`. If this observer has type `ContObserver<Never, A>`, returns a copy typed as `ContObserver<F, A>` with a no-op `onElse` callback. Otherwise returns this observer unchanged.
-
-```dart
-// On ContObserver<F, A>:
-ContObserver<F, A> absurdify()
-```
-Widens both the success and error channels if either is `Never`. Equivalent to calling `thenAbsurdify()` followed by `elseAbsurdify()`.
+The following extension methods widen a `Never`-typed channel to an arbitrary type. When an observer's success or error type is `Never` (meaning that channel can never fire), these methods replace the unreachable callback with a no-op. Since `ContObserver` can also be used directly where a wider type is expected, they are mainly a convenience for spelling out the target type.
 
 ```dart
 // On ContObserver<F, Never>:
@@ -315,47 +293,75 @@ final class SafeObserver<F, A> extends ContObserver<F, A>
 
 An observer that tracks whether any callback has already been invoked, preventing duplicate invocations.
 
-Used by `Cont.fromRun` to wrap user-provided callbacks with idempotence and exception safety.
+Used by `Cont.fromRun` to wrap user-provided callbacks with idempotence and exception safety. Only the observer handed to the `fromRun` run function is guarded: observers derived from it with `copyUpdate*` share its `isUsed`, but their new callbacks run every time they are called.
 
 **Fields:**
 - `isUsed: bool Function()` — Returns `true` if any callback on this observer has already been invoked
 
 ---
 
-## ContCancelToken
+## TailRec
 
 ```dart
-final class ContCancelToken
+sealed class TailRec<S, A>
 ```
 
-A token used to cooperatively cancel a running continuation.
+One step of [`Cont.tailRecM`](construction.md#conttailrecm): continue the loop with a new state, or finish it with a result.
 
-Returned by `Cont.run`, this token provides a way to signal cancellation to a running computation and to query its current cancellation state.
+- **Type Parameters:**
+  - `S`: The loop state
+  - `A`: The result of the loop
 
-Cancellation is cooperative: calling `cancel` sets an internal flag that the runtime polls via `isCancelled`. The computation checks this flag at safe points and stops work when it detects cancellation.
-
-**Methods:**
+**Creating steps** (the case classes have no public constructors):
 
 ```dart
-bool isCancelled()
+static TailRec<S, A> next<S, A>(S state)
 ```
-Returns `true` if `cancel` has been called on this token, `false` otherwise.
+Continues the loop with `state`. Creates a `NextTailRec`.
 
 ```dart
-void cancel()
+static TailRec<S, A> done<S, A>(A result)
 ```
-Signals cancellation to the running computation. After this call, `isCancelled()` will return `true` and the runtime will detect the cancellation at the next polling point. Calling this method multiple times is safe but has no additional effect.
+Finishes the loop with `result`. Creates a `DoneTailRec`.
+
+**Equality:** steps compare by value. Two `next` steps are equal when their states are equal, and two `done` steps when their results are equal; a `next` step never equals a `done` step.
 
 **Example:**
 ```dart
-final token = computation.run(
-  env,
-  onThen: (value) => print('Success: $value'),
-);
+TailRec<int, String> step(int n) {
+  return n < 3 ? TailRec.next(n + 1) : TailRec.done('finished at $n');
+}
 
-// Later, cancel the computation
-token.cancel();
-
-// Check cancellation state
-print(token.isCancelled()); // true
+switch (step(1)) {
+  case NextTailRec(state: final state):
+    print('next: $state');
+  case DoneTailRec(result: final result):
+    print('done: $result');
+}
 ```
+
+---
+
+### NextTailRec
+
+```dart
+final class NextTailRec<S, A> extends TailRec<S, A>
+```
+
+A `TailRec` step that continues the loop. Created with `TailRec.next`.
+
+**Fields:**
+- `state: S` — The state for the next iteration
+
+---
+
+### DoneTailRec
+
+```dart
+final class DoneTailRec<S, A> extends TailRec<S, A>
+```
+
+A `TailRec` step that finishes the loop. Created with `TailRec.done`.
+
+**Fields:**
+- `result: A` — The result of the loop

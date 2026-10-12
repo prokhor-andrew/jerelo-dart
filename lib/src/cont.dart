@@ -3,13 +3,7 @@ import 'package:jerelo/jerelo.dart';
 part 'api/cont_crash.dart';
 part 'api/cont_runtime.dart';
 part 'api/cont_observer.dart';
-part 'api/cont_cancel_token.dart';
-part 'api/then/fork.dart';
-part 'api/else/fork.dart';
-part 'api/then/while.dart';
-part 'api/else/while.dart';
-part 'api/crash/fork.dart';
-part 'api/crash/while.dart';
+part 'api/tail_rec.dart';
 part 'helper/utils.dart';
 
 part 'helper/sequence_helpers.dart';
@@ -31,9 +25,17 @@ part 'helper/when_all_list_helpers.dart';
 /// - [F]: The error type that the continuation may terminate with on the else channel.
 /// - [A]: The value type that the continuation produces upon success.
 final class Cont<E, F, A> {
+  // The callbacks are passed as plain function types rather than as a
+  // ContObserver<F, A>. Dart treats class type parameters as covariant,
+  // but checks function types soundly, so this keeps Cont safely
+  // covariant in F and A: a Cont<E, String, int> can be used as a
+  // Cont<E, Object?, int>.
   final void Function(
     ContRuntime<E> runtime,
-    ContObserver<F, A> observer,
+    void Function(NormalCrash crash) onPanic,
+    void Function(ContCrash crash) onCrash,
+    void Function(F error) onElse,
+    void Function(A value) onThen,
   ) _run;
 
   const Cont._(this._run);
@@ -41,50 +43,28 @@ final class Cont<E, F, A> {
   /// Executes the continuation with the given environment.
   ///
   /// Runs the continuation and routes its outcome to the appropriate callback.
-  /// Returns a [ContCancelToken] that can be used to cooperatively cancel
-  /// the running computation.
   ///
   /// - [env]: The environment value to provide to the computation.
   /// - [onPanic]: Called when an unexpected exception escapes all crash handlers.
-  ///   Defaults to rethrowing the panic.
+  ///   Defaults to rethrowing the panic in a microtask, so it surfaces as an
+  ///   unhandled error in the current zone; a `try`/`catch` around [run]
+  ///   never sees it.
   /// - [onCrash]: Called when the computation terminates on the crash channel.
   ///   Defaults to silently ignoring the crash.
   /// - [onElse]: Called when the computation terminates on the else (error) channel.
   ///   Defaults to silently ignoring the error.
   /// - [onThen]: Called when the computation succeeds with a value.
   ///   Defaults to silently ignoring the value.
-  ContCancelToken run(
+  void run(
     E env, {
     void Function(NormalCrash crash) onPanic = _panic,
     void Function(ContCrash crash) onCrash = _ignore,
     void Function(F error) onElse = _ignore,
     void Function(A value) onThen = _ignore,
   }) {
-    final cancelToken = ContCancelToken._();
-
     runWith(
-      ContRuntime._(env, cancelToken.isCancelled),
+      ContRuntime._(env),
       _UnsafeObserver._(onPanic, onCrash, onElse, onThen),
-    );
-
-    return cancelToken;
-  }
-
-  /// Executes the continuation with the given runtime and observer directly.
-  ///
-  /// Lower-level alternative to [run]. Useful when composing continuations
-  /// internally or when a [ContRuntime] and [ContObserver] are already
-  /// available from an enclosing computation.
-  ///
-  /// - [runtime]: The runtime context providing the environment and cancellation state.
-  /// - [observer]: The observer whose callbacks receive the computation's outcome.
-  void runWith(
-    ContRuntime<E> runtime,
-    ContObserver<F, A> observer,
-  ) {
-    _run(
-      runtime,
-      observer,
     );
   }
 
@@ -95,6 +75,16 @@ final class Cont<E, F, A> {
   /// The callbacks should be called as the last instruction in the run function
   /// or saved to be called later.
   ///
+  /// Only the observer handed to [run] is guarded against duplicate calls;
+  /// observers derived from it with `copyUpdate*` call their new callbacks
+  /// every time.
+  ///
+  /// Only exceptions thrown synchronously by [run] are caught and routed to
+  /// the crash channel. An exception thrown later, for example inside a
+  /// `Timer` or `Future` callback, escapes to the zone and the observer is
+  /// not called; wrap such callbacks in [ContCrash.tryCatch] and pass the
+  /// crash to `observer.onCrash`.
+  ///
   /// - [run]: Function that executes the continuation and calls observer callbacks.
   static Cont<E, F, A> fromRun<E, F, A>(
     void Function(
@@ -102,17 +92,17 @@ final class Cont<E, F, A> {
       SafeObserver<F, A> observer,
     ) run,
   ) {
-    return Cont._((runtime, observer) {
-      if (runtime.isCancelled()) {
-        return;
-      }
-
-      observer = observer.absurdify();
-
+    return Cont._((
+      runtime,
+      onUnsafePanic,
+      onCrash,
+      onElse,
+      onThen,
+    ) {
       void onPanic(NormalCrash crash) {
         ContCrash.tryCatch(() {
-          observer._onUnsafePanic(crash);
-        }).match((_) {}, (panic) {
+          onUnsafePanic(crash);
+        })._ifCrash((panic) {
           // the important part here is that if onPanic crashes,
           // we don't push the crash that was sent there,
           // but the crash that caused the onPanic
@@ -130,8 +120,8 @@ final class Cont<E, F, A> {
         isDone = true;
 
         ContCrash.tryCatch(() {
-          observer.onCrash(crash);
-        }).match((_) {}, onPanic);
+          onCrash(crash);
+        })._ifCrash(onPanic);
       }
 
       void guardedOnElse(F error) {
@@ -142,8 +132,8 @@ final class Cont<E, F, A> {
         isDone = true;
 
         ContCrash.tryCatch(() {
-          observer.onElse(error);
-        }).match((_) {}, onPanic);
+          onElse(error);
+        })._ifCrash(onPanic);
       }
 
       void guardedOnThen(A a) {
@@ -154,8 +144,8 @@ final class Cont<E, F, A> {
         isDone = true;
 
         ContCrash.tryCatch(() {
-          observer.onThen(a);
-        }).match((_) {}, onPanic);
+          onThen(a);
+        })._ifCrash(onPanic);
       }
 
       ContCrash.tryCatch(() {
@@ -171,22 +161,7 @@ final class Cont<E, F, A> {
             guardedOnThen,
           ),
         );
-      }).match((_) {}, guardedOnCrash);
-    });
-  }
-
-  /// Creates a [Cont] from a deferred continuation computation.
-  ///
-  /// Lazily evaluates a continuation-returning function. The inner [Cont] is
-  /// not created until the outer one is executed.
-  ///
-  /// - [thunk]: Function that returns a [Cont] when called.
-  static Cont<E, F, A> fromDeferred<E, F, A>(
-    Cont<E, F, A> Function() thunk,
-  ) {
-    return Cont.fromRun((runtime, observer) {
-      Cont<E, F, A> contA = thunk().absurdify();
-      contA.runWith(runtime, observer);
+      })._ifCrash(guardedOnCrash);
     });
   }
 
@@ -207,6 +182,86 @@ final class Cont<E, F, A> {
   static Cont<E, F, A> of<E, F, A>(A value) {
     return Cont.fromRun((runtime, observer) {
       observer.onThen(value);
+    });
+  }
+
+  /// Runs [step] repeatedly, starting from [initial], until it finishes.
+  ///
+  /// Each iteration runs the continuation returned by `step(state)`:
+  /// - succeeds with [TailRec.next] → runs the next iteration with the new
+  ///   state;
+  /// - succeeds with [TailRec.done] → succeeds with the result;
+  /// - terminates on the else or crash channel → ends the loop with that
+  ///   outcome. A throw from [step] becomes a crash.
+  ///
+  /// The loop is stack-safe: iterations that complete synchronously do not
+  /// grow the call stack, so it can run any number of times. Use it instead
+  /// of a recursive `thenDo` for loops and retries.
+  ///
+  /// - [initial]: The state of the first iteration.
+  /// - [step]: Produces the continuation for one iteration from the current
+  ///   state.
+  static Cont<E, F, A> tailRecM<E, F, S, A>(
+    S initial,
+    Cont<E, F, TailRec<S, A>> Function(S state) step,
+  ) {
+    return Cont.fromRun((runtime, observer) {
+      _stackSafeLoop<
+          _Triple<S, ContCrash, _Either<F, A>>, // state
+          S, // loop input
+          _Either<ContCrash, _Either<F, A>> // loop output
+          >(
+        seed: _Value1(initial),
+        keepRunningIf: (state) {
+          switch (state) {
+            case _Value1(a: final state):
+              return _StackSafeLoopPolicyKeepRunning(state);
+            case _Value2(b: final crash):
+              return _StackSafeLoopPolicyStop(_Left(crash));
+            case _Value3(c: final outcome):
+              return _StackSafeLoopPolicyStop(
+                  _Right(outcome));
+          }
+        },
+        computation: (state, update) {
+          ContCrash.tryCatch(() {
+            step(state).runWith(
+              runtime,
+              observer.copyUpdate<F, TailRec<S, A>>(
+                onCrash: (crash) {
+                  update(_Value2(crash));
+                },
+                onElse: (error) {
+                  update(_Value3(_Left(error)));
+                },
+                onThen: (next) {
+                  switch (next) {
+                    case NextTailRec(state: final state):
+                      update(_Value1(state));
+                    case DoneTailRec(result: final result):
+                      update(_Value3(_Right(result)));
+                  }
+                },
+              ),
+            );
+          })._ifCrash((crash) {
+            update(_Value2(crash));
+          });
+        },
+        escape: (outcome) {
+          switch (outcome) {
+            case _Left(value: final crash):
+              observer.onCrash(crash);
+            case _Right(value: final result):
+              switch (result) {
+                case _Left(value: final error):
+                  observer.onElse(error);
+                case _Right(value: final value):
+                  observer.onThen(value);
+              }
+          }
+        },
+      );
     });
   }
 
@@ -250,15 +305,16 @@ final class Cont<E, F, A> {
   /// Runs two continuations and combines their results according to the specified policy.
   ///
   /// Executes both continuations. Both must succeed for the result to be successful;
-  /// if either fails, the entire operation fails. When both succeed, their values
-  /// are combined using [combine].
+  /// if either fails or crashes, the entire operation fails or crashes. When both
+  /// succeed, their values are combined using [combine].
   ///
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceOkPolicy]: Runs [left] then [right] sequentially.
+  /// - [SequenceOkPolicy]: Runs [left], then [right] only if [left] succeeded.
   /// - [RunAllOkPolicy]: Runs both in parallel, waits for both to complete,
   ///   and merges errors if both fail.
-  /// - [QuitFastOkPolicy]: Runs both in parallel, terminates immediately if either fails.
+  /// - [QuitFastOkPolicy]: Runs both in parallel, terminates immediately if
+  ///   either fails or crashes.
   ///
   /// - [left]: First continuation to execute.
   /// - [right]: Second continuation to execute.
@@ -270,9 +326,6 @@ final class Cont<E, F, A> {
     A3 Function(A1 a, A2 a2) combine, {
     required OkPolicy<F> policy,
   }) {
-    left = left.absurdify();
-    right = right.absurdify();
-
     switch (policy) {
       case SequenceOkPolicy():
         return left.thenDo((a) {
@@ -301,10 +354,16 @@ final class Cont<E, F, A> {
   /// Executes all continuations in [list] and collects their values into a list.
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceOkPolicy]: Runs continuations one by one in order, stops at first failure.
+  /// - [SequenceOkPolicy]: Runs continuations one by one in order, stops at
+  ///   first failure or crash.
   /// - [RunAllOkPolicy]: Runs all in parallel, waits for all to complete,
-  ///   and merges errors if any fail.
-  /// - [QuitFastOkPolicy]: Runs all in parallel, terminates immediately on first failure.
+  ///   and merges errors if any fail. Values and errors are collected in
+  ///   completion order, and crashes are reported as a [CollectedCrash].
+  /// - [QuitFastOkPolicy]: Runs all in parallel, terminates immediately on
+  ///   first failure or crash.
+  ///
+  /// [SequenceOkPolicy] and [QuitFastOkPolicy] keep list order. An empty
+  /// [list] succeeds with `[]`.
   ///
   /// - [list]: List of continuations to execute.
   /// - [policy]: Execution policy determining how continuations are run and error are handled.
@@ -328,14 +387,15 @@ final class Cont<E, F, A> {
   /// Races two continuations, returning the first successful value.
   ///
   /// Executes both continuations and returns the result from whichever succeeds first.
-  /// If both fail, their errors are combined via [combine]. The execution behavior
-  /// depends on the provided [policy]:
+  /// If both fail, their errors are combined via [combine]. A crash ends the race,
+  /// like a success. The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceOkPolicy]: Tries [left] first, then [right] if [left] fails.
+  /// - [SequenceOkPolicy]: Tries [left] first, then [right] only if [left] fails.
   /// - [RunAllOkPolicy]: Runs both in parallel; if both succeed, combines their
-  ///   values using the policy's combine function; otherwise propagates the first
+  ///   values using the policy's combine function; otherwise propagates the
   ///   success or merges errors if both fail.
-  /// - [QuitFastOkPolicy]: Runs both in parallel, returns immediately on first success.
+  /// - [QuitFastOkPolicy]: Runs both in parallel, returns immediately on first
+  ///   success or crash. A failure waits for the other side.
   ///
   /// - [left]: First continuation to try.
   /// - [right]: Second continuation to try.
@@ -347,9 +407,6 @@ final class Cont<E, F, A> {
     F3 Function(F1, F2) combine, {
     required OkPolicy<A> policy,
   }) {
-    left = left.absurdify();
-    right = right.absurdify();
-
     switch (policy) {
       case SequenceOkPolicy<A>():
         return left.elseDo((error1) {
@@ -376,14 +433,20 @@ final class Cont<E, F, A> {
   /// Races multiple continuations, returning the first successful value.
   ///
   /// Executes all continuations in [list] and returns the first one that succeeds.
-  /// If all fail, their errors are collected into a [List]. The execution behavior
-  /// depends on the provided [policy]:
+  /// If all fail, their errors are collected into a [List]. A crash ends the race,
+  /// like a success. The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceOkPolicy]: Tries continuations one by one in order until one succeeds.
+  /// - [SequenceOkPolicy]: Tries continuations one by one in order until one
+  ///   succeeds or crashes.
   /// - [RunAllOkPolicy]: Runs all in parallel; if multiple succeed, combines their
-  ///   values using the policy's combine function; otherwise returns the first success
-  ///   or collects all errors if all fail.
-  /// - [QuitFastOkPolicy]: Runs all in parallel, returns immediately on first success.
+  ///   values using the policy's combine function; otherwise returns the success
+  ///   or collects all errors if all fail. Errors are collected in completion
+  ///   order, and crashes are reported as a [CollectedCrash].
+  /// - [QuitFastOkPolicy]: Runs all in parallel, returns immediately on first
+  ///   success or crash.
+  ///
+  /// [SequenceOkPolicy] and [QuitFastOkPolicy] keep list order. An empty
+  /// [list] fails with `[]`.
   ///
   /// - [list]: List of continuations to race.
   /// - [policy]: Execution policy determining how continuations are run.
@@ -412,10 +475,11 @@ final class Cont<E, F, A> {
   ///
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceCrashPolicy]: Runs [left] then [right] sequentially; if both crash,
+  /// - [SequenceCrashPolicy]: Runs [left], then [right] only if [left] crashes;
+  ///   if both crash, produces a [MergedCrash].
+  /// - [QuitFastCrashPolicy]: Runs both in parallel, propagates the first success
+  ///   or error immediately. A crash waits for the other side; if both crash,
   ///   produces a [MergedCrash].
-  /// - [QuitFastCrashPolicy]: Runs both in parallel, propagates the first crash
-  ///   immediately.
   /// - [RunAllCrashPolicy]: Runs both in parallel, waits for both, and coalesces crashes
   ///   if both crash.
   ///
@@ -427,15 +491,12 @@ final class Cont<E, F, A> {
     Cont<E, F, A> right, {
     required CrashPolicy<F, A> policy,
   }) {
-    left = left.absurdify();
-    right = right.absurdify();
-
     switch (policy) {
       case SequenceCrashPolicy():
         return left.crashDo((crash1) {
           return right.crashDo((crash2) {
             return Cont.crash(
-              MergedCrash(crash1, crash2),
+              MergedCrash._(crash1, crash2),
             );
           });
         });
@@ -464,12 +525,16 @@ final class Cont<E, F, A> {
   ///
   /// The execution behavior depends on the provided [policy]:
   ///
-  /// - [SequenceCrashPolicy]: Runs continuations one by one; sequential crashes
-  ///   are converged into a [MergedCrash].
-  /// - [QuitFastCrashPolicy]: Runs all in parallel, propagates the first crash
-  ///   immediately.
+  /// - [SequenceCrashPolicy]: Runs continuations one by one, each only if the
+  ///   previous one crashed; if all crash, produces a [CollectedCrash].
+  /// - [QuitFastCrashPolicy]: Runs all in parallel, propagates the first success
+  ///   or error immediately. Crashes wait for the others; if all crash,
+  ///   produces a [CollectedCrash].
   /// - [RunAllCrashPolicy]: Runs all in parallel, waits for all, and collects
-  ///   crashes into a [CollectedCrash].
+  ///   crashes into a [CollectedCrash] if all crash. If any continuation
+  ///   succeeds or fails, the crashes are dropped.
+  ///
+  /// An empty [list] crashes with an empty [CollectedCrash].
   ///
   /// - [list]: List of continuations to execute.
   /// - [policy]: Crash policy determining how crashes are converged.
@@ -495,96 +560,34 @@ final class Cont<E, F, A> {
         );
     }
   }
+}
 
-  /// Acquires a resource, uses it, and guarantees its release.
+/// Provides [runWith], the low-level way to run a [Cont].
+///
+/// It is an extension rather than a method of [Cont] so that Dart does
+/// not check the observer against the [Cont]'s runtime type arguments.
+/// That check would reject a valid observer when the [Cont] is used
+/// through a wider type, for example a `Cont<E, String, int>` used as a
+/// `Cont<E, Object?, int>`.
+extension ContRunWithExtension<E, F, A> on Cont<E, F, A> {
+  /// Executes the continuation with the given runtime and observer directly.
   ///
-  /// Implements the bracket pattern for safe resource management. Regardless
-  /// of whether [use] succeeds, fails, or crashes, [release] is always called
-  /// with the acquired resource.
+  /// Lower-level alternative to [Cont.run]. Useful when composing continuations
+  /// internally or when a [ContRuntime] and [ContObserver] are already
+  /// available from an enclosing computation.
   ///
-  /// - [acquire]: Obtains the resource. Cannot produce a business-logic error
-  ///   (error type is [Never]); it can only succeed or crash.
-  /// - [release]: Releases the resource. Cannot produce a business-logic error
-  ///   (error type is [Never]); it can only succeed or crash. Release is
-  ///   fire-and-forget: the [use] outcome is propagated immediately and
-  ///   [release] runs independently. Release outcomes are routed to the
-  ///   optional [onReleasePanic], [onReleaseCrash], and [onReleaseThen]
-  ///   callbacks, following the same pattern as fork handlers.
-  /// - [use]: Uses the resource; may succeed with [A], fail with [F], or crash.
-  ///
-  /// Outcome rules:
-  /// - [use] succeeded  → propagate the success value immediately.
-  /// - [use] failed     → propagate the failure error immediately.
-  /// - [use] crashed    → propagate the crash immediately.
-  /// - Cancelled before [use] → release fires, observer receives nothing.
-  /// - [release] outcomes are routed to the release handlers.
-  static Cont<E, F, A> bracket<R, E, F, A>({
-    required Cont<E, Never, R> acquire,
-    required Cont<E, Never, ()> Function(
-      R resource,
-    ) release,
-    required Cont<E, F, A> Function(R resource) use,
-    void Function(NormalCrash crash) onReleasePanic =
-        _panic,
-    void Function(ContCrash crash) onReleaseCrash = _ignore,
-    void Function() onReleaseThen = _voidIgnore,
-  }) {
-    return Cont.fromRun((runtime, observer) {
-      acquire.absurdify().elseAbsurd<F>().runWith(
-        runtime,
-        observer.copyUpdateOnThen<R>((r) {
-          void fireRelease() {
-            ContCrash.tryCatch(() {
-              release(r).absurdify().run(
-                    runtime.env(),
-                    onPanic: onReleasePanic,
-                    onCrash: onReleaseCrash,
-                    onThen: (_) => onReleaseThen(),
-                  );
-            }).match((_) {}, onReleasePanic);
-          }
-
-          if (runtime.isCancelled()) {
-            fireRelease();
-            return;
-          }
-
-          ContCrash.tryCatch(() {
-            use(r).absurdify().runWith(
-                  runtime,
-                  observer.copyUpdate(
-                    onCrash: (crash) {
-                      if (runtime.isCancelled()) {
-                        fireRelease();
-                        return;
-                      }
-                      observer.onCrash(crash);
-                      fireRelease();
-                    },
-                    onElse: (error) {
-                      if (runtime.isCancelled()) {
-                        fireRelease();
-                        return;
-                      }
-                      observer.onElse(error);
-                      fireRelease();
-                    },
-                    onThen: (a) {
-                      if (runtime.isCancelled()) {
-                        fireRelease();
-                        return;
-                      }
-                      observer.onThen(a);
-                      fireRelease();
-                    },
-                  ),
-                );
-          }).match((_) {}, (crash) {
-            observer.onCrash(crash);
-            fireRelease();
-          });
-        }),
-      );
-    });
+  /// - [runtime]: The runtime context providing the environment.
+  /// - [observer]: The observer whose callbacks receive the computation's outcome.
+  void runWith(
+    ContRuntime<E> runtime,
+    ContObserver<F, A> observer,
+  ) {
+    _run(
+      runtime,
+      observer._onUnsafePanic,
+      observer.onCrash,
+      observer.onElse,
+      observer.onThen,
+    );
   }
 }

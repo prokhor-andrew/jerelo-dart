@@ -1,60 +1,5 @@
 import 'package:jerelo/jerelo.dart';
 
-extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A> {
-  /// Widens the then (success) channel from [Never] to [A] if this continuation
-  /// has a [Never] success type; otherwise returns `this` unchanged.
-  ///
-  /// This is a type-safe no-op that allows a `Cont<E, F, Never>` to be used
-  /// where a `Cont<E, F, A>` is expected.
-  Cont<E, F, A> thenAbsurdify() {
-    Cont<E, F, A> cont = this;
-
-    if (cont is Cont<E, F, Never>) {
-      cont = cont.thenAbsurd<A>();
-    }
-
-    return cont;
-  }
-
-  /// Widens the else (error) channel from [Never] to [F] if this continuation
-  /// has a [Never] error type; otherwise returns `this` unchanged.
-  ///
-  /// This is a type-safe no-op that allows a `Cont<E, Never, A>` to be used
-  /// where a `Cont<E, F, A>` is expected.
-  Cont<E, F, A> elseAbsurdify() {
-    Cont<E, F, A> cont = this;
-
-    if (cont is Cont<E, Never, A>) {
-      cont = cont.elseAbsurd<F>();
-    }
-
-    return cont;
-  }
-
-  /// Widens both the then and else channels from [Never] to [A] and [F]
-  /// respectively, if needed; otherwise returns `this` unchanged.
-  ///
-  /// Combines [thenAbsurdify] and [elseAbsurdify] in a single call.
-  Cont<E, F, A> absurdify() {
-    Cont<E, F, A> cont = this;
-
-    if (cont is Cont<E, Never, Never>) {
-      return Cont.fromRun((runtime, observer) {
-        cont.runWith(
-          runtime,
-          observer.copyUpdate<Never, Never>(
-            onCrash: observer.onCrash,
-            onElse: (Never n) {},
-            onThen: (Never n) {},
-          ),
-        );
-      });
-    }
-
-    return thenAbsurdify().elseAbsurdify();
-  }
-}
-
 extension ContElseNeverExtension<E, A>
     on Cont<E, Never, A> {
   /// Converts a continuation that never produces a business-logic error to
@@ -77,7 +22,7 @@ extension ContElseNeverExtension<E, A>
 
 /// Extension for running continuations that never produce a value.
 ///
-/// This extension provides specialized methods for [Cont]<[E], [Never]> where only
+/// This extension provides specialized methods for [Cont]<[E], [F], [Never]> where only
 /// termination is expected, simplifying the API by removing the unused value callback.
 extension ContThenNeverExtension<E, F>
     on Cont<E, F, Never> {
@@ -85,7 +30,7 @@ extension ContThenNeverExtension<E, F>
   ///
   /// The absurd method implements the principle of "ex falso quodlibet" (from
   /// falsehood, anything follows) from type theory. It allows converting a
-  /// `Cont<E, Never>` to `Cont<E, A>` for any type `A`.
+  /// `Cont<E, F, Never>` to `Cont<E, F, A>` for any type `A`.
   ///
   /// Since `Never` is an uninhabited type with no possible values, the mapping
   /// function `(Never never) => never` can never actually execute. However, the
@@ -94,7 +39,8 @@ extension ContThenNeverExtension<E, F>
   /// any desired value type.
   ///
   /// This is particularly useful when:
-  /// - Working with continuations that run forever (e.g., from [thenForever])
+  /// - Working with continuations that never succeed, such as a
+  ///   [Cont.tailRecM] loop that only ends on the else or crash channel
   /// - Matching types with other continuations in composition
   /// - Converting terminating-only continuations to typed continuations
   ///
@@ -106,11 +52,14 @@ extension ContThenNeverExtension<E, F>
   ///
   /// Example:
   /// ```dart
-  /// // A server that runs forever has type Cont<Env, Never>
-  /// final server = handleRequests().thenForever();
+  /// // A server loop that only ends with an error or a crash
+  /// final Cont<Env, F, Never> server = Cont.tailRecM(
+  ///   (),
+  ///   (_) => handleRequest().thenMap((_) => TailRec.next(())),
+  /// );
   ///
-  /// // Convert to Cont<Env, String> to match other continuation types
-  /// final serverAsString = server.absurd<String>();
+  /// // Convert to Cont<Env, F, String> to match other continuation types
+  /// final serverAsString = server.thenAbsurd<String>();
   /// ```
   Cont<E, F, A> thenAbsurd<A>() {
     return thenMap<A>(
@@ -181,3 +130,28 @@ extension ContThenNeverExtension<E, F>
 ::::....:::--=========-================--==------=============================================::::::
 
    */
+
+/// Provides [thenUnit] and [elseUnit], which forget the value or the error.
+///
+/// The unit type `()` is the terminal object: every type has exactly one
+/// function into it. These are the dual of [ContThenNeverExtension.thenAbsurd]
+/// and [ContElseNeverExtension.elseAbsurd].
+extension ContUnitExtension<E, F, A> on Cont<E, F, A> {
+  /// Replaces the success value with `()`.
+  ///
+  /// Use it when only the fact that the continuation succeeded matters.
+  Cont<E, F, ()> thenUnit() {
+    return thenMap((_) {
+      return ();
+    });
+  }
+
+  /// Replaces the error with `()`.
+  ///
+  /// Use it when only the fact that the continuation failed matters.
+  Cont<E, (), A> elseUnit() {
+    return elseMap((_) {
+      return ();
+    });
+  }
+}

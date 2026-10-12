@@ -67,8 +67,6 @@ Cont<void, String, AuthToken> loginRequest(
 ) {
   return Cont.fromRun((runtime, observer) {
     Timer(const Duration(milliseconds: 300), () {
-      if (runtime.isCancelled()) return;
-
       if (email == 'user@test.com' &&
           password == 'secret') {
         print('  [API] POST /auth/login -> 200 OK');
@@ -94,8 +92,6 @@ Cont<void, String, UserProfile> getUserProfile(
 ) {
   return Cont.fromRun((runtime, observer) {
     Timer(const Duration(milliseconds: 200), () {
-      if (runtime.isCancelled()) return;
-
       if (accessToken.isNotEmpty) {
         print('  [API] GET /users/me -> 200 OK');
         observer.onThen(
@@ -120,8 +116,6 @@ Cont<void, String, UserProfile> updateUserProfile(
 ) {
   return Cont.fromRun((runtime, observer) {
     Timer(const Duration(milliseconds: 250), () {
-      if (runtime.isCancelled()) return;
-
       print('  [API] PUT /users/me -> 200 OK');
       observer.onThen(updated);
     });
@@ -132,8 +126,6 @@ Cont<void, String, UserProfile> updateUserProfile(
 Cont<void, String, void> logoutRequest(String accessToken) {
   return Cont.fromRun((runtime, observer) {
     Timer(const Duration(milliseconds: 150), () {
-      if (runtime.isCancelled()) return;
-
       print('  [API] POST /auth/logout -> 204 No Content');
       observer.onThen(null);
     });
@@ -193,8 +185,6 @@ Cont<void, String, UserProfile> fetchAndUpdateProfile(
     observer,
   ) {
     Timer(const Duration(milliseconds: 100), () {
-      if (runtime.isCancelled()) return;
-
       if (newName.trim().isEmpty) {
         print('  [VALIDATION] name -> invalid');
         observer.onElse('Name cannot be empty');
@@ -211,7 +201,7 @@ Cont<void, String, UserProfile> fetchAndUpdateProfile(
     validateName,
     (profile, validatedName) =>
         profile.copyWith(name: validatedName),
-    policy: OkPolicy.quitFast<String>(),
+    policy: OkPolicy.quitFast(),
   ).thenDo((mergedProfile) {
     return updateUserProfile(accessToken, mergedProfile);
   });
@@ -230,8 +220,6 @@ Cont<void, String, AuthToken> loginWithFallbackStrategy() {
     observer,
   ) {
     Timer(const Duration(milliseconds: 200), () {
-      if (runtime.isCancelled()) return;
-
       print('  [API] POST /auth/refresh -> 200 OK');
       observer.onThen(
         const AuthToken(
@@ -258,12 +246,12 @@ Cont<void, String, AuthToken> loginWithFallbackStrategy() {
 void main() {
   print('=== 1. Login flow (thenDo + thenMap) ===');
   loginFlow('user@test.com', 'secret')
-      // thenTap: log the session without altering the value passed downstream.
-      .thenTap((session) {
+      // thenMap: log the session and pass it on unchanged.
+      .thenMap((session) {
     print(
       '  [LOG] Authenticated as ${session.profile.name}',
     );
-    return Cont.of(());
+    return session;
   }).run(
     null,
     onThen: (session) => print('  -> Success: $session\n'),
@@ -294,9 +282,9 @@ void main() {
   print(
     '=== 4. Login with fallback strategy (Cont.either) ===',
   );
-  loginWithFallbackStrategy().thenTap((token) {
+  loginWithFallbackStrategy().thenMap((token) {
     print('  [LOG] Got token via fallback: $token');
-    return Cont.of(());
+    return token;
   }).run(
     null,
     onThen: (token) => print('  -> Token: $token\n'),
@@ -307,9 +295,9 @@ void main() {
   print(
     '=== 5. Full session lifecycle (login -> update -> logout) ===',
   );
-  loginFlow('user@test.com', 'secret').thenTap((session) {
+  loginFlow('user@test.com', 'secret').thenMap((session) {
     print('  [LOG] Session started');
-    return Cont.of(());
+    return session;
   }).thenDo((session) {
     return fetchAndUpdateProfile(
       session.token.accessToken,
@@ -323,12 +311,12 @@ void main() {
   }).thenDo((session) {
     return logoutRequest(
       session.token.accessToken,
-    ).thenMapTo(session);
-  }).thenTap((session) {
+    ).thenMap((_) => session);
+  }).thenMap((session) {
     print(
       '  [LOG] Session ended for ${session.profile.name}',
     );
-    return Cont.of(());
+    return session;
   }).run(
     null,
     onThen: (session) => print('  -> Final: $session\n'),

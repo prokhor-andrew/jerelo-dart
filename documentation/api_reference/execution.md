@@ -13,11 +13,10 @@ Running continuations and specialized extensions.
   - [runWith](#runwith)
 - [Extensions](#extensions)
   - [flatten](#flatten)
-  - [thenAbsurdify](#thenabsurdify)
-  - [elseAbsurdify](#elseabsurdify)
-  - [absurdify](#absurdify)
   - [thenAbsurd](#thenabsurd)
   - [elseAbsurd](#elseabsurd)
+  - [thenUnit](#thenunit)
+  - [elseUnit](#elseunit)
 
 ---
 
@@ -26,7 +25,7 @@ Running continuations and specialized extensions.
 ### run
 
 ```dart
-ContCancelToken run(
+void run(
   E env, {
   void Function(NormalCrash crash) onPanic,
   void Function(ContCrash crash) onCrash,
@@ -39,8 +38,6 @@ Executes the continuation with separate callbacks for each outcome channel.
 
 Initiates execution of the continuation with separate handlers for panics, crashes, errors, and successes. All callbacks are optional and default to no-op (except `onPanic` which defaults to re-throwing inside a microtask), allowing callers to subscribe only to the channels they care about.
 
-**Returns** a `ContCancelToken` that can be used to cooperatively cancel the execution.
-
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
   - `onPanic`: Callback invoked when a fatal, unrecoverable panic occurs (e.g., an observer callback throws). Defaults to re-throwing inside a microtask
@@ -51,7 +48,7 @@ Initiates execution of the continuation with separate handlers for panics, crash
 **Example:**
 ```dart
 // Subscribe to all channels
-final token = computation.run(
+computation.run(
   (),
   onPanic: (panic) => log('PANIC: ${panic.error}'),
   onCrash: (crash) => log('Crash: $crash'),
@@ -61,9 +58,6 @@ final token = computation.run(
 
 // Subscribe only to the value channel
 computation.run(env, onThen: print);
-
-// Cancel the computation when needed
-token.cancel();
 ```
 
 ---
@@ -82,7 +76,7 @@ Low-level execution method that runs the continuation with an explicit runtime a
 This is the primitive execution method used internally by the library. It gives full control over the runtime context and observer callbacks. Most users should prefer `run` instead.
 
 - **Parameters:**
-  - `runtime`: The runtime context providing environment and cancellation
+  - `runtime`: The runtime context providing the environment
   - `observer`: The observer that receives crash, error, and success callbacks
 
 ---
@@ -114,66 +108,6 @@ final flattened = nested.flatten();
 
 ---
 
-### thenAbsurdify
-
-```dart
-extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
-```
-
-```dart
-Cont<E, F, A> thenAbsurdify()
-```
-
-Checks if `A` is `Never` during execution and casts it to `A` to prevent runtime crashes.
-
-**Example:**
-```dart
-final Cont<(), String, int> neverSucceeds = Cont.error<(), String, Never>('fail');
-final Cont<(), String, int> runtimeSafe = neverSucceeds.thenAbsurdify();
-```
-
----
-
-### elseAbsurdify
-
-```dart
-extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
-```
-
-```dart
-Cont<E, F, A> elseAbsurdify()
-```
-
-Checks if `F` is `Never` during execution and casts it to `F` to prevent runtime crashes.
-
-**Example:**
-```dart
-final Cont<(), String, int> neverFails = Cont.of<(), Never, int>(42);
-final Cont<(), String, int> widened = neverFails.elseAbsurdify();
-```
-
----
-
-### absurdify
-
-```dart
-extension ContAbsurdifyExtension<E, F, A> on Cont<E, F, A>
-```
-
-```dart
-Cont<E, F, A> absurdify()
-```
-
-Checks if `F` and/or `A` are `Never` during execution and casts them to prevent runtime crashes. Equivalent to calling `thenAbsurdify()` and `elseAbsurdify()`.
-
-**Example:**
-```dart
-final Cont<(), String, int> neverBoth = Cont.crash(crash);
-final Cont<(), String, int> widened = neverBoth.absurdify();
-```
-
----
-
 ### thenAbsurd
 
 ```dart
@@ -189,7 +123,7 @@ Converts a continuation that never produces a value to any desired value type.
 Implements the principle of "ex falso quodlibet" (from falsehood, anything follows). Since `Never` is uninhabited, the success callback can never be called, making this a safe type-level transformation.
 
 This is useful when:
-- Working with continuations that run forever (e.g., from `thenForever`)
+- Working with continuations that never succeed, such as a loop that only ends on the else or crash channel
 - Matching types with other continuations in composition
 - Converting terminating-only continuations to typed continuations
 
@@ -198,8 +132,11 @@ This is useful when:
 
 **Example:**
 ```dart
-// A server that runs forever has type Cont<Env, String, Never>
-final server = handleRequests().thenForever();
+// A server loop that only ends with an error has type Cont<Env, String, Never>
+final Cont<Env, String, Never> server = Cont.tailRecM(
+  (),
+  (_) => handleRequest().thenMap((_) => TailRec.next(())),
+);
 
 // Convert to Cont<Env, String, int> to match other continuation types
 final serverAsInt = server.thenAbsurd<int>();
@@ -231,4 +168,42 @@ final infallible = Cont.of<(), Never, int>(42);
 
 // Convert to match a context expecting String errors
 final Cont<(), String, int> compatible = infallible.elseAbsurd<String>();
+```
+
+---
+
+### thenUnit
+
+```dart
+extension ContUnitExtension<E, F, A> on Cont<E, F, A>
+```
+
+```dart
+Cont<E, F, ()> thenUnit()
+```
+
+Replaces the success value with `()`.
+
+Use it when only the fact that the continuation succeeded matters. The unit type `()` is the terminal object: every type has exactly one function into it. This makes `thenUnit` the dual of `thenAbsurd`.
+
+**Example:**
+```dart
+final Cont<(), String, ()> saved = saveUser(user).thenUnit();
+```
+
+---
+
+### elseUnit
+
+```dart
+Cont<E, (), A> elseUnit()
+```
+
+Replaces the error with `()`.
+
+Use it when only the fact that the continuation failed matters. The error-channel counterpart of `thenUnit`, and the dual of `elseAbsurd`.
+
+**Example:**
+```dart
+final Cont<(), (), User> user = fetchUser(userId).elseUnit();
 ```

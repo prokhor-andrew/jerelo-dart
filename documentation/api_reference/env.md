@@ -10,14 +10,13 @@ Managing contextual information and dependencies through continuations.
 
 - [Transforming Environment](#transforming-environment)
   - [local](#local)
-  - [local0](#local0)
-  - [withEnv](#withenv)
 - [Then-Channel Injection](#then-channel-injection)
   - [thenInject](#theninject)
   - [injectedByThen](#injectedbythen)
 - [Else-Channel Injection](#else-channel-injection)
   - [elseInject](#elseinject)
   - [injectedByElse](#injectedbyelse)
+- [More in jerelo_ext](#more-in-jerelo_ext)
 
 ---
 
@@ -50,58 +49,6 @@ adapted.run(appConfig, onThen: print);
 
 ---
 
-### local0
-
-```dart
-Cont<E2, F, A> local0<E2>(E Function() f)
-```
-
-Runs this continuation with a new environment from a zero-argument function.
-
-Similar to `local` but obtains the environment from a zero-argument function instead of transforming the existing environment.
-
-- **Parameters:**
-  - `f`: Zero-argument function that provides the new environment
-
-**Example:**
-```dart
-final query = queryUsers();
-
-// Provide a fixed config
-final withConfig = query.local0(() => DatabaseConfig('localhost', 5432));
-
-// Can now run with any environment type
-withConfig.run((), onThen: print);
-```
-
----
-
-### withEnv
-
-```dart
-Cont<E2, F, A> withEnv<E2>(E value)
-```
-
-Runs this continuation with a fixed environment value.
-
-Replaces the environment context with the provided value for the execution of this continuation.
-
-- **Parameters:**
-  - `value`: The environment value to use
-
-**Example:**
-```dart
-final query = queryUsers();
-
-// Run with a specific config
-final scoped = query.withEnv(DatabaseConfig('localhost', 5432));
-
-// The environment is now fixed
-scoped.run((), onThen: print);
-```
-
----
-
 ## Then-Channel Injection
 
 ### thenInject
@@ -128,7 +75,7 @@ This method enables dependency injection patterns where the result of one contin
 **Example:**
 ```dart
 // Create a database configuration
-final configCont = Cont.of<(), Never, DbConfig>(DbConfig('localhost', 5432));
+final configCont = Cont.of<(), String, DbConfig>(DbConfig('localhost', 5432));
 
 // Define an operation that needs the config as environment
 final queryOp = Cont.askThen<DbConfig, String>()
@@ -136,7 +83,7 @@ final queryOp = Cont.askThen<DbConfig, String>()
 
 // Inject the config into the query operation
 final result = configCont.thenInject(queryOp);
-// Type: Cont<(), Never, List<User>>
+// Type: Cont<(), String, List<User>>
 
 result.run((), onThen: print);
 ```
@@ -173,11 +120,11 @@ final queryOp = Cont.askThen<DbConfig, String>()
   .thenDo((config) => executeQuery(config, 'SELECT * FROM users'));
 
 // Create a continuation that produces the config
-final configProvider = Cont.of<(), Never, DbConfig>(DbConfig('localhost', 5432));
+final configProvider = Cont.of<(), String, DbConfig>(DbConfig('localhost', 5432));
 
 // Express that queryOp receives its environment from configProvider
 final result = queryOp.injectedByThen(configProvider);
-// Type: Cont<(), Never, List<User>>
+// Type: Cont<(), String, List<User>>
 
 result.run((), onThen: print);
 ```
@@ -251,6 +198,12 @@ final result = handler.injectedByElse(operation);
 
 ---
 
+## More in jerelo_ext
+
+`local0` and `withEnv`, which replace the environment instead of transforming it, are in the [jerelo_ext](https://pub.dev/packages/jerelo_ext) package; import `package:jerelo_ext/jerelo_ext.dart` alongside `package:jerelo/jerelo.dart`. In core, use `local` and ignore the outer environment: `cont.local((_) => value)`.
+
+---
+
 ## Usage Patterns
 
 ### Dependency Injection
@@ -266,7 +219,7 @@ class UserService {
 }
 
 // Build the dependency
-final dbCont = Cont.of<(), Never, Database>(Database('localhost'));
+final dbCont = Cont.of<(), String, Database>(Database('localhost'));
 
 // Inject it into the service operation
 final service = UserService();
@@ -299,6 +252,6 @@ final dbOperation = Cont.askThen<DbConfig, String>()
 
 // Layer 3: Inject DB config from app config
 final result = appConfigCont.thenDo((appConfig) {
-  return dbOperation.withEnv(appConfig.database);
+  return dbOperation.local((_) => appConfig.database);
 });
 ```
