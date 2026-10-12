@@ -23,7 +23,7 @@ So `both` waits for every success and stops at the first error or crash, while `
 Every combinator on the success/error channels needs an `OkPolicy<T>` that controls concurrency and failure handling.
 
 - **`OkPolicy.sequence()`** — Runs sequentially, one after another. The next computation runs only if the previous one ended on the own channel.
-- **`OkPolicy.quitFast()`** — Runs in parallel, stops on the first exit (including a crash).
+- **`OkPolicy.quitFast()`** — Runs in parallel, reports the first exit (including a crash) immediately. The computations still running keep running, and their results are ignored.
 - **`OkPolicy.runAll(combine, shouldFavorCrash:)`** — Runs in parallel, waits for all to complete, combines same-channel exits via `combine`. If one computation ends on the own channel and another exits, the result is the exit. `shouldFavorCrash` only decides between two different exits: when it is `true`, a crash is preferred over the other exit (an error in `both`, a success in `either`).
 
 ### CrashPolicy (for `coalesce`, `converge`)
@@ -31,7 +31,7 @@ Every combinator on the success/error channels needs an `OkPolicy<T>` that contr
 When combining crash paths, use a `CrashPolicy<F, A>`:
 
 - **`CrashPolicy.sequence()`** — Runs sequentially; the next computation runs only if the previous one crashed. If all crash, produces a `MergedCrash` (`coalesce`) or a `CollectedCrash` (`converge`).
-- **`CrashPolicy.quitFast()`** — Runs in parallel, propagates the first success or error immediately. A crash waits for the others; if all crash, the crashes are combined as above.
+- **`CrashPolicy.quitFast()`** — Runs in parallel, propagates the first success or error immediately. A crash waits for the others; if all crash, the crashes are combined as above. As with `OkPolicy.quitFast()`, the computations still running are not stopped; their results are ignored.
 - **`CrashPolicy.runAll(shouldFavorElse:, combineElseVals:, combineThenVals:)`** — Runs in parallel, waits for all, coalesces crashes if all crash. If any computation succeeds or fails, the crashes are dropped. When multiple non-crash outcomes occur, they are combined via the provided functions.
 
 ---
@@ -190,7 +190,7 @@ Cont.converge(
 
 ### Parallel Fetch with Fast Failure
 
-Loading a dashboard often means fetching several resources at once. Using `all` with `quitFast()` fires every request in parallel and aborts the moment any single request fails.
+Loading a dashboard often means fetching several resources at once. Using `all` with `quitFast()` fires every request in parallel and fails the moment any single request fails. The other requests keep running, but their results are ignored.
 
 ```dart
 Cont.all(
@@ -228,7 +228,7 @@ Race an expensive operation against a timer. Whichever *succeeds* first wins. A 
 Cont.either<(), String, String, String, Object>(
   performExpensiveOperation()
       .thenMap<Object>((value) => value)
-      .promote((error) => OperationFailed(error)),
+      .elseDo((error) => Cont.of(OperationFailed(error))),
   delay(Duration(seconds: 5), TimeoutResult()),
   (e1, e2) => '$e1; $e2',
   policy: OkPolicy.quitFast(),

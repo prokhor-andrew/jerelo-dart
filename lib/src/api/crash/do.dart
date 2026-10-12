@@ -7,7 +7,8 @@ extension ContCrashDoExtension<E, F, A> on Cont<E, F, A> {
   /// by [f]. If the recovery also crashes, only the recovery's crash is
   /// propagated (the original crash is discarded).
   ///
-  /// To accumulate crashes from both attempts, use [crashZip] instead.
+  /// To accumulate crashes from both attempts, use `crashZip` from the
+  /// jerelo_ext package instead.
   ///
   /// - [f]: Function that receives the crash and produces a recovery continuation.
   Cont<E, F, A> crashDo(

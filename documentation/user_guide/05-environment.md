@@ -43,20 +43,22 @@ program.run(
 );
 ```
 
-### Providing Environment with withEnv
+### Providing a Fixed Environment
 
-Use `withEnv` to provide a fixed environment value:
+Use `local` and ignore the outer environment to provide a fixed environment value:
 
 ```dart
 final cont = Cont.askThen<String, Never>().thenMap((s) => s.toUpperCase());
 
-final program = cont.withEnv("hello");
+final program = cont.local<()>((_) => "hello");
 
 program.run(
-  "ignored", // outer env doesn't matter
+  (), // outer env doesn't matter
   onThen: print,
 ); // prints: HELLO
 ```
+
+The [jerelo_ext](https://pub.dev/packages/jerelo_ext) package provides this as `withEnv(value)`, and `local0(() => value)` for a value computed on each run.
 
 ### Transforming Environment with local
 
@@ -89,10 +91,7 @@ program.run(
 );
 ```
 
-**Difference from `withEnv`:**
-- `withEnv(value)`: Replaces environment with a fixed value
-- `local(f)`: Transforms the outer environment before passing it down
-- `local0(f)`: Provides environment from zero-argument function
+`local(f)` transforms the outer environment before passing it down; as shown above, `f` may also ignore it and provide a fixed value.
 
 **Use cases:**
 - Adapting environment types (extracting sub-configurations)
@@ -104,7 +103,7 @@ program.run(
 Dart lets you assign a `Cont<AppConfig, F, A>` to a `Cont<Object?, F, A>`, but the environment is an *input*: such a computation fails at runtime with a type error, even when the environment you pass is an `AppConfig`. Instead:
 
 - Make reusable functions that don't read the environment generic in `E`, so they fit into any environment.
-- Adapt a computation that needs a specific environment with `local` or `withEnv`, rather than widening its type.
+- Adapt a computation that needs a specific environment with `local`, rather than widening its type.
 
 ```dart
 // Generic in E: works in any environment
@@ -119,65 +118,21 @@ Cont<E, String, int> parsePort<E>(String raw) {
 final connect = dbOperation.local<AppConfig>((appConfig) => appConfig.dbConfig);
 ```
 
-## WithEnv Variants
+## Reading the Environment in a Chain
 
-All chaining and error handling operators have `WithEnv` variants that provide access to the environment:
+Core operators receive only the channel value. To use the environment in the middle of a chain, read it with `Cont.askThen` inside `thenDo` (or `elseDo`, `crashDo`):
 
 ```dart
-Cont.of(42).thenDoWithEnv((env, value) {
-  return fetchWithConfig(env.apiUrl, value);
+Cont.of<ApiConfig, String, int>(42).thenDo((value) {
+  return Cont.askThen<ApiConfig, String>().thenDo((env) {
+    return fetchWithConfig(env.apiUrl, value);
+  });
 });
 ```
 
-Available variants:
+The [jerelo_ext](https://pub.dev/packages/jerelo_ext) package provides `WithEnv` and `WithEnv0` variants of most operators (`thenDoWithEnv`, `elseMapWithEnv0`, `thenTapWithEnv`, …) that pass the environment to the function directly.
 
-**Transformations:**
-- `thenMapWithEnv`, `thenMapWithEnv0`
-- `elseMapWithEnv`, `elseMapWithEnv0`
-
-**Chaining:**
-- `thenDoWithEnv`, `thenDoWithEnv0`
-- `elseDoWithEnv`, `elseDoWithEnv0`
-- `crashDoWithEnv`, `crashDoWithEnv0`
-
-**Tapping:**
-- `thenTapWithEnv`, `thenTapWithEnv0`
-- `elseTapWithEnv`, `elseTapWithEnv0`
-- `crashTapWithEnv`, `crashTapWithEnv0`
-
-**Combining:**
-- `thenZipWithEnv`, `thenZipWithEnv0`
-- `elseZipWithEnv`, `elseZipWithEnv0`
-- `crashZipWithEnv`, `crashZipWithEnv0`
-
-**Forking:**
-- `thenForkWithEnv`, `thenForkWithEnv0`
-- `elseForkWithEnv`, `elseForkWithEnv0`
-- `crashForkWithEnv`, `crashForkWithEnv0`
-
-**Conditions:**
-- `thenIfWithEnv`, `thenIfWithEnv0`
-- `elseUnlessWithEnv`, `elseUnlessWithEnv0`
-- `crashUnlessThenWithEnv`, `crashUnlessThenWithEnv0`
-- `crashUnlessElseWithEnv`, `crashUnlessElseWithEnv0`
-
-**Loops:**
-- `thenWhileWithEnv`, `thenWhileWithEnv0`
-- `thenUntilWithEnv`, `thenUntilWithEnv0`
-- `elseWhileWithEnv`, `elseWhileWithEnv0`
-- `elseUntilWithEnv`, `elseUntilWithEnv0`
-- `crashWhileWithEnv`, `crashWhileWithEnv0`
-- `crashUntilWithEnv`, `crashUntilWithEnv0`
-
-**Demotion and promotion:**
-- `demoteWithEnv`, `demoteWithEnv0`
-- `promoteWithEnv`, `promoteWithEnv0`
-
-**Crash recovery:**
-- `crashRecoverThenWithEnv`, `crashRecoverThenWithEnv0`
-- `crashRecoverElseWithEnv`, `crashRecoverElseWithEnv0`
-
-### Example: Using WithEnv for Configuration
+### Example: Reading Configuration
 
 ```dart
 class ApiConfig {
@@ -292,7 +247,7 @@ final poolCont = createConnectionPool(maxConnections: 10);
 final transaction = Cont.askThen<ConnectionPool, String>()
   .thenDo((pool) => pool.beginTransaction())
   .thenDo((txn) => performDatabaseWork(txn))
-  .thenTap((result) => commitTransaction());
+  .thenDo((result) => commitTransaction().thenMap((_) => result));
 
 final program = poolCont.thenInject(transaction);
 ```
@@ -430,9 +385,12 @@ Cont<RequestContext, String, Response> handleRequest(Request req) {
     .thenDo((ctx) {
       return logRequest(ctx.requestId, ctx.userId);
     })
-    .thenDo0(() => processRequest(req))
-    .thenTapWithEnv((ctx, response) {
-      return logResponse(ctx.requestId, response);
+    .thenDo((_) => processRequest(req))
+    .thenDo((response) {
+      return Cont.askThen<RequestContext, String>().thenDo((ctx) {
+        return logResponse(ctx.requestId, response)
+          .thenMap((_) => response);
+      });
     });
 }
 
@@ -457,15 +415,17 @@ class Services {
 }
 
 Cont<Services, String, User> getUser(String userId) {
-  return Cont.askThen<Services, String>().thenDo((services) {
+  return Cont.askThen<Services, String>().thenDo<User>((services) {
     final cached = services.cache.get<User>(userId);
     if (cached != null) {
       return Cont.of(cached);
     } else {
       return Cont.error('cache miss');
-    };
-  }).elseDoWithEnv0((services) {
-    return services.database.query('SELECT * FROM users WHERE id = ?', [userId]);
+    }
+  }).elseDo((_) {
+    return Cont.askThen<Services, String>().thenDo((services) {
+      return services.database.query('SELECT * FROM users WHERE id = ?', [userId]);
+    });
   });
 }
 ```

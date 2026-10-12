@@ -16,7 +16,6 @@ Core types used throughout the Jerelo continuation library.
 - [ContRuntime](#contruntime)
 - [ContObserver](#contobserver)
   - [SafeObserver](#safeobserver)
-- [ContCancelToken](#contcanceltoken)
 
 ---
 
@@ -90,7 +89,7 @@ A single exception with its stack trace. It has no public constructor; it is cre
 final class MergedCrash extends ContCrash
 ```
 
-Two crashes combined from a two-way operation (e.g., `coalesce`, `crashZip`, or `both`/`either` with `runAll`).
+Two crashes combined from a two-way operation (e.g., `coalesce`, or `both`/`either` with `runAll`; also `crashZip` from jerelo_ext).
 
 **Fields:**
 - `left: ContCrash` — The crash from the left continuation
@@ -166,24 +165,9 @@ final class ContRuntime<E>
 
 Provides runtime context for continuation execution.
 
-`ContRuntime` encapsulates the environment and cancellation state during the execution of a `Cont`. It allows continuations to access contextual information, check for cancellation, and react to it.
+`ContRuntime` carries the environment during the execution of a `Cont`. It allows continuations to access contextual information.
 
 **Methods:**
-
-```dart
-bool isCancelled()
-```
-Checks whether the continuation execution has been cancelled. Returns `true` if the execution should be stopped, `false` otherwise. Continuations should check this regularly to support cooperative cancellation.
-
-```dart
-void Function() onCancel(void Function() callback)
-```
-Registers `callback` to run when this execution is cancelled. Use it for work that cannot poll `isCancelled`, such as releasing a resource or aborting a pending request while waiting for it. If the execution is already cancelled, `callback` runs immediately. Callbacks run once, in reverse order of registration; an exception thrown by a callback goes to the `onPanic` handler of `run` and does not stop the remaining callbacks. Returns a function that unregisters `callback`; call it once the callback is no longer needed.
-
-```dart
-({ContRuntime<E> runtime, void Function() cancel}) withCancellation()
-```
-Creates a child runtime with its own cancellation. The child `runtime` is cancelled when this runtime is cancelled, or when `cancel` is called; in both cases its `onCancel` callbacks run. Use it to stop part of a computation on a local condition, such as a deadline.
 
 ```dart
 E env()
@@ -193,11 +177,10 @@ Returns the environment value of type `E`. The environment provides contextual i
 ```dart
 ContRuntime<E2> copyUpdateEnv<E2>(E2 env)
 ```
-Creates a copy of this runtime with a different environment. Returns a new `ContRuntime` with the provided environment while preserving the cancellation scope. This is used by `local` and related methods to modify the environment context.
+Creates a copy of this runtime with a different environment. Returns a new `ContRuntime` with the provided environment. This is used by `local` and related methods to modify the environment context.
 
 - **Parameters:**
   - `env`: The new environment value to use
-
 
 ---
 
@@ -307,42 +290,3 @@ Used by `Cont.fromRun` to wrap user-provided callbacks with idempotence and exce
 **Fields:**
 - `isUsed: bool Function()` — Returns `true` if any callback on this observer has already been invoked
 
----
-
-## ContCancelToken
-
-```dart
-final class ContCancelToken
-```
-
-A token used to cooperatively cancel a running continuation.
-
-Returned by `Cont.run`, this token provides a way to signal cancellation to a running computation and to query its current cancellation state.
-
-Cancellation is cooperative: calling `cancel` sets an internal flag that the runtime polls via `isCancelled`. The computation checks this flag at safe points and stops work when it detects cancellation.
-
-**Methods:**
-
-```dart
-bool isCancelled()
-```
-Returns `true` if `cancel` has been called on this token, `false` otherwise.
-
-```dart
-void cancel()
-```
-Signals cancellation to the running computation. After this call, `isCancelled()` will return `true` and the runtime will detect the cancellation at the next polling point. Calling this method multiple times is safe but has no additional effect.
-
-**Example:**
-```dart
-final token = computation.run(
-  env,
-  onThen: (value) => print('Success: $value'),
-);
-
-// Later, cancel the computation
-token.cancel();
-
-// Check cancellation state
-print(token.isCancelled()); // true
-```

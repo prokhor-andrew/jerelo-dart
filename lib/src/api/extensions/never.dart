@@ -39,7 +39,8 @@ extension ContThenNeverExtension<E, F>
   /// any desired value type.
   ///
   /// This is particularly useful when:
-  /// - Working with continuations that run forever (e.g., from [thenForever])
+  /// - Working with continuations that never succeed, such as a
+  ///   [Cont.tailRecM] loop that only ends on the else or crash channel
   /// - Matching types with other continuations in composition
   /// - Converting terminating-only continuations to typed continuations
   ///
@@ -51,8 +52,11 @@ extension ContThenNeverExtension<E, F>
   ///
   /// Example:
   /// ```dart
-  /// // A server that runs forever has type Cont<Env, F, Never>
-  /// final server = handleRequests().thenForever();
+  /// // A server loop that only ends with an error or a crash
+  /// final Cont<Env, F, Never> server = Cont.tailRecM(
+  ///   (),
+  ///   (_) => handleRequest().thenMap((_) => const TailRec.next(())),
+  /// );
   ///
   /// // Convert to Cont<Env, F, String> to match other continuation types
   /// final serverAsString = server.thenAbsurd<String>();

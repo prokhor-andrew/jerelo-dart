@@ -6,9 +6,12 @@ This guide provides comprehensive real-world examples that demonstrate Jerelo's 
 
 ## Complete Example: User Management System
 
-Here's a comprehensive example bringing it all together:
+Here's a comprehensive example bringing it all together. It uses core operators, plus `contBracket` and the background forks from [jerelo_ext](https://pub.dev/packages/jerelo_ext):
 
 ```dart
+import 'package:jerelo/jerelo.dart';
+import 'package:jerelo_ext/jerelo_ext.dart';
+
 class AppConfig {
   final String apiUrl;
   final String cacheDir;
@@ -23,14 +26,18 @@ Cont<AppConfig, String, User> getUser(String userId) {
     .thenDo((config) {
       return fetchFromApi(config.apiUrl, userId, config.timeout);
     })
-    .thenIf((user) => user.isValid, fallback: 'invalid user')
+    .thenDo<User>((user) {
+      return user.isValid ? Cont.of(user) : Cont.error('invalid user');
+    })
     .elseForkWithEnv((env, error) {
       // Log errors in background
       return logToFile(env.cacheDir, error);
     })
-    .elseDoWithEnv0((env) {
+    .elseDo((_) {
       // Fallback to cache
-      return loadFromCache(env.cacheDir, userId);
+      return Cont.askThen<AppConfig, String>().thenDo((env) {
+        return loadFromCache(env.cacheDir, userId);
+      });
     })
     .thenForkWithEnv((env, user) {
       // Update cache in background
@@ -49,17 +56,27 @@ Cont<AppConfig, String, List<User>> getUsers(List<String> userIds) {
 
 // Process users with resource management
 Cont<AppConfig, String, Report> processUsers(List<String> userIds) {
-  return Cont.bracket<Database, AppConfig, String, Report>(
+  return contBracket<Database, AppConfig, String, Report>(
     acquire: openDatabase(),
     release: (db) => closeDatabase(db),
     use: (db) {
-      return getUsers(userIds)
-        .thenDo((users) => processInDb(db, users))
-        .thenDo((results) => generateReport(results))
-        .thenWhile((report) => !report.isComplete)
-        .thenTapWithEnv((env, report) {
-          return notifyComplete(env.apiUrl, report);
+      // Repeat until the report is complete
+      return Cont.tailRecM<AppConfig, String, (), Report>((), (_) {
+        return getUsers(userIds)
+          .thenDo((users) => processInDb(db, users))
+          .thenDo((results) => generateReport(results))
+          .thenMap((report) {
+            return report.isComplete
+              ? TailRec.done(report)
+              : TailRec.next(());
+          });
+      }).thenDo((report) {
+        // Notify, then pass the report through
+        return Cont.askThen<AppConfig, String>().thenDo((env) {
+          return notifyComplete(env.apiUrl, report)
+            .thenMap((_) => report);
         });
+      });
     },
   );
 }
@@ -71,7 +88,7 @@ final config = AppConfig(
   Duration(seconds: 5),
 );
 
-final token = processUsers(['user1', 'user2', 'user3']).run(
+processUsers(['user1', 'user2', 'user3']).run(
   config,
   onCrash: (crash) {
     print("Crash: $crash");
@@ -83,21 +100,17 @@ final token = processUsers(['user1', 'user2', 'user3']).run(
     print("Success: $report");
   },
 );
-
-// Cancel the computation if needed (e.g., on shutdown)
-// token.cancel();
 ```
 
 This example demonstrates:
 - Environment management (AppConfig)
 - Error handling with fallbacks (elseDo)
-- Side effects (thenTap)
-- Conditional execution (thenIf with fallback)
+- Conditional execution (thenDo returning Cont.of or Cont.error)
+- Reading config in the middle of a chain (Cont.askThen)
+- Background side effects (elseForkWithEnv, thenForkWithEnv from jerelo_ext)
 - Parallel execution with policies (Cont.all with OkPolicy.quitFast)
-- Resource management (bracket)
-- Looping (thenWhile)
-- WithEnv variants for accessing config
-- Cancellation via `ContCancelToken` returned by `run`
+- Resource management (contBracket from jerelo_ext)
+- Looping (Cont.tailRecM)
 
 ---
 
@@ -105,14 +118,13 @@ This example demonstrates:
 
 ### Pattern 1: Wrapping an Async API
 
-`Cont.fromRun` is the bridge between callback-based code and Jerelo's composition model. Check cancellation inside every async callback before emitting.
+`Cont.fromRun` is the bridge between callback-based code and Jerelo's composition model. Emit exactly one outcome from the async callbacks.
 
 ```dart
 Cont<E, String, List<Post>> fetchPosts<E>(String authorId) {
   return Cont.fromRun((runtime, observer) {
     http.get(Uri.parse('/posts?author=$authorId')).then(
       (response) {
-        if (runtime.isCancelled()) return;
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body) as List;
           observer.onThen(data.map(Post.fromJson).toList());
@@ -121,7 +133,7 @@ Cont<E, String, List<Post>> fetchPosts<E>(String authorId) {
         }
       },
       onError: (e, _) {
-        if (!runtime.isCancelled()) observer.onElse('$e');
+        observer.onElse('$e');
       },
     );
   });
@@ -141,7 +153,7 @@ fetchPosts<()>(authorId)
 Cont<E, String, User> getUser<E>(String id) {
   return readFromCache(id)
     .elseDo((_) => fetchFromNetwork(id)
-      .thenTap((user) => writeToCache(id, user)),
+      .thenDo((user) => writeToCache(id, user).thenMap((_) => user)),
     )
     .elseDo((_) => Cont.of(User.guest()));
 }
@@ -155,14 +167,17 @@ Execution order: cache → network (write-through on success) → guest fallback
 
 Two strategies, depending on whether you want to stop at the first broken rule or surface every error at once.
 
-**Fail-fast** — `thenIf` short-circuits on the first failure; later rules never run:
+**Fail-fast** — `thenDo` short-circuits on the first failure; later rules never run:
 
 ```dart
 Cont<E, String, UserInput> validateInput<E>(UserInput input) {
-  return Cont.of(input)
-    .thenIf((i) => i.email.contains('@'), fallback: 'Invalid email')
-    .thenIf((i) => i.password.length >= 8,  fallback: 'Password too short')
-    .thenIf((i) => i.age >= 18,             fallback: 'Must be 18 or older');
+  Cont<E, String, UserInput> check(UserInput i, bool passes, String error) =>
+    passes ? Cont.of(i) : Cont.error(error);
+
+  return Cont.of<E, String, UserInput>(input)
+    .thenDo((i) => check(i, i.email.contains('@'),  'Invalid email'))
+    .thenDo((i) => check(i, i.password.length >= 8, 'Password too short'))
+    .thenDo((i) => check(i, i.age >= 18,            'Must be 18 or older'));
 }
 
 validateInput<()>(input).run(
@@ -201,22 +216,23 @@ validateInput<()>(input).run(
 
 ### Pattern 4: Parallel Execution
 
-`Cont.all` runs a list of computations concurrently and collects their results. Add `thenTap` to each task to observe progress as completions arrive.
+`Cont.all` runs a list of computations concurrently and collects their results. Add a `thenMap` to each task to observe progress as completions arrive. Building the tasks inside `Cont.fromRun` gives every run a fresh counter.
 
 ```dart
 Cont<(), F, List<T>> withProgress<F, T>(
   List<Cont<(), F, T>> tasks,
   void Function(int done, int total) onProgress,
 ) {
-  return Cont.fromDeferred(() {
+  return Cont.fromRun((runtime, observer) {
     int done = 0;
     final tracked = tasks.map((task) =>
-      task.thenTap((_) {
+      task.thenMap((value) {
         onProgress(++done, tasks.length);
-        return Cont.of(());
+        return value;
       })
     ).toList();
-    return Cont.all(tracked, policy: OkPolicy.quitFast());
+    Cont.all(tracked, policy: OkPolicy.quitFast())
+      .runWith(runtime, observer);
   });
 }
 
@@ -248,11 +264,13 @@ loadConfig().run((), onThen: applyConfig, onElse: showError);
 
 ### Pattern 6: Resource Management
 
-`Cont.bracket` guarantees that `release` runs regardless of whether `use` succeeds, fails, or crashes. It is the correct tool whenever a computation acquires a resource that must be released.
+`contBracket` from [jerelo_ext](https://pub.dev/packages/jerelo_ext) runs `release` once `use` succeeds, fails, or crashes. It is the correct tool whenever a computation acquires a resource that must be released.
 
 ```dart
+import 'package:jerelo_ext/jerelo_ext.dart';
+
 Cont<(), String, Report> generateReport(Query query) {
-  return Cont.bracket(
+  return contBracket(
     acquire: openDatabaseConnection(),
     release: (conn) => closeConnection(conn),
     use: (conn) => conn.execute(query).thenMap(Report.fromRows),
@@ -270,10 +288,11 @@ generateReport(query).run((), onThen: publish, onElse: showError);
 
 ```dart
 // Build on existing operators rather than reaching for Cont.fromRun
+// (retry is the custom operator from Extending Jerelo)
 fetchData()
-  .elseFork((error) {
+  .elseMap((error) {
     print('Attempt failed: $error');
-    return Cont.of(());
+    return error;
   })
   .retry(3)
   .run((), onThen: process, onElse: showError);
@@ -287,72 +306,32 @@ class AppEnv { final Logger logger; final Database db; }
 
 Cont<AppEnv, String, List<Order>> fetchOrders(String userId) {
   return Cont.askThen<AppEnv, String>().thenDo((env) {
-    return env.db.query('SELECT * FROM orders WHERE user = ?', [userId]);
-  }).thenTapWithEnv((env, orders) {
-    return env.logger.info('Loaded ${orders.length} orders');
+    return env.db
+      .query('SELECT * FROM orders WHERE user = ?', [userId])
+      .thenDo((orders) {
+        return env.logger
+          .info('Loaded ${orders.length} orders')
+          .thenMap((_) => orders);
+      });
   });
 }
 ```
 
-### 3. Compose Cancellation Sources
-
-`runtime.withCancellation` creates a child runtime that is cancelled with its parent, or on its own when you call `cancel`. The inner computation never needs to know which one happened, and anything it started (such as a `bracket`) is cleaned up in both cases.
+### 3. Use a Bracket for Resource Management
 
 ```dart
-// Cancel the inner computation when the deadline passes,
-// while still following the parent's cancellation.
-extension WithDeadline<E, F, T> on Cont<E, F, T> {
-  Cont<E, F, T> withDeadline(Duration timeout) {
-    return decorate((run, runtime, observer) {
-      final deadline = runtime.withCancellation();
-      final timer = Timer(timeout, deadline.cancel);
-
-      void done() {
-        timer.cancel();
-        deadline.cancel();
-      }
-
-      run(
-        deadline.runtime,
-        observer.copyUpdate(
-          onCrash: (crash) {
-            done();
-            observer.onCrash(crash);
-          },
-          onElse: (error) {
-            done();
-            observer.onElse(error);
-          },
-          onThen: (value) {
-            done();
-            observer.onThen(value);
-          },
-        ),
-      );
-    });
-  }
-}
-
-// Usage: if the deadline passes, the computation stops without a result
-fetchReportData()
-  .withDeadline(Duration(seconds: 5))
-  .run((), onThen: display, onElse: showError);
-```
-
-### 4. Use Bracket for Resource Management
-
-```dart
-// Guaranteed cleanup — release runs even if use crashes
+// contBracket is in jerelo_ext.
+// Release runs even if use crashes.
 Cont<E, F, T> withConnection<E, F, T>(Cont<Connection, F, T> operation) {
-  return Cont.bracket(
+  return contBracket(
     acquire: openConnection(),
     release: (conn) => closeConnection(conn),
-    use: (conn) => operation.withEnv(conn),
+    use: (conn) => operation.local((_) => conn),
   );
 }
 ```
 
-### 5. Use Typed Errors for Business Logic
+### 4. Use Typed Errors for Business Logic
 
 ```dart
 enum UserError { notFound, unauthorized, invalidInput }
@@ -362,7 +341,9 @@ Cont<(), UserError, User> getUser(String id) {
 }
 
 getUser(userId)
-  .elseUnless((e) => e != UserError.notFound, fallback: User.guest())
+  .elseDo<UserError>((e) {
+    return e == UserError.notFound ? Cont.of(User.guest()) : Cont.error(e);
+  })
   .run((), onThen: display, onElse: showError);
 ```
 

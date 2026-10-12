@@ -38,7 +38,7 @@ Every combinator has its **own channel** and treats the other two channels as **
 The policy decides how the inputs are run:
 
 - **`sequence`**: the next input runs only if the previous one ended on the own channel. The first exit ends the whole computation.
-- **`quitFast`**: all inputs run in parallel. The first exit ends the computation immediately; ending on the own channel waits for the others.
+- **`quitFast`**: all inputs run in parallel. The first exit ends the computation immediately; ending on the own channel waits for the others. The inputs still running when the result is decided keep running, and their results are ignored.
 - **`runAll`**: all inputs run in parallel and every one of them completes. If some inputs end on the own channel and others exit, the result is the exit.
 
 An empty list has vacuously ended on its own channel: `all([])` succeeds with `[]`, `any([])` fails with `[]`, and `converge([])` crashes with an empty `CollectedCrash`.
