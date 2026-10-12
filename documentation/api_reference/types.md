@@ -13,12 +13,14 @@ Core types used throughout the Jerelo continuation library.
   - [MergedCrash](#mergedcrash)
   - [CollectedCrash](#collectedcrash)
 - [CrashOr](#crashor)
+  - [ValueCrashOr](#valuecrashor)
+  - [CrashCrashOr](#crashcrashor)
 - [ContRuntime](#contruntime)
 - [ContObserver](#contobserver)
   - [SafeObserver](#safeobserver)
 - [TailRec](#tailrec)
-  - [TailRecNext](#tailrecnext)
-  - [TailRecDone](#tailrecdone)
+  - [NextTailRec](#nexttailrec)
+  - [DoneTailRec](#donetailrec)
 
 ---
 
@@ -64,10 +66,12 @@ Executes a function and captures any thrown exception as a `CrashOr`.
 **Example:**
 ```dart
 final result = ContCrash.tryCatch(() => int.parse('not a number'));
-result.match(
-  (value) => print('Parsed: $value'),
-  (crash) => print('Failed: ${crash.error}'),
-);
+switch (result) {
+  case ValueCrashOr(value: final value):
+    print('Parsed: $value');
+  case CrashCrashOr(crash: final crash):
+    print('Failed: ${crash.error}');
+}
 ```
 
 ---
@@ -98,11 +102,7 @@ Two crashes combined from a two-way operation (e.g., `coalesce`, or `both`/`eith
 - `left: ContCrash` — The crash from the left continuation
 - `right: ContCrash` — The crash from the right continuation
 
-**Constructor:**
-
-```dart
-const MergedCrash(ContCrash left, ContCrash right)
-```
+It has no public constructor; create one with `ContCrash.merge`.
 
 ---
 
@@ -119,11 +119,7 @@ Multiple crashes from a list operation, indexed by position. It is produced by:
 **Fields:**
 - `crashes: Map<int, ContCrash>` — A map from the index in the original list to the crash
 
-**Constructor:**
-
-```dart
-const CollectedCrash(Map<int, ContCrash> crashes)
-```
+It has no public constructor; create one with `ContCrash.collect`.
 
 ---
 
@@ -133,30 +129,39 @@ const CollectedCrash(Map<int, ContCrash> crashes)
 sealed class CrashOr<T>
 ```
 
-A result type representing either a value or a crash. Returned by `ContCrash.tryCatch`.
+A result type representing either a value or a crash. Returned by `ContCrash.tryCatch`. Read it with `switch`:
 
-**Methods:**
-
-```dart
-R match<R>(
-  R Function(T value) ifValue,
-  R Function(NormalCrash crash) ifCrash,
-)
-```
-Pattern-matches on the result, calling `ifValue` if the computation succeeded or `ifCrash` if it threw.
-
-- **Parameters:**
-  - `ifValue`: Called with the value if no crash occurred
-  - `ifCrash`: Called with the `NormalCrash` if an exception was thrown
-
-**Example:**
 ```dart
 final result = ContCrash.tryCatch(() => riskyOperation());
-final output = result.match(
-  (value) => 'Got: $value',
-  (crash) => 'Crashed: ${crash.error}',
-);
+final output = switch (result) {
+  ValueCrashOr(value: final value) => 'Got: $value',
+  CrashCrashOr(crash: final crash) => 'Crashed: ${crash.error}',
+};
 ```
+
+Results compare by value: two `ValueCrashOr`s are equal when their values are equal, and two `CrashCrashOr`s when their crashes are equal; a value never equals a crash.
+
+### ValueCrashOr
+
+```dart
+final class ValueCrashOr<T> extends CrashOr<T>
+```
+
+The function returned normally. It has no public constructor; it is created by `ContCrash.tryCatch`.
+
+**Fields:**
+- `value: T` — The value the function returned
+
+### CrashCrashOr
+
+```dart
+final class CrashCrashOr<T> extends CrashOr<T>
+```
+
+The function threw. It has no public constructor; it is created by `ContCrash.tryCatch`.
+
+**Fields:**
+- `crash: NormalCrash` — The captured exception and stack trace
 
 ---
 
@@ -307,17 +312,17 @@ One step of [`Cont.tailRecM`](construction.md#conttailrecm): continue the loop w
   - `S`: The loop state
   - `A`: The result of the loop
 
-**Constructors:**
+**Creating steps** (the case classes have no public constructors):
 
 ```dart
-const factory TailRec.next(S state)
+static TailRec<S, A> next<S, A>(S state)
 ```
-Continues the loop with `state`. Creates a `TailRecNext`.
+Continues the loop with `state`. Creates a `NextTailRec`.
 
 ```dart
-const factory TailRec.done(A result)
+static TailRec<S, A> done<S, A>(A result)
 ```
-Finishes the loop with `result`. Creates a `TailRecDone`.
+Finishes the loop with `result`. Creates a `DoneTailRec`.
 
 **Equality:** steps compare by value. Two `next` steps are equal when their states are equal, and two `done` steps when their results are equal; a `next` step never equals a `done` step.
 
@@ -328,35 +333,35 @@ TailRec<int, String> step(int n) {
 }
 
 switch (step(1)) {
-  case TailRecNext(state: final state):
+  case NextTailRec(state: final state):
     print('next: $state');
-  case TailRecDone(result: final result):
+  case DoneTailRec(result: final result):
     print('done: $result');
 }
 ```
 
 ---
 
-### TailRecNext
+### NextTailRec
 
 ```dart
-final class TailRecNext<S, A> extends TailRec<S, A>
+final class NextTailRec<S, A> extends TailRec<S, A>
 ```
 
-A `TailRec` step that continues the loop.
+A `TailRec` step that continues the loop. Created with `TailRec.next`.
 
 **Fields:**
 - `state: S` — The state for the next iteration
 
 ---
 
-### TailRecDone
+### DoneTailRec
 
 ```dart
-final class TailRecDone<S, A> extends TailRec<S, A>
+final class DoneTailRec<S, A> extends TailRec<S, A>
 ```
 
-A `TailRec` step that finishes the loop.
+A `TailRec` step that finishes the loop. Created with `TailRec.done`.
 
 **Fields:**
 - `result: A` — The result of the loop

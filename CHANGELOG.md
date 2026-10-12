@@ -8,11 +8,16 @@
   - `thenIf`, `elseUnless`, `crashUnlessThen`, `crashUnlessElse`, `demote`, `promote`, `crashRecoverThen` and `crashRecoverElse`
   - the loops `thenWhile`, `thenUntil`, `thenForever`, `elseWhile`, `elseUntil`, `elseForever`, `crashWhile`, `crashUntil` and `crashForever`
   - `Cont.fromDeferred` and `Cont.bracket`, now the top-level functions `contDeferred` and `contBracket`
+- **Breaking:** every sum type follows one convention: a sealed base, public case classes with private constructors, created through static methods on the base, and read with `switch`.
+  - `CrashOr.match` is removed. Its cases are now public, `ValueCrashOr` and `CrashCrashOr`; read them with `switch`.
+  - `MergedCrash` and `CollectedCrash` have no public constructors; use `ContCrash.merge` and `ContCrash.collect`.
+  - The policy case classes (`SequenceOkPolicy`, `QuitFastCrashPolicy`, …) have no public constructors; use `OkPolicy.sequence()`, `CrashPolicy.quitFast()` and the other factories.
 - Added `Cont.tailRecM` and `TailRec`: a stack-safe loop that runs a step until it returns `TailRec.done(result)`; `TailRec.next(state)` continues it, and an else or crash outcome ends it.
 - Added `thenUnit` and `elseUnit`, which replace the value or the error with `()`.
 - Fixed `Cont` used through a wider error or value type (an upcast or a `Never`-typed `Cont`) crashing with a `TypeError` at run time. `runWith` is now an extension method with the same signature.
 - Fixed `CollectedCrash` equality: `==` and `hashCode` now compare the collected crashes by value instead of by map identity.
 - Fixed `MergedCrash.hashCode` ignoring the order of `left` and `right`.
+- Fixed `CrashOr` equality being asymmetric across type arguments, and its hash not telling a value from a crash.
 - Documentation: removed cancellation and the moved operators, with pointers to jerelo_ext; documented `Cont.tailRecM`, `TailRec`, `thenUnit` and `elseUnit`; rewrote the guide examples with core operators, including a `retry` helper built on `Cont.tailRecM`; fixed stale names in doc comments, environment injection examples and the `retryWithBackoff` guide helper; removed the `absurdify` family; described combinator policies by their own channel and exits (including `CrashPolicy.quitFast`, `shouldFavorCrash`, empty lists and `runAll` completion order), crash types, observer guarantees, the `onPanic` default and `fromRun` catching; added a note against upcasting the environment type.
 
 ## 2.0.0

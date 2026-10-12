@@ -184,7 +184,7 @@ A loop that never finishes produces a `Never`-typed channel. To widen it for com
 ```dart
 final Cont<(), String, Never> loop = Cont.tailRecM(
   (),
-  (_) => server().thenMap((_) => const TailRec.next(())),
+  (_) => server().thenMap((_) => TailRec.next(())),
 );
 final Cont<(), String, int> widened = loop.thenAbsurd<int>();
 ```

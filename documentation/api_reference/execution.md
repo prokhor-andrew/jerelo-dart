@@ -135,7 +135,7 @@ This is useful when:
 // A server loop that only ends with an error has type Cont<Env, String, Never>
 final Cont<Env, String, Never> server = Cont.tailRecM(
   (),
-  (_) => handleRequest().thenMap((_) => const TailRec.next(())),
+  (_) => handleRequest().thenMap((_) => TailRec.next(())),
 );
 
 // Convert to Cont<Env, String, int> to match other continuation types
