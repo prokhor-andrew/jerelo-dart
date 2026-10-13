@@ -27,7 +27,8 @@ extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
   /// Unlike [elseDo], which only keeps the second error, this method
   /// accumulates and combines errors from both attempts.
   ///
-  /// - [f]: Function that receives original error and produces a fallback continuation.
+  /// - [f]: Function that receives the original error and produces a fallback continuation.
+  /// - [combine]: Function that combines the original error and the fallback's error.
   Cont<E, F3, A> elseZip<F2, F3>(
     Cont<E, F2, A> Function(F) f,
     F3 Function(F f1, F2 f2) combine,
@@ -41,6 +42,7 @@ extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
   /// when producing the fallback continuation.
   ///
   /// - [f]: Zero-argument function that produces a fallback continuation.
+  /// - [combine]: Function that combines the original error and the fallback's error.
   Cont<E, F3, A> elseZip0<F2, F3>(
     Cont<E, F2, A> Function() f,
     F3 Function(F f1, F2 f2) combine,
@@ -58,6 +60,7 @@ extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
   /// strategies need access to configuration or context.
   ///
   /// - [f]: Function that takes the environment and error, and produces a fallback continuation.
+  /// - [combine]: Function that combines the original error and the fallback's error.
   Cont<E, F3, A> elseZipWithEnv<F2, F3>(
     Cont<E, F2, A> Function(E env, F) f,
     F3 Function(F f1, F2 f2) combine,
@@ -75,6 +78,7 @@ extension ContElseZipExtension<E, F, A> on Cont<E, F, A> {
   /// environment and ignores the original error information.
   ///
   /// - [f]: Function that takes the environment and produces a fallback continuation.
+  /// - [combine]: Function that combines the original error and the fallback's error.
   Cont<E, F3, A> elseZipWithEnv0<F2, F3>(
     Cont<E, F2, A> Function(E env) f,
     F3 Function(F f1, F2 f2) combine,

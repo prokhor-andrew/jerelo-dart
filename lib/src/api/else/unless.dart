@@ -8,6 +8,9 @@ extension ContElseIfExtension<E, F, A> on Cont<E, F, A> {
   /// If the predicate returns `false`, the continuation promotes to success
   /// with the provided [fallback] value.
   ///
+  /// Values and crashes pass through unchanged. If [predicate] throws, the
+  /// computation crashes.
+  ///
   /// This is the error-channel counterpart to [thenIf]. While [thenIf] filters
   /// values on the success channel, [elseUnless] filters errors on the else
   /// channel and provides conditional promotion.

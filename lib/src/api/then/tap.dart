@@ -3,9 +3,10 @@ import 'package:jerelo/jerelo.dart';
 extension ContThenTapExtension<E, F, A> on Cont<E, F, A> {
   /// Chains a side-effect continuation while preserving the original value.
   ///
-  /// Executes a continuation for its side effects, then returns the original value.
-  /// If the side-effect terminates with an error, that error propagates; if it
-  /// crashes, the crash propagates.
+  /// Executes a continuation for its side effects, then succeeds with the
+  /// original value, discarding the side-effect's value. If the side-effect
+  /// terminates with an error, that error propagates; if it crashes, or [f]
+  /// throws, the computation crashes.
   ///
   /// - [f]: Side-effect function that returns a continuation.
   Cont<E, F, A> thenTap<A2>(
@@ -19,7 +20,7 @@ extension ContThenTapExtension<E, F, A> on Cont<E, F, A> {
 
   /// Chains a zero-argument side-effect continuation.
   ///
-  /// Similar to [thenTap] but with a zero-argument function.
+  /// Similar to [thenTap] but ignores the current value.
   ///
   /// - [f]: Zero-argument side-effect function.
   Cont<E, F, A> thenTap0<A2>(Cont<E, F, A2> Function() f) {

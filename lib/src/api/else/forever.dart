@@ -8,12 +8,16 @@ extension ContElseForeverExtension<E, F, A>
   /// stops on its own. The loop only terminates if the continuation succeeds
   /// or crashes.
   ///
+  /// The return type `Cont<E, Never, A>` indicates that this continuation
+  /// never terminates with an error — it either runs forever, succeeds, or
+  /// crashes.
+  ///
   /// This is the error-channel counterpart to [thenForever]. While
   /// `thenForever` loops the success path indefinitely, `elseForever` retries
   /// on termination indefinitely.
   ///
   /// This is useful for:
-  /// - Services that must always promote past errors
+  /// - Services that must always recover from errors
   /// - Resilient connections that automatically reconnect
   /// - Operations that should never give up on transient failures
   /// - Self-healing systems that retry on any error

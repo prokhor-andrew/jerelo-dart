@@ -78,7 +78,7 @@ void Function() _whenAllPar<P, S>({
             results.add(p);
             onAllPrimary(
               results,
-            ); // defensive copy
+            ); // no copy needed: results is not changed after this
           } else {
             final resultCrash = CollectedCrash._(
               Map<int, ContCrash>.from(crashes),
@@ -280,7 +280,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
         case (_Left(), _Right(value: final f)):
           observer.onElse(f);
         case (_Left(), _Left()):
-          break; // unreachable: crashes.length < total implies hasThen || hasElse
+          break; // unreachable: crashes.length < total implies an item succeeded or failed
       }
     }
 

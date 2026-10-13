@@ -4,9 +4,9 @@ extension ContThenForeverExtension<E, F, A>
     on Cont<E, F, A> {
   /// Repeatedly executes the continuation indefinitely.
   ///
-  /// Runs the continuation in an infinite loop that never stops on its own.
-  /// The loop only terminates if the underlying continuation terminates on the
-  /// else (error) channel or crashes.
+  /// Runs the continuation in an infinite, stack-safe loop that never stops
+  /// on its own. The loop only terminates if the underlying continuation
+  /// terminates on the else (error) channel or crashes.
   ///
   /// The return type `Cont<E, F, Never>` indicates that this continuation never
   /// produces a value — it either runs forever, terminates with a

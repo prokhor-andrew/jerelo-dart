@@ -26,7 +26,9 @@ extension ContCrashTapExtension<E, F, A> on Cont<E, F, A> {
   /// - If the side-effect crashes: Returns the original crash (ignoring side-effect crash).
   /// - If the side-effect succeeds: Returns the side-effect's success value, effectively
   ///   recovering from the original crash.
-  /// - If the side-effect terminates: Propagates the termination as-is.
+  /// - If the side-effect terminates: Propagates the side-effect's error.
+  ///
+  /// If [f] itself throws, the original crash is propagated.
   ///
   /// This means the operation can recover from a crash if the side-effect succeeds.
   /// If you want to always propagate the original crash regardless of the side-effect's

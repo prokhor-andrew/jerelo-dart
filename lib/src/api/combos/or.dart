@@ -7,6 +7,7 @@ extension ContOrExtension<E, F, A> on Cont<E, F, A> {
   /// against [right], returning the first successful value.
   ///
   /// - [right]: The other continuation to race with.
+  /// - [combine]: Function to combine the errors when both continuations fail.
   /// - [policy]: Execution policy determining how continuations are run.
   Cont<E, F3, A> or<F2, F3>(
     Cont<E, F2, A> right,

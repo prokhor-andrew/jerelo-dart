@@ -9,6 +9,10 @@ extension ContCrashWhileExtension<E, F, A>
   /// predicate returns `false` (propagating the crash) or when the continuation
   /// succeeds or terminates.
   ///
+  /// The loop is stack-safe and handles asynchronous continuations correctly.
+  /// If the predicate throws, the loop stops and crashes with that exception
+  /// instead of the original crash.
+  ///
   /// This is useful for retry logic with crash-based conditions, such as retrying
   /// while specific transient crashes occur.
   ///

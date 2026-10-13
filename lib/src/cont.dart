@@ -50,10 +50,10 @@ final class Cont<E, F, A> {
   /// Runs the continuation and routes its outcome to the appropriate callback.
   ///
   /// - [env]: The environment value to provide to the computation.
-  /// - [onPanic]: Called when an unexpected exception escapes all crash handlers.
-  ///   Defaults to rethrowing the panic in a microtask, so it surfaces as an
-  ///   unhandled error in the current zone; a `try`/`catch` around [run]
-  ///   never sees it.
+  /// - [onPanic]: Called when [onCrash], [onElse] or [onThen] throws, with
+  ///   the thrown error as a [NormalCrash]. Defaults to rethrowing the panic
+  ///   in a microtask, so it surfaces as an unhandled error in the current
+  ///   zone; a `try`/`catch` around [run] never sees it.
   /// - [onCrash]: Called when the computation terminates on the crash channel.
   ///   Defaults to silently ignoring the crash.
   /// - [onElse]: Called when the computation terminates on the else (error) channel.
@@ -79,8 +79,9 @@ final class Cont<E, F, A> {
 
   /// Creates a [Cont] from a run function that accepts an observer.
   ///
-  /// Constructs a continuation with guaranteed idempotence and exception catching.
-  /// The run function receives an observer with `onThen` and `onElse` callbacks.
+  /// Constructs a continuation that reports at most one outcome and catches
+  /// exceptions. The run function receives the environment and an observer
+  /// with `onCrash`, `onElse` and `onThen` callbacks.
   /// The callbacks should be called as the last instruction in the run function
   /// or saved to be called later.
   ///
@@ -99,7 +100,8 @@ final class Cont<E, F, A> {
   /// observer was called. The canceller decides what cancelling means, for
   /// example stopping a timer, and reports the outcome through the
   /// observer. Return a no-op (`() {}`) when the work can't be cancelled; the
-  /// computation then just finishes. A throw from the canceller is a crash.
+  /// computation then just finishes. A throw from the canceller is a crash,
+  /// or a panic if the observer was already called.
   ///
   /// - [run]: Function that executes the continuation, calls observer
   ///   callbacks, and returns a canceller.
@@ -217,6 +219,9 @@ final class Cont<E, F, A> {
   /// continuation. Use it to delay expensive construction, or to create
   /// per-run state.
   ///
+  /// A throw from [thunk] becomes a crash. A cancel is forwarded to the
+  /// continuation it built.
+  ///
   /// - [thunk]: Builds the continuation to run.
   static Cont<E, F, A> fromDeferred<E, F, A>(
     Cont<E, F, A> Function() thunk,
@@ -250,6 +255,9 @@ final class Cont<E, F, A> {
   /// The loop is stack-safe: iterations that complete synchronously do not
   /// grow the call stack, so it can run any number of times. Use it instead
   /// of a recursive `thenDo` for loops and retries.
+  ///
+  /// A cancel is forwarded to the running iteration, and to every iteration
+  /// that starts afterwards.
   ///
   /// - [initial]: The state of the first iteration.
   /// - [step]: Produces the continuation for one iteration from the current
@@ -382,7 +390,7 @@ final class Cont<E, F, A> {
   /// - [left]: First continuation to execute.
   /// - [right]: Second continuation to execute.
   /// - [combine]: Function to combine both successful values.
-  /// - [policy]: Execution policy determining how continuations are run and error are handled.
+  /// - [policy]: Execution policy determining how continuations are run and errors are handled.
   static Cont<E, F, A3> both<E, F, A1, A2, A3>(
     Cont<E, F, A1> left,
     Cont<E, F, A2> right,
@@ -429,7 +437,7 @@ final class Cont<E, F, A> {
   /// [list] succeeds with `[]`.
   ///
   /// - [list]: List of continuations to execute.
-  /// - [policy]: Execution policy determining how continuations are run and error are handled.
+  /// - [policy]: Execution policy determining how continuations are run and errors are handled.
   static Cont<E, F, List<A>> all<E, F, A>(
     List<Cont<E, F, A>> list, {
     required OkPolicy<F> policy,
@@ -543,8 +551,9 @@ final class Cont<E, F, A> {
   /// - [QuitFastCrashPolicy]: Runs both in parallel, propagates the first success
   ///   or error immediately. A crash waits for the other side; if both crash,
   ///   produces a [MergedCrash].
-  /// - [RunAllCrashPolicy]: Runs both in parallel, waits for both, and coalesces crashes
-  ///   if both crash.
+  /// - [RunAllCrashPolicy]: Runs both in parallel, waits for both, and merges
+  ///   the crashes into a [MergedCrash] if both crash. If either succeeds or
+  ///   fails, the crashes are dropped.
   ///
   /// - [left]: First continuation to execute.
   /// - [right]: Second continuation to execute.
@@ -639,9 +648,14 @@ final class Cont<E, F, A> {
   ///   [onReleaseCrash] and [onReleaseThen].
   /// - [use]: Uses the resource; may succeed with [A], fail with [F], or crash.
   ///
+  /// A throw from [use] is a crash, and [release] still runs. If [acquire]
+  /// crashes, neither [use] nor [release] runs.
+  ///
   /// Release failures are routed two ways: a throw from the [release] function
-  /// itself goes to [onReleasePanic]; a crash inside the continuation it
-  /// returns goes to [onReleaseCrash].
+  /// itself, or from [onReleaseCrash] or [onReleaseThen], goes to
+  /// [onReleasePanic]; a crash inside the continuation it returns goes to
+  /// [onReleaseCrash]. By default [onReleasePanic] rethrows the panic in a
+  /// microtask, and [onReleaseCrash] and [onReleaseThen] do nothing.
   ///
   /// Cancellation: a cancel is forwarded to [use] only. [acquire] and
   /// [release] are never cancelled. A cancel that arrives while [acquire]

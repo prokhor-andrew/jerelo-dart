@@ -8,15 +8,19 @@ extension ContElseWhileExtension<E, F, A> on Cont<E, F, A> {
   /// predicate returns `false` (propagating the termination) or when the continuation
   /// succeeds.
   ///
+  /// The loop is stack-safe and handles asynchronous continuations correctly.
+  /// If the continuation crashes or the predicate throws, the loop stops and
+  /// crashes.
+  ///
   /// This is useful for retry logic with error-based conditions, such as retrying
-  /// while specific transient error occur.
+  /// while specific transient errors occur.
   ///
   /// - [predicate]: Function that tests the termination error. Returns `true` to retry,
   ///   or `false` to stop and propagate the termination.
   ///
   /// Example:
   /// ```dart
-  /// // Retry while getting transient error
+  /// // Retry while getting transient errors
   /// final result = apiCall().elseWhile((error) => error is TransientError);
   /// ```
   Cont<E, F, A> elseWhile(

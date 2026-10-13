@@ -5,7 +5,8 @@ extension ContLocalVariantsExtension<E, F, A>
   /// Runs this continuation with a new environment from a zero-argument function.
   ///
   /// Similar to [local] but obtains the environment from a zero-argument function
-  /// instead of transforming the existing environment.
+  /// instead of transforming the existing environment. A throw from [f]
+  /// becomes a crash.
   ///
   /// - [f]: Zero-argument function that provides the new environment.
   Cont<E2, F, A> local0<E2>(E Function() f) {

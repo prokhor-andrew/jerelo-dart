@@ -5,7 +5,8 @@ import 'package:jerelo/jerelo.dart';
 /// Runs [cont], and on termination executes the side-effect continuation
 /// produced by [f]. If the side-effect terminates, the original error is
 /// propagated. If the side-effect succeeds, the computation promotes to
-/// the success channel with the side-effect's value.
+/// the success channel with the side-effect's value. If the side-effect
+/// crashes, or [f] throws, the computation crashes.
 Cont<E, F, A> _elseTap<E, F, F2, A>(
   Cont<E, F, A> cont,
   Cont<E, F2, A> Function(F error) f,
@@ -25,6 +26,9 @@ extension ContElseTapExtension<E, F, A> on Cont<E, F, A> {
   /// - If the side-effect terminates: Returns the original error (ignoring side-effect error).
   /// - If the side-effect succeeds: Returns the side-effect's success value, effectively
   ///   promoting from the original termination.
+  /// - If the side-effect crashes: Propagates the crash.
+  ///
+  /// If [f] itself throws, the computation crashes.
   ///
   /// This means the operation can promote from termination if the side-effect succeeds.
   /// If you want to always propagate the original termination regardless of the side-effect's

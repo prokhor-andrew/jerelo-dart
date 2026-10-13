@@ -4,6 +4,8 @@ extension ContThenZipExtension<E, F, A> on Cont<E, F, A> {
   /// Chains and combines two continuation values.
   ///
   /// Sequences two continuations and combines their results using the provided function.
+  /// If either continuation terminates or crashes, that outcome propagates; if
+  /// [f] or [combine] throws, the computation crashes.
   ///
   /// - [f]: Function to produce the second continuation from the first value.
   /// - [combine]: Function to combine both values into a result.

@@ -8,12 +8,14 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
   /// The loop continues as long as the predicate returns `true`, and stops
   /// successfully when the predicate returns `false`.
   ///
-  /// The loop is stack-safe and handles asynchronous continuations correctly.
-  /// If the continuation terminates or if the predicate throws an exception,
-  /// the loop stops and propagates the errors.
+  /// The continuation always runs at least once. The loop is built on
+  /// [Cont.tailRecM], so it is stack-safe and handles asynchronous
+  /// continuations correctly. If the continuation terminates on the else
+  /// channel or crashes, the loop stops and propagates that outcome; if the
+  /// predicate throws, the computation crashes.
   ///
-  /// This is useful for retry logic, polling, or repeating an operation while
-  /// a condition holds.
+  /// This is useful for polling, or repeating an operation while a condition
+  /// holds.
   ///
   /// - [predicate]: Function that tests the value. Returns `true` to continue
   ///   looping, or `false` to stop and succeed with the value.
@@ -23,7 +25,7 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
   /// // Poll an API while data is not ready
   /// final result = fetchData().thenWhile((response) => !response.isReady);
   ///
-  /// // Retry while value is below threshold
+  /// // Repeat while value is below threshold
   /// final value = computation().thenWhile((n) => n < 100);
   /// ```
   Cont<E, F, A> thenWhile(

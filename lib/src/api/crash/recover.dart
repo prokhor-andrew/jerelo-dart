@@ -7,6 +7,8 @@ extension ContCrashRecoverExtension<E, F, A>
   /// If the continuation crashes, applies [f] to the crash and succeeds
   /// with the returned value. This is a convenience over [crashDo] for cases
   /// where the recovery logic is a pure function rather than a full continuation.
+  /// If [f] throws, the computation crashes with that exception instead of
+  /// the original crash.
   ///
   /// - [f]: Function that receives the crash and returns a recovery value.
   Cont<E, F, A> crashRecoverThen(
@@ -77,6 +79,8 @@ extension ContCrashRecoverExtension<E, F, A>
   /// If the continuation crashes, applies [f] to the crash and terminates
   /// with the returned error. This is a convenience over [crashDo] for cases
   /// where the recovery logic produces an error rather than a success value.
+  /// If [f] throws, the computation crashes with that exception instead of
+  /// the original crash.
   ///
   /// - [f]: Function that receives the crash and returns an error.
   Cont<E, F, A> crashRecoverElse(

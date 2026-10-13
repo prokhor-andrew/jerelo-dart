@@ -10,7 +10,8 @@ extension ContCrashForeverExtension<E, F, A>
   ///
   /// This is the crash-channel counterpart to [elseForever]. While
   /// `elseForever` retries on termination indefinitely, `crashForever` retries
-  /// on crash indefinitely.
+  /// on crash indefinitely. Crashes are untyped, so unlike [elseForever] the
+  /// return type stays `Cont<E, F, A>`.
   ///
   /// This is useful for:
   /// - Services that must always recover from unexpected crashes

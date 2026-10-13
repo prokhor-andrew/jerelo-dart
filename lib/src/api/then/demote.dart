@@ -3,7 +3,9 @@ import 'package:jerelo/jerelo.dart';
 extension ContDemoteExtension<E, F, A> on Cont<E, F, A> {
   /// Unconditionally demotes the value to the error channel.
   ///
-  /// Takes a successful value and converts it into an error.
+  /// Takes a successful value and converts it into an error computed by [f].
+  /// Errors and crashes pass through unchanged. If [f] throws, the
+  /// computation crashes.
   /// This is useful for implementing validation logic where certain values
   /// should be treated as errors, or for custom error handling flows.
   ///

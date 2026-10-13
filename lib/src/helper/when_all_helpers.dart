@@ -454,12 +454,15 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
     - left primary + right null
     - left null + right secondary
     - left null + right primary
+    - left crash + right null
+    - left null + right crash
 
     // these states we don't set, we just emit proper output
     - left secondary + right primary
     - left primary + right secondary
     - left secondary + right secondary
     - left primary + right primary
+    - any pair where one or both sides crashed
 
      */
 

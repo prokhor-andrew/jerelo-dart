@@ -59,8 +59,12 @@ extension ContCrashForkExtension<E, F, A> on Cont<E, F, A> {
   /// completion before the crash is forwarded. If [f] itself throws, the original
   /// crash is forwarded.
   ///
+  /// The side-effect is detached: cancelling the computation does not cancel
+  /// it. The main computation is cancelled as usual.
+  ///
   /// Outcomes from the forked continuation are dispatched to optional callbacks:
-  /// - [onPanic]: Called when the side-effect triggers a panic. Defaults to rethrowing.
+  /// - [onPanic]: Called when the side-effect triggers a panic. Defaults to
+  ///   rethrowing it in a microtask.
   /// - [onCrash]: Called when the side-effect crashes. Defaults to ignoring.
   /// - [onElse]: Called when the side-effect terminates with an error. Defaults to ignoring.
   /// - [onThen]: Called when the side-effect succeeds. Defaults to ignoring.

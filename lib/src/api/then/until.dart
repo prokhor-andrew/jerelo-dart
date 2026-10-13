@@ -8,14 +8,15 @@ extension ContThenUntilExtension<E, F, A> on Cont<E, F, A> {
   /// successfully when the predicate returns `true`.
   ///
   /// This is the inverse of [thenWhile] - implemented as `thenWhile((a) => !predicate(a))`.
-  /// Use this when you want to retry until a condition is met.
+  /// Use this when you want to repeat until a condition is met. An error or a
+  /// crash stops the loop and propagates; it is not retried.
   ///
   /// - [predicate]: Function that tests the value. Returns `true` to stop the loop
   ///   and succeed, or `false` to continue looping.
   ///
   /// Example:
   /// ```dart
-  /// // Retry until a condition is met
+  /// // Poll until a condition is met
   /// final result = fetchStatus().thenUntil((status) => status == 'complete');
   ///
   /// // Poll until a threshold is reached

@@ -6,6 +6,8 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// Filters the continuation based on the predicate. If the predicate returns
   /// `true`, the continuation succeeds with the value. If the predicate returns
   /// `false`, the continuation terminates on the else channel with [fallback].
+  /// Errors and crashes pass through unchanged. If [predicate] throws, the
+  /// computation crashes.
   ///
   /// This is useful for conditional execution where you want to treat a
   /// predicate failure as a business-logic error.
@@ -19,7 +21,7 @@ extension ContThenIfExtension<E, F, A> on Cont<E, F, A> {
   /// // Succeeds with 42
   ///
   /// final cont2 = Cont.of(-5).thenIf((n) => n > 0, fallback: 'must be positive');
-  /// // Terminates with 'must be positive'
+  /// // Terminates on the else channel with 'must be positive'
   /// ```
   Cont<E, F, A> thenIf(
     bool Function(A value) predicate, {

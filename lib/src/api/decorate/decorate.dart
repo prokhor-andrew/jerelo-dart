@@ -7,13 +7,16 @@ extension ContDecorExtension<E, F, A> on Cont<E, F, A> {
   /// This is useful for intercepting execution to add middleware-like behavior
   /// such as logging, timing, or modifying how observers receive callbacks.
   ///
-  /// The transformation function receives both the original run function and
-  /// the observer, allowing custom execution behavior to be injected.
+  /// The transformation function receives the original run function, the
+  /// environment and the observer, allowing custom execution behavior to be
+  /// injected. A throw from it becomes a crash.
   ///
-  /// - [f]: A transformation function that receives the run function and observer,
-  ///   and implements custom execution logic by calling the run function with the
-  ///   observer at the appropriate time. It returns the canceller of the run it
-  ///   started, which is usually the value the run function returned.
+  /// - [f]: A transformation function that receives the run function, the
+  ///   environment and the observer, and implements custom execution logic
+  ///   by calling the run function with the environment and observer at the
+  ///   appropriate time. It returns the
+  ///   canceller of the run it started, which is usually the value the run
+  ///   function returned; a cancel is forwarded to it.
   ///
   /// Example:
   /// ```dart

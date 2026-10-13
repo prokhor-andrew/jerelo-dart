@@ -20,10 +20,10 @@ extension ContElseNeverExtension<E, A>
   }
 }
 
-/// Extension for running continuations that never produce a value.
+/// Provides [thenAbsurd] for continuations that never produce a value.
 ///
-/// This extension provides specialized methods for [Cont]<[E], [F], [Never]> where only
-/// termination is expected, simplifying the API by removing the unused value callback.
+/// Applies to [Cont]<[E], [F], [Never]>, where only the else and crash
+/// channels can be reached.
 extension ContThenNeverExtension<E, F>
     on Cont<E, F, Never> {
   /// Converts a continuation that never produces a value to any desired type.
@@ -42,7 +42,8 @@ extension ContThenNeverExtension<E, F>
   /// - Working with continuations that never succeed, such as a
   ///   [Cont.tailRecM] loop that only ends on the else or crash channel
   /// - Matching types with other continuations in composition
-  /// - Converting terminating-only continuations to typed continuations
+  /// - Converting continuations that only end on the else or crash channel
+  ///   to typed continuations
   ///
   /// Type parameters:
   /// - [A]: The desired value type for the resulting continuation

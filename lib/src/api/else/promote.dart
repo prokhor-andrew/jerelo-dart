@@ -8,6 +8,9 @@ extension ContPromoteExtension<E, F, A> on Cont<E, F, A> {
   /// for cases where the promotion logic is a pure function rather than a
   /// full continuation.
   ///
+  /// Values and crashes pass through unchanged. If [f] throws, the
+  /// computation crashes.
+  ///
   /// - [f]: Function that receives the error and returns a success value.
   Cont<E, F, A> promote(A Function(F error) f) {
     return elseDo((error) {

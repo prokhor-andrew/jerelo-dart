@@ -1,9 +1,9 @@
 /// A continuation monad library for Dart.
 ///
-/// Provides [Cont], a powerful abstraction for composing asynchronous and
+/// Provides `Cont`, a powerful abstraction for composing asynchronous and
 /// effectful computations using continuation-passing style. Supports
-/// environment injection, error handling, and parallel and sequential
-/// composition.
+/// environment injection, error handling, cancellation, and parallel and
+/// sequential composition.
 library;
 
 export 'src/cont.dart';

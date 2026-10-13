@@ -5,9 +5,12 @@ import 'package:jerelo/jerelo.dart';
 /// Runs [cont], and on success starts the side-effect continuation produced
 /// by [f] without waiting for it, then forwards the original value to the
 /// observer. A synchronous side-effect runs to completion before the value
-/// is forwarded; an asynchronous one does not delay it. Outcomes from the
-/// side-effect are dispatched to the provided callbacks: [onPanic] (defaults
-/// to rethrowing), [onCrash], [onElse], and [onThen] (all default to
+/// is forwarded; an asynchronous one does not delay it. A throw from [f]
+/// crashes the computation. The side-effect is run detached with its own
+/// run, so cancelling the computation does not cancel it; the returned
+/// canceller is that of [cont]. Outcomes from the side-effect are
+/// dispatched to the provided callbacks: [onPanic] (defaults to rethrowing
+/// in a microtask), [onCrash], [onElse], and [onThen] (all default to
 /// ignoring).
 Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
   Cont<E, F, A> cont,
@@ -21,7 +24,7 @@ Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
     return cont.runWith(
       env,
       observer.copyUpdateOnThen((a) {
-        // if this crashes, it should crash the computation
+        // if f throws, it should crash the computation
         ContCrash.tryCatch(() {
           final contA2 = f(a);
           try {
@@ -51,10 +54,12 @@ extension ContThenForkExtension<E, F, A> on Cont<E, F, A> {
   /// The side-effect continuation is started before the original value is
   /// forwarded: a synchronous side-effect runs to completion first, while an
   /// asynchronous one does not delay the value. If [f] itself throws, the
-  /// computation crashes.
+  /// computation crashes. The side-effect runs detached: cancelling this
+  /// computation does not cancel it.
   ///
   /// Outcomes from the forked continuation are dispatched to optional callbacks:
-  /// - [onPanic]: Called when the side-effect triggers a panic. Defaults to rethrowing.
+  /// - [onPanic]: Called when the side-effect triggers a panic. Defaults to
+  ///   rethrowing it in a microtask.
   /// - [onCrash]: Called when the side-effect crashes. Defaults to ignoring.
   /// - [onElse]: Called when the side-effect terminates with an error. Defaults to ignoring.
   /// - [onThen]: Called when the side-effect succeeds. Defaults to ignoring.
@@ -169,7 +174,7 @@ void _panic(NormalCrash crash) {
 /// Default handler that ignores the value it receives.
 void _ignore(Object? value) {}
 
-/// Runs [onCrash] when the computation threw.
+/// Runs `onCrash` when the computation threw.
 extension _CrashOrIfCrash<T> on CrashOr<T> {
   void _ifCrash(void Function(NormalCrash crash) onCrash) {
     if (this case CrashCrashOr(crash: final crash)) {

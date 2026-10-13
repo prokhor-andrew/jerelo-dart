@@ -7,7 +7,8 @@ extension ContCrashUnlessExtension<E, F, A>
   /// Filters crashes based on the predicate. If the predicate returns
   /// `true`, the continuation continues crashing with the original crash.
   /// If the predicate returns `false`, the continuation recovers with the
-  /// provided fallback value.
+  /// provided [fallback] value. If the predicate throws, the computation
+  /// crashes with that exception instead of the original crash.
   ///
   /// - [predicate]: Function that tests the crash.
   /// - [fallback]: The value to recover with when the predicate returns `false`.
@@ -79,7 +80,8 @@ extension ContCrashUnlessExtension<E, F, A>
   /// Filters crashes based on the predicate. If the predicate returns
   /// `true`, the continuation continues crashing with the original crash.
   /// If the predicate returns `false`, the continuation terminates with the
-  /// provided fallback error.
+  /// provided [fallback] error. If the predicate throws, the computation
+  /// crashes with that exception instead of the original crash.
   ///
   /// - [predicate]: Function that tests the crash.
   /// - [fallback]: The error to terminate with when the predicate returns `false`.
