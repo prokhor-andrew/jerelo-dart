@@ -28,7 +28,8 @@ sealed class CrashPolicy<E, A> {
   ///
   /// All continuations are started in parallel. As soon as one succeeds or
   /// fails, the overall computation propagates that outcome immediately
-  /// without waiting for the others. A crash waits for the others; if all
+  /// without waiting for the others, and the others are cancelled. A crash
+  /// waits for the others; if all
   /// crash, the crashes are combined into a [MergedCrash] ([Cont.coalesce])
   /// or a [CollectedCrash] ([Cont.converge]).
   ///

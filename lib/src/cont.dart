@@ -94,7 +94,15 @@ final class Cont<E, F, A> {
   /// not called; wrap such callbacks in [ContCrash.tryCatch] and pass the
   /// crash to `observer.onCrash`.
   ///
-  /// - [run]: Function that executes the continuation and calls observer callbacks.
+  /// [run] returns the canceller of the work it started. It is called when
+  /// the computation is cancelled, at most once, and never after the
+  /// observer was called. The canceller decides what cancelling means, for
+  /// example stopping a timer, and reports the outcome through the
+  /// observer. Return a no-op (`() {}`) when the work can't be cancelled; the
+  /// computation then just finishes. A throw from the canceller is a crash.
+  ///
+  /// - [run]: Function that executes the continuation, calls observer
+  ///   callbacks, and returns a canceller.
   static Cont<E, F, A> fromRun<E, F, A>(
     void Function() Function(
       E env,
@@ -724,6 +732,8 @@ extension ContRunWithExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [env]: The environment to run the continuation with.
   /// - [observer]: The observer whose callbacks receive the computation's outcome.
+  ///
+  /// Returns the canceller of the started computation.
   void Function() runWith(
     E env,
     ContObserver<F, A> observer,

@@ -30,7 +30,8 @@ sealed class OkPolicy<T> {
   /// All continuations are started in parallel. As soon as one of them
   /// exits (else or crash for [Cont.both]/[Cont.all], then or crash for
   /// [Cont.either]/[Cont.any]), the overall computation stops immediately
-  /// without waiting for the others. Collected results keep list order.
+  /// without waiting for the others, and the others are cancelled.
+  /// Collected results keep list order.
   ///
   /// The policy carries no data, so it is typed `OkPolicy<Never>`, which fits
   /// any `OkPolicy<T>` and leaves the combinator's types to be inferred from
