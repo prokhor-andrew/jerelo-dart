@@ -29,8 +29,8 @@ The run function receives the environment and the observer, and returns a **canc
 **Important notes about `observer`:**
 - It is idempotent. Calling `onThen`, `onElse`, or `onCrash` more than once will do nothing. Only this observer is guarded: observers derived from it with `copyUpdate*` call their new callbacks every time.
 - It is strongly advised to call exactly one of `onThen`, `onElse`, or `onCrash` once the computation is over.
-- The observer has an `isUsed` property that returns `true` once any callback has been invoked.
-- Exceptions thrown synchronously inside `Cont.fromRun` are automatically caught and routed to the crash channel — you don't need to wrap that code in try-catch blocks. An exception thrown later, inside a `Timer` or `Future` callback, is not caught: it escapes to the zone and the observer is never called. Wrap the body of such callbacks in `ContCrash.tryCatch` and pass the crash to `observer.onCrash`.
+- The observer has an `isUsed()` function that returns `true` once any callback has been invoked.
+- Exceptions thrown synchronously inside `Cont.fromRun` are automatically caught and routed to the crash channel — you don't need to wrap that code in try-catch blocks. An exception thrown later, inside a `Timer` or `Future` callback, is not caught: it escapes to the zone and the observer is never called. Wrap the body of such callbacks in `ContCrash.tryCatch`; if it returns a `CrashCrashOr`, pass its crash to `observer.onCrash`.
 
 ### Deferred Construction
 
@@ -74,7 +74,7 @@ Cont.crash<(), String, int>(someCrash);
 This constructor is used to thread an existing `ContCrash`. A `NormalCrash` has no public
 constructor: it is created when an exception is caught (for example by `ContCrash.tryCatch`).
 `MergedCrash` and `CollectedCrash` have no public constructors either: create them with
-`ContCrash.merge` and `ContCrash.collect`. (More in **[Composing Computations](03-composing-computations.md)**)
+`ContCrash.merge` and `ContCrash.collect`. (More in [ContCrash](../api_reference/types.md#contcrash) in the API reference.)
 
 ### Resource Management
 
@@ -234,7 +234,7 @@ Once the source computation completes and emits a value, error, or crash, execut
 3. **Final callback invoked** → `onThen`, `onElse`, or `onCrash` from `run`
 
 ```dart
-Cont.of(0)                    // Emits: value(0)
+Cont.of<(), String, int>(0)   // Emits: value(0)
   .thenMap((x) => x + 1)      // Processes: value(0) → value(1)
   .thenDo((x) => Cont.of(x * 2))  // Processes: value(1) → runs new Cont → value(2)
   .run((), onElse: onElse, onThen: onThen)  // Receives: value(2)
@@ -251,9 +251,9 @@ Each operator in the chain routes signals through three channels:
 Operators like `thenDo` and `thenMap` only process values from the then channel. If an error or crash signal arrives, they pass it through unchanged:
 
 ```dart
-Cont.of(0)
+Cont.of<(), String, int>(0)
   .thenMap((x) => x + 1)    // Only processes values
-  .thenDo((x) => throw "Error!")  // Throws → switches to crash channel
+  .thenDo<int>((x) => throw "Error!")  // Throws → switches to crash channel
   .thenMap((x) => x * 2)    // Skipped! (crash channel active)
   .run((), onCrash: onCrash, onThen: onThen)  // onCrash called
 ```
@@ -308,7 +308,7 @@ final program = Cont.askThen<Config, String>().thenDo((config) {
 });
 
 program.run(
-  Config(apiUrl: "https://api.example.com"),
+  Config("https://api.example.com"),
   onElse: (error) => print("Failed: $error"),
   onThen: (result) => print("Success: $result"),
 );

@@ -121,7 +121,7 @@ static Cont<E, F, A> crash<E, F, A>(ContCrash crash)
 
 Creates a `Cont` that immediately crashes with an unexpected exception.
 
-Used to represent unrecoverable failures that are outside the typed error channel.
+Used to represent unexpected failures that are outside the typed error channel.
 
 - **Parameters:**
   - `crash`: The crash to propagate
@@ -129,17 +129,20 @@ Used to represent unrecoverable failures that are outside the typed error channe
 **Example:**
 ```dart
 final cont = Cont.fromRun<(), String, int>((env, observer) {
-  throw Exception('Unexpected failure');
+  throw FormatException('Unexpected input');
 }).crashDo((crash) {
-  if (crash is! NormalCrash) {
+  // Recover from format errors, keep every other crash
+  if (crash case NormalCrash(error: FormatException())) {
     return Cont.of(0);
   }
   return Cont.crash(crash);
 });
 
-cont.run((), onCrash: (crash) {
-  print('Crashed: $crash');
-});
+cont.run(
+  (),
+  onCrash: (crash) => print('Crashed: $crash'),
+  onThen: print, // prints: 0
+);
 ```
 
 ---

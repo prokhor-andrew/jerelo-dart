@@ -32,7 +32,7 @@ sealed class ContCrash
 
 Represents unexpected exceptions (crashes) that occur during continuation execution.
 
-Unlike typed errors on the else channel (type `F`), crashes represent unrecoverable failures — exceptions that were not part of the expected control flow. `ContCrash` is a sealed class with three subtypes representing different crash scenarios.
+Unlike typed errors on the else channel (type `F`), crashes represent unexpected failures — exceptions that were not part of the expected control flow. They can still be recovered from with the crash channel operators. `ContCrash` is a sealed class with three subtypes representing different crash scenarios.
 
 **Static Methods:**
 
@@ -199,7 +199,7 @@ An observer that handles all three outcome channels of a continuation: crash, er
 
 `ContObserver` provides the callback mechanism for receiving results from a `Cont` execution. It encapsulates handlers for crashes (unexpected exceptions), errors (typed business failures), and successful values.
 
-`ContObserver` has a private constructor. Instances cannot be created directly. Instead, new observers are derived from existing ones using the copy methods. The initial observer is provided by the library when a continuation is executed (e.g., inside `Cont.fromRun` or `decorate`).
+`ContObserver` is sealed, so instances cannot be created directly. Instead, new observers are derived from existing ones using the copy methods. The initial observer is provided by the library when a continuation is executed (e.g., inside `Cont.fromRun` or `decorate`).
 
 **Fields:**
 
@@ -266,7 +266,7 @@ Creates a new observer with all three handlers replaced.
 
 **Extension Methods:**
 
-The following extension methods widen a `Never`-typed channel to an arbitrary type. When an observer's success or error type is `Never` (meaning that channel can never fire), these methods replace the unreachable callback with a no-op. Since `ContObserver` can also be used directly where a wider type is expected, they are mainly a convenience for spelling out the target type.
+The following extension methods widen a `Never`-typed channel to an arbitrary type. When an observer's success or error type is `Never` (meaning that channel can never fire), these methods replace the unreachable callback with a no-op. Use them instead of upcasting the observer: reading the `Never`-typed callback through a wider type (for example `onThen` of a `ContObserver<F, Never>` used as a `ContObserver<F, int>`) fails at run time with a `TypeError`.
 
 ```dart
 // On ContObserver<F, Never>:

@@ -60,9 +60,9 @@ Defines how multiple continuations should be executed. Different policies provid
 **Static Factory Methods:**
 
 ```dart
-static OkPolicy<T> sequence<T>()
+static OkPolicy<Never> sequence()
 ```
-Creates a sequential execution policy. Operations are executed one after another in order.
+Creates a sequential execution policy. Operations are executed one after another in order. The policy carries no data, so it is typed `OkPolicy<Never>`, which fits any `OkPolicy<T>`; the combinator infers its types from its continuations.
 
 When used with `both`/`all`: execution stops at the first failure or crash.
 When used with `either`/`any`: execution stops at the first success or crash.
@@ -83,9 +83,9 @@ final result = Cont.all(
 ---
 
 ```dart
-static OkPolicy<T> quitFast<T>()
+static OkPolicy<Never> quitFast()
 ```
-Creates a quit-fast policy. All operations start executing in parallel and the result is returned as soon as the decisive outcome occurs.
+Creates a quit-fast policy. All operations start executing in parallel and the result is returned as soon as the decisive outcome occurs; the operations still running are then cancelled. Like `sequence`, it is typed `OkPolicy<Never>`.
 
 When used with `both`/`all`: returns immediately on the first failure or crash; successes wait for the others.
 When used with `either`/`any`: returns immediately on the first success or crash; failures wait for the others.
@@ -168,16 +168,16 @@ Defines how multiple continuations should be executed and how their crashes and 
 **Static Factory Methods:**
 
 ```dart
-static CrashPolicy<E, A> sequence<E, A>()
+static CrashPolicy<Never, Never> sequence()
 ```
-Creates a sequential execution policy. Operations execute one after another; the next one runs only if the previous one crashed. The first success or error ends the computation.
+Creates a sequential execution policy. Operations execute one after another; the next one runs only if the previous one crashed. The first success or error ends the computation. The policy carries no data, so it is typed `CrashPolicy<Never, Never>`, which fits any `CrashPolicy<E, A>`.
 
 ---
 
 ```dart
-static CrashPolicy<E, A> quitFast<E, A>()
+static CrashPolicy<Never, Never> quitFast()
 ```
-Creates a quit-fast policy. All operations start in parallel; returns immediately on the first non-crash outcome. A crash waits for the others; if all of them crash, the crashes are combined (`MergedCrash` for `coalesce`, `CollectedCrash` for `converge`).
+Creates a quit-fast policy, typed `CrashPolicy<Never, Never>` like `sequence`. All operations start in parallel; returns immediately on the first non-crash outcome and cancels the operations still running. A crash waits for the others; if all of them crash, the crashes are combined (`MergedCrash` for `coalesce`, `CollectedCrash` for `converge`).
 
 ---
 

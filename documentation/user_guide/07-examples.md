@@ -152,9 +152,9 @@ fetchPosts<()>(authorId)
 
 ```dart
 Cont<E, String, User> getUser<E>(String id) {
-  return readFromCache(id)
-    .elseDo((_) => fetchFromNetwork(id)
-      .thenDo((user) => writeToCache(id, user).thenMap((_) => user)),
+  return readFromCache<E>(id)
+    .elseDo((_) => fetchFromNetwork<E>(id)
+      .thenDo((user) => writeToCache<E>(id, user).thenMap((_) => user)),
     )
     .elseDo((_) => Cont.of(User.guest()));
 }
@@ -303,7 +303,11 @@ fetchData()
 
 ```dart
 // Thread dependencies through the environment rather than function parameters
-class AppEnv { final Logger logger; final Database db; }
+class AppEnv {
+  final Logger logger;
+  final Database db;
+  AppEnv(this.logger, this.db);
+}
 
 Cont<AppEnv, String, List<Order>> fetchOrders(String userId) {
   return Cont.askThen<AppEnv, String>().thenDo((env) {

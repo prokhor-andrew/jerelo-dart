@@ -154,15 +154,24 @@ Cont<E, F, A> crashTap(Cont<E, F, A> Function(ContCrash crash) f)
 
 Executes a side-effect continuation on crash, with conditional recovery.
 
-If the side-effect succeeds, recovers from the crash. If the side-effect itself crashes, the original crash propagates. If the side-effect terminates with an error, that error propagates on the else channel.
+If the continuation crashes, executes the side-effect continuation and waits for it. The behavior depends on the side-effect's outcome:
+
+- If the side-effect crashes: Returns the original crash, ignoring the side-effect's crash
+- If the side-effect succeeds: Recovers from the crash and returns the side-effect's success value
+- If the side-effect terminates with an error: That error propagates on the else channel
+
+If `f` itself throws, the original crash propagates. To run a side effect such as logging without affecting the crash, make it end on the crash channel, or use `crashFork` for fire-and-forget behavior.
 
 - **Parameters:**
   - `f`: Function that receives the crash and returns a side-effect continuation
 
 **Example:**
 ```dart
+// Side effect ends on crash: the original crash is kept
 final result = riskyOperation()
-  .crashTap((crash) => logCrash(crash));
+  .crashTap((crash) {
+    return logCrash(crash).thenDo0(() => Cont.crash(crash));
+  });
 ```
 
 ---
@@ -480,7 +489,7 @@ Recovers from a crash by converting it to a typed error.
 **Example:**
 ```dart
 final result = riskyOperation()
-  .crashRecoverElse((crash) => 'Unexpected: ${crash}');
+  .crashRecoverElse((crash) => 'Unexpected: $crash');
 ```
 
 ---
@@ -705,7 +714,7 @@ Conditionally converts crash to error with access to the environment only.
 
 ## Retry Loops
 
-All retry loops are built on `Cont.tailRecM`, so they are stack-safe: retries that complete synchronously do not grow the call stack. A loop on the crash channel also ends when the continuation succeeds or terminates with a typed error, propagating that outcome.
+All retry loops are built on `Cont.tailRecM`, so they are stack-safe: retries that complete synchronously do not grow the call stack. A loop on the crash channel also ends when the continuation succeeds or terminates with a typed error, propagating that outcome. A cancel is forwarded to the running attempt; the loop stops only if that attempt reacts to it, so a loop whose steps ignore cancellation keeps retrying (see [Cancellation](execution.md#cancellation)).
 
 ### crashWhile
 

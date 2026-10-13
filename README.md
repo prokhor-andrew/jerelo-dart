@@ -60,7 +60,7 @@ A continuation monad representing a computation that will eventually produce a v
 - **Modular boundaries** - Swap HTTP/DB/cache/logging without rewriting flows
 - **Execution agnostic** - Same flow works sync, async, and in tests
 - **Explicit failures** - Unexpected throws become explicit termination
-- **Extensible** - Core stays stable, extras stay optional
+- **Extensible** - Write your own operators on the public API
 
 ## Documentation
 
@@ -259,6 +259,7 @@ The example above showcases:
 - **Side Effects**: Logging inside `thenMap` while passing the original value through
 - **Parallel Execution**: Multiple computations with `Cont.all` and `OkPolicy`
 - **Racing**: Competing computations with `Cont.either` and error combining
+- **Cancellation**: `fetchUserFromApi` returns a canceller that stops its timer, so the `quitFast` race cancels the API call once the cache wins
 - **Reusability**: Same computation executed with different configurations
 
 ## License

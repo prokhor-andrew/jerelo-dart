@@ -18,6 +18,7 @@ Managing contextual information and dependencies through continuations.
 - [Else-Channel Injection](#else-channel-injection)
   - [elseInject](#elseinject)
   - [injectedByElse](#injectedbyelse)
+- [Usage Patterns](#usage-patterns)
 
 ---
 
@@ -209,7 +210,7 @@ The error-channel counterpart of `thenInject`. If this continuation terminates w
 
 **Example:**
 ```dart
-// A continuation that might fail with a retry config
+// A continuation that might fail with an error message
 final operation = fetchData();
 
 // A retry handler that uses the error as environment
@@ -279,11 +280,13 @@ result.run((), onThen: print);
 
 ```dart
 // Extract a specific part of the environment
-final result = operation
+// (dbOperation needs a DbConfig)
+final result = dbOperation
   .local<FullConfig>((config) => config.database);
 
 // Transform environment type
-final adapted = operation
+// (configOperation needs a Config)
+final adapted = configOperation
   .local<Map<String, dynamic>>((json) => Config.fromJson(json));
 ```
 

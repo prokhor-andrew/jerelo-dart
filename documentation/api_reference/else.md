@@ -801,7 +801,7 @@ final result = operation()
 
 ## Retry Loops
 
-All retry loops are built on `Cont.tailRecM`, so they are stack-safe: retries that complete synchronously do not grow the call stack. A loop on the else channel also ends when the continuation succeeds or crashes, propagating that outcome.
+All retry loops are built on `Cont.tailRecM`, so they are stack-safe: retries that complete synchronously do not grow the call stack. A loop on the else channel also ends when the continuation succeeds or crashes, propagating that outcome. A cancel is forwarded to the running attempt; the loop stops only if that attempt reacts to it, so a loop whose steps ignore cancellation keeps retrying (see [Cancellation](execution.md#cancellation)).
 
 ### elseWhile
 

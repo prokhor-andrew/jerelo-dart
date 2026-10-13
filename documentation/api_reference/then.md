@@ -153,7 +153,7 @@ Replaces the value inside a `Cont` with a constant.
 
 **Example:**
 ```dart
-final cont = fetchUser().thenMapTo('User fetched');
+final cont = fetchUser(userId).thenMapTo('User fetched');
 cont.run(env, onThen: print); // prints: User fetched
 ```
 

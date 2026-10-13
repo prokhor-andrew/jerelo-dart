@@ -33,7 +33,7 @@ The observer passed to `Cont.fromRun` is a `SafeObserver`, which provides:
 - `observer.onCrash(crash)` — Signal a crash
 - `observer.isUsed()` — Returns `true` if any callback has already been invoked
 
-Only this observer is guarded against duplicate calls; observers derived from it with `copyUpdate*` call their new callbacks every time. `fromRun` also catches only exceptions thrown synchronously by the run function: an exception thrown later inside a `Timer` or `Future` callback escapes to the zone, and the observer is never called. Wrap such callback bodies in `ContCrash.tryCatch` and pass the crash to `observer.onCrash`.
+Only this observer is guarded against duplicate calls; observers derived from it with `copyUpdate*` call their new callbacks every time. `fromRun` also catches only exceptions thrown synchronously by the run function: an exception thrown later inside a `Timer` or `Future` callback escapes to the zone, and the observer is never called. Wrap such callback bodies in `ContCrash.tryCatch`; if it returns a `CrashCrashOr`, pass its crash to `observer.onCrash`.
 
 ### Example: Delayed Computation
 
@@ -130,11 +130,11 @@ extension MyContExtensions<E, F, T> on Cont<E, F, T> {
 
 The `decorate` method is a natural transformation that wraps the execution of a continuation without changing its type. It gives you access to three things:
 
-- **`run`** — The original run function (normally private and inaccessible)
+- **`run`** — Runs the original computation, like `runWith` does
 - **`env`** — The environment
 - **`observer`** — The observer receiving the three outcome callbacks
 
-You can intercept execution by modifying the environment or observer before passing them to `run`. `run` returns the canceller of the computation it starts; return it from your callback so that a cancel still reaches the computation. Since `ContObserver` uses `copyUpdateOnThen`, `copyUpdateOnElse`, and `copyUpdateOnCrash` to derive new observers with selectively overridden callbacks.
+You can intercept execution by modifying the environment or observer before passing them to `run`. `run` returns the canceller of the computation it starts; return it from your callback so that a cancel still reaches the computation. `ContObserver` provides `copyUpdateOnThen`, `copyUpdateOnElse`, `copyUpdateOnCrash` and `copyUpdate` to derive new observers with selectively overridden callbacks. `copyUpdateOnThen` and `copyUpdateOnElse` are generic in the new value or error type; pass it explicitly (as below) when chaining them, because Dart cannot infer it there.
 
 `decorate` preserves the continuation's type signature (`Cont<E, F, A>` → `Cont<E, F, A>`). It is not meant for type-changing transformations — use `thenMap`, `thenDo`, etc. for those.
 
@@ -149,12 +149,12 @@ extension TimingExtension<E, F, T> on Cont<E, F, T> {
       return run(
         env,
         observer
-          .copyUpdateOnThen((value) {
+          .copyUpdateOnThen<T>((value) {
             stopwatch.stop();
             onDuration(stopwatch.elapsed);
             observer.onThen(value);
           })
-          .copyUpdateOnElse((error) {
+          .copyUpdateOnElse<F>((error) {
             stopwatch.stop();
             observer.onElse(error);
           }),
@@ -201,11 +201,11 @@ extension LoggingExtension<E, F, T> on Cont<E, F, T> {
       return run(
         env,
         observer
-          .copyUpdateOnThen((value) {
+          .copyUpdateOnThen<T>((value) {
             print('[$label] Success: $value');
             observer.onThen(value);
           })
-          .copyUpdateOnElse((error) {
+          .copyUpdateOnElse<F>((error) {
             print('[$label] Error: $error');
             observer.onElse(error);
           })
@@ -219,11 +219,11 @@ extension LoggingExtension<E, F, T> on Cont<E, F, T> {
 }
 ```
 
-### Approach 3: Combine Both Approaches
+### Approach 3: Build on Your Own Operators
 
 ```dart
 extension AdvancedExtensions<E, T> on Cont<E, String, T> {
-  // Retry with exponential backoff
+  // Retry with exponential backoff. Fails with the last error, like retry.
   Cont<E, String, T> retryWithBackoff({
     int maxAttempts = 3,
     Duration initialDelay = const Duration(milliseconds: 100),
@@ -231,13 +231,12 @@ extension AdvancedExtensions<E, T> on Cont<E, String, T> {
     Cont<E, String, T> attempt(int attemptsLeft, Duration currentDelay) {
       if (attemptsLeft <= 1) return this;
 
-      return this.elseDo((error) {
+      return this.elseDo((_) {
         return delay<E, String, void>(currentDelay, null)
           .thenDo((_) => attempt(
             attemptsLeft - 1,
             currentDelay * 2,
-          ))
-          .elseDo((_) => Cont.error(error));
+          ));
       });
     }
 
@@ -350,12 +349,12 @@ extension RobustOperations<E, T> on Cont<E, String, T> {
         return run(
           env,
           observer
-            .copyUpdateOnThen((result) {
+            .copyUpdateOnThen<T>((result) {
               stopwatch.stop();
               print('[robustFetch] Completed in ${stopwatch.elapsedMilliseconds}ms');
               observer.onThen(result);
             })
-            .copyUpdateOnElse((error) {
+            .copyUpdateOnElse<String>((error) {
               stopwatch.stop();
               print('[robustFetch] Failed after ${stopwatch.elapsedMilliseconds}ms: $error');
               observer.onElse(error);
