@@ -9,6 +9,7 @@ void main() {
       Cont.of<(), String, int>(42)
           .decorate((run, env, observer) {
         run(env, observer);
+        return () {};
       }).run((), onThen: (v) => result = v);
 
       expect(result, equals(42));
@@ -20,6 +21,7 @@ void main() {
       Cont.error<(), String, int>('oops')
           .decorate((run, env, observer) {
         run(env, observer);
+        return () {};
       }).run((), onElse: (e) => error = e);
 
       expect(error, equals('oops'));
@@ -32,8 +34,10 @@ void main() {
       Cont.fromRun<(), String, int>((env, observer) {
         ran = true;
         observer.onThen(42);
+        return () {};
       }).decorate((run, env, observer) {
         // Don't call run
+        return () {};
       }).run((), onThen: (_) => thenCalled = true);
 
       expect(ran, isFalse);
@@ -47,6 +51,7 @@ void main() {
           .decorate((run, env, observer) {
         log.add('before');
         run(env, observer);
+        return () {};
       }).run((), onThen: (_) => log.add('then'));
 
       expect(log, equals(['before', 'then']));
@@ -59,6 +64,7 @@ void main() {
           .decorate((run, env, observer) {
         run(env, observer);
         log.add('after');
+        return () {};
       }).run((), onThen: (_) => log.add('then'));
 
       expect(log, equals(['then', 'after']));
@@ -135,6 +141,7 @@ void main() {
           .decorate((run, env, observer) {
         capturedEnv = env;
         run(env, observer);
+        return () {};
       }).run('myEnv');
 
       expect(capturedEnv, equals('myEnv'));
@@ -147,6 +154,7 @@ void main() {
           .decorate((run, env, observer) {
         run(env, observer);
         run(env, observer);
+        return () {};
       }).run((), onThen: (_) => thenCallCount++);
 
       expect(thenCallCount, equals(1));
@@ -161,6 +169,7 @@ void main() {
             env,
             observer
                 .copyUpdateOnThen((v) => result = v * 2));
+        return () {};
       }).run((), onThen: (_) => result = -1);
 
       expect(result, equals(84));
@@ -177,6 +186,7 @@ void main() {
             (e) => captured = 'intercepted:$e',
           ),
         );
+        return () {};
       }).run((), onElse: (e) => captured = e);
 
       expect(captured, equals('intercepted:original'));
@@ -190,10 +200,12 @@ void main() {
         log.add('outer-before');
         run(env, observer);
         log.add('outer-after');
+        return () {};
       }).decorate((run, env, observer) {
         log.add('inner-before');
         run(env, observer);
         log.add('inner-after');
+        return () {};
       }).run((), onThen: (_) => log.add('then'));
 
       expect(

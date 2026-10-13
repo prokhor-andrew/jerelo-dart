@@ -3,6 +3,10 @@ import 'package:jerelo/jerelo.dart';
 part 'api/cont_crash.dart';
 part 'api/cont_observer.dart';
 part 'api/tail_rec.dart';
+part 'api/cont_cancel_token.dart';
+part 'api/then/do.dart';
+part 'api/else/do.dart';
+part 'api/crash/do.dart';
 part 'helper/utils.dart';
 
 part 'helper/sequence_helpers.dart';
@@ -29,7 +33,9 @@ final class Cont<E, F, A> {
   // but checks function types soundly, so this keeps Cont safely
   // covariant in F and A: a Cont<E, String, int> can be used as a
   // Cont<E, Object?, int>.
-  final void Function(
+  //
+  // _run returns the canceller of the computation it starts.
+  final void Function() Function(
     E env,
     void Function(NormalCrash crash) onPanic,
     void Function(ContCrash crash) onCrash,
@@ -54,16 +60,20 @@ final class Cont<E, F, A> {
   ///   Defaults to silently ignoring the error.
   /// - [onThen]: Called when the computation succeeds with a value.
   ///   Defaults to silently ignoring the value.
-  void run(
+  ///
+  /// Returns a [ContCancelToken] that cancels the computation.
+  ContCancelToken run(
     E env, {
     void Function(NormalCrash crash) onPanic = _panic,
     void Function(ContCrash crash) onCrash = _ignore,
     void Function(F error) onElse = _ignore,
     void Function(A value) onThen = _ignore,
   }) {
-    runWith(
-      env,
-      _UnsafeObserver._(onPanic, onCrash, onElse, onThen),
+    return ContCancelToken._(
+      runWith(
+        env,
+        _UnsafeObserver._(onPanic, onCrash, onElse, onThen),
+      ),
     );
   }
 
@@ -86,7 +96,7 @@ final class Cont<E, F, A> {
   ///
   /// - [run]: Function that executes the continuation and calls observer callbacks.
   static Cont<E, F, A> fromRun<E, F, A>(
-    void Function(
+    void Function() Function(
       E env,
       SafeObserver<F, A> observer,
     ) run,
@@ -147,8 +157,10 @@ final class Cont<E, F, A> {
         })._ifCrash(onPanic);
       }
 
+      void Function() canceller = _voidIgnore;
+
       ContCrash.tryCatch(() {
-        run(
+        canceller = run(
           env,
           SafeObserver._(
             () {
@@ -161,6 +173,23 @@ final class Cont<E, F, A> {
           ),
         );
       })._ifCrash(guardedOnCrash);
+
+      // the leaf's canceller runs at most once, and not after the leaf
+      // has finished; a throw from it is a crash, or a panic once done
+      bool isCancelled = false;
+      return () {
+        if (isCancelled || isDone) {
+          return;
+        }
+        isCancelled = true;
+        ContCrash.tryCatch(canceller)._ifCrash((crash) {
+          if (isDone) {
+            onPanic(crash);
+          } else {
+            guardedOnCrash(crash);
+          }
+        });
+      };
     });
   }
 
@@ -170,6 +199,7 @@ final class Cont<E, F, A> {
   static Cont<E, F, A> crash<E, F, A>(ContCrash crash) {
     return Cont.fromRun((env, observer) {
       observer.onCrash(crash);
+      return _voidIgnore;
     });
   }
 
@@ -184,7 +214,7 @@ final class Cont<E, F, A> {
     Cont<E, F, A> Function() thunk,
   ) {
     return Cont.fromRun((env, observer) {
-      thunk().runWith(env, observer);
+      return thunk().runWith(env, observer);
     });
   }
 
@@ -196,6 +226,7 @@ final class Cont<E, F, A> {
   static Cont<E, F, A> of<E, F, A>(A value) {
     return Cont.fromRun((env, observer) {
       observer.onThen(value);
+      return _voidIgnore;
     });
   }
 
@@ -220,6 +251,7 @@ final class Cont<E, F, A> {
     Cont<E, F, TailRec<S, A>> Function(S state) step,
   ) {
     return Cont.fromRun((env, observer) {
+      final cancellers = _Cancellers();
       _stackSafeLoop<
           _Triple<S, ContCrash, _Either<F, A>>, // state
           S, // loop input
@@ -239,25 +271,30 @@ final class Cont<E, F, A> {
         },
         computation: (state, update) {
           ContCrash.tryCatch(() {
-            step(state).runWith(
-              env,
-              observer.copyUpdate<F, TailRec<S, A>>(
-                onCrash: (crash) {
-                  update(_Value2(crash));
-                },
-                onElse: (error) {
-                  update(_Value3(_Left(error)));
-                },
-                onThen: (next) {
-                  switch (next) {
-                    case NextTailRec(state: final state):
-                      update(_Value1(state));
-                    case DoneTailRec(result: final result):
-                      update(_Value3(_Right(result)));
-                  }
-                },
-              ),
-            );
+            final contStep = step(state);
+            cancellers.runNext(() {
+              return contStep.runWith(
+                env,
+                observer.copyUpdate<F, TailRec<S, A>>(
+                  onCrash: (crash) {
+                    update(_Value2(crash));
+                  },
+                  onElse: (error) {
+                    update(_Value3(_Left(error)));
+                  },
+                  onThen: (next) {
+                    switch (next) {
+                      case NextTailRec(state: final state):
+                        update(_Value1(state));
+                      case DoneTailRec(
+                          result: final result
+                        ):
+                        update(_Value3(_Right(result)));
+                    }
+                  },
+                ),
+              );
+            });
           })._ifCrash((crash) {
             update(_Value2(crash));
           });
@@ -276,6 +313,7 @@ final class Cont<E, F, A> {
           }
         },
       );
+      return cancellers.cancel;
     });
   }
 
@@ -287,6 +325,7 @@ final class Cont<E, F, A> {
   static Cont<E, F, A> error<E, F, A>(F err) {
     return Cont.fromRun((env, observer) {
       observer.onElse(err);
+      return _voidIgnore;
     });
   }
 
@@ -300,6 +339,7 @@ final class Cont<E, F, A> {
   static Cont<E, F, E> askThen<E, F>() {
     return Cont.fromRun((env, observer) {
       observer.onThen(env);
+      return _voidIgnore;
     });
   }
 
@@ -313,6 +353,7 @@ final class Cont<E, F, A> {
   static Cont<E, E, A> askElse<E, A>() {
     return Cont.fromRun((env, observer) {
       observer.onElse(env);
+      return _voidIgnore;
     });
   }
 
@@ -594,8 +635,11 @@ final class Cont<E, F, A> {
   /// itself goes to [onReleasePanic]; a crash inside the continuation it
   /// returns goes to [onReleaseCrash].
   ///
-  /// [bracket] has no cancellation support: [release] runs once [use]
-  /// reports back. If [use] never reports, [release] never runs.
+  /// Cancellation: a cancel is forwarded to [use] only. [acquire] and
+  /// [release] are never cancelled. A cancel that arrives while [acquire]
+  /// runs is applied to [use] as soon as it starts. [release] runs once
+  /// [use] reports back, on any channel; if [use] never reports, [release]
+  /// never runs.
   static Cont<E, F, A> bracket<R, E, F, A>({
     required Cont<E, Never, R> acquire,
     required Cont<E, Never, ()> Function(R resource)
@@ -607,6 +651,9 @@ final class Cont<E, F, A> {
     void Function() onReleaseThen = _voidIgnore,
   }) {
     return Cont.fromRun((env, observer) {
+      // acquire is never cancelled: a cancel that arrives while it runs
+      // is applied to use as soon as use starts
+      final cancellers = _Cancellers();
       acquire.elseAbsurd<F>().runWith(
         env,
         observer.copyUpdateOnThen<R>((resource) {
@@ -629,29 +676,33 @@ final class Cont<E, F, A> {
           }
 
           ContCrash.tryCatch(() {
-            use(resource).runWith(
-              env,
-              observer.copyUpdate(
-                onCrash: (crash) {
-                  observer.onCrash(crash);
-                  fireRelease();
-                },
-                onElse: (error) {
-                  observer.onElse(error);
-                  fireRelease();
-                },
-                onThen: (value) {
-                  observer.onThen(value);
-                  fireRelease();
-                },
-              ),
-            );
+            final contUse = use(resource);
+            cancellers.runNext(() {
+              return contUse.runWith(
+                env,
+                observer.copyUpdate(
+                  onCrash: (crash) {
+                    observer.onCrash(crash);
+                    fireRelease();
+                  },
+                  onElse: (error) {
+                    observer.onElse(error);
+                    fireRelease();
+                  },
+                  onThen: (value) {
+                    observer.onThen(value);
+                    fireRelease();
+                  },
+                ),
+              );
+            });
           })._ifCrash((crash) {
             observer.onCrash(crash);
             fireRelease();
           });
         }),
       );
+      return cancellers.cancel;
     });
   }
 }
@@ -673,11 +724,11 @@ extension ContRunWithExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [env]: The environment to run the continuation with.
   /// - [observer]: The observer whose callbacks receive the computation's outcome.
-  void runWith(
+  void Function() runWith(
     E env,
     ContObserver<F, A> observer,
   ) {
-    _run(
+    return _run(
       env,
       observer._onUnsafePanic,
       observer.onCrash,

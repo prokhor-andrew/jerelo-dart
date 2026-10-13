@@ -1,8 +1,8 @@
 part of '../cont.dart';
 
-void _whenAllPar<P, S>({
+void Function() _whenAllPar<P, S>({
   required int total,
-  required void Function(
+  required void Function() Function(
     int index,
     void Function(ContCrash) onCrash,
     void Function(P) onPrimary,
@@ -16,8 +16,11 @@ void _whenAllPar<P, S>({
 }) {
   if (total <= 0) {
     onAllPrimary([]);
-    return;
+    return _voidIgnore;
   }
+
+  // cancelling forwards to every item
+  final cancellers = _Cancellers();
 
   bool isDone = false;
 
@@ -174,17 +177,21 @@ void _whenAllPar<P, S>({
   }
 
   for (var i = 0; i < total; i++) {
-    onRun(
-      i,
-      (crash) {
-        handleCrash(i, crash);
-      },
-      handlePrimary,
-      (secondary) {
-        handleSecondary(i, secondary);
-      },
-    );
+    cancellers.runAlongside(() {
+      return onRun(
+        i,
+        (crash) {
+          handleCrash(i, crash);
+        },
+        handlePrimary,
+        (secondary) {
+          handleSecondary(i, secondary);
+        },
+      );
+    });
   }
+
+  return cancellers.cancel;
 }
 
 Cont<E, F, List<A>> _whenAllAll<E, F, A>(
@@ -195,13 +202,14 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
   list = list.toList(); // defensive copy
   return Cont.fromRun((env, observer) {
     list = list.toList(); // another defensive copy
-    _whenAllPar<A, F>(
+    return _whenAllPar<A, F>(
       shouldFavorCrash: shouldFavorCrash,
       total: list.length,
       onRun: (index, onCrash, onPrimary, onSecondary) {
         final cont = list[index];
+        void Function() canceller = _voidIgnore;
         ContCrash.tryCatch(() {
-          cont.runWith(
+          canceller = cont.runWith(
             env,
             observer.copyUpdate(
               onCrash: (crash) {
@@ -216,6 +224,7 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
             ),
           );
         })._ifCrash(onCrash);
+        return canceller;
       },
       combine: combine,
       onAllPrimary: observer.onThen,
@@ -237,9 +246,11 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
 
     if (list.isEmpty) {
       observer.onCrash(CollectedCrash._({}));
-      return;
+      return _voidIgnore;
     }
 
+    // cancelling forwards to every item
+    final cancellers = _Cancellers();
     final total = list.length;
     bool isDone = false;
     int numberOfFinished = 0;
@@ -324,24 +335,28 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
     for (var i = 0; i < total; i++) {
       final idx = i;
       ContCrash.tryCatch(() {
-        list[idx].runWith(
-          env,
-          observer.copyUpdate(
-            onCrash: (crash) {
-              handleCrash(idx, crash);
-            },
-            onElse: (f) {
-              handleElse(idx, f);
-            },
-            onThen: (a) {
-              handleThen(idx, a);
-            },
-          ),
-        );
+        cancellers.runAlongside(() {
+          return list[idx].runWith(
+            env,
+            observer.copyUpdate(
+              onCrash: (crash) {
+                handleCrash(idx, crash);
+              },
+              onElse: (f) {
+                handleElse(idx, f);
+              },
+              onThen: (a) {
+                handleThen(idx, a);
+              },
+            ),
+          );
+        });
       })._ifCrash((crash) {
         handleCrash(idx, crash);
       });
     }
+
+    return cancellers.cancel;
   });
 }
 
@@ -353,14 +368,15 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
   list = list.toList(); // defensive copy
   return Cont.fromRun((env, observer) {
     list = list.toList(); // another defensive copy
-    _whenAllPar<F, A>(
+    return _whenAllPar<F, A>(
       shouldFavorCrash: shouldFavorCrash,
       total: list.length,
       onRun: (index, onCrash, onPrimary, onSecondary) {
         final cont = list[index];
 
+        void Function() canceller = _voidIgnore;
         ContCrash.tryCatch(() {
-          cont.runWith(
+          canceller = cont.runWith(
             env,
             observer.copyUpdate(
               onCrash: (crash) {
@@ -375,6 +391,7 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
             ),
           );
         })._ifCrash(onCrash);
+        return canceller;
       },
       combine: combine,
       onAllPrimary: observer.onElse,

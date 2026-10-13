@@ -18,7 +18,7 @@ Cont<E, F, A> _crashFork<E, F, F2, A, A2>(
   void Function(A2 value) onThen = _ignore,
 }) {
   return Cont.fromRun((env, observer) {
-    cont.runWith(
+    return cont.runWith(
       env,
       observer.copyUpdateOnCrash((crash) {
         // a throw from f is a crash, the crash channel's own

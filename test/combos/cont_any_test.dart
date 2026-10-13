@@ -23,10 +23,12 @@ void main() {
           Cont.fromRun((env, observer) {
             executed++;
             observer.onThen(42);
+            return () {};
           }),
           Cont.fromRun((env, observer) {
             executed++;
             observer.onThen(99);
+            return () {};
           }),
         ],
         policy: OkPolicy.sequence(),

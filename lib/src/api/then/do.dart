@@ -1,4 +1,4 @@
-import 'package:jerelo/jerelo.dart';
+part of '../../cont.dart';
 
 extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
   /// Chains a [Cont]-returning function to create dependent computations.
@@ -11,19 +11,25 @@ extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
     Cont<E, F, A2> Function(A value) f,
   ) {
     return Cont.fromRun((env, observer) {
-      runWith(
-        env,
-        observer.copyUpdateOnThen((a) {
-          final result = ContCrash.tryCatch(() {
-            final contA2 = f(a);
-            contA2.runWith(env, observer);
-          });
-          if (result
-              case CrashCrashOr(crash: final crash)) {
-            observer.onCrash(crash);
-          }
-        }),
-      );
+      final cancellers = _Cancellers();
+      cancellers.runNext(() {
+        return runWith(
+          env,
+          observer.copyUpdateOnThen((a) {
+            final result = ContCrash.tryCatch(() {
+              final contA2 = f(a);
+              cancellers.runNext(() {
+                return contA2.runWith(env, observer);
+              });
+            });
+            if (result
+                case CrashCrashOr(crash: final crash)) {
+              observer.onCrash(crash);
+            }
+          }),
+        );
+      });
+      return cancellers.cancel;
     });
   }
 }

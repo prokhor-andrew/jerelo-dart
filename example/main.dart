@@ -83,6 +83,7 @@ Cont<void, String, AuthToken> loginRequest(
         observer.onElse('Invalid credentials');
       }
     });
+    return () {};
   });
 }
 
@@ -106,6 +107,7 @@ Cont<void, String, UserProfile> getUserProfile(
         observer.onElse('Missing token');
       }
     });
+    return () {};
   });
 }
 
@@ -119,6 +121,7 @@ Cont<void, String, UserProfile> updateUserProfile(
       print('  [API] PUT /users/me -> 200 OK');
       observer.onThen(updated);
     });
+    return () {};
   });
 }
 
@@ -129,6 +132,7 @@ Cont<void, String, void> logoutRequest(String accessToken) {
       print('  [API] POST /auth/logout -> 204 No Content');
       observer.onThen(null);
     });
+    return () {};
   });
 }
 
@@ -138,6 +142,7 @@ Cont<void, String, UserProfile> getCachedProfile() {
     // Simulate cache miss
     print('  [CACHE] profile lookup -> miss');
     observer.onElse('Cache miss');
+    return () {};
   });
 }
 
@@ -193,6 +198,7 @@ Cont<void, String, UserProfile> fetchAndUpdateProfile(
         observer.onThen(newName.trim());
       }
     });
+    return () {};
   });
 
   // Run fetch + validation in parallel; both must succeed.
@@ -228,6 +234,7 @@ Cont<void, String, AuthToken> loginWithFallbackStrategy() {
         ),
       );
     });
+    return () {};
   });
 
   // Try normal login first; if it fails, try refresh token.

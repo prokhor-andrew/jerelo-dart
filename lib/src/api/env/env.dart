@@ -11,7 +11,7 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   /// - [f]: Function that transforms the outer environment to the inner environment.
   Cont<E2, F, A> local<E2>(E Function(E2) f) {
     return Cont.fromRun((env, observer) {
-      runWith(f(env), observer);
+      return runWith(f(env), observer);
     });
   }
 

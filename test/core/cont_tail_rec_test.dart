@@ -45,6 +45,7 @@ void main() {
                   : TailRec.next(n + 1),
             );
           });
+          return () {};
         });
       }).run((), onThen: completer.complete);
 

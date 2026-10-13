@@ -7,6 +7,7 @@ void main() {
       int? result;
       Cont.fromRun<(), String, int>((env, observer) {
         observer.onThen(42);
+        return () {};
       }).run((), onThen: (v) => result = v);
       expect(result, equals(42));
     });
@@ -15,6 +16,7 @@ void main() {
       String? result;
       Cont.fromRun<(), String, int>((env, observer) {
         observer.onElse('oops');
+        return () {};
       }).run((), onElse: (e) => result = e);
       expect(result, equals('oops'));
     });
@@ -36,6 +38,7 @@ void main() {
       Cont.fromRun<int, String, int>((env, observer) {
         captured = env;
         observer.onThen(env);
+        return () {};
       }).run(99);
       expect(captured, equals(99));
     });
@@ -45,6 +48,7 @@ void main() {
       Cont.fromRun<(), String, int>((env, observer) {
         observer.onThen(1);
         observer.onThen(2);
+        return () {};
       }).run((), onThen: (_) => callCount++);
       expect(callCount, equals(1));
     });
@@ -56,6 +60,7 @@ void main() {
         observer.onElse('first');
         observer.onElse('second');
         observer.onThen(42);
+        return () {};
       }).run(
         (),
         onThen: (_) => thenCount++,
@@ -69,6 +74,7 @@ void main() {
       final cont =
           Cont.fromRun<(), String, int>((env, observer) {
         observer.onThen(42);
+        return () {};
       });
 
       int? first;

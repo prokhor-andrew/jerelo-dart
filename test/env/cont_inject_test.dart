@@ -42,6 +42,7 @@ void main() {
         Cont.fromRun<int, String, int>((env, observer) {
           targetExecuted = true;
           observer.onThen(0);
+          return () {};
         }),
       ).run(());
 
@@ -54,6 +55,7 @@ void main() {
       Cont.of<(), Never, int>(42).thenInject(
         Cont.fromRun<int, Never, String>((env, observer) {
           observer.onThen('value:${env}');
+          return () {};
         }),
       ).run((), onThen: (v) => result = v);
 

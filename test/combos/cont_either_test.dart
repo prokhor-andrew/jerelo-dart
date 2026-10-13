@@ -50,6 +50,7 @@ void main() {
         Cont.fromRun((env, observer) {
           secondExecuted = true;
           observer.onThen(0);
+          return () {};
         }),
         (a, b) => '$a+$b',
         policy: OkPolicy.sequence(),

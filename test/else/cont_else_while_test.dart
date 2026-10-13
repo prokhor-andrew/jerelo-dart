@@ -14,6 +14,7 @@ void main() {
         } else {
           observer.onThen(count);
         }
+        return () {};
       }).elseWhile((e) => e.startsWith('retry')).run(
         (),
         onThen: (v) => result = v,
@@ -30,6 +31,7 @@ void main() {
       Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onElse('stop');
+        return () {};
       })
           .elseWhile((_) => false)
           .run((), onElse: (e) => error = e);
@@ -45,6 +47,7 @@ void main() {
       Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onThen(count);
+        return () {};
       })
           .elseWhile((_) => true)
           .run((), onThen: (v) => result = v);
@@ -65,6 +68,7 @@ void main() {
         } else {
           observer.onElse('retry');
         }
+        return () {};
       }).elseWhile((e) => e == 'retry');
 
       cont.run((), onElse: (e) => lastError = e);
@@ -87,6 +91,7 @@ void main() {
         } else {
           observer.onThen(count);
         }
+        return () {};
       })
           .elseWhile0(() => count < 3)
           .run((), onThen: (v) => result = v);

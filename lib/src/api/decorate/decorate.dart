@@ -12,27 +12,29 @@ extension ContDecorExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: A transformation function that receives the run function and observer,
   ///   and implements custom execution logic by calling the run function with the
-  ///   observer at the appropriate time.
+  ///   observer at the appropriate time. It returns the canceller of the run it
+  ///   started, which is usually the value the run function returned.
   ///
   /// Example:
   /// ```dart
   /// // Add logging around execution
   /// final logged = cont.decorate((run, env, observer) {
   ///   print('Starting execution');
-  ///   run(env, observer);
+  ///   final cancel = run(env, observer);
   ///   print('Execution initiated');
+  ///   return cancel;
   /// });
   /// ```
   Cont<E, F, A> decorate(
-    void Function(
-      void Function(E, ContObserver<F, A>) run,
+    void Function() Function(
+      void Function() Function(E, ContObserver<F, A>) run,
       E env,
       ContObserver<F, A> observer,
       //
     ) f,
   ) {
     return Cont.fromRun((env, observer) {
-      f(runWith, env, observer);
+      return f(runWith, env, observer);
     });
   }
 }

@@ -10,6 +10,7 @@ void main() {
       Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onThen(count);
+        return () {};
       })
           .thenUntil((v) => v >= 3)
           .run((), onThen: (v) => result = v);
@@ -25,6 +26,7 @@ void main() {
       Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onThen(count);
+        return () {};
       })
           .thenUntil((_) => true)
           .run((), onThen: (v) => result = v);
@@ -44,6 +46,7 @@ void main() {
         } else {
           observer.onThen(count);
         }
+        return () {};
       })
           .thenUntil((_) => false)
           .run((), onElse: (e) => error = e);
@@ -60,6 +63,7 @@ void main() {
           Cont.fromRun<(), String, int>((env, observer) {
         totalCount++;
         observer.onThen(totalCount);
+        return () {};
       }).thenUntil((v) => v % 3 == 0);
 
       cont.run((), onThen: (v) => lastResult = v);
@@ -78,6 +82,7 @@ void main() {
       Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onThen(count);
+        return () {};
       })
           .thenUntil0(() => count >= 3)
           .run((), onThen: (v) => result = v);

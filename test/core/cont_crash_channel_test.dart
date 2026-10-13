@@ -82,6 +82,7 @@ void main() {
 
       Cont.fromRun<(), String, int>((env, observer) {
         Cont.of<(), String, int>(5).runWith(env, observer);
+        return () {};
       }).run((), onThen: (v) => result = v);
 
       expect(result, equals(5));

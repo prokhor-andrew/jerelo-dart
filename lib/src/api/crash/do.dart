@@ -1,4 +1,4 @@
-import 'package:jerelo/jerelo.dart';
+part of '../../cont.dart';
 
 extension ContCrashDoExtension<E, F, A> on Cont<E, F, A> {
   /// Provides a recovery continuation in case of a crash.
@@ -14,19 +14,25 @@ extension ContCrashDoExtension<E, F, A> on Cont<E, F, A> {
     Cont<E, F, A> Function(ContCrash crash) f,
   ) {
     return Cont.fromRun((env, observer) {
-      runWith(
-        env,
-        observer.copyUpdateOnCrash((initialCrash) {
-          final result = ContCrash.tryCatch(() {
-            final cont = f(initialCrash);
-            cont.runWith(env, observer);
-          });
-          if (result
-              case CrashCrashOr(crash: final crash)) {
-            observer.onCrash(crash);
-          }
-        }),
-      );
+      final cancellers = _Cancellers();
+      cancellers.runNext(() {
+        return runWith(
+          env,
+          observer.copyUpdateOnCrash((initialCrash) {
+            final result = ContCrash.tryCatch(() {
+              final cont = f(initialCrash);
+              cancellers.runNext(() {
+                return cont.runWith(env, observer);
+              });
+            });
+            if (result
+                case CrashCrashOr(crash: final crash)) {
+              observer.onCrash(crash);
+            }
+          }),
+        );
+      });
+      return cancellers.cancel;
     });
   }
 }

@@ -18,7 +18,7 @@ Cont<E, F, A> _elseFork<E, F, F2, A, A2>(
   void Function(A2 value) onThen = _ignore,
 }) {
   return Cont.fromRun((env, observer) {
-    cont.runWith(
+    return cont.runWith(
       env,
       observer.copyUpdateOnElse((error) {
         // if this crashes, it should crash the computation

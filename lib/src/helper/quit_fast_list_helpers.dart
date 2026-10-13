@@ -1,9 +1,9 @@
 part of '../cont.dart';
 
-void _quitFastPar<E, QF, C>({
+void Function() _quitFastPar<E, QF, C>({
   required E env,
   required int total,
-  required void Function(
+  required void Function() Function(
     int index,
     E sharedEnv,
     void Function(QF) onQuitFast,
@@ -16,8 +16,11 @@ void _quitFastPar<E, QF, C>({
 }) {
   if (total <= 0) {
     onAllCollected([]);
-    return;
+    return _voidIgnore;
   }
+
+  // cancelling forwards to every item; deciding cancels the rest
+  final cancellers = _Cancellers();
 
   final collectedResults = List<C?>.filled(total, null);
   int amountOfCollected = 0;
@@ -30,6 +33,7 @@ void _quitFastPar<E, QF, C>({
       return;
     }
     isDone = true;
+    cancellers.cancel();
     onFirstQuitFast(value);
   }
 
@@ -53,20 +57,25 @@ void _quitFastPar<E, QF, C>({
       return;
     }
     isDone = true;
+    cancellers.cancel();
     onCrash(crash);
   }
 
   for (int i = 0; i < total; i++) {
-    onRun(
-      i,
-      env,
-      handleQuitFast,
-      (c) {
-        handleCollect(c, i);
-      },
-      handleCrash,
-    );
+    cancellers.runAlongside(() {
+      return onRun(
+        i,
+        env,
+        handleQuitFast,
+        (c) {
+          handleCollect(c, i);
+        },
+        handleCrash,
+      );
+    });
   }
+
+  return cancellers.cancel;
 }
 
 Cont<E, F, List<A>> _quitFastAll<E, F, A>(
@@ -75,12 +84,13 @@ Cont<E, F, List<A>> _quitFastAll<E, F, A>(
   list = list.toList();
   return Cont.fromRun((env, observer) {
     list = list.toList();
-    _quitFastPar<E, F, A>(
+    return _quitFastPar<E, F, A>(
       env: env,
       total: list.length,
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
+        void Function() canceller = _voidIgnore;
         ContCrash.tryCatch(() {
-          list[i].runWith(
+          canceller = list[i].runWith(
             shared,
             observer.copyUpdate(
               onCrash: onCrash,
@@ -89,6 +99,7 @@ Cont<E, F, List<A>> _quitFastAll<E, F, A>(
             ),
           );
         })._ifCrash(onCrash);
+        return canceller;
       },
       onFirstQuitFast: observer.onElse,
       onAllCollected: observer.onThen,
@@ -106,8 +117,11 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
 
     if (list.isEmpty) {
       observer.onCrash(CollectedCrash._({}));
-      return;
+      return _voidIgnore;
     }
+
+    // cancelling forwards to every item; deciding cancels the rest
+    final cancellers = _Cancellers();
 
     final total = list.length;
     int numberOfCrashed = 0;
@@ -119,12 +133,14 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
     void handleThen(A a) {
       if (isDone) return;
       isDone = true;
+      cancellers.cancel();
       observer.onThen(a);
     }
 
     void handleElse(F f) {
       if (isDone) return;
       isDone = true;
+      cancellers.cancel();
       observer.onElse(f);
     }
 
@@ -142,18 +158,22 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
 
     for (var i = 0; i < total; i++) {
       ContCrash.tryCatch(() {
-        list[i].runWith(
-          env,
-          observer.copyUpdate(
-            onCrash: (c) => handleCrash(i, c),
-            onElse: handleElse,
-            onThen: handleThen,
-          ),
-        );
+        cancellers.runAlongside(() {
+          return list[i].runWith(
+            env,
+            observer.copyUpdate(
+              onCrash: (c) => handleCrash(i, c),
+              onElse: handleElse,
+              onThen: handleThen,
+            ),
+          );
+        });
       })._ifCrash((crash) {
         handleCrash(i, crash);
       });
     }
+
+    return cancellers.cancel;
   });
 }
 
@@ -163,12 +183,13 @@ Cont<E, List<F>, A> _quitFastAny<E, F, A>(
   list = list.toList();
   return Cont.fromRun((env, observer) {
     list = list.toList();
-    _quitFastPar<E, A, F>(
+    return _quitFastPar<E, A, F>(
       env: env,
       total: list.length,
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
+        void Function() canceller = _voidIgnore;
         ContCrash.tryCatch(() {
-          list[i].runWith(
+          canceller = list[i].runWith(
             shared,
             observer.copyUpdate(
               onCrash: onCrash,
@@ -177,6 +198,7 @@ Cont<E, List<F>, A> _quitFastAny<E, F, A>(
             ),
           );
         })._ifCrash(onCrash);
+        return canceller;
       },
       onFirstQuitFast: observer.onThen,
       onAllCollected: observer.onElse,

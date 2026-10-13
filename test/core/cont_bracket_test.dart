@@ -10,14 +10,17 @@ void main() {
         acquire: Cont.fromRun((env, observer) {
           log.add('acquire');
           observer.onThen('resource');
+          return () {};
         }),
         release: (r) => Cont.fromRun((env, observer) {
           log.add('release:$r');
           observer.onThen(());
+          return () {};
         }),
         use: (r) => Cont.fromRun((env, observer) {
           log.add('use:$r');
           observer.onThen(42);
+          return () {};
         }),
       );
 
@@ -41,14 +44,17 @@ void main() {
         acquire: Cont.fromRun((env, observer) {
           log.add('acquire');
           observer.onThen('resource');
+          return () {};
         }),
         release: (r) => Cont.fromRun((env, observer) {
           log.add('release');
           observer.onThen(());
+          return () {};
         }),
         use: (r) => Cont.fromRun((env, observer) {
           log.add('use');
           observer.onElse('error');
+          return () {};
         }),
       );
 
@@ -87,6 +93,7 @@ void main() {
         release: (r) => Cont.fromRun((env, observer) {
           releaseCount++;
           observer.onThen(());
+          return () {};
         }),
         use: (r) => Cont.of(42),
       );
@@ -111,10 +118,12 @@ void main() {
         release: (r) => Cont.fromRun((env, observer) {
           capturedInRelease.add(r);
           observer.onThen(());
+          return () {};
         }),
         use: (r) => Cont.fromRun((env, observer) {
           capturedInUse.add(r);
           observer.onThen(1);
+          return () {};
         }),
       );
 

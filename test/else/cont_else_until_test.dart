@@ -10,6 +10,7 @@ void main() {
       Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onElse('error:$count');
+        return () {};
       })
           .elseUntil((e) => e == 'error:3')
           .run((), onElse: (e) => error = e);
@@ -25,6 +26,7 @@ void main() {
       Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onElse('stop');
+        return () {};
       })
           .elseUntil((_) => true)
           .run((), onElse: (e) => error = e);
@@ -40,6 +42,7 @@ void main() {
       Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onThen(count);
+        return () {};
       })
           .elseUntil((_) => false)
           .run((), onThen: (v) => result = v);
@@ -56,6 +59,7 @@ void main() {
           Cont.fromRun<(), String, int>((env, observer) {
         totalCount++;
         observer.onElse('error:$totalCount');
+        return () {};
       }).elseUntil((e) => e == 'error:3' || e == 'error:6');
 
       cont.run((), onElse: (e) => lastError = e);
@@ -74,6 +78,7 @@ void main() {
       Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onElse('error');
+        return () {};
       })
           .elseUntil0(() => count >= 3)
           .run((), onElse: (e) => error = e);
