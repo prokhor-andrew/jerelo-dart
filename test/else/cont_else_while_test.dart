@@ -7,7 +7,7 @@ void main() {
       int count = 0;
       int? result;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         if (count < 3) {
           observer.onElse('retry:$count');
@@ -27,7 +27,7 @@ void main() {
       int count = 0;
       String? error;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onElse('stop');
       })
@@ -42,7 +42,7 @@ void main() {
       int count = 0;
       int? result;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onThen(count);
       })
@@ -57,8 +57,8 @@ void main() {
       int totalCount = 0;
       String? lastError;
 
-      final cont = Cont.fromRun<(), String, int>(
-          (runtime, observer) {
+      final cont =
+          Cont.fromRun<(), String, int>((env, observer) {
         totalCount++;
         if (totalCount % 3 == 0) {
           observer.onElse('done:$totalCount');
@@ -80,7 +80,7 @@ void main() {
       int count = 0;
       int? result;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         if (count < 3) {
           observer.onElse('retry');

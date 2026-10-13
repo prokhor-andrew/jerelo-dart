@@ -1,7 +1,6 @@
 import 'package:jerelo/jerelo.dart';
 
 part 'api/cont_crash.dart';
-part 'api/cont_runtime.dart';
 part 'api/cont_observer.dart';
 part 'api/tail_rec.dart';
 part 'helper/utils.dart';
@@ -31,7 +30,7 @@ final class Cont<E, F, A> {
   // covariant in F and A: a Cont<E, String, int> can be used as a
   // Cont<E, Object?, int>.
   final void Function(
-    ContRuntime<E> runtime,
+    E env,
     void Function(NormalCrash crash) onPanic,
     void Function(ContCrash crash) onCrash,
     void Function(F error) onElse,
@@ -63,7 +62,7 @@ final class Cont<E, F, A> {
     void Function(A value) onThen = _ignore,
   }) {
     runWith(
-      ContRuntime._(env),
+      env,
       _UnsafeObserver._(onPanic, onCrash, onElse, onThen),
     );
   }
@@ -88,12 +87,12 @@ final class Cont<E, F, A> {
   /// - [run]: Function that executes the continuation and calls observer callbacks.
   static Cont<E, F, A> fromRun<E, F, A>(
     void Function(
-      ContRuntime<E> runtime,
+      E env,
       SafeObserver<F, A> observer,
     ) run,
   ) {
     return Cont._((
-      runtime,
+      env,
       onUnsafePanic,
       onCrash,
       onElse,
@@ -150,7 +149,7 @@ final class Cont<E, F, A> {
 
       ContCrash.tryCatch(() {
         run(
-          runtime,
+          env,
           SafeObserver._(
             () {
               return isDone;
@@ -169,7 +168,7 @@ final class Cont<E, F, A> {
   ///
   /// - [crash]: The [ContCrash] value to propagate.
   static Cont<E, F, A> crash<E, F, A>(ContCrash crash) {
-    return Cont.fromRun((runtime, observer) {
+    return Cont.fromRun((env, observer) {
       observer.onCrash(crash);
     });
   }
@@ -184,8 +183,8 @@ final class Cont<E, F, A> {
   static Cont<E, F, A> fromDeferred<E, F, A>(
     Cont<E, F, A> Function() thunk,
   ) {
-    return Cont.fromRun((runtime, observer) {
-      thunk().runWith(runtime, observer);
+    return Cont.fromRun((env, observer) {
+      thunk().runWith(env, observer);
     });
   }
 
@@ -195,7 +194,7 @@ final class Cont<E, F, A> {
   ///
   /// - [value]: The value to wrap.
   static Cont<E, F, A> of<E, F, A>(A value) {
-    return Cont.fromRun((runtime, observer) {
+    return Cont.fromRun((env, observer) {
       observer.onThen(value);
     });
   }
@@ -220,7 +219,7 @@ final class Cont<E, F, A> {
     S initial,
     Cont<E, F, TailRec<S, A>> Function(S state) step,
   ) {
-    return Cont.fromRun((runtime, observer) {
+    return Cont.fromRun((env, observer) {
       _stackSafeLoop<
           _Triple<S, ContCrash, _Either<F, A>>, // state
           S, // loop input
@@ -241,7 +240,7 @@ final class Cont<E, F, A> {
         computation: (state, update) {
           ContCrash.tryCatch(() {
             step(state).runWith(
-              runtime,
+              env,
               observer.copyUpdate<F, TailRec<S, A>>(
                 onCrash: (crash) {
                   update(_Value2(crash));
@@ -286,34 +285,34 @@ final class Cont<E, F, A> {
   ///
   /// - [err]: The error value to terminate with.
   static Cont<E, F, A> error<E, F, A>(F err) {
-    return Cont.fromRun((runtime, observer) {
+    return Cont.fromRun((env, observer) {
       observer.onElse(err);
     });
   }
 
   /// Retrieves the current environment value.
   ///
-  /// Accesses the environment of type [E] from the runtime context.
+  /// Accesses the environment of type [E] the continuation runs with.
   /// This is used to read configuration, dependencies, or any contextual
   /// information that flows through the continuation execution.
   ///
   /// Returns a continuation that succeeds with the environment value.
   static Cont<E, F, E> askThen<E, F>() {
-    return Cont.fromRun((runtime, observer) {
-      observer.onThen(runtime.env());
+    return Cont.fromRun((env, observer) {
+      observer.onThen(env);
     });
   }
 
   /// Retrieves the current environment value as an else (error).
   ///
-  /// Accesses the environment of type [E] from the runtime context and
+  /// Accesses the environment of type [E] the continuation runs with and
   /// immediately terminates on the else channel with it. Useful for
   /// threading context into error-handling paths.
   ///
   /// Returns a continuation that terminates with the environment value.
   static Cont<E, E, A> askElse<E, A>() {
-    return Cont.fromRun((runtime, observer) {
-      observer.onElse(runtime.env());
+    return Cont.fromRun((env, observer) {
+      observer.onElse(env);
     });
   }
 
@@ -607,9 +606,9 @@ final class Cont<E, F, A> {
     void Function(ContCrash crash) onReleaseCrash = _ignore,
     void Function() onReleaseThen = _voidIgnore,
   }) {
-    return Cont.fromRun((runtime, observer) {
+    return Cont.fromRun((env, observer) {
       acquire.elseAbsurd<F>().runWith(
-        runtime,
+        env,
         observer.copyUpdateOnThen<R>((resource) {
           bool isReleased = false;
 
@@ -621,7 +620,7 @@ final class Cont<E, F, A> {
 
             ContCrash.tryCatch(() {
               release(resource).run(
-                runtime.env(),
+                env,
                 onPanic: onReleasePanic,
                 onCrash: onReleaseCrash,
                 onThen: (_) => onReleaseThen(),
@@ -631,7 +630,7 @@ final class Cont<E, F, A> {
 
           ContCrash.tryCatch(() {
             use(resource).runWith(
-              runtime,
+              env,
               observer.copyUpdate(
                 onCrash: (crash) {
                   observer.onCrash(crash);
@@ -665,20 +664,21 @@ final class Cont<E, F, A> {
 /// through a wider type, for example a `Cont<E, String, int>` used as a
 /// `Cont<E, Object?, int>`.
 extension ContRunWithExtension<E, F, A> on Cont<E, F, A> {
-  /// Executes the continuation with the given runtime and observer directly.
+  /// Executes the continuation with the given environment and observer
+  /// directly.
   ///
   /// Lower-level alternative to [Cont.run]. Useful when composing continuations
-  /// internally or when a [ContRuntime] and [ContObserver] are already
+  /// internally or when an environment and a [ContObserver] are already
   /// available from an enclosing computation.
   ///
-  /// - [runtime]: The runtime context providing the environment.
+  /// - [env]: The environment to run the continuation with.
   /// - [observer]: The observer whose callbacks receive the computation's outcome.
   void runWith(
-    ContRuntime<E> runtime,
+    E env,
     ContObserver<F, A> observer,
   ) {
     _run(
-      runtime,
+      env,
       observer._onUnsafePanic,
       observer.onCrash,
       observer.onElse,

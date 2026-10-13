@@ -7,7 +7,7 @@ void main() {
       int count = 0;
       String? error;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onElse('error:$count');
       })
@@ -22,7 +22,7 @@ void main() {
       int count = 0;
       String? error;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onElse('stop');
       })
@@ -37,7 +37,7 @@ void main() {
       int count = 0;
       int? result;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onThen(count);
       })
@@ -52,8 +52,8 @@ void main() {
       int totalCount = 0;
       String? lastError;
 
-      final cont = Cont.fromRun<(), String, int>(
-          (runtime, observer) {
+      final cont =
+          Cont.fromRun<(), String, int>((env, observer) {
         totalCount++;
         observer.onElse('error:$totalCount');
       }).elseUntil((e) => e == 'error:3' || e == 'error:6');
@@ -71,7 +71,7 @@ void main() {
       int count = 0;
       String? error;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onElse('error');
       })

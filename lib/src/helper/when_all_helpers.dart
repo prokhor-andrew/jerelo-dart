@@ -7,13 +7,13 @@ Cont<E, F, A3> _bothWhenAll<E, F, A1, A2, A3>(
   F Function(F, F) combineErrors,
   bool shouldFavorCrash,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     final (
       handleCrash,
       handlePrimary,
       handleSecondary,
     ) = _whenAll<E, F, F, F, A1, A2, A3>(
-      runtime: runtime,
+      env: env,
       onCrash: observer.onCrash,
       onPrimary: observer.onThen,
       onSecondary: (triple) {
@@ -31,7 +31,7 @@ Cont<E, F, A3> _bothWhenAll<E, F, A1, A2, A3>(
 
     ContCrash.tryCatch(() {
       left.runWith(
-        runtime,
+        env,
         observer.copyUpdate<F, A1>(
           onCrash: (crash) => handleCrash(_Left(crash)),
           onElse: (error) => handleSecondary(_Left(error)),
@@ -42,7 +42,7 @@ Cont<E, F, A3> _bothWhenAll<E, F, A1, A2, A3>(
 
     ContCrash.tryCatch(() {
       right.runWith(
-        runtime,
+        env,
         observer.copyUpdate<F, A2>(
           onCrash: (crash) => handleCrash(_Right(crash)),
           onElse: (error) => handleSecondary(_Right(error)),
@@ -60,13 +60,13 @@ Cont<E, F3, A> _eitherWhenAll<E, F1, F2, F3, A>(
   A Function(A, A) combineValues,
   bool shouldFavorCrash,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     final (
       handleCrash,
       handlePrimary,
       handleSecondary,
     ) = _whenAll<E, A, A, A, F1, F2, F3>(
-      runtime: runtime,
+      env: env,
       onCrash: observer.onCrash,
       onPrimary: observer.onElse,
       onSecondary: (triple) {
@@ -84,7 +84,7 @@ Cont<E, F3, A> _eitherWhenAll<E, F1, F2, F3, A>(
 
     ContCrash.tryCatch(() {
       left.runWith(
-        runtime,
+        env,
         observer.copyUpdate<F1, A>(
           onCrash: (crash) => handleCrash(_Left(crash)),
           onElse: (error) => handlePrimary(_Left(error)),
@@ -95,7 +95,7 @@ Cont<E, F3, A> _eitherWhenAll<E, F1, F2, F3, A>(
 
     ContCrash.tryCatch(() {
       right.runWith(
-        runtime,
+        env,
         observer.copyUpdate<F2, A>(
           onCrash: (crash) => handleCrash(_Right(crash)),
           onElse: (error) => handlePrimary(_Right(error)),
@@ -113,7 +113,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
   F Function(F f1, F f2) combineErrors,
   bool shouldFavorElse,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     final _WhenAllStateHolder<A, A, F, F> holder =
         _WhenAllStateHolder();
 
@@ -370,7 +370,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
 
     ContCrash.tryCatch(() {
       left.runWith(
-        runtime,
+        env,
         observer.copyUpdate<F, A>(
           onCrash: (crash) => handleCrash(_Left(crash)),
           onElse: (error) => handleElse(_Left(error)),
@@ -383,7 +383,7 @@ Cont<E, F, A> _crashWhenAll<E, F, A>(
 
     ContCrash.tryCatch(() {
       right.runWith(
-        runtime,
+        env,
         observer.copyUpdate<F, A>(
           onCrash: (crash) => handleCrash(_Right(crash)),
           onElse: (error) => handleElse(_Right(error)),
@@ -409,7 +409,7 @@ final class _WhenAllStateHolder<A1, A2, F1, F2> {
   void Function(_Either<A1, A2> either) handlePrimary,
   void Function(_Either<F1, F2> either) handleSecondary,
 ) _whenAll<E, F1, F2, F3, A1, A2, A3>({
-  required ContRuntime<E> runtime,
+  required E env,
   required A3 Function(
     A1 a,
     A2 a2,

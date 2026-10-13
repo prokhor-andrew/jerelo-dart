@@ -13,13 +13,13 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F2, A> elseDo<F2>(
     Cont<E, F2, A> Function(F error) f,
   ) {
-    return Cont.fromRun((runtime, observer) {
+    return Cont.fromRun((env, observer) {
       runWith(
-        runtime,
+        env,
         observer.copyUpdateOnElse((error) {
           final result = ContCrash.tryCatch(() {
             final contA = f(error);
-            contA.runWith(runtime, observer);
+            contA.runWith(env, observer);
           });
           if (result
               case CrashCrashOr(crash: final crash)) {

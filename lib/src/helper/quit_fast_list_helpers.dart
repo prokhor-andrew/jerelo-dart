@@ -1,11 +1,11 @@
 part of '../cont.dart';
 
 void _quitFastPar<E, QF, C>({
-  required ContRuntime<E> runtime,
+  required E env,
   required int total,
   required void Function(
     int index,
-    ContRuntime<E> sharedRuntime,
+    E sharedEnv,
     void Function(QF) onQuitFast,
     void Function(C) onCollect,
     void Function(ContCrash) onCrash,
@@ -59,7 +59,7 @@ void _quitFastPar<E, QF, C>({
   for (int i = 0; i < total; i++) {
     onRun(
       i,
-      runtime,
+      env,
       handleQuitFast,
       (c) {
         handleCollect(c, i);
@@ -73,10 +73,10 @@ Cont<E, F, List<A>> _quitFastAll<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
   list = list.toList();
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList();
     _quitFastPar<E, F, A>(
-      runtime: runtime,
+      env: env,
       total: list.length,
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
         ContCrash.tryCatch(() {
@@ -101,7 +101,7 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
@@ -143,7 +143,7 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
     for (var i = 0; i < total; i++) {
       ContCrash.tryCatch(() {
         list[i].runWith(
-          runtime,
+          env,
           observer.copyUpdate(
             onCrash: (c) => handleCrash(i, c),
             onElse: handleElse,
@@ -161,10 +161,10 @@ Cont<E, List<F>, A> _quitFastAny<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
   list = list.toList();
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList();
     _quitFastPar<E, A, F>(
-      runtime: runtime,
+      env: env,
       total: list.length,
       onRun: (i, shared, onQuitFast, onCollect, onCrash) {
         ContCrash.tryCatch(() {

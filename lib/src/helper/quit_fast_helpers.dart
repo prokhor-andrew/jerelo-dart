@@ -5,14 +5,14 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
   Cont<E, F, A2> right,
   A3 Function(A1 a1, A2 a2) combine,
 ) {
-  return Cont.fromRun((runtime0, observer) {
+  return Cont.fromRun((env0, observer) {
     final (
-      runtime,
+      env,
       handleCrash,
       handleElse,
       handleThen,
     ) = _quitFast<E, A1, A2, A3, F>(
-      runtime: runtime0,
+      env: env0,
       combine: combine,
       onPrimary: observer.onElse,
       onSecondary: observer.onThen,
@@ -21,7 +21,7 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
 
     ContCrash.tryCatch(() {
       left.runWith(
-        runtime,
+        env,
         observer.copyUpdate(
           onCrash: handleCrash,
           onElse: handleElse,
@@ -34,7 +34,7 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
 
     ContCrash.tryCatch(() {
       right.runWith(
-        runtime,
+        env,
         observer.copyUpdate(
           onCrash: handleCrash,
           onElse: handleElse,
@@ -52,14 +52,14 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
   Cont<E, F2, A> right,
   F3 Function(F1 f1, F2 f2) combine,
 ) {
-  return Cont.fromRun((runtime0, observer) {
+  return Cont.fromRun((env0, observer) {
     final (
-      runtime,
+      env,
       handleCrash,
       handleThen,
       handleElse,
     ) = _quitFast<E, F1, F2, F3, A>(
-      runtime: runtime0,
+      env: env0,
       combine: combine,
       onPrimary: observer.onThen,
       onSecondary: observer.onElse,
@@ -68,7 +68,7 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
 
     ContCrash.tryCatch(() {
       left.runWith(
-        runtime,
+        env,
         observer.copyUpdate(
           onCrash: handleCrash,
           onElse: ((f1) {
@@ -81,7 +81,7 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
 
     ContCrash.tryCatch(() {
       right.runWith(
-        runtime,
+        env,
         observer.copyUpdate(
           onCrash: handleCrash,
           onElse: ((f2) {
@@ -98,7 +98,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   Cont<E, F, A> left,
   Cont<E, F, A> right,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     final _QuitFastStateHolder<ContCrash, ContCrash>
         holder = _QuitFastStateHolder();
 
@@ -159,7 +159,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
 
     ContCrash.tryCatch(() {
       left.runWith(
-        runtime,
+        env,
         observer.copyUpdate(
           onCrash: (crash) {
             handleCrash(_Left(crash));
@@ -174,7 +174,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
 
     ContCrash.tryCatch(() {
       right.runWith(
-        runtime,
+        env,
         observer.copyUpdate(
           onCrash: (crash) {
             handleCrash(_Right(crash));
@@ -190,12 +190,12 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
 }
 
 (
-  ContRuntime<E> runtime,
+  E env,
   void Function(ContCrash) handleCrash,
   void Function(A a) handlePrimary,
   void Function(_Either<F1, F2> either) handleSecondary,
 ) _quitFast<E, F1, F2, F3, A>({
-  required ContRuntime<E> runtime,
+  required E env,
   required F3 Function(F1 f1, F2 f2) combine,
   required void Function(A a) onPrimary,
   required void Function(F3 f3) onSecondary,
@@ -269,12 +269,7 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
     }
   }
 
-  return (
-    runtime,
-    handleCrash,
-    handlePrimary,
-    handleSecondary
-  );
+  return (env, handleCrash, handlePrimary, handleSecondary);
 }
 
 final class _QuitFastStateHolder<F1, F2> {

@@ -19,15 +19,15 @@ void main() {
 
       Cont.all<(), String, int>(
         [
-          Cont.fromRun((runtime, observer) {
+          Cont.fromRun((env, observer) {
             log.add(1);
             observer.onThen(1);
           }),
-          Cont.fromRun((runtime, observer) {
+          Cont.fromRun((env, observer) {
             log.add(2);
             observer.onThen(2);
           }),
-          Cont.fromRun((runtime, observer) {
+          Cont.fromRun((env, observer) {
             log.add(3);
             observer.onThen(3);
           }),
@@ -44,12 +44,12 @@ void main() {
 
       Cont.all<(), String, int>(
         [
-          Cont.fromRun((runtime, observer) {
+          Cont.fromRun((env, observer) {
             executed++;
             observer.onThen(1);
           }),
           Cont.error('failed'),
-          Cont.fromRun((runtime, observer) {
+          Cont.fromRun((env, observer) {
             executed++;
             observer.onThen(3);
           }),

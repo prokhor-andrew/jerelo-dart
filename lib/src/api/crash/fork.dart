@@ -17,9 +17,9 @@ Cont<E, F, A> _crashFork<E, F, F2, A, A2>(
   void Function(F2 error) onElse = _ignore,
   void Function(A2 value) onThen = _ignore,
 }) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     cont.runWith(
-      runtime,
+      env,
       observer.copyUpdateOnCrash((crash) {
         // a throw from f is a crash, the crash channel's own
         // outcome, so the original crash is forwarded
@@ -33,7 +33,7 @@ Cont<E, F, A> _crashFork<E, F, F2, A, A2>(
 
         try {
           contA2.run(
-            runtime.env(),
+            env,
             onPanic: onPanic,
             onCrash: onCrash,
             onElse: onElse,

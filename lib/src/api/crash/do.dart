@@ -13,13 +13,13 @@ extension ContCrashDoExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A> crashDo(
     Cont<E, F, A> Function(ContCrash crash) f,
   ) {
-    return Cont.fromRun((runtime, observer) {
+    return Cont.fromRun((env, observer) {
       runWith(
-        runtime,
+        env,
         observer.copyUpdateOnCrash((initialCrash) {
           final result = ContCrash.tryCatch(() {
             final cont = f(initialCrash);
-            cont.runWith(runtime, observer);
+            cont.runWith(env, observer);
           });
           if (result
               case CrashCrashOr(crash: final crash)) {

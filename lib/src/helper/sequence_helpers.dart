@@ -4,7 +4,7 @@ Cont<E, F, List<A>> _allSequence<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // defensive copy again
     _seq<F, A>(
       total: list.length,
@@ -16,7 +16,7 @@ Cont<E, F, List<A>> _allSequence<E, F, A>(
       ) {
         final Cont<E, F, A> cont = list[index];
         cont.runWith(
-          runtime,
+          env,
           observer.copyUpdate(
             onCrash: (crash) {
               updateCrash(crash);
@@ -41,7 +41,7 @@ Cont<E, List<F>, A> _anySequence<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // defensive copy again
     _seq<A, F>(
       total: list.length,
@@ -53,7 +53,7 @@ Cont<E, List<F>, A> _anySequence<E, F, A>(
       ) {
         final Cont<E, F, A> cont = list[index];
         cont.runWith(
-          runtime,
+          env,
           observer.copyUpdate(onCrash: (crash) {
             updateCrash(crash);
           }, onElse: (error) {
@@ -74,7 +74,7 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
@@ -103,7 +103,7 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
       computation: (i, update) {
         ContCrash.tryCatch(() {
           list[i].runWith(
-            runtime,
+            env,
             observer.copyUpdate(
               onCrash: (c) {
                 crashes[i] = c;

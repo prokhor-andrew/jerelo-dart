@@ -65,7 +65,7 @@ Cont<void, String, AuthToken> loginRequest(
   String email,
   String password,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     Timer(const Duration(milliseconds: 300), () {
       if (email == 'user@test.com' &&
           password == 'secret') {
@@ -90,7 +90,7 @@ Cont<void, String, AuthToken> loginRequest(
 Cont<void, String, UserProfile> getUserProfile(
   String accessToken,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     Timer(const Duration(milliseconds: 200), () {
       if (accessToken.isNotEmpty) {
         print('  [API] GET /users/me -> 200 OK');
@@ -114,7 +114,7 @@ Cont<void, String, UserProfile> updateUserProfile(
   String accessToken,
   UserProfile updated,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     Timer(const Duration(milliseconds: 250), () {
       print('  [API] PUT /users/me -> 200 OK');
       observer.onThen(updated);
@@ -124,7 +124,7 @@ Cont<void, String, UserProfile> updateUserProfile(
 
 /// POST /auth/logout – invalidates the session after 150ms.
 Cont<void, String, void> logoutRequest(String accessToken) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     Timer(const Duration(milliseconds: 150), () {
       print('  [API] POST /auth/logout -> 204 No Content');
       observer.onThen(null);
@@ -134,7 +134,7 @@ Cont<void, String, void> logoutRequest(String accessToken) {
 
 /// GET /users/me from a cache – immediate, but can fail.
 Cont<void, String, UserProfile> getCachedProfile() {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     // Simulate cache miss
     print('  [CACHE] profile lookup -> miss');
     observer.onElse('Cache miss');
@@ -181,7 +181,7 @@ Cont<void, String, UserProfile> fetchAndUpdateProfile(
 }) {
   final fetchProfile = getUserProfile(accessToken);
   final validateName = Cont.fromRun<void, String, String>((
-    runtime,
+    env,
     observer,
   ) {
     Timer(const Duration(milliseconds: 100), () {
@@ -216,7 +216,7 @@ Cont<void, String, AuthToken> loginWithFallbackStrategy() {
   );
   final refreshLogin =
       Cont.fromRun<void, String, AuthToken>((
-    runtime,
+    env,
     observer,
   ) {
     Timer(const Duration(milliseconds: 200), () {

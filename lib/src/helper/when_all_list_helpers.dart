@@ -193,7 +193,7 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
   bool shouldFavorCrash,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // another defensive copy
     _whenAllPar<A, F>(
       shouldFavorCrash: shouldFavorCrash,
@@ -202,7 +202,7 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
         final cont = list[index];
         ContCrash.tryCatch(() {
           cont.runWith(
-            runtime,
+            env,
             observer.copyUpdate(
               onCrash: (crash) {
                 onCrash(crash);
@@ -232,7 +232,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
   bool shouldFavorElse,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
@@ -325,7 +325,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
       final idx = i;
       ContCrash.tryCatch(() {
         list[idx].runWith(
-          runtime,
+          env,
           observer.copyUpdate(
             onCrash: (crash) {
               handleCrash(idx, crash);
@@ -351,7 +351,7 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
   bool shouldFavorCrash,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // another defensive copy
     _whenAllPar<F, A>(
       shouldFavorCrash: shouldFavorCrash,
@@ -361,7 +361,7 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
 
         ContCrash.tryCatch(() {
           cont.runWith(
-            runtime,
+            env,
             observer.copyUpdate(
               onCrash: (crash) {
                 onCrash(crash);

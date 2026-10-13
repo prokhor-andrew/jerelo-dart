@@ -17,16 +17,16 @@ Cont<E, F, A> _elseFork<E, F, F2, A, A2>(
   void Function(F2 error) onElse = _ignore,
   void Function(A2 value) onThen = _ignore,
 }) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     cont.runWith(
-      runtime,
+      env,
       observer.copyUpdateOnElse((error) {
         // if this crashes, it should crash the computation
         final result = ContCrash.tryCatch(() {
           final contA2 = f(error);
           try {
             contA2.run(
-              runtime.env(),
+              env,
               onPanic: onPanic,
               onCrash: onCrash,
               onElse: onElse,

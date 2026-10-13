@@ -7,7 +7,7 @@ void main() {
       int count = 0;
       int? result;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onThen(count);
       })
@@ -22,7 +22,7 @@ void main() {
       int count = 0;
       int? result;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onThen(count);
       })
@@ -37,7 +37,7 @@ void main() {
       int count = 0;
       String? error;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         if (count >= 2) {
           observer.onElse('stopped');
@@ -56,8 +56,8 @@ void main() {
       int totalCount = 0;
       int? lastResult;
 
-      final cont = Cont.fromRun<(), String, int>(
-          (runtime, observer) {
+      final cont =
+          Cont.fromRun<(), String, int>((env, observer) {
         totalCount++;
         observer.onThen(totalCount);
       }).thenWhile((v) => v % 3 != 0);
@@ -75,7 +75,7 @@ void main() {
       int count = 0;
       int? result;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         count++;
         observer.onThen(count);
       })

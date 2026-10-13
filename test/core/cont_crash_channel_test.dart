@@ -80,9 +80,8 @@ void main() {
     test('runs with an observer derived from a parent', () {
       int? result;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
-        Cont.of<(), String, int>(5)
-            .runWith(runtime, observer);
+      Cont.fromRun<(), String, int>((env, observer) {
+        Cont.of<(), String, int>(5).runWith(env, observer);
       }).run((), onThen: (v) => result = v);
 
       expect(result, equals(5));

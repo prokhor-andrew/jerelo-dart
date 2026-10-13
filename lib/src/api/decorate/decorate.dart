@@ -17,22 +17,22 @@ extension ContDecorExtension<E, F, A> on Cont<E, F, A> {
   /// Example:
   /// ```dart
   /// // Add logging around execution
-  /// final logged = cont.decorate((run, runtime, observer) {
+  /// final logged = cont.decorate((run, env, observer) {
   ///   print('Starting execution');
-  ///   run(runtime, observer);
+  ///   run(env, observer);
   ///   print('Execution initiated');
   /// });
   /// ```
   Cont<E, F, A> decorate(
     void Function(
-      void Function(ContRuntime<E>, ContObserver<F, A>) run,
-      ContRuntime<E> runtime,
+      void Function(E, ContObserver<F, A>) run,
+      E env,
       ContObserver<F, A> observer,
       //
     ) f,
   ) {
-    return Cont.fromRun((runtime, observer) {
-      f(runWith, runtime, observer);
+    return Cont.fromRun((env, observer) {
+      f(runWith, env, observer);
     });
   }
 }

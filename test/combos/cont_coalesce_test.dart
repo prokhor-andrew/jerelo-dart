@@ -20,7 +20,7 @@ void main() {
 
       Cont.coalesce<(), String, int>(
         Cont.of(1),
-        Cont.fromRun((runtime, observer) {
+        Cont.fromRun((env, observer) {
           rightRan = true;
           observer.onThen(2);
         }),
@@ -51,7 +51,7 @@ void main() {
       final order = <String>[];
 
       Cont.coalesce<(), String, int>(
-        Cont.fromRun((runtime, observer) {
+        Cont.fromRun((env, observer) {
           Timer(const Duration(milliseconds: 30), () {
             order.add('slow side finished');
             observer.onThen(2);

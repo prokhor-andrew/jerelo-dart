@@ -7,15 +7,15 @@ void main() {
       final log = <String>[];
 
       final cont = Cont.bracket<String, (), String, int>(
-        acquire: Cont.fromRun((runtime, observer) {
+        acquire: Cont.fromRun((env, observer) {
           log.add('acquire');
           observer.onThen('resource');
         }),
-        release: (r) => Cont.fromRun((runtime, observer) {
+        release: (r) => Cont.fromRun((env, observer) {
           log.add('release:$r');
           observer.onThen(());
         }),
-        use: (r) => Cont.fromRun((runtime, observer) {
+        use: (r) => Cont.fromRun((env, observer) {
           log.add('use:$r');
           observer.onThen(42);
         }),
@@ -38,15 +38,15 @@ void main() {
       final log = <String>[];
 
       final cont = Cont.bracket<String, (), String, int>(
-        acquire: Cont.fromRun((runtime, observer) {
+        acquire: Cont.fromRun((env, observer) {
           log.add('acquire');
           observer.onThen('resource');
         }),
-        release: (r) => Cont.fromRun((runtime, observer) {
+        release: (r) => Cont.fromRun((env, observer) {
           log.add('release');
           observer.onThen(());
         }),
-        use: (r) => Cont.fromRun((runtime, observer) {
+        use: (r) => Cont.fromRun((env, observer) {
           log.add('use');
           observer.onElse('error');
         }),
@@ -63,7 +63,7 @@ void main() {
       bool crashCalled = false;
 
       final cont = Cont.bracket<String, (), String, int>(
-        acquire: Cont.fromRun((runtime, observer) {
+        acquire: Cont.fromRun((env, observer) {
           throw Exception('acquire crashed');
         }),
         release: (r) => Cont.of(()),
@@ -84,7 +84,7 @@ void main() {
 
       final cont = Cont.bracket<String, (), String, int>(
         acquire: Cont.of('resource'),
-        release: (r) => Cont.fromRun((runtime, observer) {
+        release: (r) => Cont.fromRun((env, observer) {
           releaseCount++;
           observer.onThen(());
         }),
@@ -108,11 +108,11 @@ void main() {
 
       final cont = Cont.bracket<String, (), String, int>(
         acquire: Cont.of(resource),
-        release: (r) => Cont.fromRun((runtime, observer) {
+        release: (r) => Cont.fromRun((env, observer) {
           capturedInRelease.add(r);
           observer.onThen(());
         }),
-        use: (r) => Cont.fromRun((runtime, observer) {
+        use: (r) => Cont.fromRun((env, observer) {
           capturedInUse.add(r);
           observer.onThen(1);
         }),

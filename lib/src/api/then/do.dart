@@ -10,13 +10,13 @@ extension ContThenDoExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A2> thenDo<A2>(
     Cont<E, F, A2> Function(A value) f,
   ) {
-    return Cont.fromRun((runtime, observer) {
+    return Cont.fromRun((env, observer) {
       runWith(
-        runtime,
+        env,
         observer.copyUpdateOnThen((a) {
           final result = ContCrash.tryCatch(() {
             final contA2 = f(a);
-            contA2.runWith(runtime, observer);
+            contA2.runWith(env, observer);
           });
           if (result
               case CrashCrashOr(crash: final crash)) {
