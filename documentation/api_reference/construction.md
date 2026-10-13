@@ -15,11 +15,12 @@ Creating and transforming continuations.
   - [Cont.crash](#contcrash)
   - [Cont.askThen](#contaskthen)
   - [Cont.askElse](#contaskelse)
+  - [Cont.fromDeferred](#contfromdeferred)
+  - [Cont.bracket](#contbracket)
 - [Loops](#loops)
   - [Cont.tailRecM](#conttailrecm)
 - [Transformation](#transformation)
   - [decorate](#decorate)
-- [More in jerelo_ext](#more-in-jerelo_ext)
 
 ---
 
@@ -171,6 +172,88 @@ final cont = Cont.askElse<String, int>()
 
 ---
 
+### Cont.fromDeferred
+
+```dart
+static Cont<E, F, A> fromDeferred<E, F, A>(
+  Cont<E, F, A> Function() thunk,
+)
+```
+
+Creates a `Cont` whose continuation is built only when it runs.
+
+Lazily evaluates a continuation-returning function. The inner `Cont` is not created until the outer one is executed, and `thunk` is called on every run, so each run gets a freshly built continuation. Use it to delay expensive construction or to create per-run state. A throw from `thunk` becomes a crash.
+
+- **Parameters:**
+  - `thunk`: Function that returns a `Cont` when called
+
+**Example:**
+```dart
+// The inner continuation is not created until execution
+final deferred = Cont.fromDeferred(() {
+  print('Creating continuation...');
+  return Cont.of<(), Never, int>(42);
+});
+
+// Prints "Creating continuation..." when run
+deferred.run((), onThen: print);
+```
+
+---
+
+### Cont.bracket
+
+```dart
+static Cont<E, F, A> bracket<R, E, F, A>({
+  required Cont<E, Never, R> acquire,
+  required Cont<E, Never, ()> Function(R resource) release,
+  required Cont<E, F, A> Function(R resource) use,
+  void Function(NormalCrash crash) onReleasePanic,
+  void Function(ContCrash crash) onReleaseCrash,
+  void Function() onReleaseThen,
+})
+```
+
+Manages a resource lifecycle with cleanup after use.
+
+The bracket pattern releases a resource once it has been used, whether `use` succeeds, terminates with an error, or crashes. This is the functional equivalent of try-with-resources or using statements.
+
+Note that `acquire` and `release` use `Never` as their error type, meaning they cannot fail with a typed error — they can only succeed or crash.
+
+**The execution order is:**
+1. `acquire` — Obtain the resource. If it crashes, the crash is forwarded and nothing else runs
+2. `use` — Use the resource to produce a value. A throw from `use` itself becomes a crash
+3. `release` — Release the resource. Runs once `use` reports any outcome (success, error or crash), after that outcome is forwarded
+
+`release` is fire-and-forget: the outcome of `use` is forwarded first and does not wait for `release`. Release outcomes go to the optional release callbacks instead.
+
+**No cancellation:** jerelo 3.0 has no cancellation, and `Cont.bracket` does not support it. `release` runs once `use` reports back; if `use` never reports, `release` never runs.
+
+**Optional release callbacks:**
+- `onReleasePanic`: Called if the `release` function itself throws while building the release continuation (`release(resource)`), or if a release callback throws. Defaults to rethrowing in a microtask, so a `try`/`catch` around `run()` never sees it
+- `onReleaseCrash`: Called if the release continuation returned by `release` crashes. Defaults to ignoring
+- `onReleaseThen`: Called when release succeeds. Defaults to no-op
+
+- **Parameters:**
+  - `acquire`: Continuation that acquires the resource (cannot fail with typed error)
+  - `release`: Function that takes the resource and returns a continuation that releases it (cannot fail with typed error)
+  - `use`: Function that takes the resource and returns a continuation that uses it
+  - `onReleasePanic`: Optional panic handler for release phase
+  - `onReleaseCrash`: Optional crash handler for release phase
+  - `onReleaseThen`: Optional success handler for release phase
+
+**Example:**
+```dart
+final result = Cont.bracket<File, MyEnv, String, String>(
+  acquire: openFile('data.txt'),
+  release: (file) => closeFile(file),
+  use: (file) => readContents(file),
+  onReleaseCrash: (crash) => print('Failed to close: $crash'),
+);
+```
+
+---
+
 ## Loops
 
 ### Cont.tailRecM
@@ -278,9 +361,3 @@ final timed = cont.decorate((run, runtime, observer) {
   );
 });
 ```
-
----
-
-## More in jerelo_ext
-
-`contDeferred`, which builds the continuation lazily when it runs, and `contBracket`, which acquires, uses and releases a resource, are top-level functions in the [jerelo_ext](https://pub.dev/packages/jerelo_ext) package; import `package:jerelo_ext/jerelo_ext.dart` alongside `package:jerelo/jerelo.dart`.

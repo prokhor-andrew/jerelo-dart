@@ -80,30 +80,15 @@ A comprehensive guide to understanding and using Jerelo:
 Complete reference for all public APIs:
 
 - **[Types](documentation/api_reference/types.md)** - ContCrash, CrashOr, ContRuntime, ContObserver, TailRec
-- **[Construction](documentation/api_reference/construction.md)** - Creating continuations: fromRun, of, error, crash, askThen, askElse, tailRecM, decorate
+- **[Construction](documentation/api_reference/construction.md)** - Creating continuations: fromRun, of, error, crash, askThen, askElse, fromDeferred, bracket, tailRecM, decorate
 - **[Execution](documentation/api_reference/execution.md)** - Running continuations: run, runWith; extensions: flatten, thenAbsurd, elseAbsurd, thenUnit, elseUnit
-- **[Then Channel](documentation/api_reference/then.md)** - Success path operations: thenMap, thenDo
-- **[Else Channel](documentation/api_reference/else.md)** - Error path operations: elseDo, elseMap
-- **[Crash Channel](documentation/api_reference/crash.md)** - Crash recovery: crashDo
+- **[Then Channel](documentation/api_reference/then.md)** - Success path operations: mapping, chaining, tapping, zipping, forking, demotion, conditionals, loops
+- **[Else Channel](documentation/api_reference/else.md)** - Error path operations: fallback, transformation, tapping, zipping, forking, promotion, conditionals, retry loops
+- **[Crash Channel](documentation/api_reference/crash.md)** - Crash recovery operations: recovery, side effects, zipping, forking, recovery to then or else, conditionals, retry loops
 - **[Combining](documentation/api_reference/combining.md)** - Parallel execution: OkPolicy, CrashPolicy, both, all, either, any, coalesce, converge, and, or, coalesceWith
-- **[Environment](documentation/api_reference/env.md)** - Environment management: local, thenInject, injectedByThen, elseInject, injectedByElse
+- **[Environment](documentation/api_reference/env.md)** - Environment management: local, local0, withEnv, thenInject, injectedByThen, elseInject, injectedByElse
 
-## Extensions
-
-The core package keeps only the fundamental operators. Derived operators live in the companion package [jerelo_ext](https://pub.dev/packages/jerelo_ext):
-
-- variants such as `thenMap0`, `thenMapTo`, `thenDoWithEnv`, `local0` and `withEnv`
-- taps, zips and forks on every channel
-- conditionals and channel switches: `thenIf`, `elseUnless`, `crashUnlessThen`/`crashUnlessElse`, `demote`, `promote`, `crashRecoverThen`/`crashRecoverElse`
-- loops: `thenWhile`, `thenUntil`, `thenForever` and their else and crash counterparts
-- `contDeferred` and `contBracket`
-
-```dart
-import 'package:jerelo/jerelo.dart';
-import 'package:jerelo_ext/jerelo_ext.dart';
-```
-
-Everything in jerelo_ext is built on the public core API, so you can write your own operators the same way (see [Extending Jerelo](documentation/user_guide/06-extending.md)).
+Most operators come with variants that ignore the value (`thenMap0`), read the environment (`thenDoWithEnv`, `thenDoWithEnv0`) or use a constant (`thenMapTo`). You can write your own operators on the public API in the same way (see [Extending Jerelo](documentation/user_guide/06-extending.md)).
 
 ## Full Example
 

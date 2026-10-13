@@ -96,7 +96,7 @@ A single exception with its stack trace. It has no public constructor; it is cre
 final class MergedCrash extends ContCrash
 ```
 
-Two crashes combined from a two-way operation (e.g., `coalesce`, or `both`/`either` with `runAll`; also `crashZip` from jerelo_ext).
+Two crashes combined from a two-way operation (e.g., `coalesce`, `crashZip`, or `both`/`either` with `runAll`).
 
 **Fields:**
 - `left: ContCrash` — The crash from the left continuation

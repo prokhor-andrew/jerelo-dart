@@ -2,12 +2,6 @@
 - **Breaking:** `OkPolicy.sequence`/`OkPolicy.quitFast` now return `OkPolicy<Never>`, and `CrashPolicy.sequence`/`CrashPolicy.quitFast` return `CrashPolicy<Never, Never>`. They no longer take type arguments: remove them, e.g. `OkPolicy.quitFast<String>()` becomes `OkPolicy.quitFast()`. Combinators now infer their error and value types from their continuations instead of `dynamic`.
 - **Breaking:** removed `absurdify`, `thenAbsurdify` and `elseAbsurdify` from `Cont` and `ContObserver`. A `Never`-typed `Cont` can be used directly where a wider type is expected. `thenAbsurd` and `elseAbsurd` remain.
 - **Breaking:** removed cancellation from core. `ContCancelToken`, `ContRuntime.isCancelled` and `ContRuntime.extendCancellation` are gone, `run` returns `void`, and `ContRuntime` only carries the environment (`env` and `copyUpdateEnv`). `quitFast` combinators return as soon as the result is decided; the losing inputs keep running and their results are ignored. A cancellable `Cont` will be a separate feature.
-- **Breaking:** moved the derived operators to the new [jerelo_ext](https://pub.dev/packages/jerelo_ext) package; import `package:jerelo_ext/jerelo_ext.dart` alongside jerelo to keep using them:
-  - the `0`, `WithEnv`, `WithEnv0`, `To` and `With` variants of `thenMap`, `elseMap`, `thenDo`, `elseDo`, `crashDo` and `local`, and `withEnv`
-  - taps (`thenTap`, `elseTap`, `crashTap`), zips (`thenZip`, `elseZip`, `crashZip`) and forks (`thenFork`, `elseFork`, `crashFork`)
-  - `thenIf`, `elseUnless`, `crashUnlessThen`, `crashUnlessElse`, `demote`, `promote`, `crashRecoverThen` and `crashRecoverElse`
-  - the loops `thenWhile`, `thenUntil`, `thenForever`, `elseWhile`, `elseUntil`, `elseForever`, `crashWhile`, `crashUntil` and `crashForever`
-  - `Cont.fromDeferred` and `Cont.bracket`, now the top-level functions `contDeferred` and `contBracket`
 - **Breaking:** every sum type follows one convention: a sealed base, public case classes with private constructors, created through static methods on the base, and read with `switch`.
   - `CrashOr.match` is removed. Its cases are now public, `ValueCrashOr` and `CrashCrashOr`; read them with `switch`.
   - `MergedCrash` and `CollectedCrash` have no public constructors; use `ContCrash.merge` and `ContCrash.collect`.
@@ -19,7 +13,7 @@
 - Fixed `CollectedCrash` equality: `==` and `hashCode` now compare the collected crashes by value instead of by map identity.
 - Fixed `MergedCrash.hashCode` ignoring the order of `left` and `right`.
 - Fixed `CrashOr` equality being asymmetric across type arguments, and its hash not telling a value from a crash.
-- Documentation: removed cancellation and the moved operators, with pointers to jerelo_ext; documented `Cont.tailRecM`, `TailRec`, `thenUnit` and `elseUnit`; rewrote the guide examples with core operators, including a `retry` helper built on `Cont.tailRecM`; fixed stale names in doc comments, environment injection examples and the `retryWithBackoff` guide helper; removed the `absurdify` family; described combinator policies by their own channel and exits (including `CrashPolicy.quitFast`, `shouldFavorCrash`, empty lists and `runAll` completion order), crash types, observer guarantees, the `onPanic` default and `fromRun` catching; added a note against upcasting the environment type.
+- Documentation: removed cancellation; documented `Cont.tailRecM`, `TailRec`, `thenUnit` and `elseUnit`; rewrote the guide examples with core operators, including a `retry` helper built on `Cont.tailRecM`; fixed stale names in doc comments, environment injection examples and the `retryWithBackoff` guide helper; removed the `absurdify` family; described combinator policies by their own channel and exits (including `CrashPolicy.quitFast`, `shouldFavorCrash`, empty lists and `runAll` completion order), crash types, observer guarantees, the `onPanic` default and `fromRun` catching; added a note against upcasting the environment type.
 
 ## 2.0.0
 - Split previous Else channel into Crash and Else channels

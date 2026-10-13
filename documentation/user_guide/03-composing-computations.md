@@ -4,9 +4,9 @@
 
 Once you can construct and run a `Cont`, the next step is composing computations together. Every operator in Jerelo works on one of three channels — **then** (success), **else** (typed error), or **crash** (unexpected exception).
 
-The core package keeps a small set of operators: `thenMap`, `thenDo`, `elseMap`, `elseDo`, `crashDo`, `flatten`, `Cont.tailRecM` and `decorate`, plus the combinators and environment operators covered in the next guides. Everything else in this guide is built from them.
+Jerelo is built on a small set of fundamental operators: `thenMap`, `thenDo`, `elseMap`, `elseDo`, `crashDo`, `flatten`, `Cont.tailRecM` and `decorate`, plus the combinators and environment operators covered in the next guides. Everything else in this guide is built from them.
 
-Derived operators, such as the variants that ignore the value or read the environment (`thenMap0`, `thenMapTo`, `thenDoWithEnv`, …), taps, zips, forks, conditionals and loops, are in the [jerelo_ext](https://pub.dev/packages/jerelo_ext) package. Import `package:jerelo_ext/jerelo_ext.dart` alongside `package:jerelo/jerelo.dart` to use them.
+Jerelo also provides derived operators built from them, such as the variants that ignore the value or read the environment (`thenMap0`, `thenMapTo`, `thenDoWithEnv`, …), taps, zips, forks, conditionals and loops. They are listed in the API reference for the [then](../api_reference/then.md), [else](../api_reference/else.md) and [crash](../api_reference/crash.md) channels.
 
 ---
 
@@ -65,7 +65,7 @@ fetchUser(id)
   .thenDo((user) => writeToCache(user).thenMap((_) => user));
 ```
 
-Taps, zips and forks, which wrap these patterns, are in [jerelo_ext](https://pub.dev/packages/jerelo_ext).
+Taps ([`thenTap`](../api_reference/then.md#thentap), [`elseTap`](../api_reference/else.md#elsetap), [`crashTap`](../api_reference/crash.md#crashtap)), zips and forks wrap these patterns.
 
 ### Crash Recovery
 
@@ -121,7 +121,7 @@ Cont.of<(), String, int>(5)
 
 Without the explicit `<int>`, Dart cannot infer the value type of `Cont.error(...)` and the result becomes `dynamic`.
 
-`thenIf`, `elseUnless`, `crashUnlessThen` and `crashUnlessElse`, which wrap this pattern, are in [jerelo_ext](https://pub.dev/packages/jerelo_ext).
+[`thenIf`](../api_reference/then.md#thenif), [`elseUnless`](../api_reference/else.md#elseunless), [`crashUnlessThen`](../api_reference/crash.md#crashunlessthen) and [`crashUnlessElse`](../api_reference/crash.md#crashunlesselse) wrap this pattern.
 
 ---
 
@@ -157,7 +157,7 @@ Cont<(), String, Data> fetchWithRetry(int maxAttempts) {
 }
 ```
 
-The `while`/`until`/`forever` loops on every channel (`thenWhile`, `elseUntil`, `crashForever`, …) are in [jerelo_ext](https://pub.dev/packages/jerelo_ext).
+The `while`/`until`/`forever` loops on every channel (`thenWhile`, `elseUntil`, `crashForever`, …) are built on `Cont.tailRecM`; see the [then](../api_reference/then.md#loops), [else](../api_reference/else.md#retry-loops) and [crash](../api_reference/crash.md#retry-loops) loops.
 
 ---
 
@@ -175,7 +175,7 @@ Cont.error<(), String, int>('fallback')
   .run((), onThen: print); // prints 0
 ```
 
-`demote` and `promote`, which wrap these, are in [jerelo_ext](https://pub.dev/packages/jerelo_ext).
+[`demote`](../api_reference/then.md#demote) and [`promote`](../api_reference/else.md#promote) wrap these.
 
 ### Never-typed channels
 

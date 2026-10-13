@@ -42,7 +42,7 @@ Cont<E, String, User> getUserByIdThunk<E>(UserId Function() expensiveGetUserId) 
 }
 ```
 
-The [jerelo_ext](https://pub.dev/packages/jerelo_ext) package wraps this pattern as `contDeferred(() => ...)`.
+`Cont.fromDeferred(() => ...)` wraps this pattern.
 
 ### Primitive Constructors
 
@@ -74,14 +74,13 @@ and `ContCrash.collect`). (More in **[Composing Computations](03-composing-compu
 
 ### Resource Management
 
-When working with resources that need cleanup (files, connections, locks), the bracket pattern releases the resource whether `use` succeeds, fails, or crashes. Core has no bracket operator; `contBracket` is in the [jerelo_ext](https://pub.dev/packages/jerelo_ext) package:
+When working with resources that need cleanup (files, connections, locks), the bracket pattern releases the resource whether `use` succeeds, fails, or crashes. Use `Cont.bracket`:
 
 ```dart
 import 'package:jerelo/jerelo.dart';
-import 'package:jerelo_ext/jerelo_ext.dart';
 
 Cont<E, F, String> readFileContents<E, F>(String path) {
-  return contBracket<RandomAccessFile, E, F, String>(
+  return Cont.bracket<RandomAccessFile, E, F, String>(
     acquire: Cont.fromRun((runtime, observer) {
       final file = File(path).openSync();
       observer.onThen(file);
@@ -103,7 +102,7 @@ The execution order is always:
 2. **Use** the resource
 3. **Release** the resource (fire-and-forget)
 
-Key details about `contBracket`:
+Key details about `Cont.bracket`:
 - `acquire` and `release` have error type `Never` — they can only succeed or crash, never produce a business-logic error.
 - The `use` outcome (then, else, or crash) is propagated immediately; `release` runs independently afterward.
 - Release outcomes are routed to the optional `onReleasePanic`, `onReleaseCrash`, and `onReleaseThen` callbacks. A throw from the `release` function itself (while building the release continuation) goes to `onReleasePanic`; a crash inside the returned continuation goes to `onReleaseCrash`.

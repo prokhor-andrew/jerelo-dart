@@ -58,7 +58,7 @@ program.run(
 ); // prints: HELLO
 ```
 
-The [jerelo_ext](https://pub.dev/packages/jerelo_ext) package provides this as `withEnv(value)`, and `local0(() => value)` for a value computed on each run.
+`withEnv(value)` is a shorthand for this, and `local0(() => value)` computes the value on each run.
 
 ### Transforming Environment with local
 
@@ -130,7 +130,7 @@ Cont.of<ApiConfig, String, int>(42).thenDo((value) {
 });
 ```
 
-The [jerelo_ext](https://pub.dev/packages/jerelo_ext) package provides `WithEnv` and `WithEnv0` variants of most operators (`thenDoWithEnv`, `elseMapWithEnv0`, `thenTapWithEnv`, …) that pass the environment to the function directly.
+Most operators also have `WithEnv` and `WithEnv0` variants (`thenDoWithEnv`, `elseMapWithEnv0`, `thenTapWithEnv`, …) that pass the environment to the function directly.
 
 ### Example: Reading Configuration
 
