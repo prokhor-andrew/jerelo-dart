@@ -30,7 +30,7 @@ Creating and transforming continuations.
 
 ```dart
 static Cont<E, F, A> fromRun<E, F, A>(
-  void Function(ContRuntime<E> runtime, SafeObserver<F, A> observer) run,
+  void Function() Function(E env, SafeObserver<F, A> observer) run,
 )
 ```
 
@@ -40,17 +40,29 @@ Constructs a continuation with guaranteed idempotence and exception catching. Th
 
 Exceptions thrown synchronously by `run` are caught and routed to the crash channel. An exception thrown later, for example inside a `Timer` or `Future` callback, is not caught: it escapes to the zone and the observer is never called. Wrap such callback bodies in `ContCrash.tryCatch` and pass the crash to `observer.onCrash`.
 
+The run function returns a **canceller**: the function that runs when the computation is cancelled (see [Cancellation](execution.md#cancellation)). The canceller decides what cancelling means and reports the outcome through the observer, for example by stopping a timer and calling `observer.onElse`. A computation that cannot be cancelled returns a no-op `() {}`, and simply finishes normally when cancelled. The canceller runs at most once, and never after the computation has reported an outcome. If it throws, the computation crashes; if the computation has already finished, the throw becomes a panic.
+
 - **Parameters:**
-  - `run`: Function that executes the continuation and calls observer callbacks
+  - `run`: Function that executes the continuation, calls observer callbacks, and returns a canceller
 
 **Example:**
 ```dart
-final cont = Cont.fromRun<MyEnv, String, int>((runtime, observer) {
-  // Access environment
-  final config = runtime.env();
+final cont = Cont.fromRun<MyEnv, String, int>((env, observer) {
+  // Produce a value from the environment
+  observer.onThen(env.port);
+  return () {};
+});
 
-  // Produce a value
-  observer.onThen(config.port);
+// A cancellable computation: cancelling stops the timer
+// and reports on the else channel
+final delayed = Cont.fromRun<(), String, int>((env, observer) {
+  final timer = Timer(const Duration(seconds: 1), () {
+    observer.onThen(42);
+  });
+  return () {
+    timer.cancel();
+    observer.onElse('cancelled');
+  };
 });
 ```
 
@@ -116,7 +128,7 @@ Used to represent unrecoverable failures that are outside the typed error channe
 
 **Example:**
 ```dart
-final cont = Cont.fromRun<(), String, int>((runtime, observer) {
+final cont = Cont.fromRun<(), String, int>((env, observer) {
   throw Exception('Unexpected failure');
 }).crashDo((crash) {
   if (crash is! NormalCrash) {
@@ -140,7 +152,7 @@ static Cont<E, F, E> askThen<E, F>()
 
 Retrieves the current environment value as a success.
 
-Accesses the environment of type `E` from the runtime context and places it on the then (success) channel. This is used to read configuration, dependencies, or any contextual information that flows through the continuation execution.
+Accesses the environment of type `E` the continuation runs with and places it on the then (success) channel. This is used to read configuration, dependencies, or any contextual information that flows through the continuation execution.
 
 Returns a continuation that succeeds with the environment value.
 
@@ -160,7 +172,7 @@ static Cont<E, E, A> askElse<E, A>()
 
 Retrieves the current environment value as an error.
 
-Accesses the environment of type `E` from the runtime context and places it on the else (error) channel. This is the error-channel counterpart of `askThen`.
+Accesses the environment of type `E` the continuation runs with and places it on the else (error) channel. This is the error-channel counterpart of `askThen`.
 
 Returns a continuation that terminates with the environment value as the error.
 
@@ -182,7 +194,7 @@ static Cont<E, F, A> fromDeferred<E, F, A>(
 
 Creates a `Cont` whose continuation is built only when it runs.
 
-Lazily evaluates a continuation-returning function. The inner `Cont` is not created until the outer one is executed, and `thunk` is called on every run, so each run gets a freshly built continuation. Use it to delay expensive construction or to create per-run state. A throw from `thunk` becomes a crash.
+Lazily evaluates a continuation-returning function. The inner `Cont` is not created until the outer one is executed, and `thunk` is called on every run, so each run gets a freshly built continuation. Use it to delay expensive construction or to create per-run state. A throw from `thunk` becomes a crash. A cancel is forwarded to the built continuation.
 
 - **Parameters:**
   - `thunk`: Function that returns a `Cont` when called
@@ -227,7 +239,7 @@ Note that `acquire` and `release` use `Never` as their error type, meaning they 
 
 `release` is fire-and-forget: the outcome of `use` is forwarded first and does not wait for `release`. Release outcomes go to the optional release callbacks instead.
 
-**No cancellation:** jerelo 3.0 has no cancellation, and `Cont.bracket` does not support it. `release` runs once `use` reports back; if `use` never reports, `release` never runs.
+**Cancellation:** a cancel is forwarded to `use` only. `acquire` and `release` are never cancelled. A cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. There is no special cancel path: `release` runs once `use` reports back, on any channel; if `use` never reports, `release` never runs.
 
 **Optional release callbacks:**
 - `onReleasePanic`: Called if the `release` function itself throws while building the release continuation (`release(resource)`), or if a release callback throws. Defaults to rethrowing in a microtask, so a `try`/`catch` around `run()` never sees it
@@ -274,7 +286,7 @@ Each iteration runs the continuation returned by `step(state)`:
 
 A throw from `step` becomes a crash.
 
-The loop is stack-safe: iterations that complete synchronously do not grow the call stack, so it can run any number of times. Use it instead of a recursive `thenDo` for loops and retries. See [`TailRec`](types.md#tailrec) for the step type.
+The loop is stack-safe: iterations that complete synchronously do not grow the call stack, so it can run any number of times. Use it instead of a recursive `thenDo` for loops and retries. A cancel is forwarded to the running iteration, and to every later iteration as it starts. See [`TailRec`](types.md#tailrec) for the step type.
 
 Dart cannot infer the result type `A` from a `TailRec.done(...)` returned inside `step`; without an expected type it becomes `dynamic`. Give the result a type, as in the examples below, or pass the type arguments explicitly.
 
@@ -322,9 +334,9 @@ Cont<(), String, String> fetchWithRetry() {
 
 ```dart
 Cont<E, F, A> decorate(
-  void Function(
-    void Function(ContRuntime<E>, ContObserver<F, A>) run,
-    ContRuntime<E> runtime,
+  void Function() Function(
+    void Function() Function(E, ContObserver<F, A>) run,
+    E env,
     ContObserver<F, A> observer,
   ) f,
 )
@@ -334,25 +346,26 @@ Transforms the execution of the continuation using a natural transformation.
 
 Applies a function that wraps or modifies the underlying run behavior. This is useful for intercepting execution to add middleware-like behavior such as logging, timing, or modifying how observers receive callbacks.
 
-The transformation function receives the original run function, the runtime, and the observer, allowing custom execution behavior to be injected.
+The transformation function receives the original run function, the environment, and the observer, allowing custom execution behavior to be injected. It returns the canceller of the run it started, which is usually the value the run function returned.
 
 - **Parameters:**
-  - `f`: A transformation function that receives the run function, runtime, and observer, and implements custom execution logic by calling the run function at the appropriate time
+  - `f`: A transformation function that receives the run function, environment, and observer, implements custom execution logic by calling the run function at the appropriate time, and returns a canceller
 
 **Example:**
 ```dart
 // Add logging around execution
-final logged = cont.decorate((run, runtime, observer) {
+final logged = cont.decorate((run, env, observer) {
   print('Starting execution');
-  run(runtime, observer);
+  final cancel = run(env, observer);
   print('Execution initiated');
+  return cancel;
 });
 
 // Add timing
-final timed = cont.decorate((run, runtime, observer) {
+final timed = cont.decorate((run, env, observer) {
   final start = DateTime.now();
-  run(
-    runtime,
+  return run(
+    env,
     observer.copyUpdateOnThen((value) {
       final duration = DateTime.now().difference(start);
       print('Took $duration');

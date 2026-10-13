@@ -208,9 +208,9 @@ final Cont<(), String, ()> done = saveUser(user).thenUnit();
 The `decorate` operator wraps the execution itself, letting you inject cross-cutting behavior like logging or scheduling without touching the value:
 
 ```dart
-cont.decorate((run, runtime, observer) {
+cont.decorate((run, env, observer) {
   print('Starting...');
-  run(runtime, observer);
+  return run(env, observer);
 });
 ```
 

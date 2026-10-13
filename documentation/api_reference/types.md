@@ -15,7 +15,7 @@ Core types used throughout the Jerelo continuation library.
 - [CrashOr](#crashor)
   - [ValueCrashOr](#valuecrashor)
   - [CrashCrashOr](#crashcrashor)
-- [ContRuntime](#contruntime)
+- [ContCancelToken](#contcanceltoken)
 - [ContObserver](#contobserver)
   - [SafeObserver](#safeobserver)
 - [TailRec](#tailrec)
@@ -165,30 +165,27 @@ The function threw. It has no public constructor; it is created by `ContCrash.tr
 
 ---
 
-## ContRuntime
+## ContCancelToken
 
 ```dart
-final class ContRuntime<E>
+final class ContCancelToken
 ```
 
-Provides runtime context for continuation execution.
+Cancels a running continuation.
 
-`ContRuntime` carries the environment during the execution of a `Cont`. It allows continuations to access contextual information.
+Returned by `run`. It has a private constructor. Calling `cancel` forwards the cancellation to the parts of the computation that are running, and to the parts that start afterwards. Each part decides what cancelling means and how to report it: a part started with `Cont.fromRun` runs the canceller its run function returned. See [Cancellation](execution.md#cancellation).
 
 **Methods:**
 
 ```dart
-E env()
+void cancel()
 ```
-Returns the environment value of type `E`. The environment provides contextual information such as configuration, dependencies, or any data that should flow through the continuation execution.
+Cancels the computation. Only the first call has an effect.
 
 ```dart
-ContRuntime<E2> copyUpdateEnv<E2>(E2 env)
+bool isCancelled()
 ```
-Creates a copy of this runtime with a different environment. Returns a new `ContRuntime` with the provided environment. This is used by `local` and related methods to modify the environment context.
-
-- **Parameters:**
-  - `env`: The new environment value to use
+Returns `true` if `cancel` has been called on this token. It does not tell whether the computation has stopped: the computation reports how it ended through the callbacks passed to `run`.
 
 ---
 
@@ -202,7 +199,7 @@ An observer that handles all three outcome channels of a continuation: crash, er
 
 `ContObserver` provides the callback mechanism for receiving results from a `Cont` execution. It encapsulates handlers for crashes (unexpected exceptions), errors (typed business failures), and successful values.
 
-`ContObserver` has a private constructor. Instances cannot be created directly. Instead, new observers are derived from existing ones using the copy methods. The initial observer is provided by the runtime when a continuation is executed (e.g., inside `Cont.fromRun` or `decorate`).
+`ContObserver` has a private constructor. Instances cannot be created directly. Instead, new observers are derived from existing ones using the copy methods. The initial observer is provided by the library when a continuation is executed (e.g., inside `Cont.fromRun` or `decorate`).
 
 **Fields:**
 

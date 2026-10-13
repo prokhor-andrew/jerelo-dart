@@ -454,6 +454,8 @@ final result = primaryOperation()
 
 ## Fire and Forget
 
+The forked side effect is detached: a cancel of the main computation (see [Cancellation](execution.md#cancellation)) is not forwarded to it. The main computation is cancelled as usual.
+
 ### elseFork
 
 ```dart

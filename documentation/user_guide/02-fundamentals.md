@@ -14,13 +14,17 @@ Use `Cont.fromRun` for custom computations:
 
 ```dart
 Cont<E, String, User> getUser<E>(String userId) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     getUserById(userId, (user) {
       observer.onThen(user);
     });
+    // getUserById cannot be stopped, so cancelling does nothing
+    return () {};
   });
 }
 ```
+
+The run function receives the environment and the observer, and returns a **canceller**: the function that runs if the computation is cancelled. A computation that cannot be stopped returns a no-op `() {}`. See [Cancellation](#cancellation) below.
 
 **Important notes about `observer`:**
 - It is idempotent. Calling `onThen`, `onElse`, or `onCrash` more than once will do nothing. Only this observer is guarded: observers derived from it with `copyUpdate*` call their new callbacks every time.
@@ -30,14 +34,14 @@ Cont<E, String, User> getUser<E>(String userId) {
 
 ### Deferred Construction
 
-Sometimes you want to defer construction until the `Cont` is run. Build the inner `Cont` inside `Cont.fromRun` and run it with `runWith`, passing the runtime and observer through:
+Sometimes you want to defer construction until the `Cont` is run. Build the inner `Cont` inside `Cont.fromRun` and run it with `runWith`, passing the environment and observer through. `runWith` returns the canceller of the computation it starts; return it so that a cancel reaches the inner computation:
 
 ```dart
 Cont<E, String, User> getUserByIdThunk<E>(UserId Function() expensiveGetUserId) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     final userId = expensiveGetUserId();
     final userCont = getUser<E>(userId);
-    userCont.runWith(runtime, observer);
+    return userCont.runWith(env, observer);
   });
 }
 ```
@@ -69,8 +73,8 @@ Cont.crash<(), String, int>(someCrash);
 
 This constructor is used to thread an existing `ContCrash`. A `NormalCrash` has no public
 constructor: it is created when an exception is caught (for example by `ContCrash.tryCatch`).
-`MergedCrash` and `CollectedCrash` have public constructors (also available as `ContCrash.merge`
-and `ContCrash.collect`). (More in **[Composing Computations](03-composing-computations.md)**)
+`MergedCrash` and `CollectedCrash` have no public constructors either: create them with
+`ContCrash.merge` and `ContCrash.collect`. (More in **[Composing Computations](03-composing-computations.md)**)
 
 ### Resource Management
 
@@ -81,17 +85,20 @@ import 'package:jerelo/jerelo.dart';
 
 Cont<E, F, String> readFileContents<E, F>(String path) {
   return Cont.bracket<RandomAccessFile, E, F, String>(
-    acquire: Cont.fromRun((runtime, observer) {
+    acquire: Cont.fromRun((env, observer) {
       final file = File(path).openSync();
       observer.onThen(file);
+      return () {};
     }),
-    release: (file) => Cont.fromRun((runtime, observer) {
+    release: (file) => Cont.fromRun((env, observer) {
       file.closeSync();
       observer.onThen(());
+      return () {};
     }),
-    use: (file) => Cont.fromRun((runtime, observer) {
+    use: (file) => Cont.fromRun((env, observer) {
       final contents = String.fromCharCodes(file.readSync(file.lengthSync()));
       observer.onThen(contents);
+      return () {};
     }),
   );
 }
@@ -107,6 +114,7 @@ Key details about `Cont.bracket`:
 - The `use` outcome (then, else, or crash) is propagated immediately; `release` runs independently afterward.
 - Release outcomes are routed to the optional `onReleasePanic`, `onReleaseCrash`, and `onReleaseThen` callbacks. A throw from the `release` function itself (while building the release continuation) goes to `onReleasePanic`; a crash inside the returned continuation goes to `onReleaseCrash`.
 - `release` runs once `use` reports an outcome. If `use` never reports, `release` never runs.
+- A cancel is forwarded to `use` only; `acquire` and `release` are never cancelled. A cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. `release` still runs once `use` reports back, on whatever channel it reports.
 
 ---
 
@@ -114,7 +122,7 @@ Key details about `Cont.bracket`:
 
 Constructing a computation is only the first step. To actually trigger its execution, call `run` on it. All callbacks (`onPanic`, `onCrash`, `onElse`, `onThen`) are optional named parameters with sensible defaults, so you only subscribe to the channels you care about.
 
-`run` returns nothing: the outcome arrives only through the callbacks. Core has no cancellation; once started, a computation runs until it reports an outcome.
+The outcome arrives only through the callbacks. `run` returns a `ContCancelToken` that cancels the computation (see [Cancellation](#cancellation)).
 
 ```dart
 // constructing the program
@@ -147,7 +155,7 @@ You can pass `Cont` objects around in functions and store them as values in cons
 
 ### Run Parameters
 
-The `run` method accepts the environment as a positional argument and four optional named parameters. It returns `void`.
+The `run` method accepts the environment as a positional argument and four optional named parameters. It returns a `ContCancelToken`.
 
 - **`onThen`** (default: no-op) — Receives the successful result of type `A`.
 - **`onElse`** (default: no-op) — Receives the business-logic error of type `F`.
@@ -177,6 +185,29 @@ computation.run(
 ```
 
 **Panic handler:** The `onPanic` callback is invoked when a fatal error occurs that lies outside the normal crash channel — for example, when an observer callback itself throws an exception. It receives a `NormalCrash`. By default it re-throws the error in a microtask, surfacing it as an unhandled exception in the current zone; a `try`/`catch` around `run()` never sees it. Override it to integrate with your logging or crash-reporting infrastructure.
+
+### Cancellation
+
+`run` returns a `ContCancelToken`. Call `cancel()` on it to cancel the computation:
+
+```dart
+final token = program.run(
+  (),
+  onElse: (error) => print("error=$error"),
+  onThen: (value) => print("value=$value"),
+);
+
+// later
+token.cancel();
+```
+
+A cancel has no channel of its own. The operators only pass it on — to the part that is running and to any part started afterwards — and the leaves (computations built with `Cont.fromRun`) decide what cancelling means. A leaf with a real canceller, such as a timer, stops its work and reports through one of the existing channels, typically `onElse` with an error of your own. A leaf whose canceller is `() {}` just finishes normally. So the outcome of a cancelled computation still arrives through the callbacks passed to `run`.
+
+- `cancel()` only has an effect the first time it is called.
+- `isCancelled()` only says that `cancel()` was called; it does not mean the work has stopped.
+- Cancellation is only as good as the leaves: a computation whose leaves ignore cancellation keeps running.
+
+See [Cancellation](../api_reference/execution.md#cancellation) for how each operator forwards a cancel, and [Extending Jerelo](06-extending.md#cancellation) for writing cancellable leaves.
 
 ### Execution Flow
 

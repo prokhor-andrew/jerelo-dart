@@ -433,6 +433,8 @@ final result = validateInput()
 
 ## Fire and Forget
 
+The forked side effect is detached: a cancel of the main computation (see [Cancellation](execution.md#cancellation)) is not forwarded to it. The main computation is cancelled as usual.
+
 ### thenFork
 
 ```dart
@@ -776,7 +778,7 @@ final cont = processData()
 
 ## Loops
 
-All loops are built on `Cont.tailRecM`, so they are stack-safe: iterations that complete synchronously do not grow the call stack. A loop on the then channel also ends when the continuation terminates on the else or crash channel, propagating that outcome.
+All loops are built on `Cont.tailRecM`, so they are stack-safe: iterations that complete synchronously do not grow the call stack. A loop on the then channel also ends when the continuation terminates on the else or crash channel, propagating that outcome. A cancel is forwarded to the running iteration; the loop stops only if that iteration reacts to it, so a loop whose steps ignore cancellation keeps running (see [Cancellation](execution.md#cancellation)).
 
 ### thenWhile
 

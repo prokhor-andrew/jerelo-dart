@@ -121,7 +121,7 @@ This example demonstrates:
 
 ```dart
 Cont<E, String, List<Post>> fetchPosts<E>(String authorId) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     http.get(Uri.parse('/posts?author=$authorId')).then(
       (response) {
         if (response.statusCode == 200) {
@@ -135,6 +135,8 @@ Cont<E, String, List<Post>> fetchPosts<E>(String authorId) {
         observer.onElse('$e');
       },
     );
+    // A Future cannot be stopped, so cancelling does nothing
+    return () {};
   });
 }
 
@@ -222,7 +224,7 @@ Cont<(), F, List<T>> withProgress<F, T>(
   List<Cont<(), F, T>> tasks,
   void Function(int done, int total) onProgress,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     int done = 0;
     final tracked = tasks.map((task) =>
       task.thenMap((value) {
@@ -230,8 +232,8 @@ Cont<(), F, List<T>> withProgress<F, T>(
         return value;
       })
     ).toList();
-    Cont.all(tracked, policy: OkPolicy.quitFast())
-      .runWith(runtime, observer);
+    return Cont.all(tracked, policy: OkPolicy.quitFast())
+      .runWith(env, observer);
   });
 }
 

@@ -13,6 +13,7 @@ Unlike Dart's `Future` which starts executing immediately upon creation, `Cont` 
 - **Lazy**: Evaluation is deferred
 - **Reusable**: Can be safely executed multiple times with different configurations
 - **Composable**: Build complex flows from simple, testable pieces
+- **Cancellable**: `run` returns a token whose `cancel()` is forwarded to the running computations, which decide how to stop
 
 This makes `Cont` ideal for defining complex business logic that needs to be tested, reused across different contexts, or configured at runtime.
 
@@ -79,9 +80,9 @@ A comprehensive guide to understanding and using Jerelo:
 
 Complete reference for all public APIs:
 
-- **[Types](documentation/api_reference/types.md)** - ContCrash, CrashOr, ContRuntime, ContObserver, TailRec
+- **[Types](documentation/api_reference/types.md)** - ContCrash, CrashOr, ContCancelToken, ContObserver, TailRec
 - **[Construction](documentation/api_reference/construction.md)** - Creating continuations: fromRun, of, error, crash, askThen, askElse, fromDeferred, bracket, tailRecM, decorate
-- **[Execution](documentation/api_reference/execution.md)** - Running continuations: run, runWith; extensions: flatten, thenAbsurd, elseAbsurd, thenUnit, elseUnit
+- **[Execution](documentation/api_reference/execution.md)** - Running continuations: run, runWith, cancellation; extensions: flatten, thenAbsurd, elseAbsurd, thenUnit, elseUnit
 - **[Then Channel](documentation/api_reference/then.md)** - Success path operations: mapping, chaining, tapping, zipping, forking, demotion, conditionals, loops
 - **[Else Channel](documentation/api_reference/else.md)** - Error path operations: fallback, transformation, tapping, zipping, forking, promotion, conditionals, retry loops
 - **[Crash Channel](documentation/api_reference/crash.md)** - Crash recovery operations: recovery, side effects, zipping, forking, recovery to then or else, conditionals, retry loops
@@ -119,12 +120,17 @@ class User {
 // Simulated API call
 Cont<AppConfig, String, User> fetchUserFromApi(String userId) {
   return Cont.askThen<AppConfig, String>().thenDo((config) {
-    return Cont.fromRun((runtime, observer) {
+    return Cont.fromRun((env, observer) {
       // Simulate async API call
-      Future.delayed(config.timeout, () {
+      final timer = Timer(config.timeout, () {
         // Simulate successful response
         observer.onThen(User(userId, 'John Doe', true));
       });
+      // Cancelling stops the call and reports it as an error
+      return () {
+        timer.cancel();
+        observer.onElse('Request cancelled');
+      };
     });
   });
 }

@@ -271,6 +271,8 @@ Attempts a fallback on crash with access to the environment only, merging crashe
 
 ## Fire and Forget
 
+The forked side effect is detached: a cancel of the main computation (see [Cancellation](execution.md#cancellation)) is not forwarded to it. The main computation is cancelled as usual.
+
 ### crashFork
 
 ```dart
