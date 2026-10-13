@@ -174,6 +174,21 @@ final class Cont<E, F, A> {
     });
   }
 
+  /// Creates a [Cont] whose continuation is built only when it runs.
+  ///
+  /// [thunk] is called on every run, so each run gets a freshly built
+  /// continuation. Use it to delay expensive construction, or to create
+  /// per-run state.
+  ///
+  /// - [thunk]: Builds the continuation to run.
+  static Cont<E, F, A> fromDeferred<E, F, A>(
+    Cont<E, F, A> Function() thunk,
+  ) {
+    return Cont.fromRun((runtime, observer) {
+      thunk().runWith(runtime, observer);
+    });
+  }
+
   /// Creates a [Cont] that immediately succeeds with a value.
   ///
   /// Identity operation that wraps a pure value in a continuation context.
@@ -559,6 +574,86 @@ final class Cont<E, F, A> {
           shouldFavorElse,
         );
     }
+  }
+
+  /// Acquires a resource, uses it, and releases it.
+  ///
+  /// Runs [acquire], passes the resource to [use], and once [use] reports any
+  /// outcome (success, error or crash), forwards that outcome and runs
+  /// [release] with the resource.
+  ///
+  /// - [acquire]: Obtains the resource. Cannot produce a business-logic error
+  ///   (error type is [Never]); it can only succeed or crash.
+  /// - [release]: Releases the resource. Cannot produce a business-logic error
+  ///   (error type is [Never]); it can only succeed or crash. Release is
+  ///   fire-and-forget: the [use] outcome is forwarded first and [release]
+  ///   runs independently. Its outcomes go to [onReleasePanic],
+  ///   [onReleaseCrash] and [onReleaseThen].
+  /// - [use]: Uses the resource; may succeed with [A], fail with [F], or crash.
+  ///
+  /// Release failures are routed two ways: a throw from the [release] function
+  /// itself goes to [onReleasePanic]; a crash inside the continuation it
+  /// returns goes to [onReleaseCrash].
+  ///
+  /// [bracket] has no cancellation support: [release] runs once [use]
+  /// reports back. If [use] never reports, [release] never runs.
+  static Cont<E, F, A> bracket<R, E, F, A>({
+    required Cont<E, Never, R> acquire,
+    required Cont<E, Never, ()> Function(R resource)
+        release,
+    required Cont<E, F, A> Function(R resource) use,
+    void Function(NormalCrash crash) onReleasePanic =
+        _panic,
+    void Function(ContCrash crash) onReleaseCrash = _ignore,
+    void Function() onReleaseThen = _voidIgnore,
+  }) {
+    return Cont.fromRun((runtime, observer) {
+      acquire.elseAbsurd<F>().runWith(
+        runtime,
+        observer.copyUpdateOnThen<R>((resource) {
+          bool isReleased = false;
+
+          void fireRelease() {
+            if (isReleased) {
+              return;
+            }
+            isReleased = true;
+
+            ContCrash.tryCatch(() {
+              release(resource).run(
+                runtime.env(),
+                onPanic: onReleasePanic,
+                onCrash: onReleaseCrash,
+                onThen: (_) => onReleaseThen(),
+              );
+            })._ifCrash(onReleasePanic);
+          }
+
+          ContCrash.tryCatch(() {
+            use(resource).runWith(
+              runtime,
+              observer.copyUpdate(
+                onCrash: (crash) {
+                  observer.onCrash(crash);
+                  fireRelease();
+                },
+                onElse: (error) {
+                  observer.onElse(error);
+                  fireRelease();
+                },
+                onThen: (value) {
+                  observer.onThen(value);
+                  fireRelease();
+                },
+              ),
+            );
+          })._ifCrash((crash) {
+            observer.onCrash(crash);
+            fireRelease();
+          });
+        }),
+      );
+    });
   }
 }
 
