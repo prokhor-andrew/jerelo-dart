@@ -1,13 +1,13 @@
 /// Controls how two or more continuations on the success/error channels
 /// are executed and how their outcomes are combined.
 ///
-/// Pass an [OkPolicy] to [Cont.both], [Cont.all], [Cont.either], or [Cont.any]
+/// Pass an [OkPolicy] to `Cont.both`, `Cont.all`, `Cont.either`, or `Cont.any`
 /// via the named `policy` parameter. Use the static factory methods
 /// [sequence], [quitFast], or [runAll] to construct a policy.
 ///
 /// Each combinator waits on its own channel and treats the other two as
-/// exits: [Cont.both]/[Cont.all] wait for successes and exit on an error
-/// or a crash; [Cont.either]/[Cont.any] wait for errors and exit on a
+/// exits: `Cont.both`/`Cont.all` wait for successes and exit on an error
+/// or a crash; `Cont.either`/`Cont.any` wait for errors and exit on a
 /// success or a crash.
 sealed class OkPolicy<T> {
   const OkPolicy();
@@ -28,9 +28,10 @@ sealed class OkPolicy<T> {
   /// Parallel quit-fast policy.
   ///
   /// All continuations are started in parallel. As soon as one of them
-  /// exits (else or crash for [Cont.both]/[Cont.all], then or crash for
-  /// [Cont.either]/[Cont.any]), the overall computation stops immediately
-  /// without waiting for the others. Collected results keep list order.
+  /// exits (else or crash for `Cont.both`/`Cont.all`, then or crash for
+  /// `Cont.either`/`Cont.any`), the overall computation stops immediately
+  /// without waiting for the others, and the others are cancelled.
+  /// Collected results keep list order.
   ///
   /// The policy carries no data, so it is typed `OkPolicy<Never>`, which fits
   /// any `OkPolicy<T>` and leaves the combinator's types to be inferred from
@@ -44,8 +45,16 @@ sealed class OkPolicy<T> {
   /// All continuations are started in parallel and the computation waits for
   /// all of them to complete before producing a result. If one ends on the
   /// own channel and another exits, the result is the exit. When multiple
-  /// exits of the same kind occur (e.g. multiple errors in [Cont.both]),
-  /// they are combined using [combine].
+  /// exits of the same kind occur (e.g. multiple errors in `Cont.both`),
+  /// they are combined using [combine]. Crashes are not passed to [combine]:
+  /// two crashes in `Cont.both`/`Cont.either` are merged into a
+  /// `MergedCrash`, and `Cont.all`/`Cont.any` report crashes as a
+  /// `CollectedCrash`.
+  ///
+  /// If [combine] throws, that is a crash of the combinator itself, not of
+  /// an input: combining stops, and once every continuation has finished
+  /// the result is that crash, whatever the other outcomes and
+  /// [shouldFavorCrash] are.
   ///
   /// Results are collected in completion order, not list order. Tag each
   /// result (e.g. with a record holding an id) when you need to know which
@@ -54,7 +63,7 @@ sealed class OkPolicy<T> {
   /// - [combine]: Function to merge two same-channel outcomes of type [T].
   /// - [shouldFavorCrash]: Decides between two different exits. When `true`
   ///   and one side crashes while another exits on the other channel (else
-  ///   for [Cont.both]/[Cont.all], then for [Cont.either]/[Cont.any]), the
+  ///   for `Cont.both`/`Cont.all`, then for `Cont.either`/`Cont.any`), the
   ///   crash is propagated. When `false`, the other exit is favored.
   static OkPolicy<T> runAll<T>(
     T Function(T t1, T t2) combine, {
@@ -67,8 +76,8 @@ sealed class OkPolicy<T> {
   }
 }
 
-/// Sequential execution policy for [Cont.both], [Cont.all], [Cont.either],
-/// and [Cont.any].
+/// Sequential execution policy for `Cont.both`, `Cont.all`, `Cont.either`,
+/// and `Cont.any`.
 ///
 /// Continuations are run one after another in left-to-right order; the
 /// next one runs only if the previous one ended on the own channel.
@@ -77,8 +86,8 @@ final class SequenceOkPolicy<T> extends OkPolicy<T> {
   const SequenceOkPolicy._();
 }
 
-/// Parallel quit-fast execution policy for [Cont.both], [Cont.all],
-/// [Cont.either], and [Cont.any].
+/// Parallel quit-fast execution policy for `Cont.both`, `Cont.all`,
+/// `Cont.either`, and `Cont.any`.
 ///
 /// All continuations run concurrently; the first failure (or first success
 /// for `either`/`any`) or the first crash short-circuits the rest.
@@ -87,8 +96,8 @@ final class QuitFastOkPolicy<T> extends OkPolicy<T> {
   const QuitFastOkPolicy._();
 }
 
-/// Parallel run-all execution policy for [Cont.both], [Cont.all],
-/// [Cont.either], and [Cont.any].
+/// Parallel run-all execution policy for `Cont.both`, `Cont.all`,
+/// `Cont.either`, and `Cont.any`.
 ///
 /// All continuations run concurrently and the computation waits for every
 /// one to finish. Same-channel exits are merged with [combine], in

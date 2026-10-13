@@ -20,13 +20,15 @@ void main() {
       final log = <String>[];
 
       Cont.both<(), String, int, int, String>(
-        Cont.fromRun((runtime, observer) {
+        Cont.fromRun((env, observer) {
           log.add('left');
           observer.onThen(1);
+          return () {};
         }),
-        Cont.fromRun((runtime, observer) {
+        Cont.fromRun((env, observer) {
           log.add('right');
           observer.onThen(2);
+          return () {};
         }),
         (a, b) => '$a+$b',
         policy: OkPolicy.sequence(),

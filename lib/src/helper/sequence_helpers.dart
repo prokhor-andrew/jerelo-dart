@@ -4,9 +4,9 @@ Cont<E, F, List<A>> _allSequence<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // defensive copy again
-    _seq<F, A>(
+    return _seq<F, A>(
       total: list.length,
       onRun: (
         index,
@@ -15,8 +15,8 @@ Cont<E, F, List<A>> _allSequence<E, F, A>(
         updateSecondary,
       ) {
         final Cont<E, F, A> cont = list[index];
-        cont.runWith(
-          runtime,
+        return cont.runWith(
+          env,
           observer.copyUpdate(
             onCrash: (crash) {
               updateCrash(crash);
@@ -41,9 +41,9 @@ Cont<E, List<F>, A> _anySequence<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // defensive copy again
-    _seq<A, F>(
+    return _seq<A, F>(
       total: list.length,
       onRun: (
         index,
@@ -52,8 +52,8 @@ Cont<E, List<F>, A> _anySequence<E, F, A>(
         updateSecondary,
       ) {
         final Cont<E, F, A> cont = list[index];
-        cont.runWith(
-          runtime,
+        return cont.runWith(
+          env,
           observer.copyUpdate(onCrash: (crash) {
             updateCrash(crash);
           }, onElse: (error) {
@@ -74,15 +74,18 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
   List<Cont<E, F, A>> list,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
       observer.onCrash(CollectedCrash._({}));
-      return;
+      return _voidIgnore;
     }
 
     final crashes = <int, ContCrash>{};
+    // items run one after another; a cancel reaches the running item and
+    // every item started afterwards
+    final cancellers = _Cancellers();
 
     _stackSafeLoop<_Triple<int, A, F>, int,
         _Triple<(), A, F>>(
@@ -102,21 +105,23 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
       },
       computation: (i, update) {
         ContCrash.tryCatch(() {
-          list[i].runWith(
-            runtime,
-            observer.copyUpdate(
-              onCrash: (c) {
-                crashes[i] = c;
-                update(_Value1(i + 1));
-              },
-              onElse: (f) {
-                update(_Value3(f));
-              },
-              onThen: (a) {
-                update(_Value2(a));
-              },
-            ),
-          );
+          cancellers.runNext(() {
+            return list[i].runWith(
+              env,
+              observer.copyUpdate(
+                onCrash: (c) {
+                  crashes[i] = c;
+                  update(_Value1(i + 1));
+                },
+                onElse: (f) {
+                  update(_Value3(f));
+                },
+                onThen: (a) {
+                  update(_Value2(a));
+                },
+              ),
+            );
+          });
         })._ifCrash((crash) {
           crashes[i] = crash;
           update(_Value1(i + 1));
@@ -135,12 +140,13 @@ Cont<E, F, A> _convergeSequence<E, F, A>(
         }
       },
     );
+    return cancellers.cancel;
   });
 }
 
-void _seq<S, A>({
+void Function() _seq<S, A>({
   required int total,
-  required void Function(
+  required void Function() Function(
     int index,
     void Function(ContCrash crash) updateCrash,
     void Function(A) updatePrimary,
@@ -150,6 +156,9 @@ void _seq<S, A>({
   required void Function(S secondary) onSecondary,
   required void Function(ContCrash crash) onCrash,
 }) {
+  // items run one after another; a cancel reaches the running item and
+  // every item started afterwards
+  final cancellers = _Cancellers();
   _stackSafeLoop<
       _Triple<List<A>, S, ContCrash>, // state
       List<A>, // loop input
@@ -176,19 +185,21 @@ void _seq<S, A>({
     computation: (values, update) {
       final i = values.length;
       ContCrash.tryCatch(() {
-        onRun(
-          i,
-          (crash) {
-            update(_Value3(crash));
-          },
-          (a) {
-            values.add(a);
-            update(_Value1(values));
-          },
-          (secondary) {
-            update(_Value2(secondary));
-          },
-        );
+        cancellers.runNext(() {
+          return onRun(
+            i,
+            (crash) {
+              update(_Value3(crash));
+            },
+            (a) {
+              values.add(a);
+              update(_Value1(values));
+            },
+            (secondary) {
+              update(_Value2(secondary));
+            },
+          );
+        });
       })._ifCrash((crash) {
         update(_Value3(crash));
       });
@@ -204,4 +215,5 @@ void _seq<S, A>({
       }
     },
   );
+  return cancellers.cancel;
 }

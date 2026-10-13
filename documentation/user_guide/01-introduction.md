@@ -159,9 +159,8 @@ Example of `Cont`'s composition:
 
 final program = function1(value)
   .thenDo(function2)
-  .thenDo((result2) {
-    // the rest of the program
-  });
+  .thenDo(function3);
+  // the rest of the program
 ```
 
 ## Getting Started with Cont
@@ -239,7 +238,7 @@ final class CollectedCrash extends ContCrash {
 }
 ```
 
-Unlike the typed error on the else channel (type `F`), crashes are untyped and represent unexpected failures — the equivalent of unhandled exceptions in traditional code.
+`ContCrash` is a sealed class, so you read a crash with a `switch` on its subtypes. Unlike the typed error on the else channel (type `F`), crashes are untyped and represent unexpected failures — the equivalent of unhandled exceptions in traditional code.
 
 ---
 

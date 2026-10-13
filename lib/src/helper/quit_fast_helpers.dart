@@ -5,45 +5,53 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
   Cont<E, F, A2> right,
   A3 Function(A1 a1, A2 a2) combine,
 ) {
-  return Cont.fromRun((runtime0, observer) {
+  return Cont.fromRun((env0, observer) {
+    // cancelling forwards to both sides; deciding cancels the loser
+    final cancellers = _Cancellers();
     final (
-      runtime,
+      env,
       handleCrash,
       handleElse,
       handleThen,
     ) = _quitFast<E, A1, A2, A3, F>(
-      runtime: runtime0,
+      env: env0,
       combine: combine,
       onPrimary: observer.onElse,
       onSecondary: observer.onThen,
       onCrash: observer.onCrash,
+      onDecided: cancellers.cancel,
     );
 
     ContCrash.tryCatch(() {
-      left.runWith(
-        runtime,
-        observer.copyUpdate(
-          onCrash: handleCrash,
-          onElse: handleElse,
-          onThen: (a) {
-            handleThen(_Left(a));
-          },
-        ),
-      );
+      cancellers.runAlongside(() {
+        return left.runWith(
+          env,
+          observer.copyUpdate(
+            onCrash: handleCrash,
+            onElse: handleElse,
+            onThen: (a) {
+              handleThen(_Left(a));
+            },
+          ),
+        );
+      });
     })._ifCrash(handleCrash);
 
     ContCrash.tryCatch(() {
-      right.runWith(
-        runtime,
-        observer.copyUpdate(
-          onCrash: handleCrash,
-          onElse: handleElse,
-          onThen: (a) {
-            handleThen(_Right(a));
-          },
-        ),
-      );
+      cancellers.runAlongside(() {
+        return right.runWith(
+          env,
+          observer.copyUpdate(
+            onCrash: handleCrash,
+            onElse: handleElse,
+            onThen: (a) {
+              handleThen(_Right(a));
+            },
+          ),
+        );
+      });
     })._ifCrash(handleCrash);
+    return cancellers.cancel;
   });
 }
 
@@ -52,45 +60,53 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
   Cont<E, F2, A> right,
   F3 Function(F1 f1, F2 f2) combine,
 ) {
-  return Cont.fromRun((runtime0, observer) {
+  return Cont.fromRun((env0, observer) {
+    // cancelling forwards to both sides; deciding cancels the loser
+    final cancellers = _Cancellers();
     final (
-      runtime,
+      env,
       handleCrash,
       handleThen,
       handleElse,
     ) = _quitFast<E, F1, F2, F3, A>(
-      runtime: runtime0,
+      env: env0,
       combine: combine,
       onPrimary: observer.onThen,
       onSecondary: observer.onElse,
       onCrash: observer.onCrash,
+      onDecided: cancellers.cancel,
     );
 
     ContCrash.tryCatch(() {
-      left.runWith(
-        runtime,
-        observer.copyUpdate(
-          onCrash: handleCrash,
-          onElse: ((f1) {
-            handleElse(_Left(f1));
-          }),
-          onThen: handleThen,
-        ),
-      );
+      cancellers.runAlongside(() {
+        return left.runWith(
+          env,
+          observer.copyUpdate(
+            onCrash: handleCrash,
+            onElse: ((f1) {
+              handleElse(_Left(f1));
+            }),
+            onThen: handleThen,
+          ),
+        );
+      });
     })._ifCrash(handleCrash);
 
     ContCrash.tryCatch(() {
-      right.runWith(
-        runtime,
-        observer.copyUpdate(
-          onCrash: handleCrash,
-          onElse: ((f2) {
-            handleElse(_Right(f2));
-          }),
-          onThen: handleThen,
-        ),
-      );
+      cancellers.runAlongside(() {
+        return right.runWith(
+          env,
+          observer.copyUpdate(
+            onCrash: handleCrash,
+            onElse: ((f2) {
+              handleElse(_Right(f2));
+            }),
+            onThen: handleThen,
+          ),
+        );
+      });
     })._ifCrash(handleCrash);
+    return cancellers.cancel;
   });
 }
 
@@ -98,9 +114,11 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   Cont<E, F, A> left,
   Cont<E, F, A> right,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
+    // cancelling forwards to both sides; deciding cancels the loser
+    final cancellers = _Cancellers();
     final _QuitFastStateHolder<ContCrash, ContCrash>
-        holder = _QuitFastStateHolder();
+        holder = _QuitFastStateHolder(cancellers.cancel);
 
     void handleThen(A a) {
       if (holder.state == null) {
@@ -158,51 +176,57 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
     }
 
     ContCrash.tryCatch(() {
-      left.runWith(
-        runtime,
-        observer.copyUpdate(
-          onCrash: (crash) {
-            handleCrash(_Left(crash));
-          },
-          onElse: handleElse,
-          onThen: handleThen,
-        ),
-      );
+      cancellers.runAlongside(() {
+        return left.runWith(
+          env,
+          observer.copyUpdate(
+            onCrash: (crash) {
+              handleCrash(_Left(crash));
+            },
+            onElse: handleElse,
+            onThen: handleThen,
+          ),
+        );
+      });
     })._ifCrash((crash) {
       handleCrash(_Left(crash));
     });
 
     ContCrash.tryCatch(() {
-      right.runWith(
-        runtime,
-        observer.copyUpdate(
-          onCrash: (crash) {
-            handleCrash(_Right(crash));
-          },
-          onElse: handleElse,
-          onThen: handleThen,
-        ),
-      );
+      cancellers.runAlongside(() {
+        return right.runWith(
+          env,
+          observer.copyUpdate(
+            onCrash: (crash) {
+              handleCrash(_Right(crash));
+            },
+            onElse: handleElse,
+            onThen: handleThen,
+          ),
+        );
+      });
     })._ifCrash((crash) {
       handleCrash(_Right(crash));
     });
+    return cancellers.cancel;
   });
 }
 
 (
-  ContRuntime<E> runtime,
+  E env,
   void Function(ContCrash) handleCrash,
   void Function(A a) handlePrimary,
   void Function(_Either<F1, F2> either) handleSecondary,
 ) _quitFast<E, F1, F2, F3, A>({
-  required ContRuntime<E> runtime,
+  required E env,
   required F3 Function(F1 f1, F2 f2) combine,
   required void Function(A a) onPrimary,
   required void Function(F3 f3) onSecondary,
   required void Function(ContCrash crash) onCrash,
+  required void Function() onDecided,
 }) {
   final _QuitFastStateHolder<F1, F2> holder =
-      _QuitFastStateHolder();
+      _QuitFastStateHolder(onDecided);
 
   void handleCrash(ContCrash crash) {
     if (holder.state == null) {
@@ -269,19 +293,27 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
     }
   }
 
-  return (
-    runtime,
-    handleCrash,
-    handlePrimary,
-    handleSecondary
-  );
+  return (env, handleCrash, handlePrimary, handleSecondary);
 }
 
 final class _QuitFastStateHolder<F1, F2> {
-  /// `null` once the race is decided.
-  _QuitFastStep<F1, F2>? state = const _QuitFastStep0();
+  /// Called once, when the race is decided.
+  final void Function() _onDecided;
 
-  _QuitFastStateHolder();
+  _QuitFastStep<F1, F2>? _state = const _QuitFastStep0();
+
+  _QuitFastStateHolder(this._onDecided);
+
+  /// `null` once the race is decided.
+  _QuitFastStep<F1, F2>? get state => _state;
+
+  set state(_QuitFastStep<F1, F2>? state) {
+    final isDecided = _state == null;
+    _state = state;
+    if (state == null && !isDecided) {
+      _onDecided();
+    }
+  }
 }
 
 sealed class _QuitFastStep<F1, F2> {

@@ -6,11 +6,10 @@ This guide provides comprehensive real-world examples that demonstrate Jerelo's 
 
 ## Complete Example: User Management System
 
-Here's a comprehensive example bringing it all together. It uses core operators, plus `contBracket` and the background forks from [jerelo_ext](https://pub.dev/packages/jerelo_ext):
+Here's a comprehensive example bringing it all together. It uses environment access, fallbacks, background forks, parallel execution, `Cont.bracket` and `Cont.tailRecM`:
 
 ```dart
 import 'package:jerelo/jerelo.dart';
-import 'package:jerelo_ext/jerelo_ext.dart';
 
 class AppConfig {
   final String apiUrl;
@@ -56,7 +55,7 @@ Cont<AppConfig, String, List<User>> getUsers(List<String> userIds) {
 
 // Process users with resource management
 Cont<AppConfig, String, Report> processUsers(List<String> userIds) {
-  return contBracket<Database, AppConfig, String, Report>(
+  return Cont.bracket<Database, AppConfig, String, Report>(
     acquire: openDatabase(),
     release: (db) => closeDatabase(db),
     use: (db) {
@@ -107,9 +106,9 @@ This example demonstrates:
 - Error handling with fallbacks (elseDo)
 - Conditional execution (thenDo returning Cont.of or Cont.error)
 - Reading config in the middle of a chain (Cont.askThen)
-- Background side effects (elseForkWithEnv, thenForkWithEnv from jerelo_ext)
+- Background side effects (elseForkWithEnv, thenForkWithEnv)
 - Parallel execution with policies (Cont.all with OkPolicy.quitFast)
-- Resource management (contBracket from jerelo_ext)
+- Resource management (Cont.bracket)
 - Looping (Cont.tailRecM)
 
 ---
@@ -122,7 +121,7 @@ This example demonstrates:
 
 ```dart
 Cont<E, String, List<Post>> fetchPosts<E>(String authorId) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     http.get(Uri.parse('/posts?author=$authorId')).then(
       (response) {
         if (response.statusCode == 200) {
@@ -136,6 +135,8 @@ Cont<E, String, List<Post>> fetchPosts<E>(String authorId) {
         observer.onElse('$e');
       },
     );
+    // A Future cannot be stopped, so cancelling does nothing
+    return () {};
   });
 }
 
@@ -151,9 +152,9 @@ fetchPosts<()>(authorId)
 
 ```dart
 Cont<E, String, User> getUser<E>(String id) {
-  return readFromCache(id)
-    .elseDo((_) => fetchFromNetwork(id)
-      .thenDo((user) => writeToCache(id, user).thenMap((_) => user)),
+  return readFromCache<E>(id)
+    .elseDo((_) => fetchFromNetwork<E>(id)
+      .thenDo((user) => writeToCache<E>(id, user).thenMap((_) => user)),
     )
     .elseDo((_) => Cont.of(User.guest()));
 }
@@ -223,7 +224,7 @@ Cont<(), F, List<T>> withProgress<F, T>(
   List<Cont<(), F, T>> tasks,
   void Function(int done, int total) onProgress,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     int done = 0;
     final tracked = tasks.map((task) =>
       task.thenMap((value) {
@@ -231,8 +232,8 @@ Cont<(), F, List<T>> withProgress<F, T>(
         return value;
       })
     ).toList();
-    Cont.all(tracked, policy: OkPolicy.quitFast())
-      .runWith(runtime, observer);
+    return Cont.all(tracked, policy: OkPolicy.quitFast())
+      .runWith(env, observer);
   });
 }
 
@@ -264,13 +265,13 @@ loadConfig().run((), onThen: applyConfig, onElse: showError);
 
 ### Pattern 6: Resource Management
 
-`contBracket` from [jerelo_ext](https://pub.dev/packages/jerelo_ext) runs `release` once `use` succeeds, fails, or crashes. It is the correct tool whenever a computation acquires a resource that must be released.
+`Cont.bracket` runs `release` once `use` succeeds, fails, or crashes. It is the correct tool whenever a computation acquires a resource that must be released.
 
 ```dart
-import 'package:jerelo_ext/jerelo_ext.dart';
+import 'package:jerelo/jerelo.dart';
 
 Cont<(), String, Report> generateReport(Query query) {
-  return contBracket(
+  return Cont.bracket(
     acquire: openDatabaseConnection(),
     release: (conn) => closeConnection(conn),
     use: (conn) => conn.execute(query).thenMap(Report.fromRows),
@@ -302,7 +303,11 @@ fetchData()
 
 ```dart
 // Thread dependencies through the environment rather than function parameters
-class AppEnv { final Logger logger; final Database db; }
+class AppEnv {
+  final Logger logger;
+  final Database db;
+  AppEnv(this.logger, this.db);
+}
 
 Cont<AppEnv, String, List<Order>> fetchOrders(String userId) {
   return Cont.askThen<AppEnv, String>().thenDo((env) {
@@ -320,10 +325,9 @@ Cont<AppEnv, String, List<Order>> fetchOrders(String userId) {
 ### 3. Use a Bracket for Resource Management
 
 ```dart
-// contBracket is in jerelo_ext.
 // Release runs even if use crashes.
 Cont<E, F, T> withConnection<E, F, T>(Cont<Connection, F, T> operation) {
-  return contBracket(
+  return Cont.bracket(
     acquire: openConnection(),
     release: (conn) => closeConnection(conn),
     use: (conn) => operation.local((_) => conn),

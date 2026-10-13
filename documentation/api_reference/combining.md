@@ -38,8 +38,10 @@ Every combinator has its **own channel** and treats the other two channels as **
 The policy decides how the inputs are run:
 
 - **`sequence`**: the next input runs only if the previous one ended on the own channel. The first exit ends the whole computation.
-- **`quitFast`**: all inputs run in parallel. The first exit ends the computation immediately; ending on the own channel waits for the others. The inputs still running when the result is decided keep running, and their results are ignored.
+- **`quitFast`**: all inputs run in parallel. The first exit ends the computation immediately; ending on the own channel waits for the others. Once the result is decided, the inputs still running are **cancelled**, and anything they report afterwards is ignored.
 - **`runAll`**: all inputs run in parallel and every one of them completes. If some inputs end on the own channel and others exit, the result is the exit.
+
+**Cancellation:** a cancel from outside (see [Cancellation](execution.md#cancellation)) is forwarded to every input that is running. With `sequence`, it reaches the running input and every later input as it starts. `runAll` never cancels an input on its own. `quitFast` additionally cancels the losers once the result is decided; how a loser reacts depends on its leaves — an input whose leaves ignore cancellation keeps running in the background.
 
 An empty list has vacuously ended on its own channel: `all([])` succeeds with `[]`, `any([])` fails with `[]`, and `converge([])` crashes with an empty `CollectedCrash`.
 
@@ -58,9 +60,9 @@ Defines how multiple continuations should be executed. Different policies provid
 **Static Factory Methods:**
 
 ```dart
-static OkPolicy<T> sequence<T>()
+static OkPolicy<Never> sequence()
 ```
-Creates a sequential execution policy. Operations are executed one after another in order.
+Creates a sequential execution policy. Operations are executed one after another in order. The policy carries no data, so it is typed `OkPolicy<Never>`, which fits any `OkPolicy<T>`; the combinator infers its types from its continuations.
 
 When used with `both`/`all`: execution stops at the first failure or crash.
 When used with `either`/`any`: execution stops at the first success or crash.
@@ -81,9 +83,9 @@ final result = Cont.all(
 ---
 
 ```dart
-static OkPolicy<T> quitFast<T>()
+static OkPolicy<Never> quitFast()
 ```
-Creates a quit-fast policy. All operations start executing in parallel and the result is returned as soon as the decisive outcome occurs.
+Creates a quit-fast policy. All operations start executing in parallel and the result is returned as soon as the decisive outcome occurs; the operations still running are then cancelled. Like `sequence`, it is typed `OkPolicy<Never>`.
 
 When used with `both`/`all`: returns immediately on the first failure or crash; successes wait for the others.
 When used with `either`/`any`: returns immediately on the first success or crash; failures wait for the others.
@@ -123,6 +125,8 @@ The `shouldFavorCrash` flag only decides between two *different* exits, a crash 
 - `false`: the other exit wins
 
 With `all`/`any`, crashes are reported as a `CollectedCrash` keyed by input index, even when only one input crashed. With `both`/`either`, two crashes are combined into a `MergedCrash`.
+
+If `combine` throws, that is a crash of the combinator itself, not of an input: combining stops, and once every input has finished the result is that crash as a plain `NormalCrash`, whatever the other outcomes and `shouldFavorCrash` are.
 
 - **Parameters:**
   - `combine`: Function to merge two values of the exit channel being collected (errors for `both`/`all`, successes for `either`/`any`)
@@ -166,16 +170,16 @@ Defines how multiple continuations should be executed and how their crashes and 
 **Static Factory Methods:**
 
 ```dart
-static CrashPolicy<E, A> sequence<E, A>()
+static CrashPolicy<Never, Never> sequence()
 ```
-Creates a sequential execution policy. Operations execute one after another; the next one runs only if the previous one crashed. The first success or error ends the computation.
+Creates a sequential execution policy. Operations execute one after another; the next one runs only if the previous one crashed. The first success or error ends the computation. The policy carries no data, so it is typed `CrashPolicy<Never, Never>`, which fits any `CrashPolicy<E, A>`.
 
 ---
 
 ```dart
-static CrashPolicy<E, A> quitFast<E, A>()
+static CrashPolicy<Never, Never> quitFast()
 ```
-Creates a quit-fast policy. All operations start in parallel; returns immediately on the first non-crash outcome. A crash waits for the others; if all of them crash, the crashes are combined (`MergedCrash` for `coalesce`, `CollectedCrash` for `converge`).
+Creates a quit-fast policy, typed `CrashPolicy<Never, Never>` like `sequence`. All operations start in parallel; returns immediately on the first non-crash outcome and cancels the operations still running. A crash waits for the others; if all of them crash, the crashes are combined (`MergedCrash` for `coalesce`, `CollectedCrash` for `converge`).
 
 ---
 
@@ -196,6 +200,8 @@ When multiple non-crash outcomes exist, `shouldFavorElse` determines whether err
   - `shouldFavorElse`: Whether errors take priority over successes
   - `combineElseVals`: Function to merge two error values
   - `combineThenVals`: Function to merge two success values
+
+If `combineElseVals` or `combineThenVals` throws, that is a crash of the combinator itself, not of an input: combining stops, and once every input has finished the result is that crash as a plain `NormalCrash`, whatever the other outcomes and `shouldFavorElse` are.
 
 **Example:**
 ```dart

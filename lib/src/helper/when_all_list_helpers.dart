@@ -1,8 +1,8 @@
 part of '../cont.dart';
 
-void _whenAllPar<P, S>({
+void Function() _whenAllPar<P, S>({
   required int total,
-  required void Function(
+  required void Function() Function(
     int index,
     void Function(ContCrash) onCrash,
     void Function(P) onPrimary,
@@ -16,14 +16,22 @@ void _whenAllPar<P, S>({
 }) {
   if (total <= 0) {
     onAllPrimary([]);
-    return;
+    return _voidIgnore;
   }
+
+  // cancelling forwards to every item
+  final cancellers = _Cancellers();
 
   bool isDone = false;
 
   _Either<(), S> seed = _Left(());
   final List<P> results = [];
   final Map<int, ContCrash> crashes = {};
+
+  // a throw from combine is a crash of the combinator itself, not of an
+  // item: once set, combining stops and it is the result once every item
+  // has finished, whatever the other outcomes and shouldFavorCrash are
+  ContCrash? combineCrash;
 
   var numberOfFinishedComputations = 0;
 
@@ -35,6 +43,11 @@ void _whenAllPar<P, S>({
 
     if (numberOfFinishedComputations >= total) {
       isDone = true;
+
+      if (combineCrash case final combineCrash?) {
+        onCrash(combineCrash);
+        return;
+      }
 
       switch (seed) {
         case _Left<(), S>():
@@ -69,13 +82,19 @@ void _whenAllPar<P, S>({
 
     if (numberOfFinishedComputations >= total) {
       isDone = true;
+
+      if (combineCrash case final combineCrash?) {
+        onCrash(combineCrash);
+        return;
+      }
+
       switch (seed) {
         case _Left<(), S>():
           if (crashes.isEmpty) {
             results.add(p);
             onAllPrimary(
               results,
-            ); // defensive copy
+            ); // no copy needed: results is not changed after this
           } else {
             final resultCrash = CollectedCrash._(
               Map<int, ContCrash>.from(crashes),
@@ -112,6 +131,11 @@ void _whenAllPar<P, S>({
     if (numberOfFinishedComputations >= total) {
       isDone = true;
 
+      if (combineCrash case final combineCrash?) {
+        onCrash(combineCrash);
+        return;
+      }
+
       switch (seed) {
         case _Left<(), S>():
           if (crashes.isEmpty) {
@@ -131,13 +155,7 @@ void _whenAllPar<P, S>({
             ContCrash.tryCatch(() {
               final newSeed = combine(seedValue, s);
               onAnySecondary(newSeed);
-            })._ifCrash((crash) {
-              if (shouldFavorCrash) {
-                onCrash(crash);
-              } else {
-                onAnySecondary(seedValue);
-              }
-            });
+            })._ifCrash(onCrash);
           } else {
             if (shouldFavorCrash) {
               final resultCrash = CollectedCrash._(
@@ -148,11 +166,7 @@ void _whenAllPar<P, S>({
               ContCrash.tryCatch(() {
                 final newSeed = combine(seedValue, s);
                 onAnySecondary(newSeed);
-              })._ifCrash((_) {
-                onAnySecondary(
-                  seedValue,
-                ); // we ignore crash, as we favor secondary
-              });
+              })._ifCrash(onCrash);
             }
           }
       }
@@ -164,27 +178,34 @@ void _whenAllPar<P, S>({
       case _Left<(), S>():
         seed = _Right(s);
       case _Right<(), S>(value: final seedValue):
+        if (combineCrash != null) {
+          break; // combining stopped after combine threw
+        }
         ContCrash.tryCatch(() {
           final newSeed = combine(seedValue, s);
           seed = _Right(newSeed);
         })._ifCrash((crash) {
-          crashes[i] = crash;
+          combineCrash = crash;
         });
     }
   }
 
   for (var i = 0; i < total; i++) {
-    onRun(
-      i,
-      (crash) {
-        handleCrash(i, crash);
-      },
-      handlePrimary,
-      (secondary) {
-        handleSecondary(i, secondary);
-      },
-    );
+    cancellers.runAlongside(() {
+      return onRun(
+        i,
+        (crash) {
+          handleCrash(i, crash);
+        },
+        handlePrimary,
+        (secondary) {
+          handleSecondary(i, secondary);
+        },
+      );
+    });
   }
+
+  return cancellers.cancel;
 }
 
 Cont<E, F, List<A>> _whenAllAll<E, F, A>(
@@ -193,16 +214,17 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
   bool shouldFavorCrash,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // another defensive copy
-    _whenAllPar<A, F>(
+    return _whenAllPar<A, F>(
       shouldFavorCrash: shouldFavorCrash,
       total: list.length,
       onRun: (index, onCrash, onPrimary, onSecondary) {
         final cont = list[index];
+        void Function() canceller = _voidIgnore;
         ContCrash.tryCatch(() {
-          cont.runWith(
-            runtime,
+          canceller = cont.runWith(
+            env,
             observer.copyUpdate(
               onCrash: (crash) {
                 onCrash(crash);
@@ -216,6 +238,7 @@ Cont<E, F, List<A>> _whenAllAll<E, F, A>(
             ),
           );
         })._ifCrash(onCrash);
+        return canceller;
       },
       combine: combine,
       onAllPrimary: observer.onThen,
@@ -232,14 +255,16 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
   bool shouldFavorElse,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // defensive copy
 
     if (list.isEmpty) {
       observer.onCrash(CollectedCrash._({}));
-      return;
+      return _voidIgnore;
     }
 
+    // cancelling forwards to every item
+    final cancellers = _Cancellers();
     final total = list.length;
     bool isDone = false;
     int numberOfFinished = 0;
@@ -247,7 +272,16 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
     _Either<(), A> thenAcc = _Left(());
     _Either<(), F> elseAcc = _Left(());
 
+    // a throw from combineThenVals or combineElseVals is a crash of the
+    // combinator itself, not of an item: once set, combining stops and it
+    // is the result once every item has finished
+    ContCrash? combineCrash;
+
     void onAllFinished() {
+      if (combineCrash case final combineCrash?) {
+        observer.onCrash(combineCrash);
+        return;
+      }
       if (crashes.length >= total) {
         observer.onCrash(
           CollectedCrash._(Map.from(crashes)),
@@ -269,7 +303,7 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
         case (_Left(), _Right(value: final f)):
           observer.onElse(f);
         case (_Left(), _Left()):
-          break; // unreachable: crashes.length < total implies hasThen || hasElse
+          break; // unreachable: crashes.length < total implies an item succeeded or failed
       }
     }
 
@@ -280,10 +314,13 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
         case _Left():
           thenAcc = _Right(a);
         case _Right(value: final prev):
+          if (combineCrash != null) {
+            break; // combining stopped after a combine threw
+          }
           ContCrash.tryCatch(() {
             thenAcc = _Right(combineThenVals(prev, a));
           })._ifCrash((crash) {
-            crashes[index] = crash;
+            combineCrash = crash;
           });
       }
       if (numberOfFinished >= total) {
@@ -299,10 +336,13 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
         case _Left():
           elseAcc = _Right(f);
         case _Right(value: final prev):
+          if (combineCrash != null) {
+            break; // combining stopped after a combine threw
+          }
           ContCrash.tryCatch(() {
             elseAcc = _Right(combineElseVals(prev, f));
           })._ifCrash((crash) {
-            crashes[index] = crash;
+            combineCrash = crash;
           });
       }
       if (numberOfFinished >= total) {
@@ -324,24 +364,28 @@ Cont<E, F, A> _convergeCrashRunAll<E, F, A>(
     for (var i = 0; i < total; i++) {
       final idx = i;
       ContCrash.tryCatch(() {
-        list[idx].runWith(
-          runtime,
-          observer.copyUpdate(
-            onCrash: (crash) {
-              handleCrash(idx, crash);
-            },
-            onElse: (f) {
-              handleElse(idx, f);
-            },
-            onThen: (a) {
-              handleThen(idx, a);
-            },
-          ),
-        );
+        cancellers.runAlongside(() {
+          return list[idx].runWith(
+            env,
+            observer.copyUpdate(
+              onCrash: (crash) {
+                handleCrash(idx, crash);
+              },
+              onElse: (f) {
+                handleElse(idx, f);
+              },
+              onThen: (a) {
+                handleThen(idx, a);
+              },
+            ),
+          );
+        });
       })._ifCrash((crash) {
         handleCrash(idx, crash);
       });
     }
+
+    return cancellers.cancel;
   });
 }
 
@@ -351,17 +395,18 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
   bool shouldFavorCrash,
 ) {
   list = list.toList(); // defensive copy
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     list = list.toList(); // another defensive copy
-    _whenAllPar<F, A>(
+    return _whenAllPar<F, A>(
       shouldFavorCrash: shouldFavorCrash,
       total: list.length,
       onRun: (index, onCrash, onPrimary, onSecondary) {
         final cont = list[index];
 
+        void Function() canceller = _voidIgnore;
         ContCrash.tryCatch(() {
-          cont.runWith(
-            runtime,
+          canceller = cont.runWith(
+            env,
             observer.copyUpdate(
               onCrash: (crash) {
                 onCrash(crash);
@@ -375,6 +420,7 @@ Cont<E, List<F>, A> _whenAllAny<E, F, A>(
             ),
           );
         })._ifCrash(onCrash);
+        return canceller;
       },
       combine: combine,
       onAllPrimary: observer.onElse,
