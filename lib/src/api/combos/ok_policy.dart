@@ -51,6 +51,11 @@ sealed class OkPolicy<T> {
   /// `MergedCrash`, and `Cont.all`/`Cont.any` report crashes as a
   /// `CollectedCrash`.
   ///
+  /// If [combine] throws, that is a crash of the combinator itself, not of
+  /// an input: combining stops, and once every continuation has finished
+  /// the result is that crash, whatever the other outcomes and
+  /// [shouldFavorCrash] are.
+  ///
   /// Results are collected in completion order, not list order. Tag each
   /// result (e.g. with a record holding an id) when you need to know which
   /// continuation produced it.

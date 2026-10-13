@@ -49,6 +49,11 @@ sealed class CrashPolicy<E, A> {
   /// they are combined using [combineElseVals] or [combineThenVals] as
   /// appropriate.
   ///
+  /// If [combineElseVals] or [combineThenVals] throws, that is a crash of
+  /// the combinator itself, not of an input: combining stops, and once every
+  /// continuation has finished the result is that crash, whatever the other
+  /// outcomes and [shouldFavorElse] are.
+  ///
   /// - [shouldFavorElse]: When `true`, an else (error) outcome is favored over
   ///   a then (success) outcome when both occur; when `false`, the success is
   ///   favored.

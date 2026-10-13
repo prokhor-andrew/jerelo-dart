@@ -126,6 +126,8 @@ The `shouldFavorCrash` flag only decides between two *different* exits, a crash 
 
 With `all`/`any`, crashes are reported as a `CollectedCrash` keyed by input index, even when only one input crashed. With `both`/`either`, two crashes are combined into a `MergedCrash`.
 
+If `combine` throws, that is a crash of the combinator itself, not of an input: combining stops, and once every input has finished the result is that crash as a plain `NormalCrash`, whatever the other outcomes and `shouldFavorCrash` are.
+
 - **Parameters:**
   - `combine`: Function to merge two values of the exit channel being collected (errors for `both`/`all`, successes for `either`/`any`)
   - `shouldFavorCrash`: Whether a crash wins over the other exit
@@ -198,6 +200,8 @@ When multiple non-crash outcomes exist, `shouldFavorElse` determines whether err
   - `shouldFavorElse`: Whether errors take priority over successes
   - `combineElseVals`: Function to merge two error values
   - `combineThenVals`: Function to merge two success values
+
+If `combineElseVals` or `combineThenVals` throws, that is a crash of the combinator itself, not of an input: combining stops, and once every input has finished the result is that crash as a plain `NormalCrash`, whatever the other outcomes and `shouldFavorElse` are.
 
 **Example:**
 ```dart
