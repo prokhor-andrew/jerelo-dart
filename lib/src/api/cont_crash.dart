@@ -76,7 +76,7 @@ final class NormalCrash extends ContCrash {
 /// A crash that combines two crashes from paired operations.
 ///
 /// Produced when two continuations are run (e.g. in [Cont.coalesce],
-/// `crashZip` from jerelo_ext, or [Cont.both]/[Cont.either] with
+/// [ContCrashZipExtension.crashZip], or [Cont.both]/[Cont.either] with
 /// [RunAllOkPolicy]) and both crash. Carries the original [left] and
 /// [right] crashes so callers can inspect both.
 /// Can also be created directly or with [ContCrash.merge].

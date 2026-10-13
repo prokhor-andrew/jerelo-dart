@@ -7,8 +7,7 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
   /// also terminates, only the fallback's error is propagated (the original
   /// error is discarded).
   ///
-  /// To accumulate errors from both attempts, use `elseZip` from the
-  /// jerelo_ext package instead.
+  /// To accumulate errors from both attempts, use [elseZip] instead.
   ///
   /// - [f]: Function that receives error and produces a fallback continuation.
   Cont<E, F2, A> elseDo<F2>(
