@@ -121,6 +121,71 @@ void main() {
       }
     }
 
+    // items 0 and 1 exit, item 2 crashes; combine always throws
+    final crash2 = (() {
+      ContCrash? c;
+      Cont.fromRun<(), String, int>((_, o) {
+        throw 'item crashed';
+      }).run((), onCrash: (x) => c = x);
+      return c!;
+    })();
+    for (final shouldFavorCrash in [true, false]) {
+      for (final order in [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+      ]) {
+        test(
+            'all with a crash, shouldFavorCrash: '
+            '$shouldFavorCrash, order $order', () {
+          final items = _Items<String, int>(3);
+          ContCrash? crash;
+          Cont.all(
+            items.conts,
+            policy: OkPolicy.runAll<String>(
+              (acc, e) => throw 'combine failed',
+              shouldFavorCrash: shouldFavorCrash,
+            ),
+          ).run((), onCrash: (c) => crash = c);
+          for (final i in order) {
+            if (i == 2) {
+              items.observers[i]!.onCrash(crash2);
+            } else {
+              items.observers[i]!.onElse('e$i');
+            }
+          }
+
+          expect(_errorOf(crash), equals('combine failed'));
+        });
+
+        test(
+            'any with a crash, shouldFavorCrash: '
+            '$shouldFavorCrash, order $order', () {
+          final items = _Items<String, int>(3);
+          ContCrash? crash;
+          Cont.any(
+            items.conts,
+            policy: OkPolicy.runAll<int>(
+              (acc, v) => throw 'combine failed',
+              shouldFavorCrash: shouldFavorCrash,
+            ),
+          ).run((), onCrash: (c) => crash = c);
+          for (final i in order) {
+            if (i == 2) {
+              items.observers[i]!.onCrash(crash2);
+            } else {
+              items.observers[i]!.onThen(i);
+            }
+          }
+
+          expect(_errorOf(crash), equals('combine failed'));
+        });
+      }
+    }
+
     test('the result waits until every item has finished',
         () {
       final items = _Items<String, int>(3);

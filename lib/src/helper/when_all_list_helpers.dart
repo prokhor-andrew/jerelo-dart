@@ -128,52 +128,8 @@ void Function() _whenAllPar<P, S>({
 
     numberOfFinishedComputations += 1;
 
-    if (numberOfFinishedComputations >= total) {
-      isDone = true;
-
-      if (combineCrash case final combineCrash?) {
-        onCrash(combineCrash);
-        return;
-      }
-
-      switch (seed) {
-        case _Left<(), S>():
-          if (crashes.isEmpty) {
-            onAnySecondary(s);
-          } else {
-            if (shouldFavorCrash) {
-              final resultCrash = CollectedCrash._(
-                Map<int, ContCrash>.from(crashes),
-              ); // defensive copy
-              onCrash(resultCrash);
-            } else {
-              onAnySecondary(s);
-            }
-          }
-        case _Right<(), S>(value: final seedValue):
-          if (crashes.isEmpty) {
-            ContCrash.tryCatch(() {
-              final newSeed = combine(seedValue, s);
-              onAnySecondary(newSeed);
-            })._ifCrash(onCrash);
-          } else {
-            if (shouldFavorCrash) {
-              final resultCrash = CollectedCrash._(
-                Map<int, ContCrash>.from(crashes),
-              ); // defensive copy
-              onCrash(resultCrash);
-            } else {
-              ContCrash.tryCatch(() {
-                final newSeed = combine(seedValue, s);
-                onAnySecondary(newSeed);
-              })._ifCrash(onCrash);
-            }
-          }
-      }
-
-      return;
-    }
-
+    // combine every arriving exit before deciding the outcome, so a
+    // throwing combine is seen whichever item finishes last
     switch (seed) {
       case _Left<(), S>():
         seed = _Right(s);
@@ -187,6 +143,31 @@ void Function() _whenAllPar<P, S>({
         })._ifCrash((crash) {
           combineCrash = crash;
         });
+    }
+
+    if (numberOfFinishedComputations < total) {
+      return;
+    }
+
+    isDone = true;
+
+    if (combineCrash case final combineCrash?) {
+      onCrash(combineCrash);
+      return;
+    }
+
+    switch (seed) {
+      case _Left<(), S>():
+        break; // unreachable: seed was set above
+      case _Right<(), S>(value: final seedValue):
+        if (crashes.isNotEmpty && shouldFavorCrash) {
+          final resultCrash = CollectedCrash._(
+            Map<int, ContCrash>.from(crashes),
+          ); // defensive copy
+          onCrash(resultCrash);
+        } else {
+          onAnySecondary(seedValue);
+        }
     }
   }
 
