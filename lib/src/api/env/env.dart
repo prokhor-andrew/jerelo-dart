@@ -1,4 +1,4 @@
-import 'package:jerelo/jerelo.dart';
+part of '../../cont.dart';
 
 extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   /// Runs this continuation with a transformed environment.
@@ -10,11 +10,7 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// - [f]: Function that transforms the outer environment to the inner environment.
   Cont<E2, F, A> local<E2>(E Function(E2) f) {
-    return Cont.fromRun((runtime, observer) {
-      final env = f(runtime.env());
-
-      runWith(runtime.copyUpdateEnv(env), observer);
-    });
+    return _LocalCont<E2, E, F, A>(this, f);
   }
 
   /// Runs this continuation with a new environment from a zero-argument function.

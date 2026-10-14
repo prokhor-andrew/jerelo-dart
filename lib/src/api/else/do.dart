@@ -1,4 +1,4 @@
-import 'package:jerelo/jerelo.dart';
+part of '../../cont.dart';
 
 extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
   /// Provides a fallback continuation in case of termination.
@@ -13,21 +13,7 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F2, A> elseDo<F2>(
     Cont<E, F2, A> Function(F error) f,
   ) {
-    return Cont.fromRun((runtime, observer) {
-      runWith(
-        runtime,
-        observer.copyUpdateOnElse((error) {
-          if (runtime.isCancelled()) {
-            return;
-          }
-
-          ContCrash.tryCatch(() {
-            final contA = f(error);
-            contA.runWith(runtime, observer);
-          }).match((_) {}, observer.onCrash);
-        }),
-      );
-    });
+    return _ElseDoCont<E, F, F2, A>(this, f);
   }
 
   /// Provides a zero-argument fallback continuation.
