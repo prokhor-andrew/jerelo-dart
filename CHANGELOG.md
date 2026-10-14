@@ -11,6 +11,7 @@
   - The policy case classes (`SequenceOkPolicy`, `QuitFastCrashPolicy`, …) have no public constructors; use `OkPolicy.sequence()`, `CrashPolicy.quitFast()` and the other factories.
   - `toString()` of these types uses the constructor style, e.g. `NormalCrash(error, stackTrace)`, `MergedCrash(left, right)`, `ValueCrashOr(value)`.
 - **Breaking:** removed `thenForever`, `elseForever` and `crashForever`. Since a cancel now ends a loop, they could end on their own channel, which their `Never` types ruled out. Use a predicate that is always true instead: `thenWhile((_) => true)`, `elseWhile((_) => true)`, `crashWhile((_) => true)`.
+- **Breaking:** when a `Cont.fromRun` leaf reports while its run function is still running, the next stage now starts after the run function returns, so code after the report runs first. Before, the next stage ran inside the report call. Leaves that report as their last instruction, as documented, behave the same.
 - The derived operators (taps, zips, forks, conditions, channel switches, loops, `*0`/`*WithEnv` variants, `withEnv` and `local0`), `Cont.bracket` and `Cont.fromDeferred` are part of jerelo.
 - Added `thenUnit` and `elseUnit`, which replace the value or the error with `()`.
 - Fixed `Cont` used through a wider error or value type (an upcast or a `Never`-typed `Cont`) crashing with a `TypeError` at run time. `runWith` is now an extension method (`ContRunWithExtension`).
@@ -18,6 +19,7 @@
 - Fixed `MergedCrash.hashCode` ignoring the order of `left` and `right`.
 - Fixed `CrashOr` equality being asymmetric across type arguments, and its hash not telling a value from a crash.
 - Fixed `all`, `any` and `converge` with a `runAll` policy reporting a throwing `combine` inconsistently: depending on which input finished last, the throw became a crash of one input in a `CollectedCrash`, a plain crash, or was ignored and its input's outcome dropped. A throwing `combine` is now always a crash of the combinator: once every input has finished, the result is that `NormalCrash`, as with `both`, `either` and `coalesce`.
+- Fixed long chains of synchronous steps overflowing the stack and losing their outcome (from about 400 steps). `thenDo`, `elseDo`, `crashDo`, `Cont.fromDeferred`, `local` and everything built on them now run in a loop with constant stack space, so chains built in a loop, with `fold` or by recursion can have any number of steps. Long chains also run several times faster.
 - Fixed `both` and `either` with a `runAll` policy reporting an input that throws while starting at once, skipping the policy. Such a throw is now that input's crash: the combinator waits for the other input, follows `shouldFavorCrash`, and merges two crashes into a `MergedCrash`, as `all` and `coalesce` already did.
 - Fixed `all` and `any` with a `quitFast` policy returning a fixed-length list, on which `add` threw. They now return a growable list, like the other policies.
 - Fixed `ContCrash.collect` keeping the caller's map: changing it afterwards changed the crash, including its `==` and `hashCode`. A `CollectedCrash` now keeps its own copy, and `crashes` is unmodifiable.

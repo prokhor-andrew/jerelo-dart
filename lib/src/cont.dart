@@ -80,7 +80,10 @@ sealed class Cont<E, F, A> {
   /// exceptions. The run function receives the environment and an observer
   /// with `onCrash`, `onElse` and `onThen` callbacks.
   /// The callbacks should be called as the last instruction in the run function
-  /// or saved to be called later.
+  /// or saved to be called later. A callback called while [run] is still
+  /// running only records the outcome: the next stage starts after [run]
+  /// returns, so code after the call runs first. A callback called later
+  /// runs the next stages before it returns.
   ///
   /// Only the observer handed to [run] is guarded against duplicate calls;
   /// observers derived from it with `copyUpdate*` call their new callbacks

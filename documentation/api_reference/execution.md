@@ -15,6 +15,7 @@ Running continuations and specialized extensions.
   - [ContCancelToken](#contcanceltoken)
   - [How a cancel travels](#how-a-cancel-travels)
   - [Limitations](#limitations)
+- [Stack Safety](#stack-safety)
 - [Extensions](#extensions)
   - [flatten](#flatten)
   - [thenAbsurd](#thenabsurd)
@@ -159,6 +160,33 @@ Cancellation is only as good as the leaves:
 - A leaf that ignores cancellation runs until it finishes. For example, a request whose canceller is `() {}` still completes, and the computation reports its outcome only then.
 - Your code can still run after a cancel. When a stage reports a value after the cancel, the function of the next operator (for example the function passed to `thenDo`) is still called; only the computation it returns is cancelled.
 - A cancelled computation reports an outcome like any other, or none at all if its leaf reports nothing. Use the callbacks passed to `run`, not `isCancelled`, to learn how it ended.
+
+---
+
+## Stack Safety
+
+Sequential composition does not use the call stack. `thenDo`, `elseDo`, `crashDo`, `Cont.fromDeferred`, `local` and everything built on them (maps, taps, zips, forks, conditions, `sequence` policies) are stored as data and run by a loop, so a chain can have any number of steps, even when they complete synchronously. This holds for chains built in a loop or with `fold`:
+
+```dart
+Cont<(), String, int> total = Cont.of(0);
+for (final item in items) {
+  total = total.thenDo((sum) => price(item).thenMap((p) => sum + p));
+}
+```
+
+and for recursion:
+
+```dart
+Cont<(), String, Page> lastPage(int n) {
+  return fetchPage(n).thenDo((page) {
+    return page.hasNext ? lastPage(n + 1) : Cont.of(page);
+  });
+}
+```
+
+Make the recursive call the last step, as above. A step that comes after it, such as `lastPage(n + 1).thenTap(log)`, waits for the whole recursion, so every level keeps one such step in memory until the end.
+
+What still uses the stack is nesting computations that run others inside themselves: combinators with a parallel policy, `Cont.bracket` and `decorate`. Nesting them thousands of levels deep, for example `acc = Cont.both(acc, next, ...)` in a loop, can overflow; use the list form, `Cont.all`, instead.
 
 ---
 
