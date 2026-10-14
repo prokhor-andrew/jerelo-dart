@@ -258,8 +258,9 @@ If the continuation terminates, executes the side-effect continuation and waits 
 
 - If the side-effect terminates: Returns the original error, ignoring the side-effect's error
 - If the side-effect succeeds: Recovers from the original error and returns the side-effect's success value
+- If the side-effect crashes: The computation crashes with that crash
 
-To run a side effect such as logging without affecting the error, make it end on the else channel, or use `elseFork` for fire-and-forget behavior.
+If `f` itself throws, the computation crashes with that exception. To run a side effect such as logging without affecting the error, make it end on the else channel, or use `elseFork` for fire-and-forget behavior.
 
 - **Parameters:**
   - `f`: Function that receives the error and returns a side-effect continuation

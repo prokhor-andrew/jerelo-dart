@@ -132,7 +132,7 @@ The `decorate` method is a natural transformation that wraps the execution of a 
 - **`env`** — The environment
 - **`observer`** — The observer receiving the three outcome callbacks
 
-You can intercept execution by modifying the environment or observer before passing them to `run`. `run` returns the canceller of the computation it starts; return it from your callback so that a cancel still reaches the computation. `ContObserver` provides `copyUpdateOnThen`, `copyUpdateOnElse`, `copyUpdateOnCrash` and `copyUpdate` to derive new observers with selectively overridden callbacks. `copyUpdateOnThen` and `copyUpdateOnElse` are generic in the new value or error type; pass it explicitly (as below) when chaining them, because Dart cannot infer it there.
+You can intercept execution by modifying the environment or observer before passing them to `run`. `run` returns the canceller of the computation it starts; return it from your callback so that a cancel still reaches the computation. Don't throw after calling `run`: the throw becomes a crash (or a panic, if the computation has already reported), but the computation keeps running and can no longer be cancelled. `ContObserver` provides `copyUpdateOnThen`, `copyUpdateOnElse`, `copyUpdateOnCrash` and `copyUpdate` to derive new observers with selectively overridden callbacks. `copyUpdateOnThen` and `copyUpdateOnElse` are generic in the new value or error type; pass it explicitly (as below) when chaining them, because Dart cannot infer it there.
 
 `decorate` preserves the continuation's type signature (`Cont<E, F, A>` → `Cont<E, F, A>`). It is not meant for type-changing transformations — use `thenMap`, `thenDo`, etc. for those.
 

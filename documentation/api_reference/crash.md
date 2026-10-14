@@ -401,7 +401,7 @@ Accepts the same optional observation callbacks as `crashFork`.
 Cont<E, F, A> crashRecoverThen(A Function(ContCrash crash) f)
 ```
 
-Recovers from a crash by computing a successful value.
+Recovers from a crash by computing a successful value. If `f` throws, the computation crashes with that exception instead of the original crash.
 
 - **Parameters:**
   - `f`: Function that receives the crash and returns a recovery value
@@ -480,7 +480,7 @@ final result = riskyOperation()
 Cont<E, F, A> crashRecoverElse(F Function(ContCrash crash) f)
 ```
 
-Recovers from a crash by converting it to a typed error.
+Recovers from a crash by converting it to a typed error. If `f` throws, the computation crashes with that exception instead of the original crash.
 
 - **Parameters:**
   - `f`: Function that receives the crash and returns an error value
@@ -564,7 +564,7 @@ Cont<E, F, A> crashUnlessThen(
 
 Conditionally recovers from a crash to a value unless the predicate is satisfied.
 
-If the predicate returns `false`, recovers with the `fallback` value. If `true`, the crash continues to propagate.
+If the predicate returns `false`, recovers with the `fallback` value. If `true`, the crash continues to propagate. If the predicate throws, the computation crashes with that exception instead of the original crash.
 
 - **Parameters:**
   - `predicate`: Function that tests the crash. Returns `true` to keep crashing, `false` to recover
@@ -643,7 +643,7 @@ Cont<E, F, A> crashUnlessElse(
 
 Conditionally recovers from a crash to a typed error unless the predicate is satisfied.
 
-If the predicate returns `false`, terminates with the `fallback` error. If `true`, the crash continues to propagate.
+If the predicate returns `false`, terminates with the `fallback` error. If `true`, the crash continues to propagate. If the predicate throws, the computation crashes with that exception instead of the original crash.
 
 - **Parameters:**
   - `predicate`: Function that tests the crash. Returns `true` to keep crashing, `false` to convert to error

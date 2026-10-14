@@ -9,7 +9,11 @@ extension ContDecorExtension<E, F, A> on Cont<E, F, A> {
   ///
   /// The transformation function receives the original run function, the
   /// environment and the observer, allowing custom execution behavior to be
-  /// injected. A throw from it becomes a crash.
+  /// injected. A throw from it becomes a crash, or a panic if the
+  /// computation has already reported. Avoid throwing after calling the
+  /// run function: the computation it started keeps running, and since
+  /// its canceller is lost, it can no longer be cancelled. Return the
+  /// run function's canceller instead.
   ///
   /// - [f]: A transformation function that receives the run function, the
   ///   environment and the observer, and implements custom execution logic

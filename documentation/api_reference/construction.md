@@ -285,7 +285,7 @@ Transforms the execution of the continuation using a natural transformation.
 
 Applies a function that wraps or modifies the underlying run behavior. This is useful for intercepting execution to add middleware-like behavior such as logging, timing, or modifying how observers receive callbacks.
 
-The transformation function receives the original run function, the environment, and the observer, allowing custom execution behavior to be injected. It returns the canceller of the run it started, which is usually the value the run function returned.
+The transformation function receives the original run function, the environment, and the observer, allowing custom execution behavior to be injected. It returns the canceller of the run it started, which is usually the value the run function returned. A throw from the transformation function becomes a crash, or a panic if the computation has already reported. Avoid throwing after calling `run`: the computation it started keeps running and, since its canceller is lost, can no longer be cancelled. Return `run`'s canceller instead.
 
 - **Parameters:**
   - `f`: A transformation function that receives the run function, environment, and observer, implements custom execution logic by calling the run function at the appropriate time, and returns a canceller
