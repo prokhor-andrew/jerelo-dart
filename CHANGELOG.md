@@ -1,3 +1,9 @@
+## 1.1.0
+
+- Fixed long chains of synchronous steps overflowing the stack (from about 500 steps): the outcome was lost, or an uncaught "Stack Overflow" was thrown. `thenDo`, `elseDo`, `Cont.fromDeferred`, `local` and everything built on them now run in a loop with constant stack space, so chains built in a loop, with `fold` or by recursion can have any number of steps. Long chains also run several times faster.
+- Changed: when a `Cont.fromRun` leaf reports while its run function is still running, the next stage now starts after the run function returns, so code after the report runs first. Before, the next stage ran inside the report call. Leaves that report as their last instruction, as documented, behave the same.
+- Documentation: added a Stack Safety section to the execution reference, and described when the next stage starts after a leaf reports.
+
 ## 1.0.4
 
 - Fixed `Cont` used through a wider value type (an upcast, an untyped `ContEitherPolicy`, or a `Never`-typed `Cont`) terminating with a `TypeError` at run time.
