@@ -77,6 +77,37 @@ final class _CrashDoCont<E, F, A> extends Cont<E, F, A> {
   }
 }
 
+/// `Cont.fromDeferred(thunk)`.
+final class _DeferCont<E, F, A> extends Cont<E, F, A> {
+  final Cont<E, F, A> Function() _thunk;
+
+  const _DeferCont(this._thunk) : super._();
+
+  Cont<Object?, Object?, Object?> _build() {
+    return _thunk();
+  }
+}
+
+/// `source.local(f)`.
+final class _LocalCont<E2, E, F, A> extends Cont<E2, F, A> {
+  final Cont<E, F, A> _source;
+  final E Function(E2 env) _f;
+
+  const _LocalCont(this._source, this._f) : super._();
+
+  Object? _mapEnv(Object? env) {
+    return _f(env as E2);
+  }
+}
+
+/// Restores the environment once the source of a [_LocalCont] has an
+/// outcome.
+final class _EnvFrame {
+  final Object? env;
+
+  const _EnvFrame(this.env);
+}
+
 const int _thenOutcome = 0;
 const int _elseOutcome = 1;
 const int _crashOutcome = 2;
@@ -100,7 +131,8 @@ final class _RunLoop {
   final void Function(Object? error) _onElse;
   final void Function(Object? value) _onThen;
 
-  // _ThenDoCont, _ElseDoCont and _CrashDoCont waiting for an outcome
+  // _ThenDoCont, _ElseDoCont and _CrashDoCont waiting for an outcome,
+  // and _EnvFrames
   final List<Object> _frames = [];
 
   // the outcome being delivered
@@ -181,6 +213,34 @@ final class _RunLoop {
         case _CrashDoCont():
           _frames.add(current);
           current = current._source;
+        case _DeferCont():
+          final built = ContCrash.tryCatch(current._build);
+          switch (built) {
+            case ValueCrashOr(value: final cont):
+              current = cont;
+            case CrashCrashOr(crash: final crash):
+              // a throw from thunk is a crash
+              _kind = _crashOutcome;
+              _value = crash;
+              current = null;
+          }
+        case _LocalCont():
+          final local = current;
+          final env = _env;
+          final mapped = ContCrash.tryCatch(() {
+            return local._mapEnv(env);
+          });
+          switch (mapped) {
+            case ValueCrashOr(value: final innerEnv):
+              _frames.add(_EnvFrame(env));
+              _env = innerEnv;
+              current = local._source;
+            case CrashCrashOr(crash: final crash):
+              // a throw from f is a crash
+              _kind = _crashOutcome;
+              _value = crash;
+              current = null;
+          }
         case _LeafCont():
           if (!_startLeaf(current)) {
             return; // the leaf reports later and resumes the loop
@@ -247,6 +307,9 @@ final class _RunLoop {
       final frame = _frames.removeLast();
       final CrashOr<Cont<Object?, Object?, Object?>> next;
       switch (frame) {
+        case _EnvFrame(env: final env):
+          _env = env;
+          continue;
         case _ThenDoCont() when _kind == _thenOutcome:
           final value = _value;
           next = ContCrash.tryCatch(() {

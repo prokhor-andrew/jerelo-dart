@@ -10,6 +10,7 @@ part 'api/crash/do.dart';
 part 'api/then/while.dart';
 part 'api/else/while.dart';
 part 'api/crash/while.dart';
+part 'api/env/env.dart';
 part 'helper/utils.dart';
 part 'helper/run_loop.dart';
 
@@ -227,9 +228,7 @@ sealed class Cont<E, F, A> {
   static Cont<E, F, A> fromDeferred<E, F, A>(
     Cont<E, F, A> Function() thunk,
   ) {
-    return Cont.fromRun((env, observer) {
-      return thunk().runWith(env, observer);
-    });
+    return _DeferCont<E, F, A>(thunk);
   }
 
   /// Creates a [Cont] that immediately succeeds with a value.

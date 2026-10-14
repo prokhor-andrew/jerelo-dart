@@ -116,6 +116,88 @@ void main() {
     });
   });
 
+  group('fromDeferred and local', () {
+    test('recursion through fromDeferred', () {
+      Cont<(), String, int> count(int i) {
+        return i == depth
+            ? Cont.of(i)
+            : Cont.fromDeferred(() => count(i + 1));
+      }
+
+      expect(outcomeOf(count(0)), equals('then $depth'));
+    });
+
+    test('left-nested local', () {
+      Cont<int, String, int> cont = Cont.askThen();
+      for (var i = 0; i < depth; i++) {
+        cont = cont.local((e) => e + 1);
+      }
+
+      int? result;
+      cont.run(0, onThen: (v) => result = v);
+      expect(result, equals(depth));
+    });
+
+    test('local restores the environment after its source',
+        () {
+      final envs = <int>[];
+      Cont.askThen<int, String>()
+          .thenTap((e) {
+            envs.add(e);
+            return Cont.of(());
+          })
+          .local<int>((e) => e * 10)
+          .thenDo((_) => Cont.askThen<int, String>())
+          .run(1, onThen: envs.add);
+
+      expect(envs, equals([10, 1]));
+    });
+
+    test(
+        'local restores the environment after an async step',
+        () async {
+      final completer = Completer<List<int>>();
+      final envs = <int>[];
+      Cont.askThen<int, String>()
+          .thenDo((e) {
+            envs.add(e);
+            return Cont.fromRun<int, String, int>((env, o) {
+              Timer(Duration.zero, () => o.onThen(env));
+              return () {};
+            });
+          })
+          .thenTap((e) {
+            envs.add(e);
+            return Cont.of(());
+          })
+          .local<int>((e) => e * 10)
+          .thenDo((_) => Cont.askThen<int, String>())
+          .run(1, onThen: (e) {
+            envs.add(e);
+            completer.complete(envs);
+          });
+
+      expect(await completer.future, equals([10, 10, 1]));
+    });
+
+    test(
+        'a throw from the thunk or from local\'s f is a crash',
+        () {
+      expect(
+        outcomeOf(Cont.fromDeferred<(), String, int>(
+            () => throw 'thunk')),
+        startsWith('crash NormalCrash(thunk'),
+      );
+
+      ContCrash? crash;
+      Cont.askThen<int, String>()
+          .local<int>((_) => throw 'local')
+          .run(1, onCrash: (c) => crash = c);
+      expect(
+          (crash! as NormalCrash).error, equals('local'));
+    });
+  });
+
   group('asynchronous steps', () {
     test(
         'a chain mixing synchronous and asynchronous steps',

@@ -15,7 +15,6 @@ export 'src/api/combos/crash_policy.dart';
 export 'src/api/decorate/decorate.dart';
 export 'src/api/then/map.dart';
 export 'src/api/else/map.dart';
-export 'src/api/env/env.dart';
 export 'src/api/extensions/never.dart';
 export 'src/api/extensions/flatten.dart';
 export 'src/api/crash/do_variants.dart';
