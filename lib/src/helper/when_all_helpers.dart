@@ -43,7 +43,9 @@ Cont<E, F, A3> _bothWhenAll<E, F, A1, A2, A3>(
           ),
         );
       });
-    })._ifCrash(observer.onCrash);
+    })._ifCrash((crash) {
+      handleCrash(_Left(crash));
+    });
 
     ContCrash.tryCatch(() {
       cancellers.runAlongside(() {
@@ -57,7 +59,9 @@ Cont<E, F, A3> _bothWhenAll<E, F, A1, A2, A3>(
           ),
         );
       });
-    })._ifCrash(observer.onCrash);
+    })._ifCrash((crash) {
+      handleCrash(_Right(crash));
+    });
     return cancellers.cancel;
   });
 }
@@ -104,7 +108,9 @@ Cont<E, F3, A> _eitherWhenAll<E, F1, F2, F3, A>(
           ),
         );
       });
-    })._ifCrash(observer.onCrash);
+    })._ifCrash((crash) {
+      handleCrash(_Left(crash));
+    });
 
     ContCrash.tryCatch(() {
       cancellers.runAlongside(() {
@@ -117,7 +123,9 @@ Cont<E, F3, A> _eitherWhenAll<E, F1, F2, F3, A>(
           ),
         );
       });
-    })._ifCrash(observer.onCrash);
+    })._ifCrash((crash) {
+      handleCrash(_Right(crash));
+    });
     return cancellers.cancel;
   });
 }
