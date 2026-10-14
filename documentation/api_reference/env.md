@@ -10,13 +10,15 @@ Managing contextual information and dependencies through continuations.
 
 - [Transforming Environment](#transforming-environment)
   - [local](#local)
+  - [local0](#local0)
+  - [withEnv](#withenv)
 - [Then-Channel Injection](#then-channel-injection)
   - [thenInject](#theninject)
   - [injectedByThen](#injectedbythen)
 - [Else-Channel Injection](#else-channel-injection)
   - [elseInject](#elseinject)
   - [injectedByElse](#injectedbyelse)
-- [More in jerelo_ext](#more-in-jerelo_ext)
+- [Usage Patterns](#usage-patterns)
 
 ---
 
@@ -45,6 +47,58 @@ final adapted = query.local<AppConfig>((appConfig) => appConfig.database);
 
 // Now can run with AppConfig
 adapted.run(appConfig, onThen: print);
+```
+
+---
+
+### local0
+
+```dart
+Cont<E2, F, A> local0<E2>(E Function() f)
+```
+
+Runs this continuation with a new environment from a zero-argument function.
+
+Similar to `local` but obtains the environment from a zero-argument function instead of transforming the existing environment. `f` is called on every run.
+
+- **Parameters:**
+  - `f`: Zero-argument function that provides the new environment
+
+**Example:**
+```dart
+final query = queryUsers();
+
+// Provide a fixed config
+final withConfig = query.local0(() => DatabaseConfig('localhost', 5432));
+
+// Can now run with any environment type
+withConfig.run((), onThen: print);
+```
+
+---
+
+### withEnv
+
+```dart
+Cont<E2, F, A> withEnv<E2>(E value)
+```
+
+Runs this continuation with a fixed environment value.
+
+Replaces the environment context with the provided value for the execution of this continuation.
+
+- **Parameters:**
+  - `value`: The environment value to use
+
+**Example:**
+```dart
+final query = queryUsers();
+
+// Run with a specific config
+final scoped = query.withEnv(DatabaseConfig('localhost', 5432));
+
+// The environment is now fixed
+scoped.run((), onThen: print);
 ```
 
 ---
@@ -156,7 +210,7 @@ The error-channel counterpart of `thenInject`. If this continuation terminates w
 
 **Example:**
 ```dart
-// A continuation that might fail with a retry config
+// A continuation that might fail with an error message
 final operation = fetchData();
 
 // A retry handler that uses the error as environment
@@ -198,12 +252,6 @@ final result = handler.injectedByElse(operation);
 
 ---
 
-## More in jerelo_ext
-
-`local0` and `withEnv`, which replace the environment instead of transforming it, are in the [jerelo_ext](https://pub.dev/packages/jerelo_ext) package; import `package:jerelo_ext/jerelo_ext.dart` alongside `package:jerelo/jerelo.dart`. In core, use `local` and ignore the outer environment: `cont.local((_) => value)`.
-
----
-
 ## Usage Patterns
 
 ### Dependency Injection
@@ -232,11 +280,13 @@ result.run((), onThen: print);
 
 ```dart
 // Extract a specific part of the environment
-final result = operation
+// (dbOperation needs a DbConfig)
+final result = dbOperation
   .local<FullConfig>((config) => config.database);
 
 // Transform environment type
-final adapted = operation
+// (configOperation needs a Config)
+final adapted = configOperation
   .local<Map<String, dynamic>>((json) => Config.fromJson(json));
 ```
 

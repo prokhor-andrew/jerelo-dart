@@ -11,6 +11,11 @@ Running continuations and specialized extensions.
 - [Execution Methods](#execution-methods)
   - [run](#run)
   - [runWith](#runwith)
+- [Cancellation](#cancellation)
+  - [ContCancelToken](#contcanceltoken)
+  - [How a cancel travels](#how-a-cancel-travels)
+  - [Limitations](#limitations)
+- [Stack Safety](#stack-safety)
 - [Extensions](#extensions)
   - [flatten](#flatten)
   - [thenAbsurd](#thenabsurd)
@@ -25,7 +30,7 @@ Running continuations and specialized extensions.
 ### run
 
 ```dart
-void run(
+ContCancelToken run(
   E env, {
   void Function(NormalCrash crash) onPanic,
   void Function(ContCrash crash) onCrash,
@@ -40,10 +45,11 @@ Initiates execution of the continuation with separate handlers for panics, crash
 
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
-  - `onPanic`: Callback invoked when a fatal, unrecoverable panic occurs (e.g., an observer callback throws). Defaults to re-throwing inside a microtask
+  - `onPanic`: Callback invoked when a fatal, unrecoverable panic occurs (e.g., an observer callback throws). If `onPanic` itself throws, the original panic is re-thrown inside a microtask. Defaults to re-throwing inside a microtask
   - `onCrash`: Callback invoked when the continuation crashes with an unexpected exception. Defaults to ignoring the crash
   - `onElse`: Callback invoked when the continuation terminates with a typed error. Defaults to ignoring the error
   - `onThen`: Callback invoked when the continuation produces a successful value. Defaults to ignoring the value
+- **Returns:** A [`ContCancelToken`](#contcanceltoken) that cancels the computation. See [Cancellation](#cancellation).
 
 **Example:**
 ```dart
@@ -58,6 +64,10 @@ computation.run(
 
 // Subscribe only to the value channel
 computation.run(env, onThen: print);
+
+// Keep the token to cancel the computation later
+final token = computation.run(env, onThen: print);
+token.cancel();
 ```
 
 ---
@@ -65,19 +75,118 @@ computation.run(env, onThen: print);
 ### runWith
 
 ```dart
-void runWith(
-  ContRuntime<E> runtime,
+void Function() runWith(
+  E env,
   ContObserver<F, A> observer,
 )
 ```
 
-Low-level execution method that runs the continuation with an explicit runtime and observer.
+Low-level execution method that runs the continuation with an explicit environment and observer.
 
-This is the primitive execution method used internally by the library. It gives full control over the runtime context and observer callbacks. Most users should prefer `run` instead.
+This is the primitive execution method used internally by the library. It gives full control over the environment and observer callbacks. Most users should prefer `run` instead. It is useful inside `Cont.fromRun` and `decorate`, where an environment and an observer are already at hand.
 
 - **Parameters:**
-  - `runtime`: The runtime context providing the environment
+  - `env`: The environment to run the continuation with
   - `observer`: The observer that receives crash, error, and success callbacks
+- **Returns:** The canceller of the computation it starts. Inside `Cont.fromRun` or `decorate`, return it so that a cancel reaches the inner computation.
+
+**Example:**
+```dart
+Cont<E, F, A> deferred<E, F, A>(Cont<E, F, A> Function() build) {
+  return Cont.fromRun((env, observer) {
+    return build().runWith(env, observer);
+  });
+}
+```
+
+---
+
+## Cancellation
+
+A running computation is cancelled through the token returned by `run`. A cancel carries no value and has no channel of its own: the operators only pass it on, and the leaves — the computations built with `Cont.fromRun` — decide what cancelling means and how to report it.
+
+```dart
+final token = download(url).run(
+  env,
+  onElse: (error) => print('Stopped: $error'),
+  onThen: (file) => print('Saved $file'),
+);
+
+// Later, e.g. when the user leaves the screen
+token.cancel();
+```
+
+What happens next depends on the leaf that is running. A leaf with a real canceller, such as a timer or an HTTP request, stops its work and reports through one of the existing channels, usually `onElse` with an error type of your own. A leaf whose canceller is a no-op simply finishes normally. Either way, the outcome arrives through the callbacks passed to `run`. See [Extending Jerelo](../user_guide/06-extending.md#cancellation) for writing cancellable leaves.
+
+### ContCancelToken
+
+```dart
+final class ContCancelToken
+```
+
+Returned by `run`. It has a private constructor.
+
+```dart
+void cancel()
+```
+
+Cancels the computation. Only the first call has an effect; later calls do nothing.
+
+```dart
+bool isCancelled()
+```
+
+Returns `true` if `cancel` has been called on this token. It does **not** tell whether the computation has stopped: the computation reports how it ended through the callbacks passed to `run`.
+
+### How a cancel travels
+
+The canceller returned by `Cont.fromRun` is the only place where a cancel does anything. Every operator forwards it:
+
+- **To the part running now, and to every part started afterwards.** In `a.thenDo(f)`, a cancel reaches `a` while it runs. If `a` still reports a value after the cancel, `f` is called, and the computation it returns starts and is cancelled immediately.
+- **Combinators** forward a cancel to every branch that is running.
+- **`quitFast` policies** (`both`, `either`, `all`, `any`, `coalesce`, `converge` and their instance forms): once the result is decided, the inputs still running are cancelled, and inputs not started yet are never started.
+- **`runAll` policies** never cancel on their own; a cancel from outside is forwarded to every running input.
+- **`sequence` policies** cancel the input that is running and every later input as it starts.
+- **Loops** (the `*While` and `*Until` operators) forward a cancel to the running iteration and start no iteration after it. The loop ends with the outcome of the iteration that was running, once it reports.
+- **`Cont.bracket`** forwards a cancel to `use` only. `acquire` and `release` are never cancelled; a cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. `release` runs once `use` reports back, on any channel.
+- **Forks** (`thenFork`, `elseFork`, `crashFork` and their variants): the forked side effect is detached and is **not** cancelled with the parent. The main computation is.
+
+A leaf's canceller runs at most once, and never after the leaf has finished. If the canceller throws, the leaf crashes; if the leaf has already finished, the throw becomes a panic.
+
+### Limitations
+
+Cancellation is only as good as the leaves:
+
+- A leaf that ignores cancellation runs until it finishes. For example, a request whose canceller is `() {}` still completes, and the computation reports its outcome only then.
+- Your code can still run after a cancel. When a stage reports a value after the cancel, the function of the next operator (for example the function passed to `thenDo`) is still called; only the computation it returns is cancelled.
+- A cancelled computation reports an outcome like any other, or none at all if its leaf reports nothing. Use the callbacks passed to `run`, not `isCancelled`, to learn how it ended.
+
+---
+
+## Stack Safety
+
+Sequential composition does not use the call stack. `thenDo`, `elseDo`, `crashDo`, `Cont.fromDeferred`, `local` and everything built on them (maps, taps, zips, forks, conditions, `sequence` policies) are stored as data and run by a loop, so a chain can have any number of steps, even when they complete synchronously. This holds for chains built in a loop or with `fold`:
+
+```dart
+Cont<(), String, int> total = Cont.of(0);
+for (final item in items) {
+  total = total.thenDo((sum) => price(item).thenMap((p) => sum + p));
+}
+```
+
+and for recursion:
+
+```dart
+Cont<(), String, Page> lastPage(int n) {
+  return fetchPage(n).thenDo((page) {
+    return page.hasNext ? lastPage(n + 1) : Cont.of(page);
+  });
+}
+```
+
+Make the recursive call the last step, as above. A step that comes after it, such as `lastPage(n + 1).thenTap(log)`, waits for the whole recursion, so every level keeps one such step in memory until the end.
+
+What still uses the stack is nesting computations that run others inside themselves: combinators with a parallel policy, `Cont.bracket` and `decorate`. Nesting them thousands of levels deep, for example `acc = Cont.both(acc, next, ...)` in a loop, can overflow; use the list form, `Cont.all`, instead.
 
 ---
 
@@ -123,7 +232,7 @@ Converts a continuation that never produces a value to any desired value type.
 Implements the principle of "ex falso quodlibet" (from falsehood, anything follows). Since `Never` is uninhabited, the success callback can never be called, making this a safe type-level transformation.
 
 This is useful when:
-- Working with continuations that never succeed, such as a loop that only ends on the else or crash channel
+- Working with continuations that never succeed, such as one that always ends on the else or crash channel
 - Matching types with other continuations in composition
 - Converting terminating-only continuations to typed continuations
 
@@ -132,14 +241,11 @@ This is useful when:
 
 **Example:**
 ```dart
-// A server loop that only ends with an error has type Cont<Env, String, Never>
-final Cont<Env, String, Never> server = Cont.tailRecM(
-  (),
-  (_) => handleRequest().thenMap((_) => TailRec.next(())),
-);
+// A computation that can only fail has type Cont<Env, String, Never>
+final Cont<Env, String, Never> notFound = Cont.error('not found');
 
 // Convert to Cont<Env, String, int> to match other continuation types
-final serverAsInt = server.thenAbsurd<int>();
+final notFoundAsInt = notFound.thenAbsurd<int>();
 ```
 
 ---

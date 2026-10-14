@@ -19,17 +19,20 @@ void main() {
 
       Cont.all<(), String, int>(
         [
-          Cont.fromRun((runtime, observer) {
+          Cont.fromRun((env, observer) {
             log.add(1);
             observer.onThen(1);
+            return () {};
           }),
-          Cont.fromRun((runtime, observer) {
+          Cont.fromRun((env, observer) {
             log.add(2);
             observer.onThen(2);
+            return () {};
           }),
-          Cont.fromRun((runtime, observer) {
+          Cont.fromRun((env, observer) {
             log.add(3);
             observer.onThen(3);
+            return () {};
           }),
         ],
         policy: OkPolicy.sequence(),
@@ -44,14 +47,16 @@ void main() {
 
       Cont.all<(), String, int>(
         [
-          Cont.fromRun((runtime, observer) {
+          Cont.fromRun((env, observer) {
             executed++;
             observer.onThen(1);
+            return () {};
           }),
           Cont.error('failed'),
-          Cont.fromRun((runtime, observer) {
+          Cont.fromRun((env, observer) {
             executed++;
             observer.onThen(3);
+            return () {};
           }),
         ],
         policy: OkPolicy.sequence(),

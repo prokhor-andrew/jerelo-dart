@@ -65,7 +65,7 @@ Cont<void, String, AuthToken> loginRequest(
   String email,
   String password,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     Timer(const Duration(milliseconds: 300), () {
       if (email == 'user@test.com' &&
           password == 'secret') {
@@ -83,6 +83,7 @@ Cont<void, String, AuthToken> loginRequest(
         observer.onElse('Invalid credentials');
       }
     });
+    return () {};
   });
 }
 
@@ -90,7 +91,7 @@ Cont<void, String, AuthToken> loginRequest(
 Cont<void, String, UserProfile> getUserProfile(
   String accessToken,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     Timer(const Duration(milliseconds: 200), () {
       if (accessToken.isNotEmpty) {
         print('  [API] GET /users/me -> 200 OK');
@@ -106,6 +107,7 @@ Cont<void, String, UserProfile> getUserProfile(
         observer.onElse('Missing token');
       }
     });
+    return () {};
   });
 }
 
@@ -114,36 +116,77 @@ Cont<void, String, UserProfile> updateUserProfile(
   String accessToken,
   UserProfile updated,
 ) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     Timer(const Duration(milliseconds: 250), () {
       print('  [API] PUT /users/me -> 200 OK');
       observer.onThen(updated);
     });
+    return () {};
   });
 }
 
 /// POST /auth/logout – invalidates the session after 150ms.
 Cont<void, String, void> logoutRequest(String accessToken) {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     Timer(const Duration(milliseconds: 150), () {
       print('  [API] POST /auth/logout -> 204 No Content');
       observer.onThen(null);
     });
+    return () {};
   });
 }
 
 /// GET /users/me from a cache – immediate, but can fail.
 Cont<void, String, UserProfile> getCachedProfile() {
-  return Cont.fromRun((runtime, observer) {
+  return Cont.fromRun((env, observer) {
     // Simulate cache miss
     print('  [CACHE] profile lookup -> miss');
     observer.onElse('Cache miss');
+    return () {};
   });
 }
 
 // ---------------------------------------------------------------------------
 // Composed flows using jerelo operators
 // ---------------------------------------------------------------------------
+
+/// GET /reports/latest – a slow download that takes 2s and can be
+/// cancelled. Its canceller stops the timer and reports the cancellation on
+/// the else channel.
+Cont<void, String, String> downloadReport(
+    String connection) {
+  return Cont.fromRun((env, observer) {
+    print('  [API] GET /reports/latest on $connection...');
+    final timer = Timer(const Duration(seconds: 2), () {
+      print('  [API] GET /reports/latest -> 200 OK');
+      observer.onThen('report.pdf');
+    });
+    return () {
+      timer.cancel();
+      print('  [API] GET /reports/latest -> cancelled');
+      observer.onElse('Download cancelled');
+    };
+  });
+}
+
+/// Opens a connection, downloads the report over it, and always closes the
+/// connection. Uses `Cont.bracket`: a cancel reaches the download, and the
+/// connection is closed once the download reports back.
+Cont<void, String, String> downloadOverConnection() {
+  return Cont.bracket<String, void, String, String>(
+    acquire: Cont.fromRun((env, observer) {
+      print('  [NET] Connection opened');
+      observer.onThen('conn#1');
+      return () {};
+    }),
+    release: (connection) => Cont.fromRun((env, observer) {
+      print('  [NET] $connection closed');
+      observer.onThen(());
+      return () {};
+    }),
+    use: downloadReport,
+  );
+}
 
 /// Full login flow: authenticate, then fetch the user profile, producing a
 /// [Session]. Uses `thenDo` for sequential dependent operations.
@@ -181,7 +224,7 @@ Cont<void, String, UserProfile> fetchAndUpdateProfile(
 }) {
   final fetchProfile = getUserProfile(accessToken);
   final validateName = Cont.fromRun<void, String, String>((
-    runtime,
+    env,
     observer,
   ) {
     Timer(const Duration(milliseconds: 100), () {
@@ -193,6 +236,7 @@ Cont<void, String, UserProfile> fetchAndUpdateProfile(
         observer.onThen(newName.trim());
       }
     });
+    return () {};
   });
 
   // Run fetch + validation in parallel; both must succeed.
@@ -216,7 +260,7 @@ Cont<void, String, AuthToken> loginWithFallbackStrategy() {
   );
   final refreshLogin =
       Cont.fromRun<void, String, AuthToken>((
-    runtime,
+    env,
     observer,
   ) {
     Timer(const Duration(milliseconds: 200), () {
@@ -228,6 +272,7 @@ Cont<void, String, AuthToken> loginWithFallbackStrategy() {
         ),
       );
     });
+    return () {};
   });
 
   // Try normal login first; if it fails, try refresh token.
@@ -322,4 +367,14 @@ void main() {
     onThen: (session) => print('  -> Final: $session\n'),
     onElse: (error) => print('  -> Failed: $error\n'),
   );
+
+  print(
+      '=== 6. Cancelling a download (bracket + cancel) ===');
+  final token = downloadOverConnection().run(
+    null,
+    onThen: (report) => print('  -> Downloaded $report\n'),
+    onElse: (error) => print('  -> $error\n'),
+  );
+  // the user gives up before the download finishes
+  Timer(const Duration(milliseconds: 1500), token.cancel);
 }

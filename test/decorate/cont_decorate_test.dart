@@ -7,8 +7,9 @@ void main() {
       int? result;
 
       Cont.of<(), String, int>(42)
-          .decorate((run, runtime, observer) {
-        run(runtime, observer);
+          .decorate((run, env, observer) {
+        run(env, observer);
+        return () {};
       }).run((), onThen: (v) => result = v);
 
       expect(result, equals(42));
@@ -18,8 +19,9 @@ void main() {
       String? error;
 
       Cont.error<(), String, int>('oops')
-          .decorate((run, runtime, observer) {
-        run(runtime, observer);
+          .decorate((run, env, observer) {
+        run(env, observer);
+        return () {};
       }).run((), onElse: (e) => error = e);
 
       expect(error, equals('oops'));
@@ -29,11 +31,13 @@ void main() {
       bool ran = false;
       bool thenCalled = false;
 
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         ran = true;
         observer.onThen(42);
-      }).decorate((run, runtime, observer) {
+        return () {};
+      }).decorate((run, env, observer) {
         // Don't call run
+        return () {};
       }).run((), onThen: (_) => thenCalled = true);
 
       expect(ran, isFalse);
@@ -44,9 +48,10 @@ void main() {
       final log = <String>[];
 
       Cont.of<(), String, int>(42)
-          .decorate((run, runtime, observer) {
+          .decorate((run, env, observer) {
         log.add('before');
-        run(runtime, observer);
+        run(env, observer);
+        return () {};
       }).run((), onThen: (_) => log.add('then'));
 
       expect(log, equals(['before', 'then']));
@@ -56,9 +61,10 @@ void main() {
       final log = <String>[];
 
       Cont.of<(), String, int>(42)
-          .decorate((run, runtime, observer) {
-        run(runtime, observer);
+          .decorate((run, env, observer) {
+        run(env, observer);
         log.add('after');
+        return () {};
       }).run((), onThen: (_) => log.add('then'));
 
       expect(log, equals(['then', 'after']));
@@ -68,8 +74,8 @@ void main() {
       int? result;
 
       Cont.of<(), String, int>(42)
-          .decorate((run, runtime, observer) =>
-              run(runtime, observer))
+          .decorate(
+              (run, env, observer) => run(env, observer))
           .run((), onThen: (v) => result = v);
 
       expect(result, equals(42));
@@ -79,8 +85,8 @@ void main() {
       String? error;
 
       Cont.error<(), String, int>('oops')
-          .decorate((run, runtime, observer) =>
-              run(runtime, observer))
+          .decorate(
+              (run, env, observer) => run(env, observer))
           .run((), onElse: (e) => error = e);
 
       expect(error, equals('oops'));
@@ -91,8 +97,7 @@ void main() {
       int? second;
 
       final cont = Cont.of<(), String, int>(42).decorate(
-          (run, runtime, observer) =>
-              run(runtime, observer));
+          (run, env, observer) => run(env, observer));
 
       cont.run((), onThen: (v) => first = v);
       cont.run((), onThen: (v) => second = v);
@@ -105,8 +110,8 @@ void main() {
       bool panicCalled = false;
 
       Cont.of<(), String, int>(42)
-          .decorate((run, runtime, observer) =>
-              run(runtime, observer))
+          .decorate(
+              (run, env, observer) => run(env, observer))
           .run(
         (),
         onPanic: (_) => panicCalled = true,
@@ -119,8 +124,8 @@ void main() {
       bool elseCalled = false;
 
       Cont.of<(), String, int>(42)
-          .decorate((run, runtime, observer) =>
-              run(runtime, observer))
+          .decorate(
+              (run, env, observer) => run(env, observer))
           .run(
         (),
         onElse: (_) => elseCalled = true,
@@ -133,9 +138,10 @@ void main() {
       String? capturedEnv;
 
       Cont.askThen<String, Never>()
-          .decorate((run, runtime, observer) {
-        capturedEnv = runtime.env();
-        run(runtime, observer);
+          .decorate((run, env, observer) {
+        capturedEnv = env;
+        run(env, observer);
+        return () {};
       }).run('myEnv');
 
       expect(capturedEnv, equals('myEnv'));
@@ -145,9 +151,10 @@ void main() {
       int thenCallCount = 0;
 
       Cont.of<(), String, int>(42)
-          .decorate((run, runtime, observer) {
-        run(runtime, observer);
-        run(runtime, observer);
+          .decorate((run, env, observer) {
+        run(env, observer);
+        run(env, observer);
+        return () {};
       }).run((), onThen: (_) => thenCallCount++);
 
       expect(thenCallCount, equals(1));
@@ -157,11 +164,12 @@ void main() {
       int? result;
 
       Cont.of<(), String, int>(42)
-          .decorate((run, runtime, observer) {
+          .decorate((run, env, observer) {
         run(
-            runtime,
+            env,
             observer
                 .copyUpdateOnThen((v) => result = v * 2));
+        return () {};
       }).run((), onThen: (_) => result = -1);
 
       expect(result, equals(84));
@@ -171,13 +179,14 @@ void main() {
       String? captured;
 
       Cont.error<(), String, int>('original')
-          .decorate((run, runtime, observer) {
+          .decorate((run, env, observer) {
         run(
-          runtime,
+          env,
           observer.copyUpdateOnElse<String>(
             (e) => captured = 'intercepted:$e',
           ),
         );
+        return () {};
       }).run((), onElse: (e) => captured = e);
 
       expect(captured, equals('intercepted:original'));
@@ -187,14 +196,16 @@ void main() {
       final log = <String>[];
 
       Cont.of<(), String, int>(42)
-          .decorate((run, runtime, observer) {
+          .decorate((run, env, observer) {
         log.add('outer-before');
-        run(runtime, observer);
+        run(env, observer);
         log.add('outer-after');
-      }).decorate((run, runtime, observer) {
+        return () {};
+      }).decorate((run, env, observer) {
         log.add('inner-before');
-        run(runtime, observer);
+        run(env, observer);
         log.add('inner-after');
+        return () {};
       }).run((), onThen: (_) => log.add('then'));
 
       expect(

@@ -58,7 +58,7 @@ program.run(
 ); // prints: HELLO
 ```
 
-The [jerelo_ext](https://pub.dev/packages/jerelo_ext) package provides this as `withEnv(value)`, and `local0(() => value)` for a value computed on each run.
+`withEnv(value)` is a shorthand for this, and `local0(() => value)` computes the value on each run.
 
 ### Transforming Environment with local
 
@@ -100,7 +100,7 @@ program.run(
 
 ### Never Upcast the Environment Type
 
-Dart lets you assign a `Cont<AppConfig, F, A>` to a `Cont<Object?, F, A>`, but the environment is an *input*: such a computation fails at runtime with a type error, even when the environment you pass is an `AppConfig`. Instead:
+Dart lets you assign a `Cont<AppConfig, F, A>` to a `Cont<Object?, F, A>`, but the environment is an *input*: once such a computation is used with operators or combinators, it crashes at runtime with a type error, even when the environment you pass is an `AppConfig`. Instead:
 
 - Make reusable functions that don't read the environment generic in `E`, so they fit into any environment.
 - Adapt a computation that needs a specific environment with `local`, rather than widening its type.
@@ -120,7 +120,7 @@ final connect = dbOperation.local<AppConfig>((appConfig) => appConfig.dbConfig);
 
 ## Reading the Environment in a Chain
 
-Core operators receive only the channel value. To use the environment in the middle of a chain, read it with `Cont.askThen` inside `thenDo` (or `elseDo`, `crashDo`):
+The fundamental operators receive only the channel value. To use the environment in the middle of a chain, read it with `Cont.askThen` inside `thenDo` (or `elseDo`, `crashDo`):
 
 ```dart
 Cont.of<ApiConfig, String, int>(42).thenDo((value) {
@@ -130,7 +130,7 @@ Cont.of<ApiConfig, String, int>(42).thenDo((value) {
 });
 ```
 
-The [jerelo_ext](https://pub.dev/packages/jerelo_ext) package provides `WithEnv` and `WithEnv0` variants of most operators (`thenDoWithEnv`, `elseMapWithEnv0`, `thenTapWithEnv`, …) that pass the environment to the function directly.
+Most operators also have `WithEnv` and `WithEnv0` variants (`thenDoWithEnv`, `elseMapWithEnv0`, `thenTapWithEnv`, …) that pass the environment to the function directly.
 
 ### Example: Reading Configuration
 
@@ -296,10 +296,10 @@ final apiOp = Cont.askThen<ApiConfig, String>().thenDo((config) {
 });
 
 // Build and inject different configs
-final dbConfig = Cont.of<void, String, DatabaseConfig>(
+final dbConfig = Cont.of<(), String, DatabaseConfig>(
   DatabaseConfig('localhost', 5432)
 );
-final apiConfig = Cont.of<void, String, ApiConfig>(
+final apiConfig = Cont.of<(), String, ApiConfig>(
   ApiConfig('https://api.example.com', 'key123')
 );
 
@@ -325,11 +325,11 @@ final queryOp = Cont.askThen<Database, String>().thenDo((db) {
 });
 
 // Production: inject real database
-final prodDb = Cont.of(RealDatabase());
+final prodDb = Cont.of<(), String, Database>(RealDatabase());
 final prodProgram = queryOp.injectedByThen(prodDb);
 
 // Testing: inject mock database
-final mockDb = Cont.of(MockDatabase(testData: [...]));
+final mockDb = Cont.of<(), String, Database>(MockDatabase(testData: [...]));
 final testProgram = queryOp.injectedByThen(mockDb);
 ```
 
@@ -340,7 +340,7 @@ final testProgram = queryOp.injectedByThen(mockDb);
 - **Flexible**: Use `thenInject` for forward declaration or `injectedByThen` for reverse declaration
 - **Testable**: Easy to swap implementations by injecting different providers
 - **Clean**: No manual passing of dependencies through every function
-- **Zero overhead when unused**: If you don't need environment, just use `void` as the type
+- **Zero overhead when unused**: If you don't need environment, just use `()` as the type
 
 ## Common Patterns
 
@@ -351,21 +351,24 @@ final testProgram = queryOp.injectedByThen(mockDb);
 class AppConfig {
   final String environment;
   final bool debugMode;
+  AppConfig(this.environment, this.debugMode);
 }
 
 // Layer 2: Feature-specific config
 class FeatureConfig {
   final AppConfig appConfig;
   final String featureFlag;
+  FeatureConfig(this.appConfig, this.featureFlag);
 }
 
 // Layer 3: Operation-specific config
 class OperationConfig {
   final FeatureConfig featureConfig;
   final int retryCount;
+  OperationConfig(this.featureConfig, this.retryCount);
 }
 
-// Extract what you need at each level
+// Build each level's config from the level above
 final operation = Cont.askThen<OperationConfig, String>()
   .local<FeatureConfig>((fc) => OperationConfig(fc, 3))
   .local<AppConfig>((ac) => FeatureConfig(ac, 'newFeature'));
@@ -378,6 +381,12 @@ class RequestContext {
   final String requestId;
   final String userId;
   final DateTime timestamp;
+
+  RequestContext({
+    required this.requestId,
+    required this.userId,
+    required this.timestamp,
+  });
 }
 
 Cont<RequestContext, String, Response> handleRequest(Request req) {
@@ -412,6 +421,8 @@ class Services {
   final Database database;
   final Cache cache;
   final HttpClient httpClient;
+
+  Services(this.logger, this.database, this.cache, this.httpClient);
 }
 
 Cont<Services, String, User> getUser(String userId) {

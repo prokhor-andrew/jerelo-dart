@@ -20,10 +20,10 @@ extension ContElseNeverExtension<E, A>
   }
 }
 
-/// Extension for running continuations that never produce a value.
+/// Provides [thenAbsurd] for continuations that never produce a value.
 ///
-/// This extension provides specialized methods for [Cont]<[E], [F], [Never]> where only
-/// termination is expected, simplifying the API by removing the unused value callback.
+/// Applies to [Cont]<[E], [F], [Never]>, where only the else and crash
+/// channels can be reached.
 extension ContThenNeverExtension<E, F>
     on Cont<E, F, Never> {
   /// Converts a continuation that never produces a value to any desired type.
@@ -39,10 +39,11 @@ extension ContThenNeverExtension<E, F>
   /// any desired value type.
   ///
   /// This is particularly useful when:
-  /// - Working with continuations that never succeed, such as a
-  ///   [Cont.tailRecM] loop that only ends on the else or crash channel
+  /// - Working with continuations that never succeed, such as one that
+  ///   always ends on the else or crash channel
   /// - Matching types with other continuations in composition
-  /// - Converting terminating-only continuations to typed continuations
+  /// - Converting continuations that only end on the else or crash channel
+  ///   to typed continuations
   ///
   /// Type parameters:
   /// - [A]: The desired value type for the resulting continuation
@@ -52,14 +53,12 @@ extension ContThenNeverExtension<E, F>
   ///
   /// Example:
   /// ```dart
-  /// // A server loop that only ends with an error or a crash
-  /// final Cont<Env, F, Never> server = Cont.tailRecM(
-  ///   (),
-  ///   (_) => handleRequest().thenMap((_) => TailRec.next(())),
-  /// );
+  /// // A computation that can only fail
+  /// final Cont<Env, String, Never> notFound =
+  ///     Cont.error('not found');
   ///
-  /// // Convert to Cont<Env, F, String> to match other continuation types
-  /// final serverAsString = server.thenAbsurd<String>();
+  /// // Convert to Cont<Env, String, int> to match other continuation types
+  /// final notFoundAsInt = notFound.thenAbsurd<int>();
   /// ```
   Cont<E, F, A> thenAbsurd<A>() {
     return thenMap<A>(

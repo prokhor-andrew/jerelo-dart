@@ -5,23 +5,25 @@ void main() {
   group('Cont.fromRun', () {
     test('produces value via onThen', () {
       int? result;
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         observer.onThen(42);
+        return () {};
       }).run((), onThen: (v) => result = v);
       expect(result, equals(42));
     });
 
     test('produces error via onElse', () {
       String? result;
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         observer.onElse('oops');
+        return () {};
       }).run((), onElse: (e) => result = e);
       expect(result, equals('oops'));
     });
 
     test('catches thrown exceptions as crashes', () {
       ContCrash? crash;
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         throw Exception('boom');
       }).run(
         (),
@@ -31,20 +33,22 @@ void main() {
       expect(crash, isA<NormalCrash>());
     });
 
-    test('provides environment via runtime', () {
+    test('provides environment via env', () {
       int? captured;
-      Cont.fromRun<int, String, int>((runtime, observer) {
-        captured = runtime.env();
-        observer.onThen(runtime.env());
+      Cont.fromRun<int, String, int>((env, observer) {
+        captured = env;
+        observer.onThen(env);
+        return () {};
       }).run(99);
       expect(captured, equals(99));
     });
 
     test('ignores duplicate onThen calls', () {
       int callCount = 0;
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         observer.onThen(1);
         observer.onThen(2);
+        return () {};
       }).run((), onThen: (_) => callCount++);
       expect(callCount, equals(1));
     });
@@ -52,10 +56,11 @@ void main() {
     test('ignores callbacks after first onElse', () {
       int thenCount = 0;
       int elseCount = 0;
-      Cont.fromRun<(), String, int>((runtime, observer) {
+      Cont.fromRun<(), String, int>((env, observer) {
         observer.onElse('first');
         observer.onElse('second');
         observer.onThen(42);
+        return () {};
       }).run(
         (),
         onThen: (_) => thenCount++,
@@ -66,9 +71,10 @@ void main() {
     });
 
     test('can be run multiple times', () {
-      final cont = Cont.fromRun<(), String, int>(
-          (runtime, observer) {
+      final cont =
+          Cont.fromRun<(), String, int>((env, observer) {
         observer.onThen(42);
+        return () {};
       });
 
       int? first;

@@ -1,4 +1,4 @@
-import 'package:jerelo/jerelo.dart';
+part of '../../cont.dart';
 
 extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   /// Runs this continuation with a transformed environment.
@@ -6,20 +6,16 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   /// Transforms the environment from [E2] to [E] using the provided function,
   /// then executes this continuation with the transformed environment.
   /// This allows adapting the continuation to work in a context with a
-  /// different environment type.
+  /// different environment type. A throw from [f] becomes a crash.
   ///
   /// - [f]: Function that transforms the outer environment to the inner environment.
   Cont<E2, F, A> local<E2>(E Function(E2) f) {
-    return Cont.fromRun((runtime, observer) {
-      final env = f(runtime.env());
-
-      runWith(runtime.copyUpdateEnv(env), observer);
-    });
+    return _LocalCont<E2, E, F, A>(this, f);
   }
 
   /// Runs [cont] using the success value of this continuation as its environment.
   ///
-  /// When this continuation succeeds with value [a], [cont] is executed with [a]
+  /// When this continuation succeeds with value `a`, [cont] is executed with `a`
   /// as its environment. Effectively threads the success value into the environment
   /// of the inner continuation.
   ///
@@ -35,8 +31,8 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
 
   /// Runs this continuation using the success value of [cont] as its environment.
   ///
-  /// Flipped version of [thenInject]: when [cont] succeeds with value [e], this
-  /// continuation is executed with [e] as its environment.
+  /// Flipped version of [thenInject]: when [cont] succeeds with value `e`, this
+  /// continuation is executed with `e` as its environment.
   ///
   /// - [cont]: A continuation that produces the environment value for this continuation.
   Cont<E0, F, A> injectedByThen<E0>(Cont<E0, F, E> cont) {
@@ -45,8 +41,8 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
 
   /// Runs [cont] using the error value of this continuation as its environment.
   ///
-  /// When this continuation terminates on the else channel with error [f], [cont]
-  /// is executed with [f] as its environment. Effectively threads the error value
+  /// When this continuation terminates on the else channel with error `f`, [cont]
+  /// is executed with `f` as its environment. Effectively threads the error value
   /// into the environment of the inner continuation.
   ///
   /// - [cont]: A continuation whose environment type matches this continuation's
@@ -62,7 +58,7 @@ extension ContEnvExtension<E, F, A> on Cont<E, F, A> {
   /// Runs this continuation using the error value of [cont] as its environment.
   ///
   /// Flipped version of [elseInject]: when [cont] terminates on the else channel
-  /// with error [e], this continuation is executed with [e] as its environment.
+  /// with error `e`, this continuation is executed with `e` as its environment.
   ///
   /// - [cont]: A continuation whose error type matches this continuation's
   ///   environment type [E].
