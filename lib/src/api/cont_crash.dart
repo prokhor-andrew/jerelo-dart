@@ -20,6 +20,9 @@ sealed class ContCrash {
   }
 
   /// Creates a [CollectedCrash] from a map of [crashes].
+  ///
+  /// The crash keeps its own unmodifiable copy of [crashes], so changing
+  /// the map afterwards does not affect it.
   static ContCrash collect(Map<int, ContCrash> crashes) {
     return CollectedCrash._(crashes);
   }
@@ -127,9 +130,14 @@ final class MergedCrash extends ContCrash {
 /// [ContCrash]. Can also be created with [ContCrash.collect].
 final class CollectedCrash extends ContCrash {
   /// Map from operation index to the [ContCrash] produced by that operation.
+  ///
+  /// The map is unmodifiable.
   final Map<int, ContCrash> crashes;
 
-  const CollectedCrash._(this.crashes);
+  // keeps an unmodifiable copy, so the crash never changes after it is
+  // created
+  CollectedCrash._(Map<int, ContCrash> crashes)
+      : crashes = Map.unmodifiable(crashes);
 
   @override
   String toString() {

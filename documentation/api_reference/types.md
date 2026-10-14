@@ -45,7 +45,7 @@ Combines two crashes into a `MergedCrash`.
 ```dart
 static ContCrash collect(Map<int, ContCrash> crashes)
 ```
-Combines multiple crashes from a list operation into a `CollectedCrash`.
+Combines multiple crashes from a list operation into a `CollectedCrash`. The crash keeps its own unmodifiable copy of `crashes`, so changing the map afterwards does not affect it.
 
 - **Parameters:**
   - `crashes`: A map from index to crash
@@ -114,7 +114,7 @@ Multiple crashes from a list operation, indexed by position. It is produced by:
 - `all` and `any` with `runAll`, whenever a crash is reported, even if only one input crashed
 
 **Fields:**
-- `crashes: Map<int, ContCrash>` — A map from the index in the original list to the crash
+- `crashes: Map<int, ContCrash>` — An unmodifiable map from the index in the original list to the crash
 
 It has no public constructor; create one with `ContCrash.collect`.
 
