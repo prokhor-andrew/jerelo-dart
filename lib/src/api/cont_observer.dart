@@ -279,3 +279,16 @@ final class SafeObserver<F, A> extends ContObserver<F, A> {
     super.onThen,
   );
 }
+
+extension _SafeObserverCrashOrPanic<F, A>
+    on SafeObserver<F, A> {
+  // a throw before the outcome is reported is a crash; after it, the
+  // outcome stands and the throw is a panic
+  void _crashOrPanic(NormalCrash crash) {
+    if (isUsed()) {
+      _onUnsafePanic(crash);
+    } else {
+      onCrash(crash);
+    }
+  }
+}

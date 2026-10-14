@@ -29,7 +29,7 @@ extension ContCrashDoExtension<E, F, A> on Cont<E, F, A> {
             });
             if (result
                 case CrashCrashOr(crash: final crash)) {
-              observer.onCrash(crash);
+              observer._crashOrPanic(crash);
             }
           }),
         );

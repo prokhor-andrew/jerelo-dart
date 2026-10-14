@@ -89,11 +89,12 @@ final class Cont<E, F, A> {
   /// observers derived from it with `copyUpdate*` call their new callbacks
   /// every time.
   ///
-  /// Only exceptions thrown synchronously by [run] are caught and routed to
-  /// the crash channel. An exception thrown later, for example inside a
-  /// `Timer` or `Future` callback, escapes to the zone and the observer is
-  /// not called; wrap such callbacks in [ContCrash.tryCatch] and pass the
-  /// crash to `observer.onCrash`.
+  /// Only exceptions thrown synchronously by [run] are caught. One thrown
+  /// before the observer was called is a crash; one thrown after it is a
+  /// panic, and the reported outcome stands. An exception thrown later, for
+  /// example inside a `Timer` or `Future` callback, escapes to the zone and
+  /// the observer is not called; wrap such callbacks in [ContCrash.tryCatch]
+  /// and pass the crash to `observer.onCrash`.
   ///
   /// [run] returns the canceller of the work it started. It is called when
   /// the computation is cancelled, at most once, and never after the
@@ -167,6 +168,16 @@ final class Cont<E, F, A> {
         })._ifCrash(onPanic);
       }
 
+      // a throw before the leaf reports is a crash; after it, the
+      // outcome stands and the throw is a panic
+      void crashOrPanic(NormalCrash crash) {
+        if (isDone) {
+          onPanic(crash);
+        } else {
+          guardedOnCrash(crash);
+        }
+      }
+
       void Function() canceller = _voidIgnore;
 
       ContCrash.tryCatch(() {
@@ -182,23 +193,18 @@ final class Cont<E, F, A> {
             guardedOnThen,
           ),
         );
-      })._ifCrash(guardedOnCrash);
+      })._ifCrash(crashOrPanic);
 
       // the leaf's canceller runs at most once, and not after the leaf
-      // has finished; a throw from it is a crash, or a panic once done
+      // has finished
       bool isCancelled = false;
       return () {
         if (isCancelled || isDone) {
           return;
         }
         isCancelled = true;
-        ContCrash.tryCatch(canceller)._ifCrash((crash) {
-          if (isDone) {
-            onPanic(crash);
-          } else {
-            guardedOnCrash(crash);
-          }
-        });
+        ContCrash.tryCatch(canceller)
+            ._ifCrash(crashOrPanic);
       };
     });
   }
@@ -719,7 +725,7 @@ final class Cont<E, F, A> {
               );
             });
           })._ifCrash((crash) {
-            observer.onCrash(crash);
+            observer._crashOrPanic(crash);
             fireRelease();
           });
         }),
