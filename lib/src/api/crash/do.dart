@@ -15,26 +15,6 @@ extension ContCrashDoExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A> crashDo(
     Cont<E, F, A> Function(ContCrash crash) f,
   ) {
-    return Cont.fromRun((env, observer) {
-      final cancellers = _Cancellers();
-      cancellers.runNext(() {
-        return runWith(
-          env,
-          observer.copyUpdateOnCrash((initialCrash) {
-            final result = ContCrash.tryCatch(() {
-              final cont = f(initialCrash);
-              cancellers.runNext(() {
-                return cont.runWith(env, observer);
-              });
-            });
-            if (result
-                case CrashCrashOr(crash: final crash)) {
-              observer._crashOrPanic(crash);
-            }
-          }),
-        );
-      });
-      return cancellers.cancel;
-    });
+    return _CrashDoCont<E, F, A>(this, f);
   }
 }

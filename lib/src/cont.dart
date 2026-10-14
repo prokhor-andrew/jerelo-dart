@@ -11,6 +11,7 @@ part 'api/then/while.dart';
 part 'api/else/while.dart';
 part 'api/crash/while.dart';
 part 'helper/utils.dart';
+part 'helper/run_loop.dart';
 
 part 'helper/sequence_helpers.dart';
 part 'helper/quit_fast_helpers.dart';
@@ -30,23 +31,14 @@ part 'helper/when_all_list_helpers.dart';
 /// - [E]: The environment type providing context for the continuation execution.
 /// - [F]: The error type that the continuation may terminate with on the else channel.
 /// - [A]: The value type that the continuation produces upon success.
-final class Cont<E, F, A> {
-  // The callbacks are passed as plain function types rather than as a
-  // ContObserver<F, A>. Dart treats class type parameters as covariant,
-  // but checks function types soundly, so this keeps Cont safely
-  // covariant in F and A: a Cont<E, String, int> can be used as a
-  // Cont<E, Object?, int>.
-  //
-  // _run returns the canceller of the computation it starts.
-  final void Function() Function(
-    E env,
-    void Function(NormalCrash crash) onPanic,
-    void Function(ContCrash crash) onCrash,
-    void Function(F error) onElse,
-    void Function(A value) onThen,
-  ) _run;
-
-  const Cont._(this._run);
+//
+// A Cont is data: a leaf (_LeafCont, built by fromRun) that runs a
+// function, or a node that composes other Conts (_ThenDoCont,
+// _ElseDoCont, _CrashDoCont). runWith interprets the nodes with a
+// loop and an explicit frame stack (see run_loop.dart), so chains of
+// any length don't grow the call stack.
+sealed class Cont<E, F, A> {
+  const Cont._();
 
   /// Executes the continuation with the given environment.
   ///
@@ -116,7 +108,7 @@ final class Cont<E, F, A> {
       SafeObserver<F, A> observer,
     ) run,
   ) {
-    return Cont._((
+    return _LeafCont<E, F, A>._((
       env,
       onUnsafePanic,
       onCrash,
@@ -766,12 +758,27 @@ extension ContRunWithExtension<E, F, A> on Cont<E, F, A> {
     E env,
     ContObserver<F, A> observer,
   ) {
-    return _run(
+    final self = this;
+    if (self is _LeafCont<E, F, A>) {
+      // a leaf needs no loop
+      return self._run(
+        env,
+        observer._onUnsafePanic,
+        observer.onCrash,
+        observer.onElse,
+        observer.onThen,
+      );
+    }
+    return _RunLoop(
       env,
       observer._onUnsafePanic,
       observer.onCrash,
-      observer.onElse,
-      observer.onThen,
-    );
+      (error) {
+        observer.onElse(error as F);
+      },
+      (value) {
+        observer.onThen(value as A);
+      },
+    ).start(self);
   }
 }

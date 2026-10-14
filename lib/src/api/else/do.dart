@@ -16,26 +16,6 @@ extension ContElseDoExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F2, A> elseDo<F2>(
     Cont<E, F2, A> Function(F error) f,
   ) {
-    return Cont.fromRun((env, observer) {
-      final cancellers = _Cancellers();
-      cancellers.runNext(() {
-        return runWith(
-          env,
-          observer.copyUpdateOnElse((error) {
-            final result = ContCrash.tryCatch(() {
-              final contA = f(error);
-              cancellers.runNext(() {
-                return contA.runWith(env, observer);
-              });
-            });
-            if (result
-                case CrashCrashOr(crash: final crash)) {
-              observer._crashOrPanic(crash);
-            }
-          }),
-        );
-      });
-      return cancellers.cancel;
-    });
+    return _ElseDoCont<E, F, F2, A>(this, f);
   }
 }
