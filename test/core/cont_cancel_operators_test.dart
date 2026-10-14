@@ -316,7 +316,7 @@ void main() {
 
   group('quitFast edge cases', () {
     test(
-        'a side that decides synchronously cancels the other on start',
+        'both does not start right once left decided synchronously',
         () {
       final right = _Leaf<String, int>();
       String? error;
@@ -328,8 +328,97 @@ void main() {
       ).run((), onElse: (e) => error = e);
 
       expect(error, equals('left failed'));
+      expect(right.starts, equals(0));
+    });
+
+    test(
+        'either does not start right once left decided synchronously',
+        () {
+      final right = _Leaf<String, int>();
+      int? value;
+      Cont.either(
+        Cont.of<(), String, int>(1),
+        right.cont,
+        (a, b) => '$a$b',
+        policy: OkPolicy.quitFast(),
+      ).run((), onThen: (v) => value = v);
+
+      expect(value, equals(1));
+      expect(right.starts, equals(0));
+    });
+
+    test(
+        'coalesce does not start right once left decided synchronously',
+        () {
+      final right = _Leaf<String, int>();
+      int? value;
+      Cont.coalesce(
+        Cont.of<(), String, int>(1),
+        right.cont,
+        policy: CrashPolicy.quitFast(),
+      ).run((), onThen: (v) => value = v);
+
+      expect(value, equals(1));
+      expect(right.starts, equals(0));
+    });
+
+    test(
+        'a side that crashes still lets coalesce start right',
+        () {
+      final right = _Leaf<String, int>();
+      Cont.coalesce(
+        Cont.crash<(), String, int>(_crash),
+        right.cont,
+        policy: CrashPolicy.quitFast(),
+      ).run(());
+
       expect(right.starts, equals(1));
-      expect(right.cancels, equals(1));
+    });
+
+    test(
+        'all starts no item after one decided synchronously',
+        () {
+      final later =
+          List.generate(2, (_) => _Leaf<String, int>());
+      String? error;
+      Cont.all(
+        [
+          Cont.error<(), String, int>('first failed'),
+          ...later.map((l) => l.cont),
+        ],
+        policy: OkPolicy.quitFast(),
+      ).run((), onElse: (e) => error = e);
+
+      expect(error, equals('first failed'));
+      expect(later.map((l) => l.starts), everyElement(0));
+    });
+
+    test('any and converge start no item after one decided',
+        () {
+      final anyLater = _Leaf<String, int>();
+      final convergeLater = _Leaf<String, int>();
+      Cont.any(
+        [Cont.of<(), String, int>(1), anyLater.cont],
+        policy: OkPolicy.quitFast(),
+      ).run(());
+      Cont.converge(
+        [Cont.of<(), String, int>(1), convergeLater.cont],
+        policy: CrashPolicy.quitFast(),
+      ).run(());
+
+      expect(anyLater.starts, equals(0));
+      expect(convergeLater.starts, equals(0));
+    });
+
+    test('items that have not decided all start', () {
+      final items =
+          List.generate(3, (_) => _Leaf<String, int>());
+      Cont.all(
+        items.map((l) => l.cont).toList(),
+        policy: OkPolicy.quitFast(),
+      ).run(());
+
+      expect(items.map((l) => l.starts), everyElement(1));
     });
 
     test('a loser reporting from its canceller is ignored',

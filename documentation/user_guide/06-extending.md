@@ -311,7 +311,7 @@ When the underlying work cannot be stopped, such as a `Future`, the canceller ca
 ### How operators forward a cancel
 
 - Sequential operators (`thenDo`, `elseDo`, `thenTap`, …) forward a cancel to the stage that is running. If that stage still reports a value after the cancel, the next stage starts and is cancelled immediately.
-- Combinators forward a cancel to every running branch. With a `quitFast` policy, once the result is decided, the losing branches are cancelled. `runAll` never cancels on its own; `sequence` cancels the running item and every later item as it starts.
+- Combinators forward a cancel to every running branch. With a `quitFast` policy, once the result is decided, the losing branches are cancelled, and branches not started yet are never started. `runAll` never cancels on its own; `sequence` cancels the running item and every later item as it starts.
 - Loops (the `*While` and `*Until` operators) forward a cancel to the running iteration and start no iteration after it; the loop ends with that iteration's outcome.
 - `Cont.bracket` forwards a cancel to `use` only; `acquire` and `release` are never cancelled, and `release` runs once `use` reports back.
 - Forks (`thenFork`, `elseFork`, `crashFork` and their variants) detach their side effect: it is not cancelled with the parent. The main computation is.

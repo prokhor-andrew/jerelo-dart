@@ -62,6 +62,10 @@ void Function() _quitFastPar<E, QF, C>({
   }
 
   for (int i = 0; i < total; i++) {
+    if (isDone) {
+      // the result is decided: don't start the remaining items
+      break;
+    }
     cancellers.runAlongside(() {
       return onRun(
         i,
@@ -157,6 +161,10 @@ Cont<E, F, A> _convergeCrashQuitFast<E, F, A>(
     }
 
     for (var i = 0; i < total; i++) {
+      if (isDone) {
+        // the result is decided: don't start the remaining items
+        break;
+      }
       ContCrash.tryCatch(() {
         cancellers.runAlongside(() {
           return list[i].runWith(

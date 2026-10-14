@@ -143,7 +143,7 @@ The canceller returned by `Cont.fromRun` is the only place where a cancel does a
 
 - **To the part running now, and to every part started afterwards.** In `a.thenDo(f)`, a cancel reaches `a` while it runs. If `a` still reports a value after the cancel, `f` is called, and the computation it returns starts and is cancelled immediately.
 - **Combinators** forward a cancel to every branch that is running.
-- **`quitFast` policies** (`both`, `either`, `all`, `any`, `coalesce`, `converge` and their instance forms): once the result is decided, the inputs still running are cancelled.
+- **`quitFast` policies** (`both`, `either`, `all`, `any`, `coalesce`, `converge` and their instance forms): once the result is decided, the inputs still running are cancelled, and inputs not started yet are never started.
 - **`runAll` policies** never cancel on their own; a cancel from outside is forwarded to every running input.
 - **`sequence` policies** cancel the input that is running and every later input as it starts.
 - **Loops** (the `*While` and `*Until` operators) forward a cancel to the running iteration and start no iteration after it. The loop ends with the outcome of the iteration that was running, once it reports.

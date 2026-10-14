@@ -6,8 +6,10 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
   A3 Function(A1 a1, A2 a2) combine,
 ) {
   return Cont.fromRun((env0, observer) {
-    // cancelling forwards to both sides; deciding cancels the loser
+    // cancelling forwards to both sides; deciding cancels the loser,
+    // and right is not started once left has decided the result
     final cancellers = _Cancellers();
+    var isDecided = false;
     final (
       env,
       handleCrash,
@@ -19,7 +21,10 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
       onPrimary: observer.onElse,
       onSecondary: observer.onThen,
       onCrash: observer.onCrash,
-      onDecided: cancellers.cancel,
+      onDecided: () {
+        isDecided = true;
+        cancellers.cancel();
+      },
     );
 
     ContCrash.tryCatch(() {
@@ -37,20 +42,22 @@ Cont<E, F, A3> _bothQuitFast<E, F, A1, A2, A3>(
       });
     })._ifCrash(handleCrash);
 
-    ContCrash.tryCatch(() {
-      cancellers.runAlongside(() {
-        return right.runWith(
-          env,
-          observer.copyUpdate(
-            onCrash: handleCrash,
-            onElse: handleElse,
-            onThen: (a) {
-              handleThen(_Right(a));
-            },
-          ),
-        );
-      });
-    })._ifCrash(handleCrash);
+    if (!isDecided) {
+      ContCrash.tryCatch(() {
+        cancellers.runAlongside(() {
+          return right.runWith(
+            env,
+            observer.copyUpdate(
+              onCrash: handleCrash,
+              onElse: handleElse,
+              onThen: (a) {
+                handleThen(_Right(a));
+              },
+            ),
+          );
+        });
+      })._ifCrash(handleCrash);
+    }
     return cancellers.cancel;
   });
 }
@@ -61,8 +68,10 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
   F3 Function(F1 f1, F2 f2) combine,
 ) {
   return Cont.fromRun((env0, observer) {
-    // cancelling forwards to both sides; deciding cancels the loser
+    // cancelling forwards to both sides; deciding cancels the loser,
+    // and right is not started once left has decided the result
     final cancellers = _Cancellers();
+    var isDecided = false;
     final (
       env,
       handleCrash,
@@ -74,7 +83,10 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
       onPrimary: observer.onThen,
       onSecondary: observer.onElse,
       onCrash: observer.onCrash,
-      onDecided: cancellers.cancel,
+      onDecided: () {
+        isDecided = true;
+        cancellers.cancel();
+      },
     );
 
     ContCrash.tryCatch(() {
@@ -92,20 +104,22 @@ Cont<E, F3, A> _eitherQuitFast<E, F1, F2, F3, A>(
       });
     })._ifCrash(handleCrash);
 
-    ContCrash.tryCatch(() {
-      cancellers.runAlongside(() {
-        return right.runWith(
-          env,
-          observer.copyUpdate(
-            onCrash: handleCrash,
-            onElse: ((f2) {
-              handleElse(_Right(f2));
-            }),
-            onThen: handleThen,
-          ),
-        );
-      });
-    })._ifCrash(handleCrash);
+    if (!isDecided) {
+      ContCrash.tryCatch(() {
+        cancellers.runAlongside(() {
+          return right.runWith(
+            env,
+            observer.copyUpdate(
+              onCrash: handleCrash,
+              onElse: ((f2) {
+                handleElse(_Right(f2));
+              }),
+              onThen: handleThen,
+            ),
+          );
+        });
+      })._ifCrash(handleCrash);
+    }
     return cancellers.cancel;
   });
 }
@@ -115,10 +129,15 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
   Cont<E, F, A> right,
 ) {
   return Cont.fromRun((env, observer) {
-    // cancelling forwards to both sides; deciding cancels the loser
+    // cancelling forwards to both sides; deciding cancels the loser,
+    // and right is not started once left has decided the result
     final cancellers = _Cancellers();
+    var isDecided = false;
     final _QuitFastStateHolder<ContCrash, ContCrash>
-        holder = _QuitFastStateHolder(cancellers.cancel);
+        holder = _QuitFastStateHolder(() {
+      isDecided = true;
+      cancellers.cancel();
+    });
 
     void handleThen(A a) {
       if (holder.state == null) {
@@ -192,22 +211,24 @@ Cont<E, F, A> _crashQuitFast<E, F, A>(
       handleCrash(_Left(crash));
     });
 
-    ContCrash.tryCatch(() {
-      cancellers.runAlongside(() {
-        return right.runWith(
-          env,
-          observer.copyUpdate(
-            onCrash: (crash) {
-              handleCrash(_Right(crash));
-            },
-            onElse: handleElse,
-            onThen: handleThen,
-          ),
-        );
+    if (!isDecided) {
+      ContCrash.tryCatch(() {
+        cancellers.runAlongside(() {
+          return right.runWith(
+            env,
+            observer.copyUpdate(
+              onCrash: (crash) {
+                handleCrash(_Right(crash));
+              },
+              onElse: handleElse,
+              onThen: handleThen,
+            ),
+          );
+        });
+      })._ifCrash((crash) {
+        handleCrash(_Right(crash));
       });
-    })._ifCrash((crash) {
-      handleCrash(_Right(crash));
-    });
+    }
     return cancellers.cancel;
   });
 }

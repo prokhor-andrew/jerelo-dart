@@ -23,7 +23,7 @@ So `both` waits for every success and stops at the first error or crash, while `
 Every combinator on the success/error channels needs an `OkPolicy<T>` that controls concurrency and failure handling.
 
 - **`OkPolicy.sequence()`** — Runs sequentially, one after another. The next computation runs only if the previous one ended on the own channel.
-- **`OkPolicy.quitFast()`** — Runs in parallel, reports the first exit (including a crash) immediately. The computations still running are cancelled, and their results are ignored.
+- **`OkPolicy.quitFast()`** — Runs in parallel, reports the first exit (including a crash) immediately. The computations still running are cancelled, and their results are ignored; one that has not started yet is never started.
 - **`OkPolicy.runAll(combine, shouldFavorCrash:)`** — Runs in parallel, waits for all to complete, combines same-channel exits via `combine`. If one computation ends on the own channel and another exits, the result is the exit. `shouldFavorCrash` only decides between two different exits: when it is `true`, a crash is preferred over the other exit (an error in `both`, a success in `either`).
 
 ### CrashPolicy (for `coalesce`, `converge`)
