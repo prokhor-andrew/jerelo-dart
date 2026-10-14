@@ -12,10 +12,9 @@ Cont<E, A> _fromRun<E, A>(
   void Function(
     ContRuntime<E> runtime,
     ContObserver<A> observer,
-  )
-  run,
+  ) run,
 ) {
-  return Cont._((runtime, onElse, onThen) {
+  return _LeafCont<E, A>._((runtime, onElse, onThen) {
     if (runtime.isCancelled()) {
       return;
     }

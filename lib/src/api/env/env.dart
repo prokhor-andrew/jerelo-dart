@@ -10,11 +10,7 @@ extension ContEnvExtension<E, A> on Cont<E, A> {
   ///
   /// - [f]: Function that transforms the outer environment to the inner environment.
   Cont<E2, A> local<E2>(E Function(E2) f) {
-    return Cont.fromRun((runtime, observer) {
-      final env = f(runtime.env());
-
-      _run(runtime.copyUpdateEnv(env), observer);
-    });
+    return _LocalCont<E2, E, A>(this, f);
   }
 
   /// Runs this continuation with a new environment from a zero-argument function.
