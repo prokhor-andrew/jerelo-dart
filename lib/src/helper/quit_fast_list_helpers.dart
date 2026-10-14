@@ -49,7 +49,7 @@ void Function() _quitFastPar<E, QF, C>({
       return;
     }
     isDone = true;
-    onAllCollected(collectedResults.cast<C>());
+    onAllCollected(List<C>.from(collectedResults));
   }
 
   void handleCrash(ContCrash crash) {
