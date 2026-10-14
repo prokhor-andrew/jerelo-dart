@@ -127,7 +127,7 @@ Without the explicit `<int>`, Dart cannot infer the value type of `Cont.error(..
 
 ## Loops
 
-Loops run a computation again and again until a condition says to stop. Each channel has its own: `thenWhile`/`thenUntil` repeat after a value, and `elseWhile`/`elseUntil` and `crashWhile`/`crashUntil` retry after an error or a crash. Every iteration reruns the whole computation the loop is called on. The loops are stack-safe, so they can run any number of iterations, even when the steps complete synchronously.
+Loops run a computation again and again until a condition says to stop. Each channel has its own: `thenWhile`/`thenUntil` repeat after a value, and `elseWhile`/`elseUntil` and `crashWhile`/`crashUntil` retry after an error or a crash. Every iteration reruns the whole computation the loop is called on. The loops are stack-safe, so they can run any number of iterations, even when the steps complete synchronously. So is plain recursion with `thenDo` and the other operators: see [Stack Safety](../api_reference/execution.md#stack-safety).
 
 ```dart
 final Cont<(), Never, int> firstBig = Cont.of<(), Never, ()>(())

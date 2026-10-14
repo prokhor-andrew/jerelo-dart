@@ -33,6 +33,8 @@ The observer passed to `Cont.fromRun` is a `SafeObserver`, which provides:
 - `observer.onCrash(crash)` — Signal a crash
 - `observer.isUsed()` — Returns `true` if any callback has already been invoked
 
+Call the observer as the last thing the run function does, or save it and call it later. When you call it while the run function is still running, it only records the outcome: the next stage starts after the run function returns, so any code after the call runs first. When you call it later, for example from a timer, the next stages run before the call returns.
+
 Only this observer is guarded against duplicate calls; observers derived from it with `copyUpdate*` call their new callbacks every time. `fromRun` also catches only exceptions thrown synchronously by the run function. Such an exception is a crash, or a panic if the observer was already called; the outcome already reported stands. An exception thrown later inside a `Timer` or `Future` callback escapes to the zone, and the observer is never called. Wrap such callback bodies in `ContCrash.tryCatch`; if it returns a `CrashCrashOr`, pass its crash to `observer.onCrash`.
 
 ### Example: Delayed Computation
