@@ -146,7 +146,7 @@ The canceller returned by `Cont.fromRun` is the only place where a cancel does a
 - **`quitFast` policies** (`both`, `either`, `all`, `any`, `coalesce`, `converge` and their instance forms): once the result is decided, the inputs still running are cancelled.
 - **`runAll` policies** never cancel on their own; a cancel from outside is forwarded to every running input.
 - **`sequence` policies** cancel the input that is running and every later input as it starts.
-- **Loops** (the `*While`, `*Until` and `*Forever` operators) forward a cancel to the running iteration, and to every later iteration as it starts.
+- **Loops** (the `*While`, `*Until` and `*Forever` operators) forward a cancel to the running iteration and start no iteration after it. The loop ends with the outcome of the iteration that was running, once it reports.
 - **`Cont.bracket`** forwards a cancel to `use` only. `acquire` and `release` are never cancelled; a cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. `release` runs once `use` reports back, on any channel.
 - **Forks** (`thenFork`, `elseFork`, `crashFork` and their variants): the forked side effect is detached and is **not** cancelled with the parent. The main computation is.
 
@@ -156,7 +156,7 @@ A leaf's canceller runs at most once, and never after the leaf has finished. If 
 
 Cancellation is only as good as the leaves:
 
-- A computation built only from leaves that ignore cancellation never stops. For example, `thenForever` whose steps return no-op cancellers keeps running after a cancel.
+- A leaf that ignores cancellation runs until it finishes. For example, a request whose canceller is `() {}` still completes, and the computation reports its outcome only then.
 - Your code can still run after a cancel. When a stage reports a value after the cancel, the function of the next operator (for example the function passed to `thenDo`) is still called; only the computation it returns is cancelled.
 - A cancelled computation reports an outcome like any other, or none at all if its leaf reports nothing. Use the callbacks passed to `run`, not `isCancelled`, to learn how it ended.
 

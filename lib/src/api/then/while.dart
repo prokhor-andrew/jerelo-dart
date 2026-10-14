@@ -13,6 +13,10 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
   /// channel or crashes, the loop stops and propagates that outcome; if the
   /// predicate throws, the computation crashes.
   ///
+  /// A cancel is forwarded to the running iteration, and no iteration
+  /// starts after it: the loop ends with the outcome of the iteration that
+  /// was running, once it reports, without calling [predicate].
+  ///
   /// This is useful for polling, or repeating an operation while a condition
   /// holds.
   ///
@@ -30,9 +34,14 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A> thenWhile(
     bool Function(A value) predicate,
   ) {
-    return Cont._tailRecM<E, F, (), A>((), (_) {
+    return Cont._tailRecM<E, F, (), A>((), (
+      _,
+      isCancelled,
+    ) {
       return thenMap((value) {
-        return predicate(value)
+        // after a cancel, end with the value instead of
+        // starting another iteration
+        return !isCancelled() && predicate(value)
             ? _NextTailRec<(), A>(())
             : _DoneTailRec<(), A>(value);
       });

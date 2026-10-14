@@ -52,6 +52,9 @@ final class _Cancellers {
   int _generation = 0;
   final List<void Function()> _cancellers = [];
 
+  /// Whether [cancel] was called.
+  bool get isCancelled => _isCancelled;
+
   /// Starts a part that runs after the previous ones, and replaces them.
   ///
   /// If [start] synchronously leads to a newer part being started, the

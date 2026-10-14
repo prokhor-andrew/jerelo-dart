@@ -12,6 +12,10 @@ extension ContElseWhileExtension<E, F, A> on Cont<E, F, A> {
   /// If the continuation crashes or the predicate throws, the loop stops and
   /// crashes.
   ///
+  /// A cancel is forwarded to the running attempt, and no attempt starts
+  /// after it: the loop ends with the outcome of the attempt that was
+  /// running, once it reports, without calling [predicate].
+  ///
   /// This is useful for retry logic with error-based conditions, such as retrying
   /// while specific transient errors occur.
   ///
@@ -26,10 +30,15 @@ extension ContElseWhileExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A> elseWhile(
     bool Function(F error) predicate,
   ) {
-    return Cont._tailRecM<E, F, (), A>((), (_) {
+    return Cont._tailRecM<E, F, (), A>((), (
+      _,
+      isCancelled,
+    ) {
       return thenMap<_TailRec<(), A>>(_DoneTailRec.new)
           .elseDo((error) {
-        return predicate(error)
+        // after a cancel, end with the error instead of
+        // starting another attempt
+        return !isCancelled() && predicate(error)
             ? Cont.of(_NextTailRec(()))
             : Cont.error(error);
       });

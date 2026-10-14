@@ -714,7 +714,7 @@ Conditionally converts crash to error with access to the environment only.
 
 ## Retry Loops
 
-All retry loops are stack-safe: retries that complete synchronously do not grow the call stack. A loop on the crash channel also ends when the continuation succeeds or terminates with a typed error, propagating that outcome. A cancel is forwarded to the running attempt; the loop stops only if that attempt reacts to it, so a loop whose steps ignore cancellation keeps retrying (see [Cancellation](execution.md#cancellation)).
+All retry loops are stack-safe: retries that complete synchronously do not grow the call stack. A loop on the crash channel also ends when the continuation succeeds or terminates with a typed error, propagating that outcome. A cancel is forwarded to the running attempt, and no attempt starts after it: the loop ends with the outcome of the attempt that was running, once it reports, without calling the predicate. If that attempt ignores the cancel, the loop ends when it finishes (see [Cancellation](execution.md#cancellation)).
 
 ### crashWhile
 

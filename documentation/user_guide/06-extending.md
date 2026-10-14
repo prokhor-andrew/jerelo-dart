@@ -312,14 +312,14 @@ When the underlying work cannot be stopped, such as a `Future`, the canceller ca
 
 - Sequential operators (`thenDo`, `elseDo`, `thenTap`, …) forward a cancel to the stage that is running. If that stage still reports a value after the cancel, the next stage starts and is cancelled immediately.
 - Combinators forward a cancel to every running branch. With a `quitFast` policy, once the result is decided, the losing branches are cancelled. `runAll` never cancels on its own; `sequence` cancels the running item and every later item as it starts.
-- Loops (the `*While`, `*Until` and `*Forever` operators) forward a cancel to the running iteration.
+- Loops (the `*While`, `*Until` and `*Forever` operators) forward a cancel to the running iteration and start no iteration after it; the loop ends with that iteration's outcome.
 - `Cont.bracket` forwards a cancel to `use` only; `acquire` and `release` are never cancelled, and `release` runs once `use` reports back.
 - Forks (`thenFork`, `elseFork`, `crashFork` and their variants) detach their side effect: it is not cancelled with the parent. The main computation is.
 - In `decorate`, return what `run` returned so that the cancel keeps flowing.
 
 ### Limitations
 
-Cancellation is only as good as the leaves. A `thenForever` whose steps ignore cancellation never stops, and your own code — for example the function passed to `thenDo` — can still run after a cancel when a stage reports a value after it. Write leaves that report a cancel promptly when you need computations to stop. See [Cancellation](../api_reference/execution.md#cancellation) for the full reference.
+Cancellation is only as good as the leaves. A leaf that ignores cancellation runs until it finishes, and your own code — for example the function passed to `thenDo` — can still run after a cancel when a stage reports a value after it. Write leaves that report a cancel promptly when you need computations to stop. See [Cancellation](../api_reference/execution.md#cancellation) for the full reference.
 
 ---
 

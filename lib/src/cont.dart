@@ -257,11 +257,16 @@ final class Cont<E, F, A> {
   // state, and an else or crash outcome ends the loop. A throw from step
   // is a crash. Iterations that complete synchronously don't grow the
   // call stack. A cancel is forwarded to the running iteration, and to
-  // every iteration that starts afterwards. The loop operators
-  // (thenWhile, elseWhile, crashWhile) are built on it.
+  // every iteration that starts afterwards. step receives isCancelled:
+  // the loop operators (thenWhile, elseWhile, crashWhile) are built on
+  // it, and once it returns true they end with the iteration's outcome
+  // instead of starting another one.
   static Cont<E, F, A> _tailRecM<E, F, S, A>(
     S initial,
-    Cont<E, F, _TailRec<S, A>> Function(S state) step,
+    Cont<E, F, _TailRec<S, A>> Function(
+      S state,
+      bool Function() isCancelled,
+    ) step,
   ) {
     return Cont.fromRun((env, observer) {
       final cancellers = _Cancellers();
@@ -284,7 +289,10 @@ final class Cont<E, F, A> {
         },
         computation: (state, update) {
           ContCrash.tryCatch(() {
-            final contStep = step(state);
+            final contStep = step(
+              state,
+              () => cancellers.isCancelled,
+            );
             cancellers.runNext(() {
               return contStep.runWith(
                 env,

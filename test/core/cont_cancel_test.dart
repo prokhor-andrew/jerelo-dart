@@ -313,22 +313,27 @@ void main() {
 
   group('loops', () {
     test(
-        'a loop cancels the running iteration and later ones',
+        'after a cancel, a loop ends with the running iteration',
         () {
       final leaves = <_Leaf<String, int>>[];
+      int? result;
       final token = Cont.fromDeferred<(), String, int>(() {
         final leaf = _Leaf<String, int>();
         leaves.add(leaf);
         return leaf.cont;
-      }).thenWhile((_) => true).run(());
+      }).thenWhile((_) => true).run(
+        (),
+        onThen: (v) => result = v,
+      );
       token.cancel();
 
       expect(leaves.single.cancels, equals(1));
 
+      // the iteration ignores the cancel and finishes later
       leaves.single.observer!.onThen(1);
 
-      expect(leaves.length, equals(2));
-      expect(leaves[1].cancels, equals(1));
+      expect(leaves.length, equals(1));
+      expect(result, equals(1));
     });
 
     test(

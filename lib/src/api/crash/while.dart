@@ -13,6 +13,10 @@ extension ContCrashWhileExtension<E, F, A>
   /// If the predicate throws, the loop stops and crashes with that exception
   /// instead of the original crash.
   ///
+  /// A cancel is forwarded to the running attempt, and no attempt starts
+  /// after it: the loop ends with the outcome of the attempt that was
+  /// running, once it reports, without calling [predicate].
+  ///
   /// This is useful for retry logic with crash-based conditions, such as retrying
   /// while specific transient crashes occur.
   ///
@@ -21,10 +25,15 @@ extension ContCrashWhileExtension<E, F, A>
   Cont<E, F, A> crashWhile(
     bool Function(ContCrash crash) predicate,
   ) {
-    return Cont._tailRecM<E, F, (), A>((), (_) {
+    return Cont._tailRecM<E, F, (), A>((), (
+      _,
+      isCancelled,
+    ) {
       return thenMap<_TailRec<(), A>>(_DoneTailRec.new)
           .crashDo((crash) {
-        return predicate(crash)
+        // after a cancel, end with the crash instead of
+        // starting another attempt
+        return !isCancelled() && predicate(crash)
             ? Cont.of(_NextTailRec(()))
             : Cont.crash(crash);
       });

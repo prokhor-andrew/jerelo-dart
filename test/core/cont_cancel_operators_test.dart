@@ -646,6 +646,82 @@ void main() {
   });
 
   group('loops', () {
+    test(
+        'elseWhile ends with the error its attempt reports on cancel',
+        () {
+      final attempts = <_Leaf<String, int>>[];
+      String? error;
+      var predicateCalls = 0;
+      final token = Cont.fromDeferred(() {
+        final leaf = _reportingLeaf<int>('cancelled');
+        attempts.add(leaf);
+        return leaf.cont;
+      }).elseWhile((_) {
+        predicateCalls++;
+        return true;
+      }).run((), onElse: (e) => error = e);
+      token.cancel();
+
+      expect(attempts.length, equals(1));
+      expect(predicateCalls, equals(0));
+      expect(error, equals('cancelled'));
+    });
+
+    test(
+        'a bounded elseWhile starts no attempt after a cancel',
+        () {
+      var started = 0;
+      String? error;
+      final token = Cont.fromDeferred(() {
+        started++;
+        return _reportingLeaf<int>('cancelled').cont;
+      })
+          .elseWhile((_) => started < 6)
+          .run((), onElse: (e) => error = e);
+      token.cancel();
+
+      expect(started, equals(1));
+      expect(error, equals('cancelled'));
+    });
+
+    test(
+        'crashWhile ends with the crash its attempt reports on cancel',
+        () {
+      var started = 0;
+      ContCrash? crash;
+      final token = Cont.fromDeferred(() {
+        started++;
+        return _Leaf<String, int>(
+          onCancel: (observer) => observer.onCrash(_crash),
+        ).cont;
+      })
+          .crashWhile((_) => true)
+          .run((), onCrash: (c) => crash = c);
+      token.cancel();
+
+      expect(started, equals(1));
+      expect(crash, same(_crash));
+    });
+
+    test(
+        'thenUntil ends with the value its iteration reports on cancel',
+        () {
+      var started = 0;
+      int? result;
+      final token = Cont.fromDeferred(() {
+        started++;
+        return _Leaf<String, int>(
+          onCancel: (observer) => observer.onThen(7),
+        ).cont;
+      })
+          .thenUntil((_) => false)
+          .run((), onThen: (v) => result = v);
+      token.cancel();
+
+      expect(started, equals(1));
+      expect(result, equals(7));
+    });
+
     test('thenForever forwards to the running iteration',
         () {
       final leaves = <_Leaf<String, int>>[];

@@ -778,7 +778,7 @@ final cont = processData()
 
 ## Loops
 
-All loops are stack-safe: iterations that complete synchronously do not grow the call stack. A loop on the then channel also ends when the continuation terminates on the else or crash channel, propagating that outcome. A cancel is forwarded to the running iteration; the loop stops only if that iteration reacts to it, so a loop whose steps ignore cancellation keeps running (see [Cancellation](execution.md#cancellation)).
+All loops are stack-safe: iterations that complete synchronously do not grow the call stack. A loop on the then channel also ends when the continuation terminates on the else or crash channel, propagating that outcome. A cancel is forwarded to the running iteration, and no iteration starts after it: the loop ends with the outcome of the iteration that was running, once it reports, without calling the predicate. If that iteration ignores the cancel, the loop ends when it finishes (see [Cancellation](execution.md#cancellation)).
 
 ### thenWhile
 
