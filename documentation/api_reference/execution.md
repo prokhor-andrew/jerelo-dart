@@ -44,7 +44,7 @@ Initiates execution of the continuation with separate handlers for panics, crash
 
 - **Parameters:**
   - `env`: The environment value to provide as context during execution
-  - `onPanic`: Callback invoked when a fatal, unrecoverable panic occurs (e.g., an observer callback throws). Defaults to re-throwing inside a microtask
+  - `onPanic`: Callback invoked when a fatal, unrecoverable panic occurs (e.g., an observer callback throws). If `onPanic` itself throws, the original panic is re-thrown inside a microtask. Defaults to re-throwing inside a microtask
   - `onCrash`: Callback invoked when the continuation crashes with an unexpected exception. Defaults to ignoring the crash
   - `onElse`: Callback invoked when the continuation terminates with a typed error. Defaults to ignoring the error
   - `onThen`: Callback invoked when the continuation produces a successful value. Defaults to ignoring the value

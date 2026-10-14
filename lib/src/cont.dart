@@ -56,7 +56,8 @@ final class Cont<E, F, A> {
   /// - [onPanic]: Called when [onCrash], [onElse] or [onThen] throws, with
   ///   the thrown error as a [NormalCrash]. Defaults to rethrowing the panic
   ///   in a microtask, so it surfaces as an unhandled error in the current
-  ///   zone; a `try`/`catch` around [run] never sees it.
+  ///   zone; a `try`/`catch` around [run] never sees it. If [onPanic]
+  ///   itself throws, the original panic is rethrown that way instead.
   /// - [onCrash]: Called when the computation terminates on the crash channel.
   ///   Defaults to silently ignoring the crash.
   /// - [onElse]: Called when the computation terminates on the else (error) channel.
@@ -125,11 +126,10 @@ final class Cont<E, F, A> {
       void onPanic(NormalCrash crash) {
         ContCrash.tryCatch(() {
           onUnsafePanic(crash);
-        })._ifCrash((panic) {
-          // the important part here is that if onPanic crashes,
-          // we don't push the crash that was sent there,
-          // but the crash that caused the onPanic
-          _panic(panic);
+        })._ifCrash((_) {
+          // if onPanic throws, rethrow the panic it was handling,
+          // not its own error: the original panic is the real problem
+          _panic(crash);
         });
       }
 

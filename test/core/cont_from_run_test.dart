@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:jerelo/jerelo.dart';
 import 'package:test/test.dart';
 
@@ -110,6 +112,22 @@ void main() {
       expect(values, equals([2]));
       expect(crash, isNull);
       expect(panics.map((p) => p.error), equals(['AFTER']));
+    });
+  });
+
+  group('onPanic throws', () {
+    test('the original panic reaches the zone', () async {
+      final zoneErrors = <Object>[];
+      await runZonedGuarded(() async {
+        Cont.of<(), String, int>(1).run(
+          (),
+          onThen: (_) => throw 'ORIGINAL',
+          onPanic: (_) => throw 'FROM ONPANIC',
+        );
+        await Future<void>.delayed(Duration.zero);
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(zoneErrors, equals(['ORIGINAL']));
     });
   });
 }
