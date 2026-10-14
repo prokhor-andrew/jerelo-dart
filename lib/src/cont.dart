@@ -43,6 +43,7 @@ part 'helper/else_helpers.dart';
 part 'helper/functions.dart';
 part 'helper/loop_helpers.dart';
 part 'helper/resource_helpers.dart';
+part 'helper/run_loop.dart';
 part 'helper/stack_safe_loop_policy.dart';
 part 'helper/then_helpers.dart';
 
@@ -60,20 +61,14 @@ part 'helper/then_helpers.dart';
 /// Type parameters:
 /// - [E]: The environment type providing context for the continuation execution.
 /// - [A]: The value type that the continuation produces upon success.
-final class Cont<E, A> {
-  // The callbacks are passed as plain function types rather than as a
-  // ContObserver<A>. Dart treats class type parameters as covariant,
-  // but checks function types soundly, so this keeps Cont safely
-  // covariant in A: a Cont<E, int> can be used as a Cont<E, Object?>.
-  // Use the [_run] extension method to run it with an observer.
-  final void Function(
-    ContRuntime<E> runtime,
-    void Function(List<ContError> errors) onElse,
-    void Function(A value) onThen,
-  )
-  _runCallbacks;
-
-  const Cont._(this._runCallbacks);
+//
+// A Cont is data: a leaf (_LeafCont, built by fromRun) that runs a
+// function, or a node that composes other Conts (_ThenDoCont,
+// _ElseDoCont, _DeferCont, _LocalCont). _run interprets the nodes with
+// a loop and an explicit frame stack (see run_loop.dart), so chains of
+// any length don't grow the call stack.
+sealed class Cont<E, A> {
+  const Cont._();
 
   /// Creates a [Cont] from a run function that accepts an observer.
   ///
@@ -84,15 +79,17 @@ final class Cont<E, A> {
   /// observer is never called, so catch such errors and pass them to `onElse`.
   /// The run function receives an observer with `onThen` and `onElse` callbacks.
   /// The callbacks should be called as the last instruction in the run function
-  /// or saved to be called later.
+  /// or saved to be called later. A callback called while [run] is still
+  /// running only records the outcome: the next stage starts after [run]
+  /// returns, so code after the call runs first. A callback called later
+  /// runs the next stages before it returns.
   ///
   /// - [run]: Function that executes the continuation and calls observer callbacks.
   static Cont<E, A> fromRun<E, A>(
     void Function(
       ContRuntime<E> runtime,
       ContObserver<A> observer,
-    )
-    run,
+    ) run,
   ) {
     return _fromRun(run);
   }
@@ -106,13 +103,7 @@ final class Cont<E, A> {
   static Cont<E, A> fromDeferred<E, A>(
     Cont<E, A> Function() thunk,
   ) {
-    return Cont.fromRun((runtime, observer) {
-      Cont<E, A> contA = thunk();
-      if (contA is Cont<E, Never>) {
-        contA = contA.absurd<A>();
-      }
-      contA._run(runtime, observer);
-    });
+    return _DeferCont<E, A>(thunk);
   }
 
   /// Creates a [Cont] that immediately succeeds with a value.
@@ -291,8 +282,8 @@ final class Cont<E, A> {
           });
         });
       case EitherMergeWhenAllPolicy<A>(
-        combine: final combine,
-      ):
+          combine: final combine,
+        ):
         return _eitherMergeWhenAll(left, right, combine);
       case EitherQuitFastPolicy<A>():
         return _eitherQuitFast(left, right);
@@ -329,8 +320,8 @@ final class Cont<E, A> {
       case EitherSequencePolicy<A>():
         return _anySequence(safeCopy0);
       case EitherMergeWhenAllPolicy<A>(
-        combine: final combine,
-      ):
+          combine: final combine,
+        ):
         return _anyMergeWhenAll(safeCopy0, combine);
       case EitherQuitFastPolicy<A>():
         return _anyQuitFast(safeCopy0);
@@ -408,6 +399,22 @@ extension _ContRunExtension<E, A> on Cont<E, A> {
     ContRuntime<E> runtime,
     ContObserver<A> observer,
   ) {
-    _runCallbacks(runtime, observer._onElse, observer.onThen);
+    final self = this;
+    if (self is _LeafCont<E, A>) {
+      // a leaf needs no loop
+      self._runCallbacks(
+        runtime,
+        observer._onElse,
+        observer.onThen,
+      );
+      return;
+    }
+    _RunLoop(
+      runtime,
+      observer._onElse,
+      (value) {
+        observer.onThen(value as A);
+      },
+    ).start(self);
   }
 }
