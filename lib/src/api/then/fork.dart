@@ -20,30 +20,26 @@ Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
   void Function(F2 error) onElse = _ignore,
   void Function(A2 value) onThen = _ignore,
 }) {
-  return Cont.fromRun((env, observer) {
-    return cont.runWith(
-      env,
-      observer.copyUpdateOnThen((a) {
-        // if f throws, it should crash the computation
-        ContCrash.tryCatch(() {
-          final contA2 = f(a);
-          try {
-            contA2.run(
-              env,
-              onPanic: onPanic,
-              onCrash: onCrash,
-              onElse: onElse,
-              onThen: onThen,
-            );
-          } catch (_) {
-            // do nothing, if anything happens to side-effect, it's not
-            // a concern of the thenFork
-          }
-        })._ifCrash(observer.onCrash);
-
-        observer.onThen(a);
-      }),
-    );
+  // a node, so a chain of forks stays stack safe
+  return cont.thenDo((a) {
+    return Cont.fromRun((env, observer) {
+      // a throw from f crashes the computation
+      final contA2 = f(a);
+      try {
+        contA2.run(
+          env,
+          onPanic: onPanic,
+          onCrash: onCrash,
+          onElse: onElse,
+          onThen: onThen,
+        );
+      } catch (_) {
+        // do nothing, if anything happens to side-effect, it's not
+        // a concern of the thenFork
+      }
+      observer.onThen(a);
+      return () {};
+    });
   });
 }
 
@@ -173,12 +169,3 @@ void _panic(NormalCrash crash) {
 
 /// Default handler that ignores the value it receives.
 void _ignore(Object? value) {}
-
-/// Runs `onCrash` when the computation threw.
-extension _CrashOrIfCrash<T> on CrashOr<T> {
-  void _ifCrash(void Function(NormalCrash crash) onCrash) {
-    if (this case CrashCrashOr(crash: final crash)) {
-      onCrash(crash);
-    }
-  }
-}

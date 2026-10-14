@@ -198,6 +198,26 @@ void main() {
     });
   });
 
+  group('forks', () {
+    test('left-nested thenFork, elseFork and crashFork',
+        () {
+      var forks = 0;
+      Cont<(), String, int> cont = Cont.of(0);
+      for (var i = 0; i < depth ~/ 3; i++) {
+        cont = cont
+            .thenFork((_) {
+              forks++;
+              return Cont.of<(), String, ()>(());
+            })
+            .elseFork((_) => Cont.of<(), String, ()>(()))
+            .crashFork((_) => Cont.of<(), String, ()>(()));
+      }
+
+      expect(outcomeOf(cont), equals('then 0'));
+      expect(forks, equals(depth ~/ 3));
+    });
+  });
+
   group('asynchronous steps', () {
     test(
         'a chain mixing synchronous and asynchronous steps',
