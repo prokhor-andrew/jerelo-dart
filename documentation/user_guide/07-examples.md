@@ -6,7 +6,7 @@ This guide provides comprehensive real-world examples that demonstrate Jerelo's 
 
 ## Complete Example: User Management System
 
-Here's a comprehensive example bringing it all together. It uses environment access, fallbacks, background forks, parallel execution, `Cont.bracket` and `Cont.tailRecM`:
+Here's a comprehensive example bringing it all together. It uses environment access, fallbacks, background forks, parallel execution, `Cont.bracket` and loops:
 
 ```dart
 import 'package:jerelo/jerelo.dart';
@@ -60,22 +60,17 @@ Cont<AppConfig, String, Report> processUsers(List<String> userIds) {
     release: (db) => closeDatabase(db),
     use: (db) {
       // Repeat until the report is complete
-      return Cont.tailRecM<AppConfig, String, (), Report>((), (_) {
-        return getUsers(userIds)
-          .thenDo((users) => processInDb(db, users))
-          .thenDo((results) => generateReport(results))
-          .thenMap((report) {
-            return report.isComplete
-              ? TailRec.done(report)
-              : TailRec.next(());
+      return getUsers(userIds)
+        .thenDo((users) => processInDb(db, users))
+        .thenDo((results) => generateReport(results))
+        .thenUntil((report) => report.isComplete)
+        .thenDo((report) {
+          // Notify, then pass the report through
+          return Cont.askThen<AppConfig, String>().thenDo((env) {
+            return notifyComplete(env.apiUrl, report)
+              .thenMap((_) => report);
           });
-      }).thenDo((report) {
-        // Notify, then pass the report through
-        return Cont.askThen<AppConfig, String>().thenDo((env) {
-          return notifyComplete(env.apiUrl, report)
-            .thenMap((_) => report);
         });
-      });
     },
   );
 }
@@ -109,7 +104,7 @@ This example demonstrates:
 - Background side effects (elseForkWithEnv, thenForkWithEnv)
 - Parallel execution with policies (Cont.all with OkPolicy.quitFast)
 - Resource management (Cont.bracket)
-- Looping (Cont.tailRecM)
+- Looping (thenUntil)
 
 ---
 

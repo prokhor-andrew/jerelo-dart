@@ -40,7 +40,7 @@ extension ContThenNeverExtension<E, F>
   ///
   /// This is particularly useful when:
   /// - Working with continuations that never succeed, such as a
-  ///   [Cont.tailRecM] loop that only ends on the else or crash channel
+  ///   `thenForever` loop that only ends on the else or crash channel
   /// - Matching types with other continuations in composition
   /// - Converting continuations that only end on the else or crash channel
   ///   to typed continuations
@@ -54,10 +54,8 @@ extension ContThenNeverExtension<E, F>
   /// Example:
   /// ```dart
   /// // A server loop that only ends with an error or a crash
-  /// final Cont<Env, F, Never> server = Cont.tailRecM(
-  ///   (),
-  ///   (_) => handleRequest().thenMap((_) => TailRec.next(())),
-  /// );
+  /// final Cont<Env, F, Never> server =
+  ///     handleRequest().thenForever();
   ///
   /// // Convert to Cont<Env, F, String> to match other continuation types
   /// final serverAsString = server.thenAbsurd<String>();

@@ -312,20 +312,20 @@ void main() {
   });
 
   group('loops', () {
-    test('tailRecM cancels the running step and later ones',
+    test(
+        'a loop cancels the running iteration and later ones',
         () {
-      final leaves = <_Leaf<String, TailRec<int, int>>>[];
-      final token =
-          Cont.tailRecM<(), String, int, int>(0, (_) {
-        final leaf = _Leaf<String, TailRec<int, int>>();
+      final leaves = <_Leaf<String, int>>[];
+      final token = Cont.fromDeferred<(), String, int>(() {
+        final leaf = _Leaf<String, int>();
         leaves.add(leaf);
         return leaf.cont;
-      }).run(());
+      }).thenWhile((_) => true).run(());
       token.cancel();
 
       expect(leaves.single.cancels, equals(1));
 
-      leaves.single.observer!.onThen(TailRec.next(1));
+      leaves.single.observer!.onThen(1);
 
       expect(leaves.length, equals(2));
       expect(leaves[1].cancels, equals(1));
@@ -338,19 +338,6 @@ void main() {
       leaf.cont.thenWhile((v) => v < 10).run(()).cancel();
 
       expect(leaf.cancels, equals(1));
-    });
-
-    test('tailRecM stays stack safe with cancellers', () {
-      int? result;
-      Cont.tailRecM<(), String, int, int>(0, (n) {
-        return Cont.of(
-          n >= 100000
-              ? TailRec.done(n)
-              : TailRec.next(n + 1),
-        );
-      }).run((), onThen: (v) => result = v);
-
-      expect(result, equals(100000));
     });
   });
 

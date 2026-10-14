@@ -86,15 +86,13 @@ Most custom operators can be built by composing existing ones:
 ```dart
 extension MyContExtensions<E, F, T> on Cont<E, F, T> {
   // Retry a computation up to maxAttempts times on failure.
-  // Cont.tailRecM loops without growing the stack, so even many
+  // elseWhile loops without growing the stack, so even many
   // synchronous failures are safe. Fails with the last error.
+  // fromDeferred gives each run its own attempt counter.
   Cont<E, F, T> retry(int maxAttempts) {
-    return Cont.tailRecM<E, F, int, T>(1, (attempt) {
-      return thenMap<TailRec<int, T>>(TailRec.done).elseDo((error) {
-        return attempt < maxAttempts
-          ? Cont.of(TailRec.next(attempt + 1))
-          : Cont.error(error);
-      });
+    return Cont.fromDeferred(() {
+      var attempt = 1;
+      return elseWhile((_) => attempt++ < maxAttempts);
     });
   }
 
@@ -314,7 +312,7 @@ When the underlying work cannot be stopped, such as a `Future`, the canceller ca
 
 - Sequential operators (`thenDo`, `elseDo`, `thenTap`, …) forward a cancel to the stage that is running. If that stage still reports a value after the cancel, the next stage starts and is cancelled immediately.
 - Combinators forward a cancel to every running branch. With a `quitFast` policy, once the result is decided, the losing branches are cancelled. `runAll` never cancels on its own; `sequence` cancels the running item and every later item as it starts.
-- Loops (`Cont.tailRecM`, the `*While`, `*Until` and `*Forever` operators) forward a cancel to the running iteration.
+- Loops (the `*While`, `*Until` and `*Forever` operators) forward a cancel to the running iteration.
 - `Cont.bracket` forwards a cancel to `use` only; `acquire` and `release` are never cancelled, and `release` runs once `use` reports back.
 - Forks (`thenFork`, `elseFork`, `crashFork` and their variants) detach their side effect: it is not cancelled with the parent. The main computation is.
 - In `decorate`, return what `run` returned so that the cancel keeps flowing.

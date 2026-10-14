@@ -1,4 +1,4 @@
-import 'package:jerelo/jerelo.dart';
+part of '../../cont.dart';
 
 extension ContElseWhileExtension<E, F, A> on Cont<E, F, A> {
   /// Repeatedly retries the continuation while the predicate returns `true` on termination error.
@@ -26,11 +26,11 @@ extension ContElseWhileExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A> elseWhile(
     bool Function(F error) predicate,
   ) {
-    return Cont.tailRecM<E, F, (), A>((), (_) {
-      return thenMap<TailRec<(), A>>(TailRec.done)
+    return Cont._tailRecM<E, F, (), A>((), (_) {
+      return thenMap<_TailRec<(), A>>(_DoneTailRec.new)
           .elseDo((error) {
         return predicate(error)
-            ? Cont.of(TailRec.next(()))
+            ? Cont.of(_NextTailRec(()))
             : Cont.error(error);
       });
     });

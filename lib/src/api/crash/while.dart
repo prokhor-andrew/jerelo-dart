@@ -1,4 +1,4 @@
-import 'package:jerelo/jerelo.dart';
+part of '../../cont.dart';
 
 extension ContCrashWhileExtension<E, F, A>
     on Cont<E, F, A> {
@@ -21,11 +21,11 @@ extension ContCrashWhileExtension<E, F, A>
   Cont<E, F, A> crashWhile(
     bool Function(ContCrash crash) predicate,
   ) {
-    return Cont.tailRecM<E, F, (), A>((), (_) {
-      return thenMap<TailRec<(), A>>(TailRec.done)
+    return Cont._tailRecM<E, F, (), A>((), (_) {
+      return thenMap<_TailRec<(), A>>(_DoneTailRec.new)
           .crashDo((crash) {
         return predicate(crash)
-            ? Cont.of(TailRec.next(()))
+            ? Cont.of(_NextTailRec(()))
             : Cont.crash(crash);
       });
     });

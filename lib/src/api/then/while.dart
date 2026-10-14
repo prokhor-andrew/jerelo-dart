@@ -1,4 +1,4 @@
-import 'package:jerelo/jerelo.dart';
+part of '../../cont.dart';
 
 extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
   /// Repeatedly executes the continuation as long as the predicate returns `true`,
@@ -8,9 +8,8 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
   /// The loop continues as long as the predicate returns `true`, and stops
   /// successfully when the predicate returns `false`.
   ///
-  /// The continuation always runs at least once. The loop is built on
-  /// [Cont.tailRecM], so it is stack-safe and handles asynchronous
-  /// continuations correctly. If the continuation terminates on the else
+  /// The continuation always runs at least once. The loop is stack-safe
+  /// and handles asynchronous continuations correctly. If the continuation terminates on the else
   /// channel or crashes, the loop stops and propagates that outcome; if the
   /// predicate throws, the computation crashes.
   ///
@@ -31,11 +30,11 @@ extension ContThenWhileExtension<E, F, A> on Cont<E, F, A> {
   Cont<E, F, A> thenWhile(
     bool Function(A value) predicate,
   ) {
-    return Cont.tailRecM<E, F, (), A>((), (_) {
+    return Cont._tailRecM<E, F, (), A>((), (_) {
       return thenMap((value) {
         return predicate(value)
-            ? TailRec.next(())
-            : TailRec.done(value);
+            ? _NextTailRec<(), A>(())
+            : _DoneTailRec<(), A>(value);
       });
     });
   }

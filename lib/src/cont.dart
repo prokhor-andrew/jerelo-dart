@@ -7,6 +7,9 @@ part 'api/cont_cancel_token.dart';
 part 'api/then/do.dart';
 part 'api/else/do.dart';
 part 'api/crash/do.dart';
+part 'api/then/while.dart';
+part 'api/else/while.dart';
+part 'api/crash/while.dart';
 part 'helper/utils.dart';
 
 part 'helper/sequence_helpers.dart';
@@ -249,28 +252,16 @@ final class Cont<E, F, A> {
     });
   }
 
-  /// Runs [step] repeatedly, starting from [initial], until it finishes.
-  ///
-  /// Each iteration runs the continuation returned by `step(state)`:
-  /// - succeeds with [TailRec.next] → runs the next iteration with the new
-  ///   state;
-  /// - succeeds with [TailRec.done] → succeeds with the result;
-  /// - terminates on the else or crash channel → ends the loop with that
-  ///   outcome. A throw from [step] becomes a crash.
-  ///
-  /// The loop is stack-safe: iterations that complete synchronously do not
-  /// grow the call stack, so it can run any number of times. Use it instead
-  /// of a recursive `thenDo` for loops and retries.
-  ///
-  /// A cancel is forwarded to the running iteration, and to every iteration
-  /// that starts afterwards.
-  ///
-  /// - [initial]: The state of the first iteration.
-  /// - [step]: Produces the continuation for one iteration from the current
-  ///   state.
-  static Cont<E, F, A> tailRecM<E, F, S, A>(
+  // Runs step repeatedly, starting from initial, until it succeeds with
+  // _DoneTailRec; _NextTailRec runs the next iteration with the new
+  // state, and an else or crash outcome ends the loop. A throw from step
+  // is a crash. Iterations that complete synchronously don't grow the
+  // call stack. A cancel is forwarded to the running iteration, and to
+  // every iteration that starts afterwards. The loop operators
+  // (thenWhile, elseWhile, crashWhile) are built on it.
+  static Cont<E, F, A> _tailRecM<E, F, S, A>(
     S initial,
-    Cont<E, F, TailRec<S, A>> Function(S state) step,
+    Cont<E, F, _TailRec<S, A>> Function(S state) step,
   ) {
     return Cont.fromRun((env, observer) {
       final cancellers = _Cancellers();
@@ -297,7 +288,7 @@ final class Cont<E, F, A> {
             cancellers.runNext(() {
               return contStep.runWith(
                 env,
-                observer.copyUpdate<F, TailRec<S, A>>(
+                observer.copyUpdate<F, _TailRec<S, A>>(
                   onCrash: (crash) {
                     update(_Value2(crash));
                   },
@@ -306,9 +297,9 @@ final class Cont<E, F, A> {
                   },
                   onThen: (next) {
                     switch (next) {
-                      case NextTailRec(state: final state):
+                      case _NextTailRec(state: final state):
                         update(_Value1(state));
-                      case DoneTailRec(
+                      case _DoneTailRec(
                           result: final result
                         ):
                         update(_Value3(_Right(result)));

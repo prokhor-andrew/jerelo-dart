@@ -17,8 +17,6 @@ Creating and transforming continuations.
   - [Cont.askElse](#contaskelse)
   - [Cont.fromDeferred](#contfromdeferred)
   - [Cont.bracket](#contbracket)
-- [Loops](#loops)
-  - [Cont.tailRecM](#conttailrecm)
 - [Transformation](#transformation)
   - [decorate](#decorate)
 
@@ -265,68 +263,6 @@ final result = Cont.bracket<File, MyEnv, String, String>(
   use: (file) => readContents(file),
   onReleaseCrash: (crash) => print('Failed to close: $crash'),
 );
-```
-
----
-
-## Loops
-
-### Cont.tailRecM
-
-```dart
-static Cont<E, F, A> tailRecM<E, F, S, A>(
-  S initial,
-  Cont<E, F, TailRec<S, A>> Function(S state) step,
-)
-```
-
-Runs `step` repeatedly, starting from `initial`, until it finishes.
-
-Each iteration runs the continuation returned by `step(state)`:
-- succeeds with `TailRec.next(state)` — runs the next iteration with the new state
-- succeeds with `TailRec.done(result)` — the loop succeeds with `result`
-- terminates on the else or crash channel — the loop ends with that outcome
-
-A throw from `step` becomes a crash.
-
-The loop is stack-safe: iterations that complete synchronously do not grow the call stack, so it can run any number of times. Use it instead of a recursive `thenDo` for loops and retries. A cancel is forwarded to the running iteration, and to every later iteration as it starts. See [`TailRec`](types.md#tailrec) for the step type.
-
-Dart cannot infer the result type `A` from a `TailRec.done(...)` returned inside `step`; without an expected type it becomes `dynamic`. Give the result a type, as in the examples below, or pass the type arguments explicitly.
-
-- **Type Parameters:**
-  - `S`: The loop state
-  - `A`: The result of the loop
-
-- **Parameters:**
-  - `initial`: The state of the first iteration
-  - `step`: Produces the continuation for one iteration from the current state
-
-**Example:**
-```dart
-// Sum 0..9
-final Cont<(), Never, int> sum = Cont.tailRecM(
-  (i: 0, total: 0),
-  (s) => Cont.of(
-    s.i < 10
-        ? TailRec.next((i: s.i + 1, total: s.total + s.i))
-        : TailRec.done(s.total),
-  ),
-);
-
-sum.run((), onThen: print); // prints: 45
-
-// Retry up to 3 attempts
-Cont<(), String, String> fetchWithRetry() {
-  return Cont.tailRecM(1, (int attempt) {
-    return fetchData()
-        .thenMap<TailRec<int, String>>(TailRec.done)
-        .elseDo((error) {
-      return attempt < 3
-          ? Cont.of(TailRec.next(attempt + 1))
-          : Cont.error(error);
-    });
-  });
-}
 ```
 
 ---
