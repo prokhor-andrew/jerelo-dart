@@ -699,7 +699,16 @@ final class Cont<E, F, A> {
                 onCrash: onReleaseCrash,
                 onThen: (_) => onReleaseThen(),
               );
-            })._ifCrash(onReleasePanic);
+            })._ifCrash((panic) {
+              // a throw from onReleasePanic must not reach use's
+              // callbacks; rethrow the release panic, as fromRun
+              // does when onPanic throws
+              ContCrash.tryCatch(() {
+                onReleasePanic(panic);
+              })._ifCrash((_) {
+                _panic(panic);
+              });
+            });
           }
 
           ContCrash.tryCatch(() {

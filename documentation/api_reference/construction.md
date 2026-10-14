@@ -243,7 +243,7 @@ Note that `acquire` and `release` use `Never` as their error type, meaning they 
 **Cancellation:** a cancel is forwarded to `use` only. `acquire` and `release` are never cancelled. A cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. There is no special cancel path: `release` runs once `use` reports back, on any channel; if `use` never reports, `release` never runs.
 
 **Optional release callbacks:**
-- `onReleasePanic`: Called if the `release` function itself throws while building the release continuation (`release(resource)`), or if a release callback throws. Defaults to rethrowing in a microtask, so a `try`/`catch` around `run()` never sees it
+- `onReleasePanic`: Called if the `release` function itself throws while building the release continuation (`release(resource)`), or if a release callback throws. Defaults to rethrowing in a microtask, so a `try`/`catch` around `run()` never sees it. If `onReleasePanic` itself throws, the release error is rethrown in a microtask; it never reaches the main computation's `onPanic`
 - `onReleaseCrash`: Called if the release continuation returned by `release` crashes. Defaults to ignoring
 - `onReleaseThen`: Called when release succeeds. Defaults to no-op
 

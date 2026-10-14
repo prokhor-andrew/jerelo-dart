@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:jerelo/jerelo.dart';
 import 'package:test/test.dart';
 
@@ -131,6 +133,32 @@ void main() {
 
       expect(capturedInUse, equals([resource]));
       expect(capturedInRelease, equals([resource]));
+    });
+
+    test(
+        'a throwing onReleasePanic stays out of the main onPanic',
+        () async {
+      final mainPanics = <Object>[];
+      final zoneErrors = <Object>[];
+      int? value;
+      await runZonedGuarded(() async {
+        Cont.bracket<int, (), String, int>(
+          acquire: Cont.of(1),
+          release: (_) => throw 'release failed',
+          use: (_) => Cont.of(2),
+          onReleasePanic: (_) =>
+              throw 'onReleasePanic failed',
+        ).run(
+          (),
+          onThen: (v) => value = v,
+          onPanic: (p) => mainPanics.add(p.error),
+        );
+        await Future<void>.delayed(Duration.zero);
+      }, (error, _) => zoneErrors.add(error));
+
+      expect(value, equals(2));
+      expect(mainPanics, isEmpty);
+      expect(zoneErrors, equals(['release failed']));
     });
   });
 }
