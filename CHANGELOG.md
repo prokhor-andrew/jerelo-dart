@@ -10,6 +10,7 @@
   - `MergedCrash` and `CollectedCrash` have no public constructors; use `ContCrash.merge` and `ContCrash.collect`.
   - The policy case classes (`SequenceOkPolicy`, `QuitFastCrashPolicy`, …) have no public constructors; use `OkPolicy.sequence()`, `CrashPolicy.quitFast()` and the other factories.
   - `toString()` of these types uses the constructor style, e.g. `NormalCrash(error, stackTrace)`, `MergedCrash(left, right)`, `ValueCrashOr(value)`.
+- **Breaking:** removed `thenForever`, `elseForever` and `crashForever`. Since a cancel now ends a loop, they could end on their own channel, which their `Never` types ruled out. Use a predicate that is always true instead: `thenWhile((_) => true)`, `elseWhile((_) => true)`, `crashWhile((_) => true)`.
 - The derived operators (taps, zips, forks, conditions, channel switches, loops, `*0`/`*WithEnv` variants, `withEnv` and `local0`), `Cont.bracket` and `Cont.fromDeferred` are part of jerelo.
 - Added `thenUnit` and `elseUnit`, which replace the value or the error with `()`.
 - Fixed `Cont` used through a wider error or value type (an upcast or a `Never`-typed `Cont`) crashing with a `TypeError` at run time. `runWith` is now an extension method (`ContRunWithExtension`).

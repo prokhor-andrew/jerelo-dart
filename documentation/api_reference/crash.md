@@ -60,7 +60,6 @@ Unlike typed errors on the else channel (`F`), crashes represent unexpected exce
   - [crashUntil0](#crashuntil0)
   - [crashUntilWithEnv](#crashuntilwithenv)
   - [crashUntilWithEnv0](#crashuntilwithenv0)
-  - [crashForever](#crashforever)
 
 ---
 
@@ -827,23 +826,3 @@ Repeatedly retries on crash with access to the environment only.
 
 - **Parameters:**
   - `predicate`: Function that takes the environment and determines when to stop
-
----
-
-### crashForever
-
-```dart
-Cont<E, F, A> crashForever()
-```
-
-Repeatedly retries the continuation on crash indefinitely.
-
-If the continuation crashes, retries it in an infinite loop. The loop only ends if the continuation succeeds or terminates with a typed error.
-
-This is useful for operations that must recover from any crash, such as resilient network connections.
-
-**Example:**
-```dart
-final resilient = connectToServer()
-  .crashForever();
-```

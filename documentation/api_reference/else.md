@@ -54,7 +54,6 @@ Error path operations for recovery, transformation, side effects, combining, for
   - [elseUntil0](#elseuntil0)
   - [elseUntilWithEnv](#elseuntilwithenv)
   - [elseUntilWithEnv0](#elseuntilwithenv0)
-  - [elseForever](#elseforever)
 
 ---
 
@@ -957,30 +956,4 @@ Repeatedly retries with access to the environment only.
 ```dart
 final result = operation()
   .elseUntilWithEnv0((env) => env.timeoutReached);
-```
-
----
-
-### elseForever
-
-```dart
-Cont<E, Never, A> elseForever()
-```
-
-Repeatedly retries the continuation on error indefinitely.
-
-If the continuation terminates, retries it in an infinite loop. The loop only ends if the continuation succeeds or crashes. The return type `Cont<E, Never, A>` indicates that this continuation never produces an error — it either succeeds, or crashes, or retries forever.
-
-This is useful for resilient connections, self-healing systems, and operations that should never give up.
-
-**Example:**
-```dart
-final connection = connectToServer().elseForever();
-
-final worker = processJob()
-  .elseTap((error) {
-    // Report, then end on else so the error is kept
-    return reportError(error).thenDo0(() => Cont.error(error));
-  })
-  .elseForever();
 ```

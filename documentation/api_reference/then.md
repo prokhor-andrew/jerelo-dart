@@ -54,7 +54,6 @@ Success path operations for transforming, chaining, side effects, combining, for
   - [thenUntil0](#thenuntil0)
   - [thenUntilWithEnv](#thenuntilwithenv)
   - [thenUntilWithEnv0](#thenuntilwithenv0)
-  - [thenForever](#thenforever)
 
 ---
 
@@ -932,29 +931,4 @@ Repeatedly executes with access to the environment only.
 ```dart
 final result = pollService()
   .thenUntilWithEnv0((env) => env.serviceReady);
-```
-
----
-
-### thenForever
-
-```dart
-Cont<E, F, Never> thenForever()
-```
-
-Repeatedly executes the continuation indefinitely.
-
-Runs the continuation in an infinite loop. The loop only terminates if the continuation terminates with an error or crashes.
-
-The return type `Cont<E, F, Never>` indicates that this continuation never produces a value.
-
-This is useful for daemon-like processes, server loops, and event loops.
-
-**Example:**
-```dart
-final server = acceptConnection()
-  .thenDo((conn) => handleConnection(conn))
-  .thenForever();
-
-server.run(env, onElse: (error) => print('Server stopped: $error'));
 ```

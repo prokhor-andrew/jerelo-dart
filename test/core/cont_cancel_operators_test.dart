@@ -722,14 +722,15 @@ void main() {
       expect(result, equals(7));
     });
 
-    test('thenForever forwards to the running iteration',
+    test(
+        'an endless thenWhile forwards to the running iteration',
         () {
       final leaves = <_Leaf<String, int>>[];
       final token = Cont.fromDeferred(() {
         final leaf = _Leaf<String, int>();
         leaves.add(leaf);
         return leaf.cont;
-      }).thenForever().run(());
+      }).thenWhile((_) => true).run(());
       leaves.last.observer!.onThen(1);
       leaves.last.observer!.onThen(2);
       token.cancel();
@@ -741,12 +742,14 @@ void main() {
     });
 
     test(
-        'thenForever ends when its step reports the cancel',
+        'an endless thenWhile ends when its step reports the cancel',
         () {
       String? error;
       final token = Cont.fromDeferred(
         () => _reportingLeaf<int>('stopped').cont,
-      ).thenForever().run((), onElse: (e) => error = e);
+      )
+          .thenWhile((_) => true)
+          .run((), onElse: (e) => error = e);
       token.cancel();
 
       expect(error, equals('stopped'));

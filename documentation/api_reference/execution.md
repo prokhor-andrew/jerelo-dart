@@ -146,7 +146,7 @@ The canceller returned by `Cont.fromRun` is the only place where a cancel does a
 - **`quitFast` policies** (`both`, `either`, `all`, `any`, `coalesce`, `converge` and their instance forms): once the result is decided, the inputs still running are cancelled.
 - **`runAll` policies** never cancel on their own; a cancel from outside is forwarded to every running input.
 - **`sequence` policies** cancel the input that is running and every later input as it starts.
-- **Loops** (the `*While`, `*Until` and `*Forever` operators) forward a cancel to the running iteration and start no iteration after it. The loop ends with the outcome of the iteration that was running, once it reports.
+- **Loops** (the `*While` and `*Until` operators) forward a cancel to the running iteration and start no iteration after it. The loop ends with the outcome of the iteration that was running, once it reports.
 - **`Cont.bracket`** forwards a cancel to `use` only. `acquire` and `release` are never cancelled; a cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. `release` runs once `use` reports back, on any channel.
 - **Forks** (`thenFork`, `elseFork`, `crashFork` and their variants): the forked side effect is detached and is **not** cancelled with the parent. The main computation is.
 
@@ -204,7 +204,7 @@ Converts a continuation that never produces a value to any desired value type.
 Implements the principle of "ex falso quodlibet" (from falsehood, anything follows). Since `Never` is uninhabited, the success callback can never be called, making this a safe type-level transformation.
 
 This is useful when:
-- Working with continuations that never succeed, such as a loop that only ends on the else or crash channel
+- Working with continuations that never succeed, such as one that always ends on the else or crash channel
 - Matching types with other continuations in composition
 - Converting terminating-only continuations to typed continuations
 
@@ -213,12 +213,11 @@ This is useful when:
 
 **Example:**
 ```dart
-// A server loop that only ends with an error has type Cont<Env, String, Never>
-final Cont<Env, String, Never> server =
-    handleRequest().thenForever();
+// A computation that can only fail has type Cont<Env, String, Never>
+final Cont<Env, String, Never> notFound = Cont.error('not found');
 
 // Convert to Cont<Env, String, int> to match other continuation types
-final serverAsInt = server.thenAbsurd<int>();
+final notFoundAsInt = notFound.thenAbsurd<int>();
 ```
 
 ---

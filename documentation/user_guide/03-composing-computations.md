@@ -148,7 +148,7 @@ Cont<(), String, Data> fetchWithRetry(int maxAttempts) {
 }
 ```
 
-The `*Forever` loops never stop on their own channel. See the [then](../api_reference/then.md#loops), [else](../api_reference/else.md#retry-loops) and [crash](../api_reference/crash.md#retry-loops) loops.
+To loop until something else stops it, use a predicate that is always true, such as `thenWhile((_) => true)`; the loop then ends on another channel or after a cancel. See the [then](../api_reference/then.md#loops), [else](../api_reference/else.md#retry-loops) and [crash](../api_reference/crash.md#retry-loops) loops.
 
 ---
 
@@ -170,17 +170,17 @@ Cont.error<(), String, int>('fallback')
 
 ### Never-typed channels
 
-A loop that never finishes produces a `Never`-typed channel. To widen it for composition, use `thenAbsurd` / `elseAbsurd`:
+A computation that can never end on a channel has that channel typed `Never`, for example one that can only fail. To widen it for composition, use `thenAbsurd` / `elseAbsurd`:
 
 ```dart
-final Cont<(), String, Never> loop = server().thenForever();
-final Cont<(), String, int> widened = loop.thenAbsurd<int>();
+final Cont<(), String, Never> notFound = Cont.error('not found');
+final Cont<(), String, int> widened = notFound.thenAbsurd<int>();
 ```
 
 A `Never`-typed `Cont` can also be assigned to a wider type directly, because `Cont` is covariant in its error and value types:
 
 ```dart
-final Cont<(), String, int> widened = loop;
+final Cont<(), String, int> widened = notFound;
 ```
 
 The opposite direction forgets information: `thenUnit` replaces the value with `()`, and `elseUnit` replaces the error with `()`, when only the fact of success or failure matters:
