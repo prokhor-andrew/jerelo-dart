@@ -4,9 +4,9 @@
 
 Once you can construct and run a `Cont`, the next step is composing computations together. Every operator in Jerelo works on one of three channels — **then** (success), **else** (typed error), or **crash** (unexpected exception).
 
-The core package keeps a small set of operators: `thenMap`, `thenDo`, `elseMap`, `elseDo`, `crashDo`, `flatten`, `Cont.tailRecM` and `decorate`, plus the combinators and environment operators covered in the next guides. Everything else in this guide is built from them.
+Jerelo is built on a small set of fundamental operators: `thenMap`, `thenDo`, `elseMap`, `elseDo`, `crashDo`, `flatten`, the `*While` loops and `decorate`, plus the combinators and environment operators covered in the next guides. Everything else in this guide is built from them.
 
-Derived operators, such as the variants that ignore the value or read the environment (`thenMap0`, `thenMapTo`, `thenDoWithEnv`, …), taps, zips, forks, conditionals and loops, are in the [jerelo_ext](https://pub.dev/packages/jerelo_ext) package. Import `package:jerelo_ext/jerelo_ext.dart` alongside `package:jerelo/jerelo.dart` to use them.
+Jerelo also provides derived operators built from them, such as the variants that ignore the value or read the environment (`thenMap0`, `thenMapTo`, `thenDoWithEnv`, …), taps, zips, forks, conditionals and loops. They are listed in the API reference for the [then](../api_reference/then.md), [else](../api_reference/else.md) and [crash](../api_reference/crash.md) channels.
 
 ---
 
@@ -65,7 +65,7 @@ fetchUser(id)
   .thenDo((user) => writeToCache(user).thenMap((_) => user));
 ```
 
-Taps, zips and forks, which wrap these patterns, are in [jerelo_ext](https://pub.dev/packages/jerelo_ext).
+Taps ([`thenTap`](../api_reference/then.md#thentap), [`elseTap`](../api_reference/else.md#elsetap), [`crashTap`](../api_reference/crash.md#crashtap)), zips and forks wrap these patterns.
 
 ### Crash Recovery
 
@@ -121,43 +121,34 @@ Cont.of<(), String, int>(5)
 
 Without the explicit `<int>`, Dart cannot infer the value type of `Cont.error(...)` and the result becomes `dynamic`.
 
-`thenIf`, `elseUnless`, `crashUnlessThen` and `crashUnlessElse`, which wrap this pattern, are in [jerelo_ext](https://pub.dev/packages/jerelo_ext).
+[`thenIf`](../api_reference/then.md#thenif), [`elseUnless`](../api_reference/else.md#elseunless), [`crashUnlessThen`](../api_reference/crash.md#crashunlessthen) and [`crashUnlessElse`](../api_reference/crash.md#crashunlesselse) wrap this pattern.
 
 ---
 
 ## Loops
 
-`Cont.tailRecM` is the core loop. It runs a step with a state; the step succeeds with `TailRec.next(state)` to run again with a new state, or with `TailRec.done(result)` to finish. If a step ends on the else or crash channel, the loop ends with that outcome. The loop is stack-safe, so it can run any number of iterations, even when the steps complete synchronously.
+Loops run a computation again and again until a condition says to stop. Each channel has its own: `thenWhile`/`thenUntil` repeat after a value, and `elseWhile`/`elseUntil` and `crashWhile`/`crashUntil` retry after an error or a crash. Every iteration reruns the whole computation the loop is called on. The loops are stack-safe, so they can run any number of iterations, even when the steps complete synchronously. So is plain recursion with `thenDo` and the other operators: see [Stack Safety](../api_reference/execution.md#stack-safety).
 
 ```dart
-final Cont<(), Never, int> firstBig = Cont.tailRecM((), (_) {
-  return Cont.of<(), Never, ()>(())
-    .thenMap((_) => Random().nextInt(10))
-    .thenMap((n) => n > 5 ? TailRec.done(n) : TailRec.next(()));
-});
+final Cont<(), Never, int> firstBig = Cont.of<(), Never, ()>(())
+  .thenMap((_) => Random().nextInt(10))
+  .thenWhile((n) => n <= 5);
 
 firstBig.run((), onThen: print); // prints the first value > 5
 ```
 
-Give the result a type, as above, or pass the type arguments to `Cont.tailRecM`: Dart cannot infer the result type from a `TailRec.done(...)` inside the step.
-
-Retries follow the same shape: the state is the attempt number, success finishes the loop, and an error continues it until the attempts run out.
+Retries use the else loops. To count attempts, keep the counter in `Cont.fromDeferred`, so each run starts from the first attempt:
 
 ```dart
 Cont<(), String, Data> fetchWithRetry(int maxAttempts) {
-  return Cont.tailRecM(1, (int attempt) {
-    return fetchData()
-      .thenMap<TailRec<int, Data>>(TailRec.done)
-      .elseDo((error) {
-        return attempt < maxAttempts
-          ? Cont.of(TailRec.next(attempt + 1))
-          : Cont.error(error);
-      });
+  return Cont.fromDeferred(() {
+    var attempt = 1;
+    return fetchData().elseWhile((_) => attempt++ < maxAttempts);
   });
 }
 ```
 
-The `while`/`until`/`forever` loops on every channel (`thenWhile`, `elseUntil`, `crashForever`, …) are in [jerelo_ext](https://pub.dev/packages/jerelo_ext).
+To loop until something else stops it, use a predicate that is always true, such as `thenWhile((_) => true)`; the loop then ends on another channel or after a cancel. See the [then](../api_reference/then.md#loops), [else](../api_reference/else.md#retry-loops) and [crash](../api_reference/crash.md#retry-loops) loops.
 
 ---
 
@@ -175,24 +166,21 @@ Cont.error<(), String, int>('fallback')
   .run((), onThen: print); // prints 0
 ```
 
-`demote` and `promote`, which wrap these, are in [jerelo_ext](https://pub.dev/packages/jerelo_ext).
+[`demote`](../api_reference/then.md#demote) and [`promote`](../api_reference/else.md#promote) wrap these.
 
 ### Never-typed channels
 
-A loop that never finishes produces a `Never`-typed channel. To widen it for composition, use `thenAbsurd` / `elseAbsurd`:
+A computation that can never end on a channel has that channel typed `Never`, for example one that can only fail. To widen it for composition, use `thenAbsurd` / `elseAbsurd`:
 
 ```dart
-final Cont<(), String, Never> loop = Cont.tailRecM(
-  (),
-  (_) => server().thenMap((_) => TailRec.next(())),
-);
-final Cont<(), String, int> widened = loop.thenAbsurd<int>();
+final Cont<(), String, Never> notFound = Cont.error('not found');
+final Cont<(), String, int> widened = notFound.thenAbsurd<int>();
 ```
 
 A `Never`-typed `Cont` can also be assigned to a wider type directly, because `Cont` is covariant in its error and value types:
 
 ```dart
-final Cont<(), String, int> widened = loop;
+final Cont<(), String, int> widened = notFound;
 ```
 
 The opposite direction forgets information: `thenUnit` replaces the value with `()`, and `elseUnit` replaces the error with `()`, when only the fact of success or failure matters:
@@ -208,9 +196,9 @@ final Cont<(), String, ()> done = saveUser(user).thenUnit();
 The `decorate` operator wraps the execution itself, letting you inject cross-cutting behavior like logging or scheduling without touching the value:
 
 ```dart
-cont.decorate((run, runtime, observer) {
+cont.decorate((run, env, observer) {
   print('Starting...');
-  run(runtime, observer);
+  return run(env, observer);
 });
 ```
 

@@ -12,17 +12,6 @@ NormalCrash crashOf(Object error) {
 
 void main() {
   group('toString uses the constructor style', () {
-    test('TailRec', () {
-      expect(
-        TailRec.next<int, String>(1).toString(),
-        equals('NextTailRec(1)'),
-      );
-      expect(
-        TailRec.done<int, String>('x').toString(),
-        equals('DoneTailRec(x)'),
-      );
-    });
-
     test('CrashOr', () {
       expect(
         ContCrash.tryCatch(() => 42).toString(),

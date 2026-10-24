@@ -2,9 +2,9 @@
 
 # Crash Channel Operations
 
-Crash recovery for unexpected exceptions.
+Crash path operations for recovery, side effects, combining, forking, recovery to then or else, conditionals, and retry loops.
 
-Unlike typed errors on the else channel (`F`), crashes represent unexpected exceptions — failures that were not part of the expected control flow. Core provides a single crash operator, `crashDo`; the rest of the crash channel operators are in [jerelo_ext](#more-in-jerelo_ext).
+Unlike typed errors on the else channel (`F`), crashes represent unexpected exceptions — failures that were not part of the expected control flow. The crash channel provides operators symmetric to the then and else channels for handling these exceptional situations.
 
 ---
 
@@ -12,7 +12,54 @@ Unlike typed errors on the else channel (`F`), crashes represent unexpected exce
 
 - [Recovery](#recovery)
   - [crashDo](#crashdo)
-- [More in jerelo_ext](#more-in-jerelo_ext)
+  - [crashDo0](#crashdo0)
+  - [crashDoWithEnv](#crashdowithenv)
+  - [crashDoWithEnv0](#crashdowithenv0)
+- [Side Effects](#side-effects)
+  - [crashTap](#crashtap)
+  - [crashTap0](#crashtap0)
+  - [crashTapWithEnv](#crashtapwithenv)
+  - [crashTapWithEnv0](#crashtapwithenv0)
+- [Combining Crashes](#combining-crashes)
+  - [crashZip](#crashzip)
+  - [crashZip0](#crashzip0)
+  - [crashZipWithEnv](#crashzipwithenv)
+  - [crashZipWithEnv0](#crashzipwithenv0)
+- [Fire and Forget](#fire-and-forget)
+  - [crashFork](#crashfork)
+  - [crashFork0](#crashfork0)
+  - [crashForkWithEnv](#crashforkwithenv)
+  - [crashForkWithEnv0](#crashforkwithenv0)
+- [Recover to Then](#recover-to-then)
+  - [crashRecoverThen](#crashrecoverthen)
+  - [crashRecoverThen0](#crashrecoverthen0)
+  - [crashRecoverThenWithEnv](#crashrecoverthenwithenv)
+  - [crashRecoverThenWithEnv0](#crashrecoverthenwithenv0)
+  - [crashRecoverThenWith](#crashrecoverthenwith)
+- [Recover to Else](#recover-to-else)
+  - [crashRecoverElse](#crashrecoverelse)
+  - [crashRecoverElse0](#crashrecoverelse0)
+  - [crashRecoverElseWithEnv](#crashrecoverelsewithenv)
+  - [crashRecoverElseWithEnv0](#crashrecoverelsewithenv0)
+  - [crashRecoverElseWith](#crashrecoverelsewith)
+- [Conditionals](#conditionals)
+  - [crashUnlessThen](#crashunlessthen)
+  - [crashUnlessThen0](#crashunlessthen0)
+  - [crashUnlessThenWithEnv](#crashunlessthenwithenv)
+  - [crashUnlessThenWithEnv0](#crashunlessthenwithenv0)
+  - [crashUnlessElse](#crashunlesselse)
+  - [crashUnlessElse0](#crashunlesselse0)
+  - [crashUnlessElseWithEnv](#crashunlesselsewithenv)
+  - [crashUnlessElseWithEnv0](#crashunlesselsewithenv0)
+- [Retry Loops](#retry-loops)
+  - [crashWhile](#crashwhile)
+  - [crashWhile0](#crashwhile0)
+  - [crashWhileWithEnv](#crashwhilewithenv)
+  - [crashWhileWithEnv0](#crashwhilewithenv0)
+  - [crashUntil](#crashuntil)
+  - [crashUntil0](#crashuntil0)
+  - [crashUntilWithEnv](#crashuntilwithenv)
+  - [crashUntilWithEnv0](#crashuntilwithenv0)
 
 ---
 
@@ -39,16 +86,743 @@ final result = riskyOperation()
 
 ---
 
-## More in jerelo_ext
+### crashDo0
 
-These operators are not part of core. They are in the [jerelo_ext](https://pub.dev/packages/jerelo_ext) package; import `package:jerelo_ext/jerelo_ext.dart` alongside `package:jerelo/jerelo.dart`.
+```dart
+Cont<E, F, A> crashDo0(Cont<E, F, A> Function() f)
+```
 
-- Variants: `crashDo0`, `crashDoWithEnv`, `crashDoWithEnv0`
-- Side effects: `crashTap` and its variants
-- Combining crashes: `crashZip` and its variants
-- Fire and forget: `crashFork` and its variants
-- Recovery to the then or else channel: `crashRecoverThen`, `crashRecoverElse` and their variants
-- Conditionals: `crashUnlessThen`, `crashUnlessElse` and their variants
-- Retry loops: `crashWhile`, `crashUntil`, `crashForever` and their variants
+Provides a zero-argument fallback continuation on crash.
 
-Core provides [`Cont.tailRecM`](construction.md#conttailrecm) for retry loops.
+- **Parameters:**
+  - `f`: Zero-argument function that produces a fallback continuation
+
+**Example:**
+```dart
+final result = riskyOperation()
+  .crashDo0(() => safeAlternative());
+```
+
+---
+
+### crashDoWithEnv
+
+```dart
+Cont<E, F, A> crashDoWithEnv(Cont<E, F, A> Function(E env, ContCrash crash) f)
+```
+
+Provides a fallback continuation on crash with access to both environment and crash.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and crash, and returns a fallback continuation
+
+**Example:**
+```dart
+final result = riskyOperation()
+  .crashDoWithEnv((env, crash) => env.fallbackService.handle(crash));
+```
+
+---
+
+### crashDoWithEnv0
+
+```dart
+Cont<E, F, A> crashDoWithEnv0(Cont<E, F, A> Function(E env) f)
+```
+
+Provides a fallback continuation on crash with access to the environment only.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a fallback continuation
+
+**Example:**
+```dart
+final result = riskyOperation()
+  .crashDoWithEnv0((env) => env.fallbackService.getDefault());
+```
+
+---
+
+## Side Effects
+
+### crashTap
+
+```dart
+Cont<E, F, A> crashTap(Cont<E, F, A> Function(ContCrash crash) f)
+```
+
+Executes a side-effect continuation on crash, with conditional recovery.
+
+If the continuation crashes, executes the side-effect continuation and waits for it. The behavior depends on the side-effect's outcome:
+
+- If the side-effect crashes: Returns the original crash, ignoring the side-effect's crash
+- If the side-effect succeeds: Recovers from the crash and returns the side-effect's success value
+- If the side-effect terminates with an error: That error propagates on the else channel
+
+If `f` itself throws, the original crash propagates. To run a side effect such as logging without affecting the crash, make it end on the crash channel, or use `crashFork` for fire-and-forget behavior.
+
+- **Parameters:**
+  - `f`: Function that receives the crash and returns a side-effect continuation
+
+**Example:**
+```dart
+// Side effect ends on crash: the original crash is kept
+final result = riskyOperation()
+  .crashTap((crash) {
+    return logCrash(crash).thenDo0(() => Cont.crash(crash));
+  });
+```
+
+---
+
+### crashTap0
+
+```dart
+Cont<E, F, A> crashTap0(Cont<E, F, A> Function() f)
+```
+
+Executes a zero-argument side-effect continuation on crash.
+
+- **Parameters:**
+  - `f`: Zero-argument function that returns a side-effect continuation
+
+---
+
+### crashTapWithEnv
+
+```dart
+Cont<E, F, A> crashTapWithEnv(Cont<E, F, A> Function(E env, ContCrash crash) f)
+```
+
+Executes a side-effect on crash with access to both environment and crash.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and crash, and returns a side-effect continuation
+
+---
+
+### crashTapWithEnv0
+
+```dart
+Cont<E, F, A> crashTapWithEnv0(Cont<E, F, A> Function(E env) f)
+```
+
+Executes a side-effect on crash with access to the environment only.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a side-effect continuation
+
+---
+
+## Combining Crashes
+
+### crashZip
+
+```dart
+Cont<E, F, A> crashZip(Cont<E, F, A> Function(ContCrash crash) f)
+```
+
+Attempts a fallback on crash and merges crashes if the fallback also crashes.
+
+If the continuation crashes and the fallback also crashes, both crashes are merged into a `MergedCrash` (as `ContCrash.merge` does). If `f` itself throws, that crash is merged with the original one in the same way.
+
+- **Parameters:**
+  - `f`: Function that receives the crash and produces a fallback continuation
+
+**Example:**
+```dart
+final result = attempt1()
+  .crashZip((crash) => attempt2());
+// If both crash, crashes are merged
+```
+
+---
+
+### crashZip0
+
+```dart
+Cont<E, F, A> crashZip0(Cont<E, F, A> Function() f)
+```
+
+Zero-argument version of `crashZip`.
+
+- **Parameters:**
+  - `f`: Zero-argument function that produces a fallback continuation
+
+---
+
+### crashZipWithEnv
+
+```dart
+Cont<E, F, A> crashZipWithEnv(Cont<E, F, A> Function(E env, ContCrash crash) f)
+```
+
+Attempts a fallback on crash with access to the environment, merging crashes.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and crash, and produces a fallback
+
+---
+
+### crashZipWithEnv0
+
+```dart
+Cont<E, F, A> crashZipWithEnv0(Cont<E, F, A> Function(E env) f)
+```
+
+Attempts a fallback on crash with access to the environment only, merging crashes.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and produces a fallback
+
+---
+
+## Fire and Forget
+
+The forked side effect is detached: a cancel of the main computation (see [Cancellation](execution.md#cancellation)) is not forwarded to it. The main computation is cancelled as usual.
+
+### crashFork
+
+```dart
+Cont<E, F, A> crashFork<F2, A2>(
+  Cont<E, F2, A2> Function(ContCrash crash) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
+```
+
+Executes a side-effect on crash in a fire-and-forget manner.
+
+The side-effect is started as a separate run with this computation's environment.
+
+Does not wait for the side-effect to complete. The side-effect is started before the original crash is forwarded: a synchronous side-effect runs to completion first, while an asynchronous one does not delay the crash. If `f` itself throws, that is a crash on the crash channel, so the original crash is forwarded. The forked continuation may have different error and value types.
+
+Outcomes from the forked continuation are dispatched to optional callbacks:
+- `onPanic`: Called when the side-effect triggers a panic. Defaults to rethrowing in a microtask, so a `try`/`catch` around `run()` never sees it.
+- `onCrash`: Called when the side-effect crashes. Defaults to ignoring.
+- `onElse`: Called when the side-effect terminates with an error. Defaults to ignoring.
+- `onThen`: Called when the side-effect succeeds. Defaults to ignoring.
+
+- **Parameters:**
+  - `f`: Function that receives the crash and returns a side-effect continuation
+  - `onPanic`: *(optional)* Handler for panics in the side-effect
+  - `onCrash`: *(optional)* Handler for crashes in the side-effect
+  - `onElse`: *(optional)* Handler for errors in the side-effect
+  - `onThen`: *(optional)* Handler for success in the side-effect
+
+**Example:**
+```dart
+final result = riskyOperation()
+  .crashFork((crash) => reportCrash(crash));
+
+// With observation callbacks:
+final result2 = riskyOperation()
+  .crashFork(
+    (crash) => reportCrash(crash),
+    onElse: (error) => print('Report failed: $error'),
+  );
+```
+
+---
+
+### crashFork0
+
+```dart
+Cont<E, F, A> crashFork0<F2, A2>(
+  Cont<E, F2, A2> Function() f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
+```
+
+Zero-argument fire-and-forget on crash.
+
+Accepts the same optional observation callbacks as `crashFork`.
+
+- **Parameters:**
+  - `f`: Zero-argument function that returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `crashFork`)
+
+---
+
+### crashForkWithEnv
+
+```dart
+Cont<E, F, A> crashForkWithEnv<F2, A2>(
+  Cont<E, F2, A2> Function(E env, ContCrash crash) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
+```
+
+Fire-and-forget on crash with access to the environment.
+
+Accepts the same optional observation callbacks as `crashFork`.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and crash, and returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `crashFork`)
+
+---
+
+### crashForkWithEnv0
+
+```dart
+Cont<E, F, A> crashForkWithEnv0<F2, A2>(
+  Cont<E, F2, A2> Function(E env) f, {
+  void Function(NormalCrash crash) onPanic = _panic,
+  void Function(ContCrash crash) onCrash = _ignore,
+  void Function(F2 error) onElse = _ignore,
+  void Function(A2 value) onThen = _ignore,
+})
+```
+
+Fire-and-forget on crash with access to the environment only.
+
+Accepts the same optional observation callbacks as `crashFork`.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a side-effect continuation
+  - `onPanic`, `onCrash`, `onElse`, `onThen`: *(optional)* Outcome observation callbacks (see `crashFork`)
+
+---
+
+## Recover to Then
+
+### crashRecoverThen
+
+```dart
+Cont<E, F, A> crashRecoverThen(A Function(ContCrash crash) f)
+```
+
+Recovers from a crash by computing a successful value. If `f` throws, the computation crashes with that exception instead of the original crash.
+
+- **Parameters:**
+  - `f`: Function that receives the crash and returns a recovery value
+
+**Example:**
+```dart
+final result = riskyOperation()
+  .crashRecoverThen((crash) => defaultValue);
+```
+
+---
+
+### crashRecoverThen0
+
+```dart
+Cont<E, F, A> crashRecoverThen0(A Function() f)
+```
+
+Recovers from a crash with a zero-argument value computation.
+
+- **Parameters:**
+  - `f`: Zero-argument function that returns a recovery value
+
+---
+
+### crashRecoverThenWithEnv
+
+```dart
+Cont<E, F, A> crashRecoverThenWithEnv(A Function(E env, ContCrash crash) f)
+```
+
+Recovers from a crash to a value with access to both environment and crash.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and crash, and returns a recovery value
+
+---
+
+### crashRecoverThenWithEnv0
+
+```dart
+Cont<E, F, A> crashRecoverThenWithEnv0(A Function(E env) f)
+```
+
+Recovers from a crash to a value with access to the environment only.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns a recovery value
+
+---
+
+### crashRecoverThenWith
+
+```dart
+Cont<E, F, A> crashRecoverThenWith(A value)
+```
+
+Recovers from a crash with a constant value.
+
+- **Parameters:**
+  - `value`: The value to recover with
+
+**Example:**
+```dart
+final result = riskyOperation()
+  .crashRecoverThenWith(0);
+```
+
+---
+
+## Recover to Else
+
+### crashRecoverElse
+
+```dart
+Cont<E, F, A> crashRecoverElse(F Function(ContCrash crash) f)
+```
+
+Recovers from a crash by converting it to a typed error. If `f` throws, the computation crashes with that exception instead of the original crash.
+
+- **Parameters:**
+  - `f`: Function that receives the crash and returns an error value
+
+**Example:**
+```dart
+final result = riskyOperation()
+  .crashRecoverElse((crash) => 'Unexpected: $crash');
+```
+
+---
+
+### crashRecoverElse0
+
+```dart
+Cont<E, F, A> crashRecoverElse0(F Function() f)
+```
+
+Recovers from a crash to an error with a zero-argument computation.
+
+- **Parameters:**
+  - `f`: Zero-argument function that returns an error value
+
+---
+
+### crashRecoverElseWithEnv
+
+```dart
+Cont<E, F, A> crashRecoverElseWithEnv(F Function(E env, ContCrash crash) f)
+```
+
+Recovers from a crash to an error with access to both environment and crash.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and crash, and returns an error value
+
+---
+
+### crashRecoverElseWithEnv0
+
+```dart
+Cont<E, F, A> crashRecoverElseWithEnv0(F Function(E env) f)
+```
+
+Recovers from a crash to an error with access to the environment only.
+
+- **Parameters:**
+  - `f`: Function that takes the environment and returns an error value
+
+---
+
+### crashRecoverElseWith
+
+```dart
+Cont<E, F, A> crashRecoverElseWith(F error)
+```
+
+Recovers from a crash with a constant error value.
+
+- **Parameters:**
+  - `error`: The error to recover with
+
+**Example:**
+```dart
+final result = riskyOperation()
+  .crashRecoverElseWith('Operation crashed');
+```
+
+---
+
+## Conditionals
+
+### crashUnlessThen
+
+```dart
+Cont<E, F, A> crashUnlessThen(
+  bool Function(ContCrash crash) predicate, {
+  required A fallback,
+})
+```
+
+Conditionally recovers from a crash to a value unless the predicate is satisfied.
+
+If the predicate returns `false`, recovers with the `fallback` value. If `true`, the crash continues to propagate. If the predicate throws, the computation crashes with that exception instead of the original crash.
+
+- **Parameters:**
+  - `predicate`: Function that tests the crash. Returns `true` to keep crashing, `false` to recover
+  - `fallback`: The value to recover with
+
+**Example:**
+```dart
+final result = riskyOperation()
+  .crashUnlessThen(
+    (crash) => crash is NormalCrash && crash.error is OutOfMemoryError,
+    fallback: defaultValue,
+  );
+```
+
+---
+
+### crashUnlessThen0
+
+```dart
+Cont<E, F, A> crashUnlessThen0(
+  bool Function() predicate, {
+  required A fallback,
+})
+```
+
+Conditionally recovers to a value based on a zero-argument predicate.
+
+- **Parameters:**
+  - `predicate`: Zero-argument function. Returns `true` to keep crashing, `false` to recover
+  - `fallback`: The value to recover with
+
+---
+
+### crashUnlessThenWithEnv
+
+```dart
+Cont<E, F, A> crashUnlessThenWithEnv(
+  bool Function(E env, ContCrash crash) predicate, {
+  required A fallback,
+})
+```
+
+Conditionally recovers to a value with access to both environment and crash.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and crash
+  - `fallback`: The value to recover with
+
+---
+
+### crashUnlessThenWithEnv0
+
+```dart
+Cont<E, F, A> crashUnlessThenWithEnv0(
+  bool Function(E env) predicate, {
+  required A fallback,
+})
+```
+
+Conditionally recovers to a value with access to the environment only.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment
+  - `fallback`: The value to recover with
+
+---
+
+### crashUnlessElse
+
+```dart
+Cont<E, F, A> crashUnlessElse(
+  bool Function(ContCrash crash) predicate, {
+  required F fallback,
+})
+```
+
+Conditionally recovers from a crash to a typed error unless the predicate is satisfied.
+
+If the predicate returns `false`, terminates with the `fallback` error. If `true`, the crash continues to propagate. If the predicate throws, the computation crashes with that exception instead of the original crash.
+
+- **Parameters:**
+  - `predicate`: Function that tests the crash. Returns `true` to keep crashing, `false` to convert to error
+  - `fallback`: The error to terminate with
+
+**Example:**
+```dart
+final result = riskyOperation()
+  .crashUnlessElse(
+    (crash) => crash is NormalCrash && crash.error is OutOfMemoryError,
+    fallback: 'Operation failed unexpectedly',
+  );
+```
+
+---
+
+### crashUnlessElse0
+
+```dart
+Cont<E, F, A> crashUnlessElse0(
+  bool Function() predicate, {
+  required F fallback,
+})
+```
+
+Conditionally converts crash to error based on a zero-argument predicate.
+
+- **Parameters:**
+  - `predicate`: Zero-argument function. Returns `true` to keep crashing, `false` to convert to error
+  - `fallback`: The error to terminate with
+
+---
+
+### crashUnlessElseWithEnv
+
+```dart
+Cont<E, F, A> crashUnlessElseWithEnv(
+  bool Function(E env, ContCrash crash) predicate, {
+  required F fallback,
+})
+```
+
+Conditionally converts crash to error with access to both environment and crash.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and crash
+  - `fallback`: The error to terminate with
+
+---
+
+### crashUnlessElseWithEnv0
+
+```dart
+Cont<E, F, A> crashUnlessElseWithEnv0(
+  bool Function(E env) predicate, {
+  required F fallback,
+})
+```
+
+Conditionally converts crash to error with access to the environment only.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment
+  - `fallback`: The error to terminate with
+
+---
+
+## Retry Loops
+
+All retry loops are stack-safe: retries that complete synchronously do not grow the call stack. A loop on the crash channel also ends when the continuation succeeds or terminates with a typed error, propagating that outcome. A cancel is forwarded to the running attempt, and no attempt starts after it: the loop ends with the outcome of the attempt that was running, once it reports, without calling the predicate. If that attempt ignores the cancel, the loop ends when it finishes (see [Cancellation](execution.md#cancellation)).
+
+### crashWhile
+
+```dart
+Cont<E, F, A> crashWhile(bool Function(ContCrash crash) predicate)
+```
+
+Repeatedly retries the continuation while the predicate returns `true` on crashes.
+
+The loop continues while the predicate returns `true` and stops when `false` (propagating the crash) or when the continuation succeeds or terminates with an error.
+
+- **Parameters:**
+  - `predicate`: Function that tests the crash. Returns `true` to retry, `false` to stop
+
+**Example:**
+```dart
+final result = flakeyOperation()
+  .crashWhile((crash) => crash is NormalCrash && crash.error is TimeoutException);
+```
+
+---
+
+### crashWhile0
+
+```dart
+Cont<E, F, A> crashWhile0(bool Function() predicate)
+```
+
+Repeatedly retries on crash while a zero-argument predicate returns `true`.
+
+- **Parameters:**
+  - `predicate`: Zero-argument function that determines whether to retry
+
+---
+
+### crashWhileWithEnv
+
+```dart
+Cont<E, F, A> crashWhileWithEnv(bool Function(E env, ContCrash crash) predicate)
+```
+
+Repeatedly retries on crash with access to both environment and crash.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and crash, and determines whether to retry
+
+---
+
+### crashWhileWithEnv0
+
+```dart
+Cont<E, F, A> crashWhileWithEnv0(bool Function(E env) predicate)
+```
+
+Repeatedly retries on crash with access to the environment only.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and determines whether to retry
+
+---
+
+### crashUntil
+
+```dart
+Cont<E, F, A> crashUntil(bool Function(ContCrash crash) predicate)
+```
+
+Repeatedly retries the continuation until the predicate returns `true` on crashes.
+
+The inverse of `crashWhile`. The loop continues while `false` and stops when `true`.
+
+- **Parameters:**
+  - `predicate`: Function that tests the crash. Returns `true` to stop, `false` to retry
+
+---
+
+### crashUntil0
+
+```dart
+Cont<E, F, A> crashUntil0(bool Function() predicate)
+```
+
+Repeatedly retries until a zero-argument predicate returns `true`.
+
+- **Parameters:**
+  - `predicate`: Zero-argument function that determines when to stop
+
+---
+
+### crashUntilWithEnv
+
+```dart
+Cont<E, F, A> crashUntilWithEnv(bool Function(E env, ContCrash crash) predicate)
+```
+
+Repeatedly retries on crash with access to both environment and crash.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and crash, and determines when to stop
+
+---
+
+### crashUntilWithEnv0
+
+```dart
+Cont<E, F, A> crashUntilWithEnv0(bool Function(E env) predicate)
+```
+
+Repeatedly retries on crash with access to the environment only.
+
+- **Parameters:**
+  - `predicate`: Function that takes the environment and determines when to stop

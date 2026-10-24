@@ -4,7 +4,7 @@ part of '../cont.dart';
 ///
 /// A crash represents an unexpected exception that escaped from inside a
 /// computation — the equivalent of an unhandled exception in traditional code.
-/// Unlike business-logic errors on the else channel (type [F]), crashes are
+/// Unlike business-logic errors on the else channel (type `F`), crashes are
 /// untyped and carry the raw [Object] and [StackTrace].
 ///
 /// [ContCrash] is a sealed class with three subtypes:
@@ -20,6 +20,9 @@ sealed class ContCrash {
   }
 
   /// Creates a [CollectedCrash] from a map of [crashes].
+  ///
+  /// The crash keeps its own unmodifiable copy of [crashes], so changing
+  /// the map afterwards does not affect it.
   static ContCrash collect(Map<int, ContCrash> crashes) {
     return CollectedCrash._(crashes);
   }
@@ -29,8 +32,9 @@ sealed class ContCrash {
   /// If [function] completes without throwing, returns a [CrashOr] carrying
   /// the computed value. If [function] throws, returns a [CrashOr] carrying
   /// the caught exception as a [NormalCrash].
-  /// This helper is used internally to convert raw Dart exceptions into
-  /// the [ContCrash] representation.
+  /// Jerelo uses it internally to convert raw Dart exceptions into the
+  /// [ContCrash] representation; use it yourself to catch exceptions in
+  /// callbacks that run later, for example inside [Cont.fromRun].
   static CrashOr<T> tryCatch<T>(T Function() function) {
     try {
       final value = function();
@@ -42,6 +46,9 @@ sealed class ContCrash {
 }
 
 /// A crash that wraps a single exception thrown during computation.
+///
+/// Two [NormalCrash]es are equal when their [error]s are equal; the
+/// [stackTrace] is ignored.
 final class NormalCrash extends ContCrash {
   /// The exception object that caused the crash.
   final Object error;
@@ -76,10 +83,10 @@ final class NormalCrash extends ContCrash {
 /// A crash that combines two crashes from paired operations.
 ///
 /// Produced when two continuations are run (e.g. in [Cont.coalesce],
-/// `crashZip` from jerelo_ext, or [Cont.both]/[Cont.either] with
+/// [ContCrashZipExtension.crashZip], or [Cont.both]/[Cont.either] with
 /// [RunAllOkPolicy]) and both crash. Carries the original [left] and
 /// [right] crashes so callers can inspect both.
-/// Can also be created directly or with [ContCrash.merge].
+/// Can also be created with [ContCrash.merge].
 final class MergedCrash extends ContCrash {
   /// The crash from the left (or first) operation.
   final ContCrash left;
@@ -120,12 +127,17 @@ final class MergedCrash extends ContCrash {
 ///   crash, even if only one continuation crashed.
 ///
 /// The [crashes] map associates each continuation's index with its
-/// [ContCrash]. Can also be created directly or with [ContCrash.collect].
+/// [ContCrash]. Can also be created with [ContCrash.collect].
 final class CollectedCrash extends ContCrash {
   /// Map from operation index to the [ContCrash] produced by that operation.
+  ///
+  /// The map is unmodifiable.
   final Map<int, ContCrash> crashes;
 
-  const CollectedCrash._(this.crashes);
+  // keeps an unmodifiable copy, so the crash never changes after it is
+  // created
+  CollectedCrash._(Map<int, ContCrash> crashes)
+      : crashes = Map.unmodifiable(crashes);
 
   @override
   String toString() {
@@ -174,7 +186,7 @@ sealed class CrashOr<T> {
   const CrashOr();
 }
 
-/// Internal helper: runs [onCrash] when the computation threw.
+/// Internal helper: runs `onCrash` when the computation threw.
 extension _CrashOrIfCrash<T> on CrashOr<T> {
   void _ifCrash(void Function(NormalCrash crash) onCrash) {
     switch (this) {

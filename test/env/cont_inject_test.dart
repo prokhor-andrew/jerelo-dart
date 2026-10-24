@@ -39,9 +39,10 @@ void main() {
 
       Cont.error<(), String, int>('source error')
           .thenInject(
-        Cont.fromRun<int, String, int>((runtime, observer) {
+        Cont.fromRun<int, String, int>((env, observer) {
           targetExecuted = true;
           observer.onThen(0);
+          return () {};
         }),
       ).run(());
 
@@ -52,9 +53,9 @@ void main() {
       String? result;
 
       Cont.of<(), Never, int>(42).thenInject(
-        Cont.fromRun<int, Never, String>(
-            (runtime, observer) {
-          observer.onThen('value:${runtime.env()}');
+        Cont.fromRun<int, Never, String>((env, observer) {
+          observer.onThen('value:${env}');
+          return () {};
         }),
       ).run((), onThen: (v) => result = v);
 

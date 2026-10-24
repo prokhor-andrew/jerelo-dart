@@ -47,9 +47,10 @@ void main() {
 
       Cont.either<(), String, String, String, int>(
         Cont.of(42),
-        Cont.fromRun((runtime, observer) {
+        Cont.fromRun((env, observer) {
           secondExecuted = true;
           observer.onThen(0);
+          return () {};
         }),
         (a, b) => '$a+$b',
         policy: OkPolicy.sequence(),

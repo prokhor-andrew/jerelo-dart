@@ -40,6 +40,65 @@ final class _Value3<A, B, C> extends _Triple<A, B, C> {
 
 void _ignore(Object? val) {}
 
+void _voidIgnore() {}
+
+/// Forwards a cancellation to the parts of a computation.
+///
+/// A computation that starts other computations records their cancellers
+/// here. [cancel] calls every recorded canceller, and a part recorded
+/// after [cancel] is cancelled as soon as it starts.
+final class _Cancellers {
+  bool _isCancelled = false;
+  int _generation = 0;
+  final List<void Function()> _cancellers = [];
+
+  /// Whether [cancel] was called.
+  bool get isCancelled => _isCancelled;
+
+  /// Starts a part that runs after the previous ones, and replaces them.
+  ///
+  /// If [start] synchronously leads to a newer part being started, the
+  /// newer part keeps its place.
+  void runNext(void Function() Function() start) {
+    final generation = ++_generation;
+    final canceller = start();
+    if (_isCancelled) {
+      canceller();
+      return;
+    }
+    if (generation == _generation) {
+      _cancellers
+        ..clear()
+        ..add(canceller);
+    }
+  }
+
+  /// Starts a part that runs alongside the others.
+  void runAlongside(void Function() Function() start) {
+    final canceller = start();
+    if (_isCancelled) {
+      canceller();
+      return;
+    }
+    _cancellers.add(canceller);
+  }
+
+  /// Cancels every recorded part, and every part started afterwards.
+  ///
+  /// Only the first call has an effect.
+  void cancel() {
+    if (_isCancelled) {
+      return;
+    }
+    _isCancelled = true;
+    final cancellers = List.of(_cancellers);
+    _cancellers.clear();
+    for (final canceller in cancellers) {
+      canceller();
+    }
+  }
+}
+
 void _panic(NormalCrash crash) {
   Future.microtask(() {
     Error.throwWithStackTrace(
