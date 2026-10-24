@@ -11,6 +11,11 @@ part 'api/else/while.dart';
 part 'api/crash/fork.dart';
 part 'api/crash/while.dart';
 part 'helper/utils.dart';
+part 'helper/run_loop.dart';
+part 'api/then/do.dart';
+part 'api/else/do.dart';
+part 'api/crash/do.dart';
+part 'api/env/env.dart';
 
 part 'helper/sequence_helpers.dart';
 part 'helper/quit_fast_helpers.dart';
@@ -30,21 +35,14 @@ part 'helper/when_all_list_helpers.dart';
 /// - [E]: The environment type providing context for the continuation execution.
 /// - [F]: The error type that the continuation may terminate with on the else channel.
 /// - [A]: The value type that the continuation produces upon success.
-final class Cont<E, F, A> {
-  // The callbacks are passed as plain function types rather than as a
-  // ContObserver<F, A>. Dart treats class type parameters as covariant,
-  // but checks function types soundly, so this keeps Cont safely
-  // covariant in F and A: a Cont<E, String, int> can be used as a
-  // Cont<E, Object?, int>.
-  final void Function(
-    ContRuntime<E> runtime,
-    void Function(NormalCrash crash) onPanic,
-    void Function(ContCrash crash) onCrash,
-    void Function(F error) onElse,
-    void Function(A value) onThen,
-  ) _run;
-
-  const Cont._(this._run);
+//
+// A Cont is data: a leaf (_LeafCont, built by fromRun) that runs a
+// function, or a node that composes other Conts (_ThenDoCont,
+// _ElseDoCont, _CrashDoCont, _DeferCont, _LocalCont). runWith
+// interprets the nodes with a loop and an explicit frame stack (see
+// run_loop.dart), so chains of any length don't grow the call stack.
+sealed class Cont<E, F, A> {
+  const Cont._();
 
   /// Executes the continuation with the given environment.
   ///
@@ -85,7 +83,10 @@ final class Cont<E, F, A> {
   /// Constructs a continuation with guaranteed idempotence and exception catching.
   /// The run function receives an observer with `onThen` and `onElse` callbacks.
   /// The callbacks should be called as the last instruction in the run function
-  /// or saved to be called later.
+  /// or saved to be called later. A callback called while [run] is still
+  /// running only records the outcome: the next stage starts after [run]
+  /// returns, so code after the call runs first. A callback called later
+  /// runs the next stages before it returns.
   ///
   /// Only the observer handed to [run] is guarded against duplicate calls;
   /// observers derived from it with `copyUpdate*` call their new callbacks
@@ -104,7 +105,7 @@ final class Cont<E, F, A> {
       SafeObserver<F, A> observer,
     ) run,
   ) {
-    return Cont._((
+    return _LeafCont<E, F, A>._((
       runtime,
       onUnsafePanic,
       onCrash,
@@ -190,10 +191,7 @@ final class Cont<E, F, A> {
   static Cont<E, F, A> fromDeferred<E, F, A>(
     Cont<E, F, A> Function() thunk,
   ) {
-    return Cont.fromRun((runtime, observer) {
-      Cont<E, F, A> contA = thunk();
-      contA.runWith(runtime, observer);
-    });
+    return _DeferCont<E, F, A>(thunk);
   }
 
   /// Creates a [Cont] that immediately terminates on the crash channel.
@@ -641,12 +639,28 @@ extension ContRunWithExtension<E, F, A> on Cont<E, F, A> {
     ContRuntime<E> runtime,
     ContObserver<F, A> observer,
   ) {
-    _run(
+    final self = this;
+    if (self is _LeafCont<E, F, A>) {
+      // a leaf needs no loop
+      self._run(
+        runtime,
+        observer._onUnsafePanic,
+        observer.onCrash,
+        observer.onElse,
+        observer.onThen,
+      );
+      return;
+    }
+    _RunLoop(
       runtime,
       observer._onUnsafePanic,
       observer.onCrash,
-      observer.onElse,
-      observer.onThen,
-    );
+      (error) {
+        observer.onElse(error as F);
+      },
+      (value) {
+        observer.onThen(value as A);
+      },
+    ).start(self);
   }
 }

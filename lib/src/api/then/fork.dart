@@ -17,34 +17,25 @@ Cont<E, F, A> _thenFork<E, F, F2, A, A2>(
   void Function(F2 error) onElse = _ignore,
   void Function(A2 value) onThen = _ignore,
 }) {
-  return Cont.fromRun((runtime, observer) {
-    cont.runWith(
-      runtime,
-      observer.copyUpdateOnThen((a) {
-        if (runtime.isCancelled()) {
-          return;
-        }
-
-        // if this crashes, it should crash the computation
-        ContCrash.tryCatch(() {
-          final contA2 = f(a);
-          try {
-            contA2.run(
-              runtime.env(),
-              onPanic: onPanic,
-              onCrash: onCrash,
-              onElse: onElse,
-              onThen: onThen,
-            );
-          } catch (_) {
-            // do nothing, if anything happens to side-effect, it's not
-            // a concern of the thenFork
-          }
-        }).match((_) {}, observer.onCrash);
-
-        observer.onThen(a);
-      }),
-    );
+  // a node, so a chain of forks stays stack safe
+  return cont.thenDo((a) {
+    return Cont.fromRun((runtime, observer) {
+      // a throw from f crashes the computation
+      final contA2 = f(a);
+      try {
+        contA2.run(
+          runtime.env(),
+          onPanic: onPanic,
+          onCrash: onCrash,
+          onElse: onElse,
+          onThen: onThen,
+        );
+      } catch (_) {
+        // do nothing, if anything happens to side-effect, it's not
+        // a concern of the thenFork
+      }
+      observer.onThen(a);
+    });
   });
 }
 

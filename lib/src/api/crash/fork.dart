@@ -17,40 +17,33 @@ Cont<E, F, A> _crashFork<E, F, F2, A, A2>(
   void Function(F2 error) onElse = _ignore,
   void Function(A2 value) onThen = _ignore,
 }) {
-  return Cont.fromRun((runtime, observer) {
-    cont.runWith(
-      runtime,
-      observer.copyUpdateOnCrash((crash) {
-        if (runtime.isCancelled()) {
-          return;
-        }
-
-        // a throw from f is a crash, the crash channel's own
-        // outcome, so the original crash is forwarded
-        final Cont<E, F2, A2> contA2;
-        try {
-          contA2 = f(crash);
-        } catch (_) {
-          observer.onCrash(crash);
-          return;
-        }
-
-        try {
-          contA2.run(
-            runtime.env(),
-            onPanic: onPanic,
-            onCrash: onCrash,
-            onElse: onElse,
-            onThen: onThen,
-          );
-        } catch (_) {
-          // do nothing, if anything happens to side-effect, it's not
-          // a concern of the crashFork
-        }
-
+  // a node, so a chain of forks stays stack safe
+  return cont.crashDo((crash) {
+    return Cont.fromRun((runtime, observer) {
+      // a throw from f is a crash, the crash channel's own
+      // outcome, so the original crash is forwarded
+      final Cont<E, F2, A2> contA2;
+      try {
+        contA2 = f(crash);
+      } catch (_) {
         observer.onCrash(crash);
-      }),
-    );
+        return;
+      }
+
+      try {
+        contA2.run(
+          runtime.env(),
+          onPanic: onPanic,
+          onCrash: onCrash,
+          onElse: onElse,
+          onThen: onThen,
+        );
+      } catch (_) {
+        // do nothing, if anything happens to side-effect, it's not
+        // a concern of the crashFork
+      }
+      observer.onCrash(crash);
+    });
   });
 }
 
