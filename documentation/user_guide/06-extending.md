@@ -8,6 +8,8 @@ This guide shows you how to create custom computations, operators, and extension
 
 The `Cont.fromRun` constructor gives you direct access to the runtime and observer, allowing you to create computations with custom execution logic.
 
+Call the observer as the last thing the run function does, or save it and call it later. When you call it while the run function is still running, it only records the outcome: the next stage starts after the run function returns, so any code after the call runs first. When you call it later, for example from a timer, the next stages run before the call returns.
+
 ### Basic Anatomy
 
 ```dart

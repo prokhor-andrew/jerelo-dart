@@ -31,7 +31,7 @@ static Cont<E, A> fromRun<E, A>(void Function(ContRuntime<E> runtime, ContObserv
 
 Creates a `Cont` from a run function that accepts an observer.
 
-Constructs a continuation with guaranteed idempotence. If `run` throws synchronously, the error is caught and the continuation terminates with it. A throw in a callback that runs later, such as a `Timer` or `Future` callback, is not caught: it escapes as an unhandled exception and the observer is never called, so catch errors there yourself and pass them to `onElse`. The run function receives an observer with `onThen` and `onElse` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later.
+Constructs a continuation with guaranteed idempotence. If `run` throws synchronously, the error is caught and the continuation terminates with it. A throw in a callback that runs later, such as a `Timer` or `Future` callback, is not caught: it escapes as an unhandled exception and the observer is never called, so catch errors there yourself and pass them to `onElse`. The run function receives an observer with `onThen` and `onElse` callbacks. The callbacks should be called as the last instruction in the run function or saved to be called later. A callback called while the run function is still running only records the outcome: the next stage starts after the run function returns, so code after the call runs first. A callback called later, for example from a timer, runs the next stages before it returns.
 
 - **Parameters:**
   - `run`: Function that executes the continuation and calls observer callbacks

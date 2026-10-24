@@ -12,6 +12,7 @@ Running continuations and specialized extensions.
 - [Execution Methods](#execution-methods)
   - [run](#run)
   - [ff](#ff)
+- [Stack Safety](#stack-safety)
 - [Extensions](#extensions)
   - [ContFlattenExtension](#contflattenextension)
   - [ContNeverExtension (trap)](#contneverextension-trap)
@@ -137,6 +138,33 @@ logEvent(userId, action).ff(env);
 // Continues once logEvent has run up to its first asynchronous step
 processNextRequest();
 ```
+
+---
+
+## Stack Safety
+
+Sequential composition does not use the call stack. `thenDo`, `elseDo`, `Cont.fromDeferred`, `local` and everything built on them (maps, taps, zips, forks, conditions, `sequence` policies) are stored as data and run by a loop, so a chain can have any number of steps, even when they complete synchronously. This holds for chains built in a loop or with `fold`:
+
+```dart
+Cont<(), int> total = Cont.of(0);
+for (final item in items) {
+  total = total.thenDo((sum) => price(item).thenMap((p) => sum + p));
+}
+```
+
+and for recursion:
+
+```dart
+Cont<(), Page> lastPage(int n) {
+  return fetchPage(n).thenDo((page) {
+    return page.hasNext ? lastPage(n + 1) : Cont.of(page);
+  });
+}
+```
+
+Make the recursive call the last step, as above. A step that comes after it, such as `lastPage(n + 1).thenTap(log)`, waits for the whole recursion, so every level keeps one such step in memory until the end.
+
+What still uses the stack is nesting computations that run others inside themselves: combinators with a parallel policy, `Cont.bracket` and `decor`. Nesting them thousands of levels deep, for example `acc = Cont.both(acc, next, ...)` in a loop, can overflow; use the list form, `Cont.all`, instead.
 
 ---
 
