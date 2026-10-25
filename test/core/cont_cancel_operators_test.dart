@@ -986,7 +986,7 @@ void main() {
       ContCrash? crash;
       Cont.bracket<int, (), String, int>(
         acquire: Cont.of(1),
-        release: (_) => Cont.fromRun((_, o) {
+        release: (_, __) => Cont.fromRun((_, o) {
           releases += 1;
           o.onThen(());
           return () {};
@@ -1003,7 +1003,7 @@ void main() {
       var releases = 0;
       final token = Cont.bracket<int, (), String, int>(
         acquire: Cont.of(1),
-        release: (_) => Cont.fromRun((_, o) {
+        release: (_, __) => Cont.fromRun((_, o) {
           releases += 1;
           o.onThen(());
           return () {};
@@ -1029,7 +1029,7 @@ void main() {
           o.onThen('conn');
           return () {};
         }),
-        release: (conn) => Cont.fromRun((_, o) {
+        release: (conn, _) => Cont.fromRun((_, o) {
           events.add('close $conn');
           o.onThen(());
           done.complete();
@@ -1050,7 +1050,7 @@ void main() {
       await done.future.timeout(const Duration(seconds: 1));
 
       expect(events,
-          equals(['open', 'cancelled', 'close conn']));
+          equals(['open', 'close conn', 'cancelled']));
     });
   });
 }

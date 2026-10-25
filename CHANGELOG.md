@@ -1,3 +1,11 @@
+## 4.0.0
+- **Breaking:** `Cont.bracket` releases before it reports. It runs `release` after `use` reports any outcome and forwards that outcome once `release` has finished, like `try` / `finally`. Before, the outcome was forwarded first and `release` ran fire-and-forget.
+- **Breaking:** `release` takes the resource and a `BracketOutcome` that says how `use` ended: `ThenBracketOutcome(value)`, `ElseBracketOutcome(error)` or `CrashBracketOutcome(crash)`. Change `release: (r) => ...` to `release: (r, _) => ...` when the cleanup is the same for every outcome.
+- **Breaking:** once `acquire` has given a resource, `release` always runs, including when `use` throws while being built. If `acquire` crashes there is no resource and `release` does not run; its crash is reported as it is.
+- **Breaking:** a crash of `release` is no longer dropped. A crash of `release` alone replaces a success or an error of `use`; if `use` crashed and then `release` crashed too, `Cont.bracket` reports a `MergedCrash` of both, `use` first. A throw while building `release` is a crash of `release`.
+- **Breaking:** `Cont.bracket` adds no cancellation of its own. A cancel goes to whichever of `acquire`, `use` and `release` is running. `release` runs after `use` reports, so a `use` that is cancelled must report its cancel through a channel to be released; a `use` that stops without reporting is never released. Before, `acquire` and `release` were never cancelled and `use` was released when its canceller returned.
+- **Breaking:** removed `onReleasePanic`, `onReleaseCrash` and `onReleaseThen` from `Cont.bracket`: the outcome of `release` is part of the outcome of `bracket`.
+
 ## 3.0.0
 - **Breaking:** `OkPolicy.sequence`/`OkPolicy.quitFast` now return `OkPolicy<Never>`, and `CrashPolicy.sequence`/`CrashPolicy.quitFast` return `CrashPolicy<Never, Never>`. They no longer take type arguments: remove them, e.g. `OkPolicy.quitFast<String>()` becomes `OkPolicy.quitFast()`. Combinators now infer their error and value types from their continuations instead of `dynamic`.
 - **Breaking:** removed `absurdify`, `thenAbsurdify` and `elseAbsurdify` from `Cont` and `ContObserver`. A `Never`-typed `Cont` can be used directly where a wider type is expected. `thenAbsurd` and `elseAbsurd` remain.

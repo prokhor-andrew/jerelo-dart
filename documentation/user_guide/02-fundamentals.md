@@ -78,7 +78,7 @@ constructor: it is created when an exception is caught (for example by `ContCras
 
 ### Resource Management
 
-When working with resources that need cleanup (files, connections, locks), the bracket pattern releases the resource whether `use` succeeds, fails, or crashes. Use `Cont.bracket`:
+When working with resources that need cleanup (files, connections, locks), the bracket pattern releases the resource whether `use` succeeds, fails, or crashes, and only then reports the outcome. Use `Cont.bracket`:
 
 ```dart
 import 'package:jerelo/jerelo.dart';
@@ -90,7 +90,7 @@ Cont<E, F, String> readFileContents<E, F>(String path) {
       observer.onThen(file);
       return () {};
     }),
-    release: (file) => Cont.fromRun((env, observer) {
+    release: (file, _) => Cont.fromRun((env, observer) {
       file.closeSync();
       observer.onThen(());
       return () {};
@@ -107,14 +107,15 @@ Cont<E, F, String> readFileContents<E, F>(String path) {
 The execution order is always:
 1. **Acquire** the resource
 2. **Use** the resource
-3. **Release** the resource (fire-and-forget)
+3. **Release** the resource, then report the outcome of `use`
 
 Key details about `Cont.bracket`:
 - `acquire` and `release` have error type `Never` — they can only succeed or crash, never produce a business-logic error.
-- The `use` outcome (then, else, or crash) is propagated immediately; `release` runs independently afterward.
-- Release outcomes are routed to the optional `onReleasePanic`, `onReleaseCrash`, and `onReleaseThen` callbacks. A throw from the `release` function itself (while building the release continuation) goes to `onReleasePanic`; a crash inside the returned continuation goes to `onReleaseCrash`.
-- `release` runs once `use` reports an outcome. If `use` never reports, `release` never runs.
-- A cancel is forwarded to `use` only; `acquire` and `release` are never cancelled. A cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. `release` still runs once `use` reports back, on whatever channel it reports.
+- Once `acquire` has given a resource, `release` always runs. If `acquire` crashes there is no resource, so `release` does not run.
+- `release` receives the resource and a `BracketOutcome` that says how `use` ended: `ThenBracketOutcome(value)`, `ElseBracketOutcome(error)` or `CrashBracketOutcome(crash)`. Read it with `switch`, for example to commit on a value and roll back otherwise. Ignore it with `_` when the cleanup is the same for every outcome.
+- The `use` outcome (then, else, or crash) is reported after `release` has finished, so whatever runs next finds the resource released.
+- A crash of `acquire` or of `use` is reported as it is. A crash of `release` alone replaces a success or an error of `use`. If `use` crashed and then `release` crashed too, both are kept in a `MergedCrash`, `use` first.
+- `Cont.bracket` adds no cancellation of its own: a cancel goes to whichever of `acquire`, `use` and `release` is running. A cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. `release` runs after `use` reports, so a `use` that is cancelled must report its cancel (a leaf does this through a channel, see [Cancellation](#cancellation)); a `use` that stops without reporting is never released. A leaf of `acquire` or `release` that stopped halfway would leave the resource open, so give it a no-op canceller.
 
 ---
 

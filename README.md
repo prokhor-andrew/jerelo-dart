@@ -80,7 +80,7 @@ A comprehensive guide to understanding and using Jerelo:
 
 Complete reference for all public APIs:
 
-- **[Types](documentation/api_reference/types.md)** - ContCrash, CrashOr, ContCancelToken, ContObserver
+- **[Types](documentation/api_reference/types.md)** - ContCrash, CrashOr, BracketOutcome, ContCancelToken, ContObserver
 - **[Construction](documentation/api_reference/construction.md)** - Creating continuations: fromRun, of, error, crash, askThen, askElse, fromDeferred, bracket, decorate
 - **[Execution](documentation/api_reference/execution.md)** - Running continuations: run, runWith, cancellation; extensions: flatten, thenAbsurd, elseAbsurd, thenUnit, elseUnit
 - **[Then Channel](documentation/api_reference/then.md)** - Success path operations: mapping, chaining, tapping, zipping, forking, demotion, conditionals, loops

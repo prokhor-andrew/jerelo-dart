@@ -1,6 +1,7 @@
 import 'package:jerelo/jerelo.dart';
 
 part 'api/cont_crash.dart';
+part 'api/cont_bracket_outcome.dart';
 part 'api/cont_observer.dart';
 part 'api/tail_rec.dart';
 part 'api/cont_cancel_token.dart';
@@ -632,107 +633,93 @@ sealed class Cont<E, F, A> {
     }
   }
 
-  /// Acquires a resource, uses it, and releases it.
+  /// Acquires a resource, uses it, releases it, and only then reports.
   ///
-  /// Runs [acquire], passes the resource to [use], and once [use] reports any
-  /// outcome (success, error or crash), forwards that outcome and runs
-  /// [release] with the resource.
+  /// Runs [acquire], passes the resource to [use], and once [use] has
+  /// reported any outcome (value, error or crash), runs [release] with
+  /// that outcome. The outcome of [use] is reported after [release] has
+  /// finished, so whatever runs next finds the resource released: this is
+  /// `try` / `finally`.
   ///
-  /// - [acquire]: Obtains the resource. Cannot produce a business-logic error
-  ///   (error type is [Never]); it can only succeed or crash.
-  /// - [release]: Releases the resource. Cannot produce a business-logic error
-  ///   (error type is [Never]); it can only succeed or crash. Release is
-  ///   fire-and-forget: the [use] outcome is forwarded first and [release]
-  ///   runs independently. Its outcomes go to [onReleasePanic],
-  ///   [onReleaseCrash] and [onReleaseThen].
-  /// - [use]: Uses the resource; may succeed with [A], fail with [F], or crash.
+  /// Once [acquire] has given a resource, [release] always runs, whatever
+  /// [use] did: it succeeded, failed, crashed, threw while being built or
+  /// reported a cancel. If [acquire] crashes there is no resource, so
+  /// [release] does not run and the crash is reported as it is.
   ///
-  /// A throw from [use] is a crash, and [release] still runs. If [acquire]
-  /// crashes, neither [use] nor [release] runs.
+  /// - [acquire]: Obtains the resource. Cannot produce a business-logic
+  ///   error (error type is [Never]); it can only succeed or crash.
+  /// - [release]: Releases the resource. It receives the resource and a
+  ///   [BracketOutcome]: a [ThenBracketOutcome], [ElseBracketOutcome] or
+  ///   [CrashBracketOutcome] that says how [use] ended. Cannot produce a
+  ///   business-logic error (error type is [Never]); it can only succeed
+  ///   or crash. A throw while building it is a crash of release.
+  /// - [use]: Uses the resource; may succeed with [A], fail with [F], or
+  ///   crash. A throw while building it is a crash of use.
   ///
-  /// Release failures are routed two ways: a throw from the [release] function
-  /// itself, or from [onReleaseCrash] or [onReleaseThen], goes to
-  /// [onReleasePanic]; a crash inside the continuation it returns goes to
-  /// [onReleaseCrash]. By default [onReleasePanic] rethrows the panic in a
-  /// microtask, and [onReleaseCrash] and [onReleaseThen] do nothing.
+  /// Crashes: a crash of [acquire] or of [use] is reported as it is. A
+  /// crash of [release] alone replaces a success or an error of [use],
+  /// which is lost. If [use] crashed and then [release] crashed too, both
+  /// are kept in a [MergedCrash], [use] first.
   ///
-  /// Cancellation: a cancel is forwarded to [use] only. [acquire] and
-  /// [release] are never cancelled. A cancel that arrives while [acquire]
-  /// runs is applied to [use] as soon as it starts. [release] runs once
-  /// [use] reports back, on any channel; if [use] never reports, [release]
-  /// never runs.
+  /// Cancellation: [bracket] adds none of its own. A cancel is forwarded
+  /// to whichever of [acquire], [use] and [release] is running, and a
+  /// cancel that arrives while [acquire] runs is applied to [use] as soon
+  /// as it starts. [release] runs after a cancel only because [use]
+  /// reports it, so a leaf of [use] must report its cancel (see
+  /// [ContCancelToken]). A [use] that stops without reporting is never
+  /// released. A leaf of [acquire] or [release] that stopped halfway would
+  /// leave the resource open, so give it a no-op canceller.
   static Cont<E, F, A> bracket<R, E, F, A>({
     required Cont<E, Never, R> acquire,
-    required Cont<E, Never, ()> Function(R resource)
-        release,
+    required Cont<E, Never, ()> Function(
+      R resource,
+      BracketOutcome<F, A> outcome,
+    ) release,
     required Cont<E, F, A> Function(R resource) use,
-    void Function(NormalCrash crash) onReleasePanic =
-        _panic,
-    void Function(ContCrash crash) onReleaseCrash = _ignore,
-    void Function() onReleaseThen = _voidIgnore,
   }) {
-    return Cont.fromRun((env, observer) {
-      // acquire is never cancelled: a cancel that arrives while it runs
-      // is applied to use as soon as use starts
-      final cancellers = _Cancellers();
-      acquire.elseAbsurd<F>().runWith(
-        env,
-        observer.copyUpdateOnThen<R>((resource) {
-          bool isReleased = false;
+    return acquire.elseAbsurd<F>().thenDo((resource) {
+      // Runs release with how use ended, then reports that outcome
+      // again. The crash of release is handled before the outcome is
+      // reported, so the reported crash of use is not taken for one
+      // of release.
+      Cont<E, F, A> releaseThen(
+        BracketOutcome<F, A> outcome,
+        Cont<E, F, A> Function() report,
+        ContCrash Function(ContCrash releaseCrash)
+            onReleaseCrash,
+      ) {
+        return Cont.fromDeferred<E, Never, ()>(
+          () => release(resource, outcome),
+        ).elseAbsurd<F>().crashDo((releaseCrash) {
+          return Cont.crash<E, F, ()>(
+            onReleaseCrash(releaseCrash),
+          );
+        }).thenDo0(report);
+      }
 
-          void fireRelease() {
-            if (isReleased) {
-              return;
-            }
-            isReleased = true;
-
-            ContCrash.tryCatch(() {
-              release(resource).run(
-                env,
-                onPanic: onReleasePanic,
-                onCrash: onReleaseCrash,
-                onThen: (_) => onReleaseThen(),
-              );
-            })._ifCrash((panic) {
-              // a throw from onReleasePanic must not reach use's
-              // callbacks; rethrow the release panic, as fromRun
-              // does when onPanic throws
-              ContCrash.tryCatch(() {
-                onReleasePanic(panic);
-              })._ifCrash((_) {
-                _panic(panic);
-              });
-            });
-          }
-
-          ContCrash.tryCatch(() {
-            final contUse = use(resource);
-            cancellers.runNext(() {
-              return contUse.runWith(
-                env,
-                observer.copyUpdate(
-                  onCrash: (crash) {
-                    observer.onCrash(crash);
-                    fireRelease();
-                  },
-                  onElse: (error) {
-                    observer.onElse(error);
-                    fireRelease();
-                  },
-                  onThen: (value) {
-                    observer.onThen(value);
-                    fireRelease();
-                  },
-                ),
-              );
-            });
-          })._ifCrash((crash) {
-            observer._crashOrPanic(crash);
-            fireRelease();
-          });
-        }),
-      );
-      return cancellers.cancel;
+      // a throw from use is a crash of use
+      return Cont.fromDeferred<E, F, A>(() => use(resource))
+          .crashDo((useCrash) {
+        return releaseThen(
+          CrashBracketOutcome<F, A>._(useCrash),
+          () => Cont.crash<E, F, A>(useCrash),
+          (releaseCrash) {
+            return ContCrash.merge(useCrash, releaseCrash);
+          },
+        );
+      }).elseDo((error) {
+        return releaseThen(
+          ElseBracketOutcome<F, A>._(error),
+          () => Cont.error<E, F, A>(error),
+          (releaseCrash) => releaseCrash,
+        );
+      }).thenDo((value) {
+        return releaseThen(
+          ThenBracketOutcome<F, A>._(value),
+          () => Cont.of<E, F, A>(value),
+          (releaseCrash) => releaseCrash,
+        );
+      });
     });
   }
 }

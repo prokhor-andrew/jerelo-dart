@@ -306,7 +306,7 @@ Rules the library guarantees for a leaf's canceller:
 - It runs **at most once**, and **never after** the leaf has reported an outcome. You do not need to guard against the timer having already fired.
 - If it throws, the leaf crashes with that exception. If the leaf has already finished, the throw becomes a panic.
 - A leaf that cannot be cancelled returns a no-op `() {}`. When cancelled, it simply finishes normally.
-- A canceller that stops the work without reporting (like `return timer.cancel;`) leaves the computation without an outcome. That is fine for a loser of a `quitFast` race, whose result is ignored anyway, but `run`'s callbacks never hear from it and a `Cont.bracket` around it never releases.
+- A canceller that stops the work without reporting (like `return timer.cancel;`) leaves the computation without an outcome. That is fine for a loser of a `quitFast` race, whose result is ignored anyway, but `run`'s callbacks never hear from it, and a `Cont.bracket` around it never releases: `release` runs only after `use` reports. Make the leaf of a `use` report its cancel.
 
 When the underlying work cannot be stopped, such as a `Future`, the canceller can still report early — for example `return () => observer.onElse(const Cancelled());` — so the computation ends immediately; the result that arrives later is ignored by the `SafeObserver`.
 
@@ -315,7 +315,7 @@ When the underlying work cannot be stopped, such as a `Future`, the canceller ca
 - Sequential operators (`thenDo`, `elseDo`, `thenTap`, …) forward a cancel to the stage that is running. If that stage still reports a value after the cancel, the next stage starts and is cancelled immediately.
 - Combinators forward a cancel to every running branch. With a `quitFast` policy, once the result is decided, the losing branches are cancelled, and branches not started yet are never started. `runAll` never cancels on its own; `sequence` cancels the running item and every later item as it starts.
 - Loops (the `*While` and `*Until` operators) forward a cancel to the running iteration and start no iteration after it; the loop ends with that iteration's outcome.
-- `Cont.bracket` forwards a cancel to `use` only; `acquire` and `release` are never cancelled, and `release` runs once `use` reports back.
+- `Cont.bracket` adds no cancellation of its own: a cancel goes to whichever of `acquire`, `use` and `release` is running. `release` runs after `use` reports, so a `use` must report its cancel to be released.
 - Forks (`thenFork`, `elseFork`, `crashFork` and their variants) detach their side effect: it is not cancelled with the parent. The main computation is.
 - In `decorate`, return what `run` returned so that the cancel keeps flowing.
 

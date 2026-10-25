@@ -171,7 +171,7 @@ Cont<void, String, String> downloadReport(
 
 /// Opens a connection, downloads the report over it, and always closes the
 /// connection. Uses `Cont.bracket`: a cancel reaches the download, and the
-/// connection is closed once the download reports back.
+/// connection is closed before the outcome is reported.
 Cont<void, String, String> downloadOverConnection() {
   return Cont.bracket<String, void, String, String>(
     acquire: Cont.fromRun((env, observer) {
@@ -179,8 +179,8 @@ Cont<void, String, String> downloadOverConnection() {
       observer.onThen('conn#1');
       return () {};
     }),
-    release: (connection) => Cont.fromRun((env, observer) {
-      print('  [NET] $connection closed');
+    release: (conn, _) => Cont.fromRun((env, observer) {
+      print('  [NET] $conn closed');
       observer.onThen(());
       return () {};
     }),
