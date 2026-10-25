@@ -148,7 +148,7 @@ The canceller returned by `Cont.fromRun` is the only place where a cancel does a
 - **`runAll` policies** never cancel on their own; a cancel from outside is forwarded to every running input.
 - **`sequence` policies** cancel the input that is running and every later input as it starts.
 - **Loops** (the `*While` and `*Until` operators) forward a cancel to the running iteration and start no iteration after it. The loop ends with the outcome of the iteration that was running, once it reports.
-- **`Cont.bracket`** forwards a cancel to `use` only. `acquire` and `release` are never cancelled; a cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. `release` runs once `use` reports back, on any channel.
+- **`Cont.bracket`** forwards a cancel to whichever of `acquire`, `use` and `release` is running; a cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. `release` runs once `use` reports, so a `use` that reports its cancel is released first and then reports it. A `use` that stops without reporting is never released.
 - **Forks** (`thenFork`, `elseFork`, `crashFork` and their variants): the forked side effect is detached and is **not** cancelled with the parent. The main computation is.
 
 A leaf's canceller runs at most once, and never after the leaf has finished. If the canceller throws, the leaf crashes; if the leaf has already finished, the throw becomes a panic.
@@ -186,7 +186,7 @@ Cont<(), String, Page> lastPage(int n) {
 
 Make the recursive call the last step, as above. A step that comes after it, such as `lastPage(n + 1).thenTap(log)`, waits for the whole recursion, so every level keeps one such step in memory until the end.
 
-What still uses the stack is nesting computations that run others inside themselves: combinators with a parallel policy, `Cont.bracket` and `decorate`. Nesting them thousands of levels deep, for example `acc = Cont.both(acc, next, ...)` in a loop, can overflow; use the list form, `Cont.all`, instead.
+What still uses the stack is nesting computations that run others inside themselves: combinators with a parallel policy and `decorate`. Nesting them thousands of levels deep, for example `acc = Cont.both(acc, next, ...)` in a loop, can overflow; use the list form, `Cont.all`, instead.
 
 ---
 

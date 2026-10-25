@@ -219,49 +219,66 @@ deferred.run((), onThen: print);
 ```dart
 static Cont<E, F, A> bracket<R, E, F, A>({
   required Cont<E, Never, R> acquire,
-  required Cont<E, Never, ()> Function(R resource) release,
+  required Cont<E, Never, ()> Function(
+    R resource,
+    BracketOutcome<F, A> outcome,
+  ) release,
   required Cont<E, F, A> Function(R resource) use,
-  void Function(NormalCrash crash) onReleasePanic,
-  void Function(ContCrash crash) onReleaseCrash,
-  void Function() onReleaseThen,
 })
 ```
 
 Manages a resource lifecycle with cleanup after use.
 
-The bracket pattern releases a resource once it has been used, whether `use` succeeds, terminates with an error, or crashes. This is the functional equivalent of try-with-resources or using statements.
+The bracket pattern releases a resource once it has been used, whether `use` succeeds, terminates with an error, or crashes, and reports the outcome only after the release has finished. This is the functional equivalent of try-with-resources or using statements.
 
 Note that `acquire` and `release` use `Never` as their error type, meaning they cannot fail with a typed error — they can only succeed or crash.
 
 **The execution order is:**
-1. `acquire` — Obtain the resource. If it crashes, the crash is forwarded and nothing else runs
+1. `acquire` — Obtain the resource. If it crashes, the crash is reported as it is and `release` does not run
 2. `use` — Use the resource to produce a value. A throw from `use` itself becomes a crash
-3. `release` — Release the resource. Runs once `use` reports any outcome (success, error or crash), after that outcome is forwarded
+3. `release` — Release the resource. Always runs once `acquire` has given a resource, after `use` reports any outcome
+4. The outcome of `use` is reported, after `release` has finished
 
-`release` is fire-and-forget: the outcome of `use` is forwarded first and does not wait for `release`. Release outcomes go to the optional release callbacks instead.
+**`BracketOutcome`:** `release` receives the resource and how `use` ended. Read it with `switch`:
+- `ThenBracketOutcome(value)`: `use` succeeded with `value`
+- `ElseBracketOutcome(error)`: `use` failed with `error`
+- `CrashBracketOutcome(crash)`: `use` crashed, or threw while being built
 
-**Cancellation:** a cancel is forwarded to `use` only. `acquire` and `release` are never cancelled. A cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. There is no special cancel path: `release` runs once `use` reports back, on any channel; if `use` never reports, `release` never runs.
+Ignore it with `_` when the cleanup is the same every time.
 
-**Optional release callbacks:**
-- `onReleasePanic`: Called if the `release` function itself throws while building the release continuation (`release(resource)`), or if a release callback throws. Defaults to rethrowing in a microtask, so a `try`/`catch` around `run()` never sees it. If `onReleasePanic` itself throws, the release error is rethrown in a microtask; it never reaches the main computation's `onPanic`
-- `onReleaseCrash`: Called if the release continuation returned by `release` crashes. Defaults to ignoring
-- `onReleaseThen`: Called when release succeeds. Defaults to no-op
+**Crashes:**
+- `acquire` crashed: its crash is reported as it is, and `release` does not run
+- `use` crashed: its crash is reported as it is, after `release` has run
+- `use` crashed, then `release` crashed: a `MergedCrash(use, release)`
+- only `release` crashed: its crash is reported as it is. It replaces a success or an error of `use`, which is lost
+
+A throw while building the `release` continuation is a crash of `release`.
+
+**Cancellation:** `bracket` adds none of its own. A cancel is forwarded to whichever of `acquire`, `use` and `release` is running, and a cancel that arrives while `acquire` runs is applied to `use` as soon as it starts. `release` runs after `use` reports, so a cancelled `use` must report its cancel through a channel to be released; a `use` that stops without reporting is never released. A leaf of `acquire` or `release` that stopped halfway would leave the resource open, so give it a no-op canceller.
 
 - **Parameters:**
   - `acquire`: Continuation that acquires the resource (cannot fail with typed error)
-  - `release`: Function that takes the resource and returns a continuation that releases it (cannot fail with typed error)
+  - `release`: Function that takes the resource and the `BracketOutcome` of `use` and returns a continuation that releases it (cannot fail with typed error)
   - `use`: Function that takes the resource and returns a continuation that uses it
-  - `onReleasePanic`: Optional panic handler for release phase
-  - `onReleaseCrash`: Optional crash handler for release phase
-  - `onReleaseThen`: Optional success handler for release phase
 
 **Example:**
 ```dart
 final result = Cont.bracket<File, MyEnv, String, String>(
   acquire: openFile('data.txt'),
-  release: (file) => closeFile(file),
+  release: (file, _) => closeFile(file),
   use: (file) => readContents(file),
-  onReleaseCrash: (crash) => print('Failed to close: $crash'),
+);
+```
+
+**Example: commit or roll back**
+```dart
+Cont.bracket<Transaction, MyEnv, String, int>(
+  acquire: begin(),
+  release: (tx, outcome) => switch (outcome) {
+    ThenBracketOutcome() => commit(tx),
+    ElseBracketOutcome() || CrashBracketOutcome() => rollback(tx),
+  },
+  use: (tx) => work(tx),
 );
 ```
 

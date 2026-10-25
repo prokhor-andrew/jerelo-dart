@@ -15,6 +15,10 @@ Core types used throughout the Jerelo continuation library.
 - [CrashOr](#crashor)
   - [ValueCrashOr](#valuecrashor)
   - [CrashCrashOr](#crashcrashor)
+- [BracketOutcome](#bracketoutcome)
+  - [ThenBracketOutcome](#thenbracketoutcome)
+  - [ElseBracketOutcome](#elsebracketoutcome)
+  - [CrashBracketOutcome](#crashbracketoutcome)
 - [ContCancelToken](#contcanceltoken)
 - [ContObserver](#contobserver)
   - [SafeObserver](#safeobserver)
@@ -159,6 +163,60 @@ The function threw. It has no public constructor; it is created by `ContCrash.tr
 
 **Fields:**
 - `crash: NormalCrash` — The captured exception and stack trace
+
+---
+
+## BracketOutcome
+
+```dart
+sealed class BracketOutcome<F, A>
+```
+
+How the `use` of a [Cont.bracket](construction.md#contbracket) ended. `release` receives it next to the resource. Read it with `switch`:
+
+```dart
+release: (tx, outcome) => switch (outcome) {
+  ThenBracketOutcome() => commit(tx),
+  ElseBracketOutcome() || CrashBracketOutcome() => rollback(tx),
+},
+```
+
+It has no public constructor; `Cont.bracket` creates it. To get a particular case in a test, run a `bracket` whose `use` produces it: `Cont.of(value)`, `Cont.error(error)` or a crash.
+
+Outcomes compare by value, and a case never equals another case.
+
+### ThenBracketOutcome
+
+```dart
+final class ThenBracketOutcome<F, A> extends BracketOutcome<F, A>
+```
+
+`use` succeeded.
+
+**Fields:**
+- `value: A` — The value `use` succeeded with
+
+### ElseBracketOutcome
+
+```dart
+final class ElseBracketOutcome<F, A> extends BracketOutcome<F, A>
+```
+
+`use` failed with a business-logic error. A cancel that `use` reports through the else channel arrives as this case.
+
+**Fields:**
+- `error: F` — The error `use` failed with
+
+### CrashBracketOutcome
+
+```dart
+final class CrashBracketOutcome<F, A> extends BracketOutcome<F, A>
+```
+
+`use` crashed, or threw while its continuation was being built.
+
+**Fields:**
+- `crash: ContCrash` — The crash `use` ended with
 
 ---
 

@@ -57,7 +57,7 @@ Cont<AppConfig, String, List<User>> getUsers(List<String> userIds) {
 Cont<AppConfig, String, Report> processUsers(List<String> userIds) {
   return Cont.bracket<Database, AppConfig, String, Report>(
     acquire: openDatabase(),
-    release: (db) => closeDatabase(db),
+    release: (db, _) => closeDatabase(db),
     use: (db) {
       // Repeat until the report is complete
       return getUsers(userIds)
@@ -260,7 +260,7 @@ loadConfig().run((), onThen: applyConfig, onElse: showError);
 
 ### Pattern 6: Resource Management
 
-`Cont.bracket` runs `release` once `use` succeeds, fails, or crashes. It is the correct tool whenever a computation acquires a resource that must be released.
+`Cont.bracket` runs `release` after `use` succeeds, fails, or crashes, and reports the outcome of `use` only once `release` has finished. It is the correct tool whenever a computation acquires a resource that must be released.
 
 ```dart
 import 'package:jerelo/jerelo.dart';
@@ -268,7 +268,7 @@ import 'package:jerelo/jerelo.dart';
 Cont<(), String, Report> generateReport(Query query) {
   return Cont.bracket(
     acquire: openDatabaseConnection(),
-    release: (conn) => closeConnection(conn),
+    release: (conn, _) => closeConnection(conn),
     use: (conn) => conn.execute(query).thenMap(Report.fromRows),
   );
 }
@@ -324,7 +324,7 @@ Cont<AppEnv, String, List<Order>> fetchOrders(String userId) {
 Cont<E, F, T> withConnection<E, F, T>(Cont<Connection, F, T> operation) {
   return Cont.bracket(
     acquire: openConnection(),
-    release: (conn) => closeConnection(conn),
+    release: (conn, _) => closeConnection(conn),
     use: (conn) => operation.local((_) => conn),
   );
 }

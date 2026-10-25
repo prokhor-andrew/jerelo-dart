@@ -348,14 +348,14 @@ void main() {
 
   group('Cont.bracket', () {
     test(
-        'a cancel during use reaches use, then release runs once',
+        'a cancel reaches use; use is released once it reports',
         () {
       final use = _Leaf<String, int>();
       var releases = 0;
       String? error;
       final token = Cont.bracket<int, (), String, int>(
         acquire: Cont.of(1),
-        release: (_) => Cont.fromRun((_, o) {
+        release: (_, __) => Cont.fromRun((_, o) {
           releases += 1;
           o.onThen(());
           return () {};
@@ -369,19 +369,19 @@ void main() {
 
       use.observer!.onElse('cancelled');
 
-      expect(error, equals('cancelled'));
       expect(releases, equals(1));
+      expect(error, equals('cancelled'));
     });
 
     test(
-        'acquire is not cancelled; use is cancelled once it starts',
+        'a cancel reaches acquire; use is cancelled once it starts',
         () {
       final acquire = _Leaf<Never, int>();
       final use = _Leaf<String, int>();
       var releases = 0;
       final token = Cont.bracket<int, (), String, int>(
         acquire: acquire.cont,
-        release: (_) => Cont.fromRun((_, o) {
+        release: (_, __) => Cont.fromRun((_, o) {
           releases += 1;
           o.onThen(());
           return () {};
@@ -390,7 +390,7 @@ void main() {
       ).run(());
       token.cancel();
 
-      expect(acquire.cancels, equals(0));
+      expect(acquire.cancels, equals(1));
 
       acquire.observer!.onThen(1);
 
@@ -401,17 +401,17 @@ void main() {
       expect(releases, equals(1));
     });
 
-    test('release is not cancelled', () {
+    test('a cancel reaches release: its leaf decides', () {
       final release = _Leaf<Never, ()>();
       final token = Cont.bracket<int, (), String, int>(
         acquire: Cont.of(1),
-        release: (_) => release.cont,
+        release: (_, __) => release.cont,
         use: (_) => Cont.of(2),
       ).run(());
       token.cancel();
 
       expect(release.starts, equals(1));
-      expect(release.cancels, equals(0));
+      expect(release.cancels, equals(1));
     });
   });
 
