@@ -1,4 +1,4 @@
-## Unreleased
+## 4.0.0
 - **Breaking:** `Cont.bracket` releases before it reports. It runs `release` after `use` reports any outcome and forwards that outcome once `release` has finished, like `try` / `finally`. Before, the outcome was forwarded first and `release` ran fire-and-forget.
 - **Breaking:** `release` takes the resource and a `BracketOutcome` that says how `use` ended: `ThenBracketOutcome(value)`, `ElseBracketOutcome(error)` or `CrashBracketOutcome(crash)`. Change `release: (r) => ...` to `release: (r, _) => ...` when the cleanup is the same for every outcome.
 - **Breaking:** once `acquire` has given a resource, `release` always runs, including when `use` throws while being built. If `acquire` crashes there is no resource and `release` does not run; its crash is reported as it is.
